@@ -6,6 +6,7 @@ import {
   Listbox,
   ListboxItem,
   ListboxSection,
+  Button,
 } from "@nextui-org/react";
 
 import Logo from "../../assets/Logo.svg";
@@ -19,14 +20,26 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../../redux/openmodal";
 import { RootState } from "../../redux/store";
+import { AsyncLoggout, logout } from "../../redux/user.store";
+import { useState } from "react";
 
 export default function NavigationBar() {
   const dispatch = useDispatch();
+  const [loading, setloading] = useState(false);
 
   const formtitle = useSelector(
     (root: RootState) => root.globalindex.formtitle
   );
   const openmodal = useSelector((root: RootState) => root.openmodal.setting);
+  const autosave = useSelector((root: RootState) => root.globalindex.autosave);
+
+  const handleSignout = async () => {
+    setloading(true);
+    const issignout = await AsyncLoggout();
+    setloading(false);
+    if (!issignout) return;
+    dispatch(logout());
+  };
 
   return (
     <nav className="navigationbar w-full h-[70px] bg-[#f5f5f5] flex flex-row justify-between items-center p-2 dark:bg-gray-800 mb-10">
@@ -48,6 +61,15 @@ export default function NavigationBar() {
       </div>
       <div className="profile">
         <div className="w-fit h-full flex flex-row items-center gap-x-3">
+          {!autosave && (
+            <Button
+              className="max-w-xs text-white font-bold"
+              variant="solid"
+              color="success"
+            >
+              Save
+            </Button>
+          )}
           <ProfileIcon label="John Doe" color="lime" />
           <Popover
             isOpen={
@@ -92,8 +114,12 @@ export default function NavigationBar() {
                     </ListboxItem>
                   </ListboxSection>
                   <ListboxSection>
-                    <ListboxItem color="danger" startContent={<LogoutIcon />}>
-                      SignOut
+                    <ListboxItem
+                      onPress={() => handleSignout()}
+                      color="danger"
+                      startContent={<LogoutIcon />}
+                    >
+                      {loading ? "Signing Out" : "SignOut"}
                     </ListboxItem>
                   </ListboxSection>
                 </Listbox>

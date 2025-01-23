@@ -8,6 +8,7 @@ const globalindex = createSlice({
     darkmode: JSON.parse(localStorage.getItem("darkmode") ?? "false"),
     formtitle: "",
     isCondition: false,
+    autosave: false,
   },
   reducers: {
     setformtitle: (state, payload) => {
@@ -30,8 +31,11 @@ const globalindex = createSlice({
       }
       state.darkmode = payload.payload;
     },
+    setsavetype: (state, payload) => {
+      state.autosave = payload.payload;
+    },
   },
 });
 
-export const { setformidx, setquestionidx } = globalindex.actions;
+export const { setformidx, setquestionidx, setsavetype } = globalindex.actions;
 export default globalindex;

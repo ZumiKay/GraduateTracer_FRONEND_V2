@@ -1,4 +1,11 @@
-import { Button, Switch, Tab, Tabs } from "@nextui-org/react";
+import {
+  Button,
+  Image,
+  Pagination,
+  Switch,
+  Tab,
+  Tabs,
+} from "@nextui-org/react";
 import { useParams } from "react-router";
 import { PlusIcon } from "../component/svg/GeneralIcon";
 import QuestionComponent from "../component/FormComponent/QuestionComponent";
@@ -18,6 +25,9 @@ import { useDispatch, useSelector } from "react-redux";
 import globalindex from "../redux/globalindex";
 import { RootState } from "../redux/store";
 import { setallquestion } from "../redux/formstore";
+import PlusImg from "../assets/add.png";
+import MinusIcon from "../assets/minus.png";
+import { setopenmodal } from "../redux/openmodal";
 
 export default function FormPage() {
   const param = useParams();
@@ -69,6 +79,8 @@ const QuestionTab = ({
 }) => {
   //scroll ref
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [page, setpage] = useState(1);
+  const [totalpage, settotalpage] = useState(1);
 
   const dispatch = useDispatch();
   const allquestion = useSelector(
@@ -198,45 +210,122 @@ const QuestionTab = ({
       element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
+
   return (
     <div
       style={{ color: textcolor }}
       className="w-full h-fit flex flex-col items-center gap-y-10"
     >
-      {allquestion.map((question, idx) => (
-        <div
-          className="w-[80%] h-fit"
-          key={`${question.type}${idx}`}
-          ref={(el) => (componentRefs.current[`${question.type}${idx}`] = el)}
-        >
-          <QuestionComponent
-            idx={idx}
-            isLinked={(ansidx) => checkIsLinkedForQuestionOption(idx, ansidx)}
-            value={question}
-            color={color}
-            onDelete={() => {
-              handleDeleteQuestion(idx);
-            }}
-            onAddCondition={(answeridx) =>
-              AddConditionedQuestion(idx, answeridx)
-            }
-            removeCondition={(answeridx) =>
-              removeConditionedQuestion(idx, answeridx)
-            }
-            onDuplication={() => handleDuplication(idx)}
-            scrollToCondition={scrollToDiv}
-          />
-        </div>
-      ))}
+      {allquestion.map(
+        (question, idx) =>
+          question.page === page && (
+            <div
+              className="w-[80%] h-fit"
+              key={`${question.type}${idx}`}
+              ref={(el) =>
+                (componentRefs.current[`${question.type}${idx}`] = el)
+              }
+            >
+              <QuestionComponent
+                idx={idx}
+                isLinked={(ansidx) =>
+                  checkIsLinkedForQuestionOption(idx, ansidx)
+                }
+                value={question}
+                color={color}
+                onDelete={() => {
+                  handleDeleteQuestion(idx);
+                }}
+                onAddCondition={(answeridx) =>
+                  AddConditionedQuestion(idx, answeridx)
+                }
+                removeCondition={(answeridx) =>
+                  removeConditionedQuestion(idx, answeridx)
+                }
+                onDuplication={() => handleDuplication(idx)}
+                scrollToCondition={scrollToDiv}
+              />
+            </div>
+          )
+      )}
       <Button
         startContent={<PlusIcon width={"25px"} height={"25px"} />}
         className="w-[90%] h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
         onPress={() => {
-          dispatch(setallquestion((prev) => [...prev, DefaultContentType]));
+          dispatch(
+            setallquestion((prev) => [...prev, { ...DefaultContentType, page }])
+          );
         }}
       >
         New Question
       </Button>
+      <Pagination
+        loop
+        showControls
+        color="primary"
+        initialPage={1}
+        total={totalpage}
+        page={page}
+        onChange={setpage}
+      />
+      <div className="page-btn w-full h-fit flex flex-row items-center justify-between">
+        <Button
+          className="max-w-xs font-bold text-red-400 border-x-0 border-t-0 transition-transform hover:translate-x-1"
+          radius="none"
+          style={totalpage === 1 || page === 1 ? { display: "none" } : {}}
+          color="danger"
+          variant="bordered"
+          onPress={() => {
+            dispatch(
+              setopenmodal({
+                state: "confirm",
+                value: {
+                  open: true,
+                  data: {
+                    onAgree: () => {
+                      settotalpage((prev) => (prev > 1 ? prev - 1 : 1));
+                      setpage(totalpage > 1 ? totalpage - 1 : 1);
+                    },
+                  },
+                },
+              })
+            );
+          }}
+          startContent={
+            <Image
+              src={MinusIcon}
+              alt="plus"
+              width={20}
+              height={20}
+              loading="lazy"
+            />
+          }
+        >
+          Delete Page
+        </Button>
+        <Button
+          className="max-w-xs font-bold text-black border-x-0  border-t-0 transition-transform hover:translate-x-1"
+          radius="none"
+          color="primary"
+          variant="bordered"
+          onPress={() => {
+            settotalpage((prev) => prev + 1);
+            setpage(totalpage + 1);
+          }}
+          startContent={
+            <Image
+              src={PlusImg}
+              alt="plus"
+              width={20}
+              height={20}
+              loading="lazy"
+            />
+          }
+        >
+          New Page
+        </Button>
+      </div>
+
       <Button color="danger" onPress={() => console.log({ allquestion })}>
         Test State
       </Button>

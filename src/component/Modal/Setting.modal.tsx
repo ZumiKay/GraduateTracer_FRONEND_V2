@@ -3,7 +3,7 @@ import ModalWrapper from "./Modal";
 import { Button, Form, Input, Switch, Tab, Tabs } from "@nextui-org/react";
 import { MoonIcon, SunIcon, ThemeIcon } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
-import globalindex from "../../redux/globalindex";
+import globalindex, { setsavetype } from "../../redux/globalindex";
 import { RootState } from "../../redux/store";
 import { PasswordInput } from "../FormComponent/Input";
 
@@ -31,15 +31,6 @@ const TabOption = [
 const GeneralOption = () => {
   const dispatch = useDispatch();
   const selectstate = useSelector((state: RootState) => state.globalindex);
-  const [setttingstate, setsettingstate] = useState<{
-    themestate: boolean;
-    cookie: boolean;
-    deleteacc: boolean;
-  }>({
-    themestate: selectstate.darkmode,
-    cookie: false,
-    deleteacc: false,
-  });
 
   const ListItem = ({
     Icon,
@@ -72,9 +63,8 @@ const GeneralOption = () => {
             defaultSelected
             size="sm"
             className="w-full dark:text-white"
-            isSelected={setttingstate.themestate}
+            isSelected={selectstate.darkmode}
             onValueChange={(val) => {
-              setsettingstate((prev) => ({ ...prev, themestate: val }));
               dispatch(globalindex.actions.setdarkmode(val));
               if (selectstate.darkmode) {
                 document.documentElement.classList.remove("dark");
@@ -91,6 +81,22 @@ const GeneralOption = () => {
             }
           >
             Dark mode
+          </Switch>
+        }
+      />
+      <ListItem
+        Icon={<></>}
+        name="Save"
+        action={
+          <Switch
+            isSelected={selectstate.autosave}
+            size="sm"
+            className="w-full  dark:text-white"
+            onValueChange={(val) => {
+              dispatch(setsavetype(val));
+            }}
+          >
+            {selectstate.autosave ? "Auto" : "Manually"}
           </Switch>
         }
       />

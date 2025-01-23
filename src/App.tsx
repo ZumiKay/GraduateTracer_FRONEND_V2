@@ -10,17 +10,21 @@ import OpenModal from "./redux/openmodal";
 import FormPage from "./pages/FormPage";
 import { useEffect } from "react";
 
+import { ConfirmModal } from "./component/Modal/AlertModal";
+import { AsyncGetUser } from "./redux/user.store";
+import PrivateRoute from "./route/PrivateRoute";
+import NotFound from "./pages/NotFound";
+
 function App() {
   const { pathname } = useLocation();
   const redux = useSelector((selector: RootState) => selector.openmodal);
+
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (typeof setImmediate === "undefined") {
-      window.setImmediate = ((callback: never, { ...args }) =>
-        setTimeout(callback, 0, ...(args as never))) as never;
-    }
-  }, []);
+    //check user session
+    dispatch(AsyncGetUser() as never);
+  }, [dispatch]);
 
   return (
     <>
@@ -35,12 +39,32 @@ function App() {
           }
         />
       )}
+
+      {redux.confirm.open && (
+        <ConfirmModal
+          open={redux.confirm.open}
+          onClose={() =>
+            dispatch(
+              OpenModal.actions.setopenmodal({
+                state: "confirm",
+                value: { open: false },
+              })
+            )
+          }
+        />
+      )}
       <main className="w-full min-h-screen h-full bg-white dark:bg-black flex flex-col items-center">
         {pathname !== "/" && <NavigationBar />}
         <Routes>
           <Route index element={<AuthenticationPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/form/:id" element={<FormPage />} />
+
+          <Route element={<PrivateRoute />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/form/:id" element={<FormPage />} />
+          </Route>
+
+          {/* Not Found  */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
     </>

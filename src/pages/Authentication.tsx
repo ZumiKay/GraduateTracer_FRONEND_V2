@@ -1,22 +1,38 @@
-import { Button, Form, Input } from "@nextui-org/react";
+import { Button, Checkbox, Form, Input } from "@nextui-org/react";
 import { ChangeEvent, FormEvent, useState } from "react";
 import { PasswordInput } from "../component/FormComponent/Input";
 import { ForgotPasswordType, Logindatatype } from "../types/Login.types";
 import PictureBreakAndCombine from "../component/Animation/LogoAnimated";
 import ApiRequest from "../hooks/ApiHook";
-import ContainerLoading from "../component/Loading/ContainerLoading";
 import { useNavigate } from "react-router";
+import SuccessToast, {
+  ErrorToast,
+  InfoToast,
+} from "../component/Modal/AlertModal";
+import RecaptchaButton from "../component/FormComponent/recapcha";
+import ReactDomSever from "react-dom/server";
+import EmailTemplate from "../component/FormComponent/EmailTemplate";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../redux/store";
+import { AsyncGetUser } from "../redux/user.store";
 
-type authenticationtype = "login" | "signup" | "forgot";
+type authenticationtype = "login" | "prelogin" | "signup" | "forgot";
+
 export default function AuthenticationPage() {
   const [page, setpage] = useState<authenticationtype>("login");
   const [forgot, setforgot] = useState<ForgotPasswordType>();
   const [loading, setloading] = useState(false);
-  const [message, setmessage] = useState("");
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const recaptcha = RecaptchaButton();
+  const { isAuthenticated } = useSelector(
+    (root: RootState) => root.usersession
+  );
+
   const [logindata, setlogindata] = useState<Logindatatype>({
     email: "",
     password: "",
+    agree: false,
   });
 
   const handleClick = (type: authenticationtype) => {
@@ -31,6 +47,19 @@ export default function AuthenticationPage() {
     e.preventDefault();
     let url = "";
     let data = {};
+
+    if (page === "prelogin") {
+      setpage("login");
+      return;
+    }
+
+    if (page === "forgot" && !logindata.email) {
+      return;
+    }
+
+    if (page === "signup" && !logindata.agree) {
+      return;
+    }
 
     switch (page) {
       case "login":
@@ -48,12 +77,29 @@ export default function AuthenticationPage() {
       case "forgot":
         {
           //Forgot Password
+
           url = "/forgotpassword";
-          data = forgot?.confirm
-            ? { ty: "change", email: forgot.email }
-            : forgot?.vfy
-            ? { ty: "confirm", code: forgot.code, email: logindata.email }
-            : { ty: "vfy", email: logindata.email };
+          const html = ReactDomSever.renderToStaticMarkup(<EmailTemplate />);
+          data =
+            forgot?.ty === "vfy"
+              ? {
+                  ty: "vfy",
+                  email: logindata.email,
+                  html,
+                }
+              : forgot?.ty === "confirm"
+              ? {
+                  ty: "confirm",
+                  email: logindata.email,
+                  code: forgot.code,
+                }
+              : forgot?.ty === "change"
+              ? {
+                  ty: "change",
+                  email: logindata.email,
+                  password: logindata.password,
+                }
+              : {};
         }
         break;
       default:
@@ -61,32 +107,53 @@ export default function AuthenticationPage() {
     }
 
     setloading(true);
+
+    //verify recaptcha
+    const verifyreccap = await recaptcha.handleVerify();
+
+    if (!verifyreccap) {
+      setloading(false);
+      ErrorToast({ title: "Verification", content: "Failed To Verify" });
+      return;
+    }
+
     const AuthenticationRequest = await ApiRequest({
       method: page === "forgot" ? "PUT" : "POST",
       data,
       url,
+      cookie: page === "login",
     });
     setloading(false);
 
     if (!AuthenticationRequest.success) {
-      console.log("Error Login", AuthenticationRequest.error);
+      console.log("Error Ocucred");
+      ErrorToast({
+        title: "Error",
+        content: AuthenticationRequest.error ?? "Error Occured",
+      });
+      return;
     }
 
     if (page === "login") {
-      setmessage("Loggingn In");
+      dispatch(AsyncGetUser() as never);
       navigate("/dashboard", { replace: true });
       //navigate to dashboard
     } else if (page === "signup") {
-      setmessage("Account Created Successfully");
-      window.location.reload();
-    } else {
-      if (forgot?.confirm) {
-        setmessage("Password Changed Successfully");
+      SuccessToast({ title: "User", content: "Created" });
+      setlogindata({ email: "", password: "" });
+      e.currentTarget.reset();
+    } else if (page === "forgot") {
+      if (forgot?.ty === "vfy") {
+        InfoToast({ title: "Info", content: "Please Check Email" });
+        setforgot({ ty: "confirm" });
+      } else if (forgot?.ty === "confirm") {
+        InfoToast({ title: "Verified", content: "" });
+        setforgot({ ty: "change" });
+      } else if (forgot?.ty === "change") {
+        setforgot(undefined);
+        setlogindata((prev) => ({ ...prev, email: "" }));
+        SuccessToast({ title: "Successfully", content: "Password Changed" });
       }
-      setforgot(
-        (prev) =>
-          ({ ...prev, vfy: prev?.confirm, confirm: !prev?.confirm } as never)
-      );
     }
   };
 
@@ -100,6 +167,7 @@ export default function AuthenticationPage() {
       <div className="w-full h-[40px] flex flex-row gap-x-5 justify-center">
         <Button
           type="submit"
+          isLoading={loading}
           className="text-white font-bold bg-secondary w-full h-[40px] rounded-md"
         >
           Next
@@ -116,7 +184,7 @@ export default function AuthenticationPage() {
   };
 
   return (
-    <div className="w-full min-h-screen h-full bg-lightsucess flex flex-col items-center justify-center">
+    <div className="w-full min-h-screen h-full bg-success flex flex-col items-center justify-center">
       <div className="w-full h-[700px] flex flex-row items-center justify-center">
         <div className="banner w-[500px] h-full border-5 border-primary bg-white rounded-l-lg flex flex-col items-center gap-y-10 shadow-medium">
           <PictureBreakAndCombine />
@@ -131,15 +199,13 @@ export default function AuthenticationPage() {
           </p>
         </div>
         <div className="authentication_page w-[500px] h-full bg-primary rounded-r-lg flex flex-col items-center gap-y-10 relative">
-          {loading && <ContainerLoading />}
-
           <h3 className="text-4xl text-white font-bold pt-10">Login</h3>
           <Form
             onSubmit={handleSubmit}
             className="w-[90%] h-fit flex flex-col gap-y-5 items-end"
             validationBehavior="native"
           >
-            {message && <p className="text-success-200 font-bold">{message}</p>}
+            <p>{JSON.stringify(isAuthenticated)}</p>
             <Input
               isRequired
               errorMessage="Please enter a valid email"
@@ -153,7 +219,7 @@ export default function AuthenticationPage() {
               size="lg"
             />
 
-            {forgot?.confirm && (
+            {forgot?.ty === "confirm" && (
               <Input
                 isRequired
                 errorMessage="Please enter a valid email"
@@ -171,6 +237,31 @@ export default function AuthenticationPage() {
               />
             )}
 
+            {forgot?.ty === "change" && (
+              <>
+                <PasswordInput
+                  isRequired
+                  name="password"
+                  placeholder="Password"
+                  label="New Password"
+                  value={logindata.password}
+                  onChange={handleChange}
+                  size="lg"
+                />
+                <PasswordInput
+                  isRequired
+                  name="confirmpassword"
+                  placeholder="Confirm Password"
+                  label="Confirm Password"
+                  value={logindata.confirmpassword}
+                  onChange={handleChange}
+                  validate={(e) =>
+                    e !== logindata.password ? "Must match password" : null
+                  }
+                />
+              </>
+            )}
+
             {page === "forgot" && <ForgotPassword />}
 
             {page !== "forgot" && (
@@ -185,9 +276,12 @@ export default function AuthenticationPage() {
                   size="lg"
                 />
 
-                {page === "login" ? (
+                {page === "login" || page === "prelogin" ? (
                   <p
-                    onClick={() => setpage("forgot")}
+                    onClick={() => {
+                      setpage("forgot");
+                      setforgot({ ty: "vfy" });
+                    }}
                     className="text-sm text-white font-bold cursor-default hover:text-gray-300 active:text-gray-300"
                   >
                     Forgot Password
@@ -208,17 +302,45 @@ export default function AuthenticationPage() {
                   </>
                 )}
 
+                {page === "signup" && (
+                  <>
+                    <Checkbox
+                      name="agree"
+                      onValueChange={(val) =>
+                        setlogindata((prev) => ({ ...prev, agree: val }))
+                      }
+                      isRequired
+                      color="secondary"
+                    >
+                      <p className="text-sm text-white font-bold">
+                        Agree to Policy and Privacy
+                      </p>
+                    </Checkbox>
+                  </>
+                )}
                 <div className="w-full h-fit flex flex-row gap-x-5">
-                  <Button
-                    type={page === "login" ? "submit" : "button"}
-                    onPress={() => page === "signup" && handleClick("login")}
-                    className="text-white font-bold bg-secondary w-full h-[40px] rounded-md"
-                  >
-                    Login
-                  </Button>
+                  {page === "signup" ? (
+                    <Button
+                      type={"button"}
+                      onPress={() => handleClick("prelogin")}
+                      isLoading={loading}
+                      className="text-white font-bold bg-secondary w-full h-[40px] rounded-md"
+                    >
+                      Back
+                    </Button>
+                  ) : (
+                    <Button
+                      type={"submit"}
+                      isLoading={loading}
+                      className="text-white font-bold bg-secondary w-full h-[40px] rounded-md"
+                    >
+                      Login
+                    </Button>
+                  )}
                   <Button
                     type={page === "signup" ? "submit" : "button"}
                     onPress={() => page === "login" && handleClick("signup")}
+                    isLoading={loading}
                     className="text-black font-bold bg-lightsucess w-full h-[40px] rounded-md"
                   >
                     Signup

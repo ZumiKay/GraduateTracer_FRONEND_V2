@@ -1,1 +1,76 @@
 
+.tiptap {
+    position: relative;
+}
+
+.tiptap:focus::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%); /* Center the animation */
+    height: 3px;
+    width: 0; /* Start with zero width */
+    background-color: black;
+    animation: fromthemiddle 0.5s ease-in-out forwards; /* Apply the animation */
+}
+
+.tiptap:not(:focus)::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 3px;
+    background-color: black;
+    animation: tothemiddle 0.5s ease-in-out forwards; /* Closing animation */
+}
+@keyframes tothemiddle {
+    0% {
+        width: 100%;
+    } 
+    100% {
+        width: 0%;
+    }
+}
+
+@keyframes fromthemiddle {
+    0%{
+        width: 0%;
+    }
+   
+    100% {
+        width: 100%;
+    }
+}
+
+.tiptap:first-child {
+    margin-top: 0;
+}
+.tiptap ul {
+    list-style:disc;
+}
+.tiptap ol {
+    list-style:decimal;
+}
+.tiptap ul,ol {
+    
+    padding: 0 1rem;
+    margin: 1.25rem 1rem 1.25rem 0.4rem;
+    
+    li p {
+      margin-top: 0.25em;
+      margin-bottom: 0.25em;
+    }
+    
+  }
+
+
+
+  .tiptap p.is-editor-empty:first-child::before {
+    color: #adb5bd;
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }

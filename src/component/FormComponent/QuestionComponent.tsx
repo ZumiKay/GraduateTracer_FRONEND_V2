@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent } from "react";
 import {
   CheckboxQuestionType,
   ConditionalType,
@@ -7,7 +7,7 @@ import {
   RangeType,
 } from "../../types/Form.types";
 import { SelectionType } from "../../types/Global.types";
-import { CustomCheckBox, CustomRadio, TextEditor } from "./Input";
+import { CustomCheckBox, CustomRadio, RenderDropDownMenu } from "./Input";
 import Selection from "./Selection";
 import {
   Button,
@@ -21,6 +21,7 @@ import React from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { setallquestion } from "../../redux/formstore";
 import { RootState } from "../../redux/store";
+import Tiptap from "./TipTabEditor";
 
 const QuestionTypeOptions: Array<SelectionType<QuestionType>> = [
   { label: "Multiple Choice", value: QuestionType.MultipleChoice },
@@ -56,28 +57,31 @@ const QuestionComponent = ({
   scrollToCondition,
   onDuplication,
 }: QuestionComponentProps) => {
-  const [questionstate, setquestionstate] = useState<ContentType>(value);
   const dispatch = useDispatch();
 
-  useEffect(() => {
+  const onUpdateState = (newVal: Partial<ContentType>) => {
     dispatch(
       setallquestion((prev) =>
-        prev.map((item, qidx) =>
-          qidx === idx ? { ...item, questionstate } : item
-        )
+        prev.map((ques, qidx) => {
+          if (qidx === idx) {
+            return { ...ques, ...newVal };
+          }
+          return ques;
+        })
       )
     );
-  }, [questionstate]);
+  };
 
   const renderContentBaseOnQuestionType = () => {
-    switch (questionstate.type) {
-      case QuestionType.MultipleChoice: {
+    switch (value.type) {
+      case QuestionType.MultipleChoice:
+      case QuestionType.CheckBox: {
         return (
           <ChoiceQuestionEdit
-            questionstate={questionstate}
+            type={value.type as never}
+            questionstate={value}
             isLinked={isLinked}
-            setquestionsate={setquestionstate}
-            type={QuestionType.MultipleChoice}
+            setquestionsate={(val) => onUpdateState({ ...val })}
             onAddCondition={(answeridx) =>
               onAddCondition && onAddCondition(answeridx)
             }
@@ -88,20 +92,12 @@ const QuestionComponent = ({
           />
         );
       }
-      case QuestionType.CheckBox: {
-        return (
-          <ChoiceQuestionEdit
-            questionstate={questionstate}
-            setquestionsate={setquestionstate}
-            type={QuestionType.CheckBox}
-          />
-        );
-      }
+
       case QuestionType.RangeDate: {
         return (
           <RangeQuestionEdit
-            questionstate={questionstate}
-            setquestionsate={setquestionstate}
+            questionstate={value}
+            setquestionsate={(val) => onUpdateState({ ...val })}
             type={QuestionType.RangeDate}
           />
         );
@@ -109,8 +105,8 @@ const QuestionComponent = ({
       case QuestionType.RangeNumber: {
         return (
           <RangeQuestionEdit
-            questionstate={questionstate}
-            setquestionsate={setquestionstate}
+            questionstate={value}
+            setquestionsate={(val) => onUpdateState({ ...val })}
             type={QuestionType.RangeNumber}
           />
         );
@@ -118,8 +114,16 @@ const QuestionComponent = ({
       case QuestionType.Selection: {
         return (
           <SelectionQuestionEdit
-            state={questionstate}
-            setstate={setquestionstate}
+            state={value}
+            isLinked={isLinked}
+            onAddCondition={(ansidx) =>
+              onAddCondition && onAddCondition(ansidx)
+            }
+            removeCondition={(ansidx) =>
+              removeCondition && removeCondition(ansidx)
+            }
+            handleScrollTo={scrollToCondition}
+            setstate={(val) => onUpdateState({ ...val })}
           />
         );
       }
@@ -134,11 +138,10 @@ const QuestionComponent = ({
       className="w-full h-fit rounded-md flex flex-col items-center gap-y-5 py-5"
     >
       <div className="text_editor w-[97%] bg-white p-3 rounded-b-md flex flex-row items-start justify-start gap-x-3">
-        <TextEditor
-          value={questionstate.title}
-          setvalue={(val) =>
-            setquestionstate((prev) => ({ ...prev, title: val }))
-          }
+        <Tiptap
+          qidx={idx}
+          value={value.title}
+          onChange={(val) => onUpdateState({ title: val })}
         />
         <Selection
           className="max-w-sm rounded-sm"
@@ -149,16 +152,13 @@ const QuestionComponent = ({
           color="warning"
           placeholder="Question Type"
           items={QuestionTypeOptions}
-          defaultSelectedKeys={[questionstate.type]}
-          onChange={(e) =>
-            setquestionstate((prev) => ({
-              ...prev,
-              type: e.target.value as QuestionType,
-            }))
-          }
+          defaultSelectedKeys={[value.type]}
+          onChange={(e) => {
+            onUpdateState({ type: e.target.value as QuestionType });
+          }}
         />
       </div>
-      {questionstate.type !== QuestionType.Text && (
+      {value.type !== QuestionType.Text && (
         <div className="content_container w-[97%] h-fit bg-white rounded-lg min-h-[50px] p-2">
           {renderContentBaseOnQuestionType()}
         </div>
@@ -196,9 +196,9 @@ const QuestionComponent = ({
           </Tooltip>
           <Switch
             onValueChange={(val) => {
-              setquestionstate((prev) => ({ ...prev, require: val }));
+              onUpdateState({ require: val });
             }}
-            isSelected={questionstate.require}
+            isSelected={value.require}
             color="danger"
             size="sm"
           >
@@ -216,7 +216,7 @@ interface ChoiceQuestionProps {
   condition?: ConditionalType;
   type: QuestionType.MultipleChoice | QuestionType.CheckBox;
   questionstate: ContentType;
-  setquestionsate: React.Dispatch<React.SetStateAction<ContentType>>;
+  setquestionsate: (val: Partial<ContentType>) => void;
   onAddCondition?: (answeridx: number) => void;
   removeCondition?: (answeridx: number) => void;
   isLinked?: (ansidx: number) => boolean;
@@ -228,7 +228,6 @@ export const ChoiceQuestionEdit = ({
   questionstate,
   setquestionsate,
   onAddCondition,
-  condition,
   removeCondition,
   handleScrollTo,
   isLinked,
@@ -238,84 +237,91 @@ export const ChoiceQuestionEdit = ({
   );
   const handleAddOption = () => {
     const type = questionstate.type;
-    setquestionsate((prev) => ({
-      ...prev,
+    const question = questionstate[
+      type as never
+    ] as Array<CheckboxQuestionType>;
+
+    setquestionsate({
       [type]: [
-        ...(prev[type as never] ?? []),
+        ...(question ?? []),
         {
-          idx: prev[type as never] ? (prev[type as never] as []).length : 0,
+          idx: question?.length ?? 0,
           content: "",
         },
       ],
-    }));
+    });
   };
   const handleDeleteOption = (idx: number) => {
-    setquestionsate((prev: ContentType) => {
-      const updatedOptions = (
-        prev[questionstate.type as keyof ContentType] as CheckboxQuestionType[]
-      ).filter((item) => item.idx !== idx);
+    const updatedOptions = questionstate[
+      questionstate.type as keyof ContentType
+    ] as Array<CheckboxQuestionType>;
 
-      //update condition of question
-      removeCondition?.(idx);
-
-      return { ...prev, multiple: updatedOptions };
+    //Update Question State
+    setquestionsate({
+      [questionstate.type]: updatedOptions.filter((item) => item.idx !== idx),
     });
+    removeCondition?.(idx);
   };
 
   const handleChoiceQuestionChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     idx: number
   ) => {
-    setquestionsate((prev) => {
-      const newOption = (
-        prev[questionstate.type as never] as CheckboxQuestionType[]
-      ).map((item) => {
-        if (item.idx === idx) {
-          return { ...item, content: e.target.value };
-        }
-        return item;
-      });
-      return { ...prev, multiple: newOption };
+    const updatedOptions = (
+      questionstate[
+        questionstate.type as keyof ContentType
+      ] as Array<CheckboxQuestionType>
+    ).map((item) => {
+      if (item.idx === idx) {
+        return { ...item, content: e.target.value };
+      }
+      return item;
     });
+
+    setquestionsate({ [questionstate.type]: updatedOptions });
+  };
+
+  const handleScrolllToQuestion = (ansidx: number) => {
+    if (handleScrollTo) {
+      //scroll to
+      const question = allquestion.find((i) => i.parentanswer_idx === ansidx);
+      if (question) {
+        handleScrollTo(`${question.type}${allquestion.indexOf(question)}`);
+      } else alert("No Question Found");
+    }
   };
   return (
     <div className="choice_container w-full h-fit p-3 flex flex-col gap-y-5">
       {type === QuestionType.MultipleChoice
         ? questionstate.multiple?.map((option, idx) => (
             <CustomRadio
-              condition={condition}
+              key={`Question${allquestion.indexOf(questionstate)}radio${idx}`}
               idx={idx}
               isLink={isLinked?.(idx)}
               value={option.content}
               onChange={(e) => {
                 handleChoiceQuestionChange(e, idx);
               }}
-              key={idx}
               onDelete={() => handleDeleteOption(idx)}
               addConditionQuestion={() => onAddCondition?.(idx)}
               removeConditionQuestion={() => removeCondition?.(idx)}
-              handleScrollTo={() => {
-                if (handleScrollTo) {
-                  //scroll to
-                  const question = allquestion.find(
-                    (i) => i.parentanswer_idx === idx
-                  );
-                  if (question) {
-                    handleScrollTo(
-                      `${question.type}${allquestion.indexOf(question)}`
-                    );
-                  } else alert("No Question Found");
-                }
-              }}
+              handleScrollTo={() => handleScrolllToQuestion(idx)}
             />
           ))
         : questionstate.checkbox?.map((option, idx) => (
             <CustomCheckBox
-              key={idx}
+              key={`Question${allquestion.indexOf(
+                questionstate
+              )}checkbox${idx}`}
+              idx={idx}
+              isLink={isLinked?.(idx)}
+              addConditionQuestion={() => onAddCondition?.(idx)}
+              removeConditionQuestion={() => removeCondition?.(idx)}
               value={option.content}
               onChange={(e) => {
                 handleChoiceQuestionChange(e, idx);
               }}
+              handleScrollTo={() => handleScrolllToQuestion(idx)}
               onDelete={() => handleDeleteOption(idx)}
             />
           ))}
@@ -337,16 +343,15 @@ const RangeQuestionEdit = ({
 }: {
   type: QuestionType.RangeNumber | QuestionType.RangeDate;
   questionstate: ContentType;
-  setquestionsate: React.Dispatch<React.SetStateAction<ContentType>>;
+  setquestionsate: (newVal: Partial<ContentType>) => void;
 }) => {
   const handleDateRangeChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setquestionsate((prev) => ({
-      ...prev,
+    setquestionsate({
       numrange: {
-        ...prev.numrange,
+        ...(questionstate.numrange ?? []),
         [e.target.name]: Number(e.target.value),
       } as RangeType<number>,
-    }));
+    });
   };
   return (
     <div className="w-full h-fit flex flex-row items-center gap-x-5">
@@ -354,10 +359,7 @@ const RangeQuestionEdit = ({
         <DateRangePicker
           onChange={(val) => {
             if (!val) return;
-            setquestionsate((prev) => ({
-              ...prev,
-              range: val,
-            }));
+            setquestionsate({ range: val });
           }}
           size="lg"
           value={questionstate?.range}
@@ -392,19 +394,45 @@ const RangeQuestionEdit = ({
 const SelectionQuestionEdit = ({
   state,
   setstate,
+  onAddCondition,
+  removeCondition,
+  isLinked,
+  handleScrollTo,
 }: {
   state: ContentType;
-  setstate: React.Dispatch<React.SetStateAction<ContentType>>;
+  setstate: (newVal: Partial<ContentType>) => void;
+  onAddCondition?: (answeridx: number) => void;
+  removeCondition?: (answeridx: number) => void;
+  isLinked?: (ansidx: number) => boolean;
+  handleScrollTo?: (key: string) => void;
 }) => {
-  const handleAddOption = () => {
-    setstate((prev) => ({
-      ...prev,
-      selection: [...(prev.selection ?? []), ""],
-    }));
+  const allquestion = useSelector(
+    (root: RootState) => root.allform.allquestion
+  );
+  const handleConditionQuestion = (ansidx: number) => {
+    //Refracter below code
+
+    if (isLinked && isLinked(ansidx)) {
+      if (removeCondition) removeCondition(ansidx);
+    } else {
+      if (onAddCondition) onAddCondition(ansidx);
+    }
   };
+  const handleAddOption = () => {
+    setstate({ selection: [...(state.selection ?? []), ""] });
+  };
+
+  const handleDeleteOption = (didx: number) => {
+    //delete Selection Option
+    setstate({ selection: state.selection?.filter((_, i) => i !== didx) });
+
+    //Remove Condition from question
+    removeCondition?.(didx);
+  };
+
   return (
     <div className="w-full h-fit flex flex-col items-start gap-y-5">
-      <ul className="Optionlist list-none text-lg flex flex-col gap-y-3">
+      <ul className="Optionlist w-full list-none text-lg flex flex-col gap-y-3">
         {state.selection?.map((option, idx) => (
           <li
             key={idx}
@@ -419,12 +447,7 @@ const SelectionQuestionEdit = ({
               endContent={
                 <DeleteIcon
                   onClick={() => {
-                    setstate((prev) => {
-                      const newOptions = prev.selection?.filter(
-                        (_, i) => i !== idx
-                      );
-                      return { ...prev, selection: newOptions };
-                    });
+                    handleDeleteOption(idx);
                   }}
                   className="cursor-pointer"
                   width={"20px"}
@@ -432,17 +455,33 @@ const SelectionQuestionEdit = ({
                 />
               }
               onChange={({ target }) => {
-                setstate((prev) => {
-                  const newOptions = prev.selection?.map((item, i) => {
+                setstate({
+                  selection: state.selection?.map((item, i) => {
                     if (i === idx) {
                       return (item = target.value);
                     }
                     return item;
-                  });
-                  return { ...prev, selection: newOptions };
+                  }),
                 });
               }}
             />
+            <RenderDropDownMenu
+              handleConditionQuestion={() => handleConditionQuestion(idx)}
+              isLink={!!isLinked?.(idx)}
+              handleScrollTo={() =>
+                handleScrollTo &&
+                handleScrollTo(
+                  `${QuestionType.Selection}${allquestion.indexOf(state)}`
+                )
+              }
+            />
+            <Button
+              onPress={() => console.log(allquestion)}
+              className="max-w-xs"
+              variant="bordered"
+            >
+              Test State
+            </Button>
           </li>
         ))}
       </ul>

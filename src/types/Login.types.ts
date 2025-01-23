@@ -3,11 +3,11 @@ export interface Logindatatype {
   password: string;
   confirmpassword?: string;
   recapcha?: boolean;
+  agree?: boolean;
 }
 
 export interface ForgotPasswordType {
-  email: string;
-  code: string;
-  confirm?: boolean;
-  vfy?: boolean;
+  email?: string;
+  code?: string;
+  ty?: "vfy" | "confirm" | "change";
 }

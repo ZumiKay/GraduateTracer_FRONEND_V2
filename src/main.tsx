@@ -7,6 +7,8 @@ import { store } from "./redux/store.tsx";
 import { BrowserRouter } from "react-router";
 import { NextUIProvider } from "@nextui-org/react";
 import { ToastContainer } from "react-toastify";
+import "babel-polyfill";
+import "es6-shim";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

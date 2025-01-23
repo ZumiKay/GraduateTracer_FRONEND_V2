@@ -327,7 +327,6 @@ export const TextEditor = ({
 interface CustomChoiceProps {
   idx?: number;
   label?: string;
-  condition?: ConditionalType;
   value?: string;
   meta?: React.HTMLAttributes<HTMLInputElement>;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -339,9 +338,44 @@ interface CustomChoiceProps {
   handleScrollTo?: () => void;
 }
 
-export const CustomCheckBox = (props: CustomChoiceProps) => {
+type RenderDropDownMenuProps = {
+  isLink: boolean;
+  handleConditionQuestion: () => void;
+  handleScrollTo?: () => void;
+};
+export const RenderDropDownMenu = ({
+  isLink,
+  handleConditionQuestion,
+  handleScrollTo,
+}: RenderDropDownMenuProps) => {
   return (
-    <div className="inline-flex items-center">
+    <DropDownMenu
+      isLink={isLink}
+      item={[
+        `${isLink ? "Unlink" : "Link"}`,
+        isLink ? "To Question" : "",
+      ].filter((i) => i)}
+      onAction={(key) => {
+        if (key === "Link" || key === "Unlink") handleConditionQuestion();
+        else {
+          if (handleScrollTo) handleScrollTo();
+        }
+      }}
+    />
+  );
+};
+
+export const CustomCheckBox = (props: CustomChoiceProps) => {
+  const handleConditionQuestion = () => {
+    //Refracter below code
+    if (props.isLink) {
+      if (props.removeConditionQuestion) props.removeConditionQuestion();
+    } else {
+      if (props.addConditionQuestion) props.addConditionQuestion();
+    }
+  };
+  return (
+    <div className="inline-flex items-center gap-x-3">
       <label className="flex items-center cursor-pointer relative">
         <input
           type="checkbox"
@@ -371,21 +405,28 @@ export const CustomCheckBox = (props: CustomChoiceProps) => {
       {props.label ? (
         <label htmlFor="framework">{props.label}</label>
       ) : (
-        <Input
-          className="ml-5"
-          size="lg"
-          value={props.value}
-          variant="bordered"
-          placeholder="Option"
-          onChange={props.onChange}
-          endContent={
-            <DeleteIcon
-              onClick={() => props.onDelete && props.onDelete()}
-              width={"20px"}
-              height={"20px"}
-            />
-          }
-        />
+        <>
+          <Input
+            className="ml-5"
+            size="lg"
+            variant="bordered"
+            placeholder="Option"
+            onChange={props.onChange}
+            value={props.value}
+            endContent={
+              <DeleteIcon
+                onClick={() => props.onDelete && props.onDelete()}
+                width={"20px"}
+                height={"20px"}
+              />
+            }
+          />
+          <RenderDropDownMenu
+            isLink={!!props.isLink}
+            handleScrollTo={props.handleScrollTo}
+            handleConditionQuestion={handleConditionQuestion}
+          />
+        </>
       )}
     </div>
   );
@@ -436,18 +477,10 @@ export const CustomRadio = (props: CustomChoiceProps) => {
               />
             }
           />
-          <DropDownMenu
-            isLink={props.isLink}
-            item={[
-              `${props.isLink ? "Unlink" : "Link"}`,
-              props.isLink ? "To Question" : "",
-            ].filter((i) => i)}
-            onAction={(key) => {
-              if (key === "Link" || key === "Unlink") handleConditionQuestion();
-              else {
-                if (props.handleScrollTo) props.handleScrollTo();
-              }
-            }}
+          <RenderDropDownMenu
+            isLink={!!props.isLink}
+            handleConditionQuestion={handleConditionQuestion}
+            handleScrollTo={props.handleScrollTo}
           />
         </div>
       )}

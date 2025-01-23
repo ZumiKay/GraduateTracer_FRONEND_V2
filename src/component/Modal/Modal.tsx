@@ -9,8 +9,8 @@ import {
   ModalHeader,
   ModalProps,
 } from "@nextui-org/react";
-import { EditorState, Modifier, RichUtils } from "draft-js";
-import React, { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import React, { ChangeEvent, FormEvent, useState } from "react";
+import { Editor } from "@tiptap/react";
 
 interface ModalWrapperProps {
   isOpen: boolean;
@@ -49,105 +49,59 @@ export const AddLinkModal = ({
   open,
   setopen,
   editorState,
-  seteditorState,
   isLinkInSelection,
 }: {
   open: boolean;
   setopen: React.Dispatch<React.SetStateAction<boolean>>;
-  editorState: EditorState;
-  seteditorState: React.Dispatch<React.SetStateAction<EditorState>>;
+  editorState: Editor | null;
   isLinkInSelection: boolean;
 }) => {
+  const selectedText = editorState?.state.doc.textBetween(
+    editorState?.state.selection.from,
+    editorState?.state.selection.to,
+    " "
+  );
   const [state, setstate] = useState({
-    texttoshow: "",
-    link: "",
+    texttoshow: selectedText,
+    link: editorState?.getAttributes("link").href,
   });
-
-  useEffect(() => {
-    const selection = editorState.getSelection();
-    const contentState = editorState.getCurrentContent();
-    const startKey = selection.getStartKey();
-    const startOffset = selection.getStartOffset();
-    const endOffset = selection.getEndOffset();
-
-    const block = contentState.getBlockForKey(startKey);
-    const entityKey = block.getEntityAt(startOffset);
-
-    if (entityKey) {
-      const entity = contentState.getEntity(entityKey);
-      const { url } = entity.getData();
-
-      setstate({
-        texttoshow: block.getText().slice(startOffset, endOffset),
-        link: url || "",
-      });
-    } else {
-      setstate({
-        texttoshow: block.getText().slice(startOffset, endOffset),
-        link: "",
-      });
-    }
-  }, [editorState]);
 
   const handleAddOrEditLink = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const contentState = editorState.getCurrentContent();
-    const selection = editorState.getSelection();
+    const url = state.link;
 
-    if (!selection.isCollapsed()) {
-      if (!/^https?:\/\//.test(state.link)) {
-        alert("Please enter a valid URL (e.g., http:// or https://)");
-        return;
-      }
+    // cancelled
+    if (!url) {
+      return;
+    }
 
-      // Create or replace LINK entity
-      const contentStateWithEntity = contentState.createEntity(
-        "LINK",
-        "MUTABLE",
-        {
-          url: state.link,
-        }
-      );
-      const entityKey = contentStateWithEntity.getLastCreatedEntityKey();
+    // empty
+    if (url === "") {
+      editorState?.chain().focus().extendMarkRange("link").unsetLink().run();
 
-      let newContentState = Modifier.applyEntity(
-        contentStateWithEntity,
-        selection,
-        entityKey
-      );
+      return;
+    }
+    if (!selectedText) {
+      alert("No text selected to replace.");
+      return;
+    }
 
-      if (state.texttoshow) {
-        // Replace the selected text with `texttoshow` if it's different
-        newContentState = Modifier.replaceText(
-          newContentState,
-          selection,
-          state.texttoshow,
-          undefined,
-          entityKey
-        );
-      }
-
-      // Update the editor state
-      const newEditorState = EditorState.push(
-        editorState,
-        newContentState,
-        "apply-entity"
-      );
-      seteditorState(newEditorState);
-      setopen(false);
-    } else {
-      alert("Please select text to add or edit a link.");
+    // update link
+    try {
+      editorState
+        ?.chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: url })
+        .insertContent(state.texttoshow ?? "", { updateSelection: true })
+        .run();
+    } catch (e) {
+      const error = e as { message?: string };
+      alert(error?.message ?? "Error Occured");
     }
   };
 
-  const handleRemoveLink = () => {
-    const selection = editorState.getSelection();
-    if (!selection.isCollapsed()) {
-      const newEditorState = RichUtils.toggleLink(editorState, selection, null);
-      seteditorState(newEditorState);
-      setopen(false);
-    }
-  };
+  const handleRemoveLink = () => editorState?.chain().focus().unsetLink().run();
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setstate((prev) => ({ ...prev, [e.target.name]: e.target.value }));

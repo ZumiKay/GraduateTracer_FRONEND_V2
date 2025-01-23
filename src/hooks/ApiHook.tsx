@@ -8,6 +8,12 @@ interface ApiRequestProps {
   refreshtoken?: boolean;
 }
 
+interface ErrorResponse {
+  message: string;
+  code?: number;
+  errors?: Array<{ message: string }>;
+}
+
 const RefreshToken = async () => {
   try {
     await axios({
@@ -36,11 +42,12 @@ const ApiRequest = async ({
   success: boolean;
   data?: unknown;
   error?: string;
+  status?: number;
 }> => {
   const accessToken = localStorage.getItem("accessToken");
   // Function to handle API requests
   const config: AxiosRequestConfig = {
-    baseURL: "",
+    baseURL: import.meta.env.VITE_API_URL,
     url,
     method,
     withCredentials: !!cookie,
@@ -48,7 +55,7 @@ const ApiRequest = async ({
       "Content-Type": "application/json",
       Authorization: accessToken ? `Bearer ${accessToken}` : undefined, // Add token if exists
     },
-    timeout: 3000,
+    timeout: 10000,
     timeoutErrorMessage: "Request Timeout",
     data,
   };
@@ -73,7 +80,11 @@ const ApiRequest = async ({
       //Referesh Token
       const newAccesstoken = await RefreshToken();
       if (!newAccesstoken.success) {
-        return { success: false, error: "Login session expired" };
+        return {
+          success: false,
+          error: "Login session expired",
+          status: err.status,
+        };
       }
       const header = {
         ...config.headers,
@@ -88,7 +99,19 @@ const ApiRequest = async ({
         return { success: false, error: (retryError as AxiosError).message };
       }
     }
-    return { success: false, error: err.message };
+
+    const errorResponse = err.response?.data as ErrorResponse;
+
+    return {
+      success: false,
+      status: err.status,
+      error:
+        (errorResponse?.errors
+          ? errorResponse.errors[0]?.message
+          : errorResponse?.message) ??
+        err.message ??
+        "Error Occured",
+    };
   }
 };
 

@@ -4,9 +4,15 @@ export enum ROLE {
 }
 
 export interface UserType {
-  _id: string;
+  _id?: string;
   email: string;
   password: string;
   role: ROLE;
   code?: string;
 }
+
+export const DefaultUserState: UserType = {
+  email: "",
+  password: "",
+  role: ROLE.USER,
+};

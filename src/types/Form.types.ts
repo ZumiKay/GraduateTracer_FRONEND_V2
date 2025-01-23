@@ -1,5 +1,5 @@
 import { DateValue, RangeValue } from "@nextui-org/react";
-import { RawDraftContentState } from "draft-js";
+import { JSONContent } from "@tiptap/react";
 
 // Form Types
 export enum FormTypeEnum {
@@ -74,7 +74,7 @@ export interface ConditionalType {
 // Content Type
 export interface ContentType {
   _id?: string;
-  title?: RawDraftContentState;
+  title?: JSONContent;
   type: QuestionType;
   formId: string;
   text?: string;
@@ -90,24 +90,38 @@ export interface ContentType {
   conditional?: ConditionalType;
   require?: boolean;
   selection?: Array<string>;
+  page?: number;
 }
 
 export const DefaultContentType: ContentType = {
   type: QuestionType.Text,
   formId: "",
+  page: 1,
   title: {
-    blocks: [
+    type: "doc",
+    content: [
       {
-        key: "",
-        text: "Header 1",
-        type: "header-one",
-        depth: 0,
-        inlineStyleRanges: [],
-        entityRanges: [],
-        data: {},
+        type: "heading",
+        attrs: {
+          level: 1,
+        },
+        content: [
+          {
+            type: "text",
+            text: "Hello this is header 1",
+          },
+        ],
+      },
+      {
+        type: "paragraph",
+        content: [
+          {
+            type: "text",
+            text: "This is a paragraph below the header.",
+          },
+        ],
       },
     ],
-    entityMap: {},
   },
 };
 
