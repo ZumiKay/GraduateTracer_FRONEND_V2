@@ -122,8 +122,6 @@ const Tiptap = ({ value, onChange, qidx }: TipTapProps) => {
 
   useEffect(() => {
     if (value) editor?.commands.setContent(value);
-
-    console.log(qidx, { value });
   }, []);
 
   const [addlink, setaddlink] = useState(false);

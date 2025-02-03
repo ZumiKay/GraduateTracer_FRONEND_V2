@@ -18,7 +18,7 @@ const RefreshToken = async () => {
   try {
     await axios({
       method: "POST",
-      baseURL: "",
+      baseURL: import.meta.env.VITE_API_URL,
       url: "/refreshtoken",
       withCredentials: true,
       headers: {
@@ -41,6 +41,7 @@ const ApiRequest = async ({
 }: ApiRequestProps): Promise<{
   success: boolean;
   data?: unknown;
+  message?: string;
   error?: string;
   status?: number;
 }> => {
@@ -62,7 +63,12 @@ const ApiRequest = async ({
   try {
     const response = await axios(config);
 
-    return { success: true, data: response.data };
+    return {
+      success: true,
+      data: response.data.data,
+      status: response.status,
+      message: response.data.message,
+    };
   } catch (error) {
     console.log("Api Request Error", error);
     const err = error as AxiosError;
@@ -93,7 +99,7 @@ const ApiRequest = async ({
       //retry request
       try {
         const retryResponse = await axios({ ...config, headers: header });
-        return { success: true, data: retryResponse.data };
+        return { success: true, data: { ...retryResponse.data } };
       } catch (retryError) {
         console.error("Retry request failed", retryError);
         return { success: false, error: (retryError as AxiosError).message };

@@ -1,29 +1,33 @@
 import { Image } from "@nextui-org/react";
 import PlusSign from "../../assets/plus 2.png";
 import React from "react";
+import { FormDataType, FormTypeEnum } from "../../types/Form.types";
 
 interface CardPropsType {
-  type: "quiz" | "normal";
+  type: FormTypeEnum;
   isManage?: boolean;
   onClick?: () => void;
   isSelect?: boolean;
+  data: Partial<FormDataType>;
 }
-const Card = ({ type, isManage, onClick, isSelect }: CardPropsType) => {
+const Card = ({ type, isManage, onClick, isSelect, data }: CardPropsType) => {
   return (
     <div
       onClick={() => onClick && onClick()}
       className={`w-[300px] h-[200px] rounded-md 
-     ${type === "quiz" ? "bg-secondary" : "bg-success"}
-     flex flex-col justify-start items-center gap-y-5 pl-2 relative hover:bg-white transition-colors cursor-default
+     ${type === FormTypeEnum.Quiz ? "bg-secondary" : "bg-success"}
+     flex flex-col justify-start items-center gap-y-5 pl-2 relative text-white hover:bg-white hover:text-black transition-colors cursor-default
      `}
     >
-      {type === "quiz" && (
+      {type === FormTypeEnum.Quiz && (
         <span className="absolute bottom-1 left-1 text-sm font-medium">
           Quiz
         </span>
       )}
       <div className="w-full h-fit flex flex-row items-center">
-        <p className="text-lg font-bold w-full h-fit text-left">Form Title</p>
+        <p className="text-lg font-bold w-full h-fit text-left">
+          {data?.title}
+        </p>
         {isManage && (
           <span
             className={`w-[25px] h-[22px] rounded-[100%] ${
@@ -35,20 +39,20 @@ const Card = ({ type, isManage, onClick, isSelect }: CardPropsType) => {
       <table className="carddetail w-full h-fit" align="left">
         <tbody
           className={`text-left ${
-            type === "quiz" ? "text-black" : "text-white"
+            FormTypeEnum.Quiz ? "text-black" : "text-white"
           }`}
         >
           <tr>
             <th>Response</th>
-            <td>20</td>
+            <td>{data.responses?.length ?? 0}</td>
           </tr>
           <tr>
             <th>CreatedAt</th>
-            <td>25/12/2024</td>
+            <td>{`${data.createdAt}`}</td>
           </tr>
           <tr>
             <th>Modified:</th>
-            <td>25/12/2024</td>
+            <td>{`${data.updatedAt}`}</td>
           </tr>
         </tbody>
       </table>

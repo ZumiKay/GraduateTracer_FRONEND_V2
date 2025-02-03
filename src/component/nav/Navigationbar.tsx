@@ -22,13 +22,16 @@ import OpenModal from "../../redux/openmodal";
 import { RootState } from "../../redux/store";
 import { AsyncLoggout, logout } from "../../redux/user.store";
 import { useState } from "react";
+import ApiRequest from "../../hooks/ApiHook";
+import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
 
 export default function NavigationBar() {
   const dispatch = useDispatch();
   const [loading, setloading] = useState(false);
+  const [isFormEdit, setisFormEdit] = useState(false);
 
   const formtitle = useSelector(
-    (root: RootState) => root.globalindex.formtitle
+    (root: RootState) => root.allform.formstate?.title
   );
   const openmodal = useSelector((root: RootState) => root.openmodal.setting);
   const autosave = useSelector((root: RootState) => root.globalindex.autosave);
@@ -39,6 +42,26 @@ export default function NavigationBar() {
     setloading(false);
     if (!issignout) return;
     dispatch(logout());
+  };
+  const handleSaveContent = async () => {
+    setloading(true);
+    const request = await ApiRequest({
+      method: "PUT",
+      url: "/savecontent",
+      cookie: true,
+      refreshtoken: true,
+    });
+    setloading(false);
+
+    if (!request.success) {
+      ErrorToast({
+        toastid: "Save Content",
+        title: "Failed",
+        content: "Can't Save",
+      });
+      return;
+    }
+    SuccessToast({ title: "Success", content: "Saved" });
   };
 
   return (
@@ -51,12 +74,12 @@ export default function NavigationBar() {
           className="w-[50px] h-[50px] object-contain"
         />
         <h1
-          contentEditable
+          contentEditable={formtitle ? true : false}
           suppressContentEditableWarning
           onBlur={() => console.log("Edit Form Title")}
           className="web-name text-3xl font-bold max-[450px]:hidden dark:text-white"
         >
-          {formtitle ?? "Graduate Tracer"}
+          {formtitle ? formtitle : "Graduate Tracer"}
         </h1>
       </div>
       <div className="profile">
@@ -66,6 +89,8 @@ export default function NavigationBar() {
               className="max-w-xs text-white font-bold"
               variant="solid"
               color="success"
+              isDisabled={!isFormEdit}
+              onPress={() => handleSaveContent()}
             >
               Save
             </Button>

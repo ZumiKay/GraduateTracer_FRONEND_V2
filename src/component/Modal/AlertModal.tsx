@@ -1,5 +1,5 @@
 import { Button } from "@nextui-org/react";
-import { CSSProperties } from "react";
+import { CSSProperties, useState } from "react";
 import { toast, ToastContentProps } from "react-toastify";
 import ModalWrapper from "./Modal";
 import { useSelector } from "react-redux";
@@ -93,16 +93,22 @@ export function ConfirmModal(props: ConfirmModalProps) {
   const confirmdata = useSelector(
     (root: RootState) => root.openmodal.confirm.data
   );
+  const [loading, setloading] = useState(false);
   const Btn = () => {
     return (
       <div className="btn_container inline-flex w-fit gap-x-3 items-center">
         <Button
           color="success"
-          onPress={() => {
-            if (confirmdata?.onAgree) confirmdata.onAgree();
+          onPress={async () => {
+            if (confirmdata?.onAgree) {
+              setloading(true);
+              await confirmdata.onAgree();
+              setloading(false);
+            }
             props.onClose();
           }}
           className="max-w-xs font-bold"
+          isLoading={loading}
           variant="flat"
         >
           Yes

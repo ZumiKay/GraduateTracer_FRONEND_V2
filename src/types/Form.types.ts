@@ -14,18 +14,38 @@ export enum SubmitType {
   Once = "ONCE",
   Multiple = "MULTIPLE",
 }
+export enum returnscore {
+  partial = "PARTIAL",
+  manual = "MANUAL",
+}
+export interface FormSettingType {
+  submitonce?: boolean;
+  qcolor?: string;
+  bg?: string;
+  navbar?: string;
+  text?: string;
+  email?: boolean;
+  returnscore?: returnscore;
+}
+
+interface User {
+  _id: string;
+  email: string;
+  role: string;
+}
 
 // Form Data Type
 export interface FormDataType {
-  _id: string;
+  _id?: string;
   title: string;
   type: FormType;
   contentIds: Array<string>;
   contents?: Array<ContentType>;
-  submittype: SubmitType;
-  user: string;
+  setting?: FormSettingType;
+  user?: User;
   createdAt?: Date;
   updatedAt?: Date;
+  responses?: Array<FormResponseType>;
 }
 
 // Question Types
@@ -135,12 +155,43 @@ export interface FormSetiingDataType {
   email: boolean;
 }
 
+//Response Form Type
+export interface ResponseSetType {
+  questionId?: string;
+  response:
+    | string
+    | number
+    | boolean
+    | RangeType<number>
+    | RangeType<Date>
+    | Date;
+  score?: number;
+}
+
+export interface FormResponseType {
+  _id?: string;
+  formId: string;
+  userId: string;
+  responseset: Array<ResponseSetType>;
+  returnscore?: returnscore;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 // Default Form Setting
-export const DefaultFormSetting: FormSetiingDataType = {
-  question: "#D3F1DF",
-  background: "#ffffff",
+export const DefaultFormSetting: FormSettingType = {
+  qcolor: "#D3F1DF",
+  bg: "#ffffff",
   navbar: "#f5f5f5",
   text: "#000000",
-  response: false,
+  submitonce: false,
+  returnscore: returnscore.manual,
   email: false,
+};
+
+export const DefaultFormState: FormDataType = {
+  title: "",
+  type: FormTypeEnum.Normal,
+  contentIds: [],
+  setting: DefaultFormSetting,
 };

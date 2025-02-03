@@ -205,7 +205,6 @@ export default function AuthenticationPage() {
             className="w-[90%] h-fit flex flex-col gap-y-5 items-end"
             validationBehavior="native"
           >
-            <p>{JSON.stringify(isAuthenticated)}</p>
             <Input
               isRequired
               errorMessage="Please enter a valid email"

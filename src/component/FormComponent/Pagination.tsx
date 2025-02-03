@@ -3,8 +3,18 @@ import { Pagination, Button } from "@nextui-org/react";
 import { useSearchParams } from "react-router";
 
 const RowPerPage = ["5", "10", "20"];
-export default function FormPagination() {
-  const total = 10;
+
+interface FormpaginationProps {
+  total: number;
+  onPageChange: (val: number) => void;
+  onLimitChange: (val: number) => void;
+}
+
+export default function FormPagination({
+  total,
+  onPageChange,
+  onLimitChange,
+}: FormpaginationProps) {
   const [param, setparam] = useSearchParams();
   const [currentPage, setCurrentPage] = React.useState(
     Number(param.get("page")) || 1
@@ -16,6 +26,7 @@ export default function FormPagination() {
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setshowperpage(parseInt(e.target.value));
     handleParam(e.target.name, e.target.value);
+    onLimitChange(Number(e.target.value));
   };
 
   const handleParam = (name: string, value: string) => {
@@ -33,10 +44,11 @@ export default function FormPagination() {
       <Pagination
         color="secondary"
         page={currentPage}
-        total={10}
+        total={total ?? 1}
         onChange={(val) => {
           handleParam("page", val ? val.toString() : "1");
           setCurrentPage(val);
+          onPageChange(val);
         }}
       />
       <div className="flex gap-2">

@@ -9,6 +9,22 @@ interface PrivateRouteProps {
   redirectPath?: string;
 }
 
+export const PublichRoute = () => {
+  const { isAuthenticated, loading } = useSelector(
+    (root: RootState) => root.usersession
+  );
+
+  if (loading) {
+    return <ContainerLoading />;
+  }
+
+  if (!isAuthenticated) {
+    return <Outlet />;
+  }
+
+  return <Navigate to="/dashboard" />;
+};
+
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ redirectPath = "/" }) => {
   const { isAuthenticated, loading } = useSelector(
     (state: RootState) => state.usersession

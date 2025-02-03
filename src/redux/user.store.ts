@@ -30,14 +30,9 @@ export const AsyncGetUser = createAsyncThunk(
         method: "GET",
         cookie: true,
         url: "/checksession",
+        refreshtoken: true,
       });
       if (!response.success) {
-        if (response.status === 401) {
-          ErrorToast({
-            title: "Session",
-            content: response.error ?? "Session Expired",
-          });
-        }
         throw response.error;
       }
 

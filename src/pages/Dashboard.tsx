@@ -2,24 +2,93 @@ import { Button } from "@nextui-org/react";
 import Card, { CreateCardBtn } from "../component/Card/Card";
 import FilterSection from "../component/Filter/FilterSection";
 import FormPagination from "../component/FormComponent/Pagination";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../redux/openmodal";
 import { RootState } from "../redux/store";
 import CreateForm from "../component/Modal/Form.modal";
+import ApiRequest from "../hooks/ApiHook";
+import { setallformstate } from "../redux/formstore";
+import { FormDataType } from "../types/Form.types";
+import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
+import { CardLoading } from "../component/Loading/ContainerLoading";
+import { useNavigate } from "react-router";
 
 function Dashboard() {
   const [isManage, setisManage] = useState(false);
-  const [selectedcard, setselectedcard] = useState<Set<number>>(new Set());
+  const [selectedcard, setselectedcard] = useState<Set<string>>(new Set());
   const dispatch = useDispatch();
   const selector = useSelector((state: RootState) => state.openmodal);
+  const { allformstate } = useSelector((state: RootState) => state.allform);
+  const [loading, setloading] = useState(false);
+  const [page, setpage] = useState(1);
+  const [limit, setlimit] = useState(5);
+  const navigate = useNavigate();
 
-  const handleManageCardSelection = (idx: number) => {
-    const newset = new Set<number>(selectedcard);
-    if (newset.has(idx)) {
-      newset.delete(idx);
-    } else newset.add(idx);
-    setselectedcard(newset);
+  const handleManageCardSelection = (id: string) => {
+    if (isManage) {
+      const newset = new Set<string>(selectedcard);
+      if (newset.has(id)) {
+        newset.delete(id);
+      } else newset.add(id);
+      setselectedcard(newset);
+    } else {
+      navigate(`/form/${id}`, { replace: true });
+    }
+  };
+
+  useEffect(() => {
+    const fetchForm = async () => {
+      setloading(true);
+      const response = await ApiRequest({
+        url: `/filteredform?ty=user&page=${page}&limit=${limit}`,
+        method: "GET",
+        cookie: true,
+        refreshtoken: true,
+      });
+      setloading(false);
+      if (!response.success) {
+        ErrorToast({
+          title: "Failed To Fetch",
+          content: "Error Connection",
+          toastid: "Error Connection",
+        });
+        return;
+      }
+      dispatch(setallformstate((response.data as Array<FormDataType>) ?? []));
+    };
+    fetchForm();
+  }, []);
+
+  const handleDeleteForm = async () => {
+    setloading(true);
+    const response = await ApiRequest({
+      url: "/deleteform",
+      method: "DELETE",
+      cookie: true,
+      refreshtoken: true,
+      data: { ids: Array.from(selectedcard) },
+    });
+    setloading(false);
+
+    if (!response.success) {
+      ErrorToast({
+        title: "Failed",
+        content: "Can't Delete Form",
+        toastid: "Delete Form",
+      });
+      return;
+    }
+
+    dispatch(
+      setallformstate(
+        allformstate.length === 0
+          ? []
+          : allformstate.filter((form) => !selectedcard.has(form._id ?? ""))
+      )
+    );
+    setselectedcard(new Set());
+    SuccessToast({ title: "Sucess", content: "Form Deleted" });
   };
 
   return (
@@ -61,7 +130,19 @@ function Dashboard() {
             <Button
               variant="flat"
               className={`max-w-sm font-bold text-white bg-slate-400`}
-              onPress={() => setisManage((prev) => !prev)}
+              onPress={() => {
+                dispatch(
+                  OpenModal.actions.setopenmodal({
+                    state: "confirm",
+                    value: {
+                      open: true,
+                      data: {
+                        onAgree: () => handleDeleteForm(),
+                      },
+                    },
+                  })
+                );
+              }}
             >
               Delete {selectedcard.size}
             </Button>
@@ -79,19 +160,29 @@ function Dashboard() {
               )
             }
           />
-          {Array.from({ length: 5 }).map((_, idx) => (
-            <Card
-              type="quiz"
-              isManage={isManage}
-              onClick={() => handleManageCardSelection(idx)}
-              isSelect={selectedcard.has(idx)}
-            />
-          ))}
-          {Array.from({ length: 5 }).map(() => (
-            <Card type="normal" isManage={isManage} />
-          ))}
+          {loading
+            ? Array.from({ length: 3 }).map((_, idx) => (
+                <CardLoading key={idx} />
+              ))
+            : allformstate.map(
+                (form, idx) =>
+                  form._id && (
+                    <Card
+                      key={idx}
+                      data={form}
+                      type={form.type as never}
+                      isManage={isManage}
+                      onClick={() => handleManageCardSelection(form._id ?? "")}
+                      isSelect={selectedcard.has(form._id)}
+                    />
+                  )
+              )}
         </div>
-        <FormPagination />
+        <FormPagination
+          onPageChange={setpage}
+          onLimitChange={setlimit}
+          total={allformstate.length === 0 ? 1 : allformstate.length}
+        />
       </div>
     </>
   );

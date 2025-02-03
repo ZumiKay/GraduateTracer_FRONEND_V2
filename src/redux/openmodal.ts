@@ -4,7 +4,7 @@ export type ConfirmModalDataType = {
   open: boolean;
   data?: {
     question?: string;
-    onAgree?: () => void;
+    onAgree?: () => Promise<void> | void;
     onClose?: () => void;
   };
 };

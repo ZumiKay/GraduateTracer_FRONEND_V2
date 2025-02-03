@@ -6,7 +6,7 @@ import {
   Tab,
   Tabs,
 } from "@nextui-org/react";
-import { useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { PlusIcon } from "../component/svg/GeneralIcon";
 import QuestionComponent from "../component/FormComponent/QuestionComponent";
 import { ReactNode, useEffect, useRef, useState } from "react";
@@ -18,39 +18,78 @@ import {
   ConditionalType,
   DefaultContentType,
   DefaultFormSetting,
-  FormSetiingDataType,
-  FormType,
+  FormDataType,
+  FormSettingType,
+  FormTypeEnum,
+  returnscore,
 } from "../types/Form.types";
 import { useDispatch, useSelector } from "react-redux";
-import globalindex from "../redux/globalindex";
 import { RootState } from "../redux/store";
-import { setallquestion } from "../redux/formstore";
+import { setallquestion, setformstate } from "../redux/formstore";
 import PlusImg from "../assets/add.png";
 import MinusIcon from "../assets/minus.png";
 import { setopenmodal } from "../redux/openmodal";
+import ApiRequest from "../hooks/ApiHook";
+import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
+import { hasObjectChanged } from "../helperFunc";
 
+type alltabs = "question" | "solution" | "response" | "setting";
 export default function FormPage() {
   const param = useParams();
   const dispatch = useDispatch();
-  const [settingstate, setsettingstate] = useState(DefaultFormSetting);
+  const formstate = useSelector((root: RootState) => root.allform.formstate);
+  const navigate = useNavigate();
+  const [searchParam, setsearchParam] = useSearchParams();
 
   useEffect(() => {
-    //Verfication form First before asssign title to the navbar
-    dispatch(globalindex.actions.setformtitle(param.id));
-  }, []);
+    if (!param.id) {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+
+    const AsyncGetForm = async () => {
+      const response = await ApiRequest({
+        method: "GET",
+        url: `/filteredform?ty=detail&q=${param?.id}`,
+        refreshtoken: true,
+        cookie: true,
+      });
+
+      if (!response.success) {
+        ErrorToast({
+          toastid: "UniqueForm",
+          title: "Not Found",
+          content: "Form Not Found",
+        });
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      const result = response.data as FormDataType;
+
+      //Set form content
+      dispatch(setformstate({ ...formstate, ...result, contents: undefined }));
+      dispatch(setallquestion(result.contents ?? []));
+    };
+
+    AsyncGetForm();
+  }, [param.id]);
+
+  const handleTabs = (tab: alltabs) => {
+    setsearchParam({ tab });
+  };
 
   return (
-    <div
-      style={{ backgroundColor: settingstate.background }}
-      className="formpage w-full min-h-screen h-full"
-    >
-      <Tabs className="w-full h-fit bg-white" variant="underlined">
+    <div className="formpage w-full min-h-screen h-full">
+      <Tabs
+        className="w-full h-fit bg-white"
+        variant="underlined"
+        selectedKey={searchParam.get("tab") ?? "question"}
+        onSelectionChange={(val) => handleTabs(val as alltabs)}
+      >
         <Tab key={"question"} title="Question">
           <div className="w-full min-h-screen h-full pt-5">
-            <QuestionTab
-              color={settingstate.question}
-              textcolor={settingstate.text}
-            />
+            <QuestionTab />
           </div>
         </Tab>
         <Tab key={"solution"} title="Solution">
@@ -59,10 +98,7 @@ export default function FormPage() {
         <Tab key={"response"} title="Response"></Tab>
         <Tab key={"setting"} title="Setting">
           <div className="w-full min-h-screen h-full grid place-items-center">
-            <SettingTab
-              settingstate={settingstate}
-              setsettingstate={setsettingstate}
-            />
+            <SettingTab />
           </div>
         </Tab>
       </Tabs>
@@ -70,13 +106,7 @@ export default function FormPage() {
   );
 }
 
-const QuestionTab = ({
-  color,
-  textcolor,
-}: {
-  color: string;
-  textcolor: string;
-}) => {
+const QuestionTab = () => {
   //scroll ref
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const [page, setpage] = useState(1);
@@ -86,6 +116,7 @@ const QuestionTab = ({
   const allquestion = useSelector(
     (root: RootState) => root.allform.allquestion
   );
+  const formstate = useSelector((root: RootState) => root.allform.formstate);
 
   const AddConditionedQuestion = (idx: number, ansidx: number) => {
     dispatch(
@@ -213,7 +244,7 @@ const QuestionTab = ({
 
   return (
     <div
-      style={{ color: textcolor }}
+      style={{ color: formstate.setting?.text }}
       className="w-full h-fit flex flex-col items-center gap-y-10"
     >
       {allquestion.map(
@@ -232,7 +263,7 @@ const QuestionTab = ({
                   checkIsLinkedForQuestionOption(idx, ansidx)
                 }
                 value={question}
-                color={color}
+                color={formstate.setting?.qcolor as string}
                 onDelete={() => {
                   handleDeleteQuestion(idx);
                 }}
@@ -348,73 +379,181 @@ const Settingitem = ({
   );
 };
 
-const SettingOptions = [
-  { label: "Form Type", type: "select", state: "formtype" },
-  { label: "Question Color", type: "color", state: "question" },
-  { label: "Text Color", type: "color", state: "text" },
-  { label: "Background Color", type: "color", state: "background" },
-  { label: "Limit to one reponse", type: "switch", state: "response" },
-  { label: "Email Required", type: "switch", state: "email" },
+const ReturnScoreOption: Array<SelectionType<string>> = [
+  { label: "Partial", value: returnscore.partial },
+  { label: "Manual", value: returnscore.manual },
 ];
 
-const FormTypeOptions: Array<SelectionType<FormType>> = [
+const SettingOptions = (formtype: FormTypeEnum) => [
+  {
+    label: "Form Type",
+    type: "select",
+    state: "type",
+    option: FormTypeOptions,
+  },
+  { label: "Question Color", type: "color", state: "qcolor" },
+  { label: "Text Color", type: "color", state: "text" },
+  { label: "Background Color", type: "color", state: "bg" },
+  { label: "Limit to one reponse", type: "switch", state: "submitonce" },
+  { label: "Email Required", type: "switch", state: "email" },
+  formtype === FormTypeEnum.Quiz
+    ? {
+        label: "Return Score",
+        type: "select",
+        state: "returnscore",
+        option: ReturnScoreOption,
+      }
+    : undefined,
+];
+
+const FormTypeOptions: Array<SelectionType<FormTypeEnum>> = [
   {
     label: "Normal",
-    value: "NORMAL",
+    value: FormTypeEnum.Normal,
   },
-  { label: "Quiz", value: "QUIZ" },
+  { label: "Quiz", value: FormTypeEnum.Quiz },
 ];
 
-const SettingTab = ({
-  settingstate,
-  setsettingstate,
-}: {
-  settingstate: FormSetiingDataType;
-  setsettingstate: React.Dispatch<React.SetStateAction<FormSetiingDataType>>;
-}) => {
+const SettingTab = () => {
+  const [loading, setloading] = useState(false);
+  const formstate = useSelector((root: RootState) => root.allform.formstate);
+  const dispatch = useDispatch();
+  const [isEdit, setisEdit] = useState(false);
+
+  const handleSaveSetting = async (restoreValue?: Partial<FormSettingType>) => {
+    setloading(true);
+    const request = await ApiRequest({
+      url: "/editform",
+      method: "PUT",
+      data: { setting: restoreValue ?? formstate.setting, _id: formstate._id },
+      cookie: true,
+      refreshtoken: true,
+    });
+    setloading(false);
+    if (!request.success) {
+      ErrorToast({
+        title: "Failed",
+        content: request.error ?? "Can't Save Setting",
+      });
+      return;
+    }
+    setisEdit(false);
+
+    if (restoreValue) {
+      dispatch(setformstate({ ...formstate, setting: DefaultFormSetting }));
+    }
+    SuccessToast({ title: "Success", content: "Setting Saved" });
+  };
+
+  const handleRestoreSetting = async () => {
+    dispatch(
+      setopenmodal({
+        state: "confirm",
+        value: {
+          open: true,
+          data: { onAgree: () => handleSaveSetting(DefaultFormSetting) },
+        },
+      })
+    );
+  };
+
+  const handleIsSaved = (newValue: Partial<FormSettingType>) => {
+    const prevValue = { ...formstate.setting };
+
+    const isChange = hasObjectChanged(prevValue, newValue);
+
+    setisEdit(isChange);
+  };
+
+  const handleChangeSetting = (newVal: Partial<FormSettingType>) => {
+    dispatch(
+      setformstate({
+        ...formstate,
+        setting: {
+          ...formstate.setting,
+          ...newVal,
+        },
+      })
+    );
+    handleIsSaved(newVal);
+  };
+
   return (
     <div className="setting-tab w-[80%] h-fit flex flex-col items-center gap-y-10 bg-white p-2 rounded-lg">
       <span className="text-red-300">
         {"when customize color please make sure all content are visible"}
       </span>
-      {SettingOptions.map((setting, idx) => (
-        <Settingitem
-          key={idx}
-          content={setting.label}
-          action={
-            setting.type === "color" ? (
-              <ColorSelection
-                value={settingstate[setting.state as never]}
-                onChange={(val) => {
-                  setsettingstate((prev) => ({
-                    ...prev,
-                    [setting.state]: val,
-                  }));
-                }}
-              />
-            ) : setting.type === "select" ? (
-              <Selection className="w-[100px]" items={FormTypeOptions} />
-            ) : setting.type === "switch" ? (
-              <Switch
-                checked={settingstate[setting.state as never]}
-                onChange={(val) =>
-                  setsettingstate((prev) => ({
-                    ...prev,
-                    [settingstate[setting.state as never]]: val.target.checked,
-                  }))
-                }
-                aria-label="Limit to one reponse"
-              />
-            ) : (
-              <></>
-            )
-          }
-        />
-      ))}
+      {SettingOptions(formstate.type as FormTypeEnum).map(
+        (setting, idx) =>
+          setting && (
+            <Settingitem
+              key={idx}
+              content={setting.label ?? ""}
+              action={
+                setting.type === "color" ? (
+                  <ColorSelection
+                    value={
+                      formstate.setting &&
+                      formstate.setting[setting.state as never]
+                    }
+                    onChange={(val) => {
+                      handleChangeSetting({
+                        [setting.state]: val,
+                      });
+                    }}
+                  />
+                ) : setting.type === "select" ? (
+                  <Selection
+                    className="w-[100px]"
+                    items={setting.option ?? []}
+                    selectedKeys={[formstate[setting.state as never]]}
+                    onChange={(val) =>
+                      dispatch(
+                        setformstate({
+                          ...formstate,
+                          [setting.state as never]: val.target.value,
+                        } as never)
+                      ) as never
+                    }
+                  />
+                ) : setting.type === "switch" ? (
+                  <>
+                    <Switch
+                      onValueChange={(val) =>
+                        handleChangeSetting({ [setting.state]: val })
+                      }
+                      aria-label={setting.label}
+                      {...(formstate.setting
+                        ? {
+                            isSelected:
+                              formstate.setting[setting.state as never],
+                          }
+                        : {})}
+                    />
+                  </>
+                ) : (
+                  <></>
+                )
+              }
+            />
+          )
+      )}
 
       <div className="btn_section w-full h-[40px] flex flex-row items-center gap-x-5">
-        <Button className="bg-slate-400 text-white font-bold">Restore</Button>
-        <Button color="success" className="text-white font-bold">
+        <Button
+          isLoading={loading}
+          onPress={() => handleRestoreSetting()}
+          className="bg-slate-400 text-white font-bold"
+        >
+          Restore
+        </Button>
+        <Button
+          isLoading={loading}
+          color="success"
+          isDisabled={!isEdit}
+          onPress={() => handleSaveSetting()}
+          className="text-white font-bold"
+        >
           Save
         </Button>
       </div>

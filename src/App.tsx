@@ -12,7 +12,7 @@ import { useEffect } from "react";
 
 import { ConfirmModal } from "./component/Modal/AlertModal";
 import { AsyncGetUser } from "./redux/user.store";
-import PrivateRoute from "./route/PrivateRoute";
+import PrivateRoute, { PublichRoute } from "./route/PrivateRoute";
 import NotFound from "./pages/NotFound";
 
 function App() {
@@ -25,6 +25,10 @@ function App() {
     //check user session
     dispatch(AsyncGetUser() as never);
   }, [dispatch]);
+
+  useEffect(() => {
+    console.log({ redux });
+  }, [redux]);
 
   return (
     <>
@@ -56,7 +60,9 @@ function App() {
       <main className="w-full min-h-screen h-full bg-white dark:bg-black flex flex-col items-center">
         {pathname !== "/" && <NavigationBar />}
         <Routes>
-          <Route index element={<AuthenticationPage />} />
+          <Route element={<PublichRoute />}>
+            <Route index element={<AuthenticationPage />} />
+          </Route>
 
           <Route element={<PrivateRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
