@@ -32,19 +32,20 @@ const RefreshToken = async () => {
   }
 };
 
+export interface ApiRequestReturnType {
+  success: boolean;
+  data?: { [key: string]: never };
+  message?: string;
+  error?: string;
+  status?: number;
+}
 const ApiRequest = async ({
   method,
   cookie,
   url,
   data,
   refreshtoken,
-}: ApiRequestProps): Promise<{
-  success: boolean;
-  data?: unknown;
-  message?: string;
-  error?: string;
-  status?: number;
-}> => {
+}: ApiRequestProps): Promise<ApiRequestReturnType> => {
   const accessToken = localStorage.getItem("accessToken");
   // Function to handle API requests
   const config: AxiosRequestConfig = {

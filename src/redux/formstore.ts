@@ -1,28 +1,45 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import {
   ContentType,
-  DefaultContentType,
   DefaultFormState,
   FormDataType,
 } from "../types/Form.types";
 import ApiRequest from "../hooks/ApiHook";
-import { ErrorToast } from "../component/Modal/AlertModal";
+import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 
-const AsyncSaveForm = createAsyncThunk(
+export const AsyncSaveForm = createAsyncThunk(
   "form/save",
-  async (_, { rejectWithValue }) => {
+  async (
+    data: {
+      data: Array<ContentType> | Partial<FormDataType>;
+      formID?: string;
+      onSuccess?: () => void;
+      notoast?: boolean;
+      type: "save" | "edit";
+      page?: number;
+    },
+    { rejectWithValue }
+  ) => {
+    const url = data.type === "save" ? "/savecontent" : "/editform";
     try {
       const response = await ApiRequest({
-        url: "/editform",
+        url,
         method: "PUT",
         cookie: true,
+        data: { data: data.data, formID: data.formID, page: data.page },
         refreshtoken: true,
       });
 
       if (!response.success) {
-        ErrorToast({ title: "Failed", content: "Can't Save Form" });
+        ErrorToast({
+          toastid: "autosave",
+          title: "Failed",
+          content: "Can't Save Form",
+        });
         throw response.error;
       }
+      if (data.onSuccess) data.onSuccess();
+      if (!data.notoast) SuccessToast({ title: "Success", content: "Saved" });
       return response.data;
     } catch (error) {
       console.log("Save Form", error);
@@ -31,15 +48,23 @@ const AsyncSaveForm = createAsyncThunk(
   }
 );
 
+const searchParams = new URLSearchParams(window.location.search);
+const initialPage = Number(searchParams.get("page")) || 1;
+
 const formstore = createSlice({
   name: "formstore",
   initialState: {
-    allquestion: [DefaultContentType] as Array<ContentType>,
+    allquestion: [] as Array<ContentType>,
     formstate: DefaultFormState,
-    prevAllQuestion: [DefaultContentType] as Array<ContentType>,
+    prevAllQuestion: [] as Array<ContentType>,
     allformstate: [] as Array<FormDataType>,
     loading: false,
     isFormEdit: false,
+    page: initialPage,
+    fetchloading: false,
+    reloaddata: true,
+    pauseAutoSave: false,
+    debounceQuestion: null as ContentType | null,
   },
   reducers: {
     setformstate: (state, action: PayloadAction<FormDataType>) => {
@@ -57,19 +82,34 @@ const formstore = createSlice({
         Array<ContentType> | ((prev: Array<ContentType>) => Array<ContentType>)
       >
     ) => {
-      const prevAllQuestion = state.allquestion;
       if (typeof action.payload === "function") {
         state.allquestion = action.payload(state.allquestion as ContentType[]);
       } else {
         state.allquestion = action.payload;
       }
-      state.prevAllQuestion = prevAllQuestion;
+    },
+    setprevallquestion: (state, action: PayloadAction<Array<ContentType>>) => {
+      state.prevAllQuestion = action.payload;
+    },
+    setpage: (state, action: PayloadAction<number>) => {
+      state.page = action.payload;
+    },
+    setfetchloading: (state, action: PayloadAction<boolean>) => {
+      state.fetchloading = action.payload;
+    },
+    setreloaddata: (state, action: PayloadAction<boolean>) => {
+      state.reloaddata = action.payload;
+    },
+    setpauseAutoSave: (state, action: PayloadAction<boolean>) => {
+      state.pauseAutoSave = action.payload;
+    },
+    setdisbounceQuestion: (state, action: PayloadAction<ContentType>) => {
+      state.debounceQuestion = action.payload;
     },
   },
   extraReducers: (builder) => {
-    builder.addCase(AsyncSaveForm.fulfilled, (state, action) => {
+    builder.addCase(AsyncSaveForm.fulfilled, (state) => {
       state.loading = false;
-      state.formstate = action.payload as FormDataType;
     });
     builder.addCase(AsyncSaveForm.pending, (state) => {
       state.loading = true;
@@ -79,6 +119,15 @@ const formstore = createSlice({
     });
   },
 });
-export const { setallquestion, setformstate, setallformstate } =
-  formstore.actions;
+export const {
+  setallquestion,
+  setformstate,
+  setallformstate,
+  setpage,
+  setprevallquestion,
+  setfetchloading,
+  setreloaddata,
+  setpauseAutoSave,
+  setdisbounceQuestion,
+} = formstore.actions;
 export default formstore;

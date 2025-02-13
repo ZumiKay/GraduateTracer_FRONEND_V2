@@ -26,10 +26,6 @@ function App() {
     dispatch(AsyncGetUser() as never);
   }, [dispatch]);
 
-  useEffect(() => {
-    console.log({ redux });
-  }, [redux]);
-
   return (
     <>
       {/* Modal Setting */}

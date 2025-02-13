@@ -2,6 +2,7 @@ import {
   Button,
   Image,
   Pagination,
+  Skeleton,
   Switch,
   Tab,
   Tabs,
@@ -15,7 +16,6 @@ import Selection, {
 } from "../component/FormComponent/Selection";
 import { SelectionType } from "../types/Global.types";
 import {
-  ConditionalType,
   DefaultContentType,
   DefaultFormSetting,
   FormDataType,
@@ -25,19 +25,30 @@ import {
 } from "../types/Form.types";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../redux/store";
-import { setallquestion, setformstate } from "../redux/formstore";
+import {
+  AsyncSaveForm,
+  setallquestion,
+  setfetchloading,
+  setformstate,
+  setpage,
+  setprevallquestion,
+  setreloaddata,
+} from "../redux/formstore";
 import PlusImg from "../assets/add.png";
 import MinusIcon from "../assets/minus.png";
 import { setopenmodal } from "../redux/openmodal";
-import ApiRequest from "../hooks/ApiHook";
-import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
+import ApiRequest, { ApiRequestReturnType } from "../hooks/ApiHook";
+import { ErrorToast, PromiseToast } from "../component/Modal/AlertModal";
 import { hasObjectChanged } from "../helperFunc";
+import { AutoSaveQuestion } from "./FormPage.action";
 
 type alltabs = "question" | "solution" | "response" | "setting";
 export default function FormPage() {
   const param = useParams();
   const dispatch = useDispatch();
-  const formstate = useSelector((root: RootState) => root.allform.formstate);
+  const { formstate, reloaddata, page } = useSelector(
+    (root: RootState) => root.allform
+  );
   const navigate = useNavigate();
   const [searchParam, setsearchParam] = useSearchParams();
 
@@ -48,12 +59,19 @@ export default function FormPage() {
     }
 
     const AsyncGetForm = async () => {
+      //Validate Page Param
+
+      dispatch(setfetchloading(true));
+
       const response = await ApiRequest({
         method: "GET",
-        url: `/filteredform?ty=detail&q=${param?.id}`,
+        url: `/filteredform?ty=detail&q=${param?.id}&page=${page}`,
         refreshtoken: true,
         cookie: true,
       });
+
+      dispatch(setfetchloading(false));
+      dispatch(setreloaddata(false));
 
       if (!response.success) {
         ErrorToast({
@@ -65,15 +83,18 @@ export default function FormPage() {
         return;
       }
 
-      const result = response.data as FormDataType;
+      const result = response.data as unknown as FormDataType;
 
       //Set form content
       dispatch(setformstate({ ...formstate, ...result, contents: undefined }));
       dispatch(setallquestion(result.contents ?? []));
+
+      //Track if the state change
+      dispatch(setprevallquestion(result.contents ?? []));
     };
 
-    AsyncGetForm();
-  }, [param.id]);
+    if (reloaddata) AsyncGetForm();
+  }, [param.id, reloaddata, dispatch, page]);
 
   const handleTabs = (tab: alltabs) => {
     setsearchParam({ tab });
@@ -109,130 +130,235 @@ export default function FormPage() {
 const QuestionTab = () => {
   //scroll ref
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const [page, setpage] = useState(1);
-  const [totalpage, settotalpage] = useState(1);
+
+  const { formstate, page, fetchloading } = useSelector(
+    (root: RootState) => root.allform
+  );
+  const [searchParam, setsearchParam] = useSearchParams();
+
+  const [loading, setloading] = useState(false);
 
   const dispatch = useDispatch();
   const allquestion = useSelector(
     (root: RootState) => root.allform.allquestion
   );
-  const formstate = useSelector((root: RootState) => root.allform.formstate);
 
-  const AddConditionedQuestion = (idx: number, ansidx: number) => {
-    dispatch(
-      setallquestion((prev) => {
-        const newQuestion = {
-          ...DefaultContentType,
-          parent_question: idx,
-          parentanswer_idx: ansidx,
-        };
-
-        const result = [
-          ...prev.slice(0, idx + 1),
-          newQuestion,
-          ...prev.slice(idx + 1),
-        ];
-
-        const updatedConditional = {
-          QuestionIds: [
-            ...(prev[idx].conditional?.QuestionIds ?? []).map((qidx) =>
-              qidx >= idx + 1 ? qidx + 1 : qidx
-            ),
-            idx + 1, // Add the new index in the correct position
-          ].sort((a, b) => a - b), // Ensure the array remains sorted
-          key: [...(prev[idx].conditional?.key ?? []), ansidx],
-        };
-
-        result[idx] = {
-          ...prev[idx],
-          conditional: updatedConditional,
-        };
-
-        return result;
-      })
-    );
-  };
-
-  const removeConditionedQuestion = (idx: number, ansidx: number) => {
-    // Remove condition based on key and question idx
-
-    dispatch(
-      setallquestion((prev) => {
-        prev[idx].conditional = {
-          QuestionIds:
-            prev[idx].conditional?.QuestionIds?.filter(
-              (item) => item !== idx + 1
-            ) ?? [],
-          key:
-            prev[idx].conditional?.key?.filter((item) => item !== ansidx) ?? [],
-        };
-        return prev.filter((i) => i.parentanswer_idx !== ansidx);
-      })
-    );
-  };
-
-  const handleDeleteQuestion = (idx: number) => {
-    let updatedQuestion = [...allquestion];
-
-    const tobeDeleteQuestion = updatedQuestion[idx];
-
-    const indicesToDelete = new Set([idx]);
-
-    if (tobeDeleteQuestion.conditional) {
-      const conditionQIds = tobeDeleteQuestion.conditional.QuestionIds;
-      conditionQIds.forEach((qidx) => indicesToDelete.add(qidx));
-    } else if (
-      tobeDeleteQuestion.parent_question &&
-      tobeDeleteQuestion.parentanswer_idx
-    ) {
-      //unlink question if it is a child questionq
-      updatedQuestion = updatedQuestion.map((q, qidx) => {
-        if (qidx === tobeDeleteQuestion.parent_question) {
-          return {
-            ...q,
-            conditional: {
-              ...q.conditional,
-
-              key:
-                q.conditional?.key.filter(
-                  (i) => i !== tobeDeleteQuestion.parentanswer_idx
-                ) ?? [],
-              QuestionIds:
-                q.conditional?.QuestionIds.filter((i) => i !== idx) ?? [],
-            } as ConditionalType,
-          };
-        }
-        return q;
+  const handleAddQuestion = async () => {
+    const updatedQuestions = [...allquestion, { ...DefaultContentType, page }];
+    if (formstate.setting?.autosave) {
+      setloading(true);
+      const createReq = AutoSaveQuestion({
+        data: updatedQuestions,
+        formId: formstate._id ?? "",
+        type: "save",
+        page,
       });
+      setloading(false);
+      const process = await PromiseToast(
+        { promise: createReq },
+        { pending: "Creating", error: "Can't Create" }
+      );
+      if (!process) return;
+
+      dispatch(setreloaddata(true));
+    } else
+      dispatch(
+        setallquestion((prev) => [...prev, { ...DefaultContentType, page }])
+      );
+  };
+
+  const handleDeleteQuestion = async (qidx: number, id?: string) => {
+    const questionToDelete = allquestion[qidx];
+
+    const deleteRequest = async () => {
+      if (id) {
+        const request = await PromiseToast(
+          {
+            promise: ApiRequest({
+              url: "/deletecontent",
+              method: "DELETE",
+              cookie: true,
+              refreshtoken: true,
+              data: { id, formId: formstate._id },
+            }),
+          },
+          { pending: "Deleting Question", error: "Can't Delete" }
+        );
+
+        if (!request.success) return;
+      }
+
+      dispatch(setallquestion(allquestion.filter((_, idx) => idx !== qidx)));
+    };
+
+    if (questionToDelete.conditional)
+      dispatch(
+        setopenmodal({
+          state: "confirm",
+          value: { open: true, data: { onAgree: deleteRequest } },
+        })
+      );
+    else await deleteRequest();
+  };
+
+  const handleAddCondition = async (
+    questionId: string | number,
+    anskey: number
+  ) => {
+    const toUpdateQuestion = {
+      ...allquestion.find((question, idx) => {
+        if (question._id) {
+          return question._id === questionId;
+        }
+        return idx === questionId;
+      }),
+    };
+
+    let newContentId: number | string = 0;
+
+    //Add Condition
+    if (toUpdateQuestion) {
+      if (formstate.setting?.autosave) {
+        const request = await PromiseToast(
+          {
+            promise: ApiRequest({
+              url: "/handlecondition",
+              method: "POST",
+              cookie: true,
+              refreshtoken: true,
+              data: {
+                contentId: questionId,
+                key: anskey,
+                newContent: { ...DefaultContentType, page },
+                formId: formstate._id,
+              },
+            }),
+          },
+          { pending: "Adding", success: "Condition Added", error: "Can't Add" }
+        );
+        if (!request.success || !request.data) {
+          return;
+        }
+        newContentId = request.data.newContentId;
+      } else {
+        newContentId = questionId;
+      }
+
+      toUpdateQuestion.conditional?.push({
+        contentId: newContentId,
+        key: anskey,
+      });
+      dispatch(
+        setallquestion((prev) => {
+          const index =
+            typeof questionId === "number"
+              ? questionId
+              : prev.findIndex((q) => q._id === toUpdateQuestion._id);
+
+          if (index === -1) return prev; // If not found, return previous state
+
+          const updatedList = [...prev];
+
+          // Update the existing question
+          updatedList[index] = {
+            ...toUpdateQuestion,
+          } as never;
+
+          // Insert new content right after
+          updatedList.splice(index + 1, 0, {
+            ...DefaultContentType,
+            page,
+            _id: typeof newContentId === "string" ? newContentId : undefined,
+          });
+
+          return updatedList;
+        })
+      );
+    }
+  };
+
+  const removeConditionedQuestion = async (ansidx: number, qidx: number) => {
+    // handle Remove Conditioned Option
+    let toremoveQuestion: string | number = 0;
+    const UpdatedQuestion = [
+      ...allquestion
+        .map((question, idx) => {
+          if (idx !== qidx) return question; // Return unchanged questions
+
+          // Clone the question and filter out the specific answer index
+          const updatedQuestion = { ...question };
+          const typeKey = updatedQuestion.type as keyof typeof updatedQuestion;
+
+          if (Array.isArray(updatedQuestion[typeKey])) {
+            updatedQuestion[typeKey] = updatedQuestion[typeKey].filter(
+              (_, i) => i !== ansidx
+            ) as never;
+          }
+          toremoveQuestion =
+            updatedQuestion.conditional?.find((con) => con.key === ansidx)
+              ?.contentId ?? 0;
+
+          return updatedQuestion;
+        })
+        .filter((q, idx) =>
+          typeof toremoveQuestion === "string"
+            ? q._id !== toremoveQuestion
+            : idx !== toremoveQuestion
+        ),
+    ];
+
+    if (formstate.setting?.autosave && formstate._id) {
+      const isSaved = await PromiseToast({
+        promise: AutoSaveQuestion({
+          data: UpdatedQuestion,
+          formId: formstate._id,
+          type: "save",
+          page,
+        }),
+      });
+
+      if (!isSaved) {
+        ErrorToast({ title: "Failed", content: "Error occured" });
+        return;
+      }
     }
 
-    updatedQuestion = updatedQuestion.filter(
-      (_, qidx) => !indicesToDelete.has(qidx)
-    );
-
-    // Update the state
-    dispatch(setallquestion(updatedQuestion));
+    dispatch(setallquestion(UpdatedQuestion));
   };
-  const handleDuplication = (idx: number) => {
+
+  const handleDuplication = async (idx: number) => {
     ///make a copy of the question base on idx
-    dispatch(
-      setallquestion((prev) => {
-        const tobecopy = prev[idx];
-        const result = [
-          ...prev.slice(0, idx + 1),
-          tobecopy,
-          ...prev.slice(idx + 1),
-        ];
+    const updatequestions = [
+      ...allquestion.slice(0, idx + 1),
+      { ...allquestion[idx], _id: undefined },
+      ...allquestion.slice(idx + 1),
+    ];
 
-        return result;
-      })
-    );
+    if (formstate.setting?.autosave && formstate._id) {
+      const isSaved = await PromiseToast(
+        {
+          promise: AutoSaveQuestion({
+            data: updatequestions,
+            formId: formstate._id,
+            type: "save",
+            page,
+          }),
+        },
+        { pending: "Copying" }
+      );
+
+      if (!isSaved) {
+        ErrorToast({ title: "Failed", content: "Can't Save" });
+        return;
+      }
+    }
+    dispatch(setallquestion(updatequestions));
   };
 
-  const checkIsLinkedForQuestionOption = (qidx: number, ansidx: number) =>
-    allquestion.some(
-      (i) => i.parent_question === qidx && i.parentanswer_idx === ansidx
-    );
+  const checkIsLinkedForQuestionOption = (ansidx: number, qidx: number) =>
+    allquestion[qidx] && allquestion[qidx].conditional
+      ? allquestion[qidx].conditional.some((con) => con.key === ansidx)
+      : false;
 
   const scrollToDiv = (key: string) => {
     const element = componentRefs.current[key];
@@ -242,68 +368,128 @@ const QuestionTab = () => {
     }
   };
 
+  const handlePage = async (type: "add" | "delete", deletepage?: number) => {
+    let updatedPage = 0;
+    const updateSearchParam = (newPage: number) => {
+      dispatch(setpage(newPage));
+      dispatch(setformstate({ ...formstate, totalpage: newPage }));
+      setsearchParam((prev) => ({ ...prev, page: newPage }));
+    };
+
+    if (type === "add") {
+      //Add new page
+      updatedPage = formstate.totalpage + 1;
+      updateSearchParam(updatedPage);
+    } else {
+      updatedPage = formstate.totalpage;
+
+      updateSearchParam(updatedPage <= 1 ? 1 : updatedPage - 1);
+    }
+    //Save Page
+
+    const request = (await PromiseToast(
+      {
+        promise: ApiRequest({
+          url: "/modifypage",
+          method: "PUT",
+          cookie: true,
+          refreshtoken: true,
+          data: {
+            formId: formstate._id,
+            ty: type,
+            deletepage,
+          },
+        }),
+      },
+      { pending: "Adding Page", success: "Added" }
+    )) as ApiRequestReturnType;
+
+    if (!request.success) {
+      ErrorToast({ title: "Failed", content: "Can't Save" });
+      return;
+    }
+    if (type === "delete") dispatch(setreloaddata(true));
+  };
+
   return (
     <div
       style={{ color: formstate.setting?.text }}
       className="w-full h-fit flex flex-col items-center gap-y-10"
     >
-      {allquestion.map(
-        (question, idx) =>
-          question.page === page && (
+      {fetchloading ? (
+        <Skeleton className="w-[80%] h-[300px] rounded-md" />
+      ) : (
+        allquestion
+          .filter((i) => i.page === page)
+          .map((question, idx) => (
             <div
               className="w-[80%] h-fit"
-              key={`${question.type}${idx}`}
+              key={`${question.type}${question._id ?? idx}`}
               ref={(el) =>
-                (componentRefs.current[`${question.type}${idx}`] = el)
+                (componentRefs.current[
+                  `${question.type}${question._id ?? idx}`
+                ] = el)
               }
             >
               <QuestionComponent
                 idx={idx}
+                id={question._id}
                 isLinked={(ansidx) =>
-                  checkIsLinkedForQuestionOption(idx, ansidx)
+                  checkIsLinkedForQuestionOption(ansidx, idx)
                 }
                 value={question}
                 color={formstate.setting?.qcolor as string}
                 onDelete={() => {
-                  handleDeleteQuestion(idx);
+                  handleDeleteQuestion(idx, question._id);
                 }}
                 onAddCondition={(answeridx) =>
-                  AddConditionedQuestion(idx, answeridx)
+                  handleAddCondition(question._id ?? idx, answeridx)
                 }
-                removeCondition={(answeridx) =>
-                  removeConditionedQuestion(idx, answeridx)
-                }
+                removeCondition={(answeridx) => {
+                  removeConditionedQuestion(answeridx, idx);
+                }}
                 onDuplication={() => handleDuplication(idx)}
-                scrollToCondition={scrollToDiv}
+                scrollToCondition={(val) => {
+                  console.log({ val });
+                }}
               />
             </div>
-          )
+          ))
       )}
       <Button
         startContent={<PlusIcon width={"25px"} height={"25px"} />}
         className="w-[90%] h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
         onPress={() => {
-          dispatch(
-            setallquestion((prev) => [...prev, { ...DefaultContentType, page }])
-          );
+          handleAddQuestion();
         }}
+        isLoading={loading}
       >
         New Question
       </Button>
-      <Pagination
-        loop
-        showControls
-        color="primary"
-        initialPage={1}
-        total={totalpage}
-        page={page}
-        onChange={setpage}
-      />
+      {formstate.totalpage > 1 ? (
+        <Pagination
+          loop
+          showControls
+          color="primary"
+          initialPage={1}
+          total={formstate.totalpage ?? 0}
+          page={page}
+          onChange={(val) => {
+            setsearchParam({ ...searchParam, page: val.toString() });
+            dispatch(setpage(val) as never);
+            dispatch(setreloaddata(true));
+          }}
+        />
+      ) : (
+        ""
+      )}
       <div className="page-btn w-full h-fit flex flex-row items-center justify-between">
         <Button
           className="max-w-xs font-bold text-red-400 border-x-0 border-t-0 transition-transform hover:translate-x-1"
           radius="none"
-          style={totalpage === 1 || page === 1 ? { display: "none" } : {}}
+          style={
+            formstate.totalpage === 1 || page === 1 ? { display: "none" } : {}
+          }
           color="danger"
           variant="bordered"
           onPress={() => {
@@ -314,8 +500,7 @@ const QuestionTab = () => {
                   open: true,
                   data: {
                     onAgree: () => {
-                      settotalpage((prev) => (prev > 1 ? prev - 1 : 1));
-                      setpage(totalpage > 1 ? totalpage - 1 : 1);
+                      handlePage("delete", page);
                     },
                   },
                 },
@@ -340,8 +525,7 @@ const QuestionTab = () => {
           color="primary"
           variant="bordered"
           onPress={() => {
-            settotalpage((prev) => prev + 1);
-            setpage(totalpage + 1);
+            handlePage("add");
           }}
           startContent={
             <Image
@@ -373,7 +557,7 @@ const Settingitem = ({
 }) => {
   return (
     <div className="w-full h-fit flex flex-row items-center justify-between p-2 border-b-2 border-b-gray-300">
-      <p className="text-lg font-bold">{content}</p>
+      <p className="text-lg font-normal">{content}</p>
       {action}
     </div>
   );
@@ -383,28 +567,68 @@ const ReturnScoreOption: Array<SelectionType<string>> = [
   { label: "Partial", value: returnscore.partial },
   { label: "Manual", value: returnscore.manual },
 ];
+type SettingOptionType = Array<
+  | {
+      label: string;
+      type: string;
+      state: string;
+      section: string;
+      option?: Array<SelectionType<string>>;
+    }
+  | undefined
+>;
 
-const SettingOptions = (formtype: FormTypeEnum) => [
-  {
-    label: "Form Type",
-    type: "select",
-    state: "type",
-    option: FormTypeOptions,
-  },
-  { label: "Question Color", type: "color", state: "qcolor" },
-  { label: "Text Color", type: "color", state: "text" },
-  { label: "Background Color", type: "color", state: "bg" },
-  { label: "Limit to one reponse", type: "switch", state: "submitonce" },
-  { label: "Email Required", type: "switch", state: "email" },
-  formtype === FormTypeEnum.Quiz
-    ? {
-        label: "Return Score",
-        type: "select",
-        state: "returnscore",
-        option: ReturnScoreOption,
-      }
-    : undefined,
-];
+const SettingOptions = (formtype: FormTypeEnum): SettingOptionType =>
+  [
+    {
+      label: "Form Type",
+      type: "select",
+      state: "type",
+      section: "General",
+      option: FormTypeOptions,
+    },
+
+    {
+      label: "Question Color",
+      type: "color",
+      state: "qcolor",
+      section: "Customize",
+    },
+    { label: "Text Color", type: "color", state: "text", section: "Customize" },
+    {
+      label: "Background Color",
+      type: "color",
+      state: "bg",
+      section: "Customize",
+    },
+    {
+      label: "Limit to one reponse",
+      type: "switch",
+      state: "submitonce",
+      section: "General",
+    },
+    {
+      label: "Email Required",
+      type: "switch",
+      state: "email",
+      section: "General",
+    },
+    {
+      label: "Auto Save",
+      type: "switch",
+      state: "autosave",
+      section: "General",
+    },
+    formtype === FormTypeEnum.Quiz
+      ? {
+          label: "Return Score",
+          type: "select",
+          state: "returnscore",
+          section: "General",
+          option: ReturnScoreOption,
+        }
+      : undefined,
+  ].filter(Boolean);
 
 const FormTypeOptions: Array<SelectionType<FormTypeEnum>> = [
   {
@@ -415,35 +639,9 @@ const FormTypeOptions: Array<SelectionType<FormTypeEnum>> = [
 ];
 
 const SettingTab = () => {
-  const [loading, setloading] = useState(false);
-  const formstate = useSelector((root: RootState) => root.allform.formstate);
+  const { formstate, loading } = useSelector((root: RootState) => root.allform);
   const dispatch = useDispatch();
   const [isEdit, setisEdit] = useState(false);
-
-  const handleSaveSetting = async (restoreValue?: Partial<FormSettingType>) => {
-    setloading(true);
-    const request = await ApiRequest({
-      url: "/editform",
-      method: "PUT",
-      data: { setting: restoreValue ?? formstate.setting, _id: formstate._id },
-      cookie: true,
-      refreshtoken: true,
-    });
-    setloading(false);
-    if (!request.success) {
-      ErrorToast({
-        title: "Failed",
-        content: request.error ?? "Can't Save Setting",
-      });
-      return;
-    }
-    setisEdit(false);
-
-    if (restoreValue) {
-      dispatch(setformstate({ ...formstate, setting: DefaultFormSetting }));
-    }
-    SuccessToast({ title: "Success", content: "Setting Saved" });
-  };
 
   const handleRestoreSetting = async () => {
     dispatch(
@@ -451,7 +649,22 @@ const SettingTab = () => {
         state: "confirm",
         value: {
           open: true,
-          data: { onAgree: () => handleSaveSetting(DefaultFormSetting) },
+          data: {
+            onAgree: () =>
+              dispatch(
+                AsyncSaveForm({
+                  type: "edit",
+                  data: { setting: DefaultFormSetting, _id: formstate._id },
+                  onSuccess: () =>
+                    dispatch(
+                      setformstate({
+                        ...formstate,
+                        setting: DefaultFormSetting,
+                      })
+                    ),
+                }) as never
+              ),
+          },
         },
       })
     );
@@ -478,66 +691,85 @@ const SettingTab = () => {
     handleIsSaved(newVal);
   };
 
+  const groupedOptions = SettingOptions(formstate.type as FormTypeEnum).reduce(
+    (acc, option) => {
+      const section = option?.section ?? "Misc"; // Default section if missing
+      if (!acc[section]) acc[section] = [] as never;
+      const otheracc = acc[section] as unknown as Array<object>;
+      otheracc.push(option as never);
+      return acc;
+    },
+    {} as Record<string, typeof SettingOptions>
+  );
+
   return (
     <div className="setting-tab w-[80%] h-fit flex flex-col items-center gap-y-10 bg-white p-2 rounded-lg">
       <span className="text-red-300">
         {"when customize color please make sure all content are visible"}
       </span>
-      {SettingOptions(formstate.type as FormTypeEnum).map(
-        (setting, idx) =>
-          setting && (
-            <Settingitem
-              key={idx}
-              content={setting.label ?? ""}
-              action={
-                setting.type === "color" ? (
-                  <ColorSelection
-                    value={
-                      formstate.setting &&
-                      formstate.setting[setting.state as never]
-                    }
-                    onChange={(val) => {
-                      handleChangeSetting({
-                        [setting.state]: val,
-                      });
-                    }}
-                  />
-                ) : setting.type === "select" ? (
-                  <Selection
-                    className="w-[100px]"
-                    items={setting.option ?? []}
-                    selectedKeys={[formstate[setting.state as never]]}
-                    onChange={(val) =>
-                      dispatch(
-                        setformstate({
-                          ...formstate,
-                          [setting.state as never]: val.target.value,
-                        } as never)
-                      ) as never
-                    }
-                  />
-                ) : setting.type === "switch" ? (
-                  <>
-                    <Switch
-                      onValueChange={(val) =>
-                        handleChangeSetting({ [setting.state]: val })
-                      }
-                      aria-label={setting.label}
-                      {...(formstate.setting
-                        ? {
-                            isSelected:
-                              formstate.setting[setting.state as never],
+      {Object.entries(groupedOptions).map(([section, item]) => (
+        <>
+          <p key={section} className="text-4xl font-bold text-left w-full">
+            {section}
+          </p>
+
+          {(item as unknown as SettingOptionType).map(
+            (setting, idx) =>
+              setting && (
+                <Settingitem
+                  key={idx}
+                  content={setting.label ?? ""}
+                  action={
+                    setting.type === "color" ? (
+                      <ColorSelection
+                        value={
+                          formstate.setting &&
+                          formstate.setting[setting.state as never]
+                        }
+                        onChange={(val) => {
+                          handleChangeSetting({
+                            [setting.state]: val,
+                          });
+                        }}
+                      />
+                    ) : setting.type === "select" ? (
+                      <Selection
+                        className="w-[100px]"
+                        items={setting.option ?? []}
+                        selectedKeys={[formstate[setting.state as never]]}
+                        onChange={(val) =>
+                          dispatch(
+                            setformstate({
+                              ...formstate,
+                              [setting.state as never]: val.target.value,
+                            } as never)
+                          ) as never
+                        }
+                      />
+                    ) : setting.type === "switch" ? (
+                      <>
+                        <Switch
+                          onValueChange={(val) =>
+                            handleChangeSetting({ [setting.state]: val })
                           }
-                        : {})}
-                    />
-                  </>
-                ) : (
-                  <></>
-                )
-              }
-            />
-          )
-      )}
+                          aria-label={setting.label}
+                          {...(formstate.setting
+                            ? {
+                                isSelected:
+                                  formstate.setting[setting.state as never],
+                              }
+                            : {})}
+                        />
+                      </>
+                    ) : (
+                      <></>
+                    )
+                  }
+                />
+              )
+          )}
+        </>
+      ))}
 
       <div className="btn_section w-full h-[40px] flex flex-row items-center gap-x-5">
         <Button
@@ -551,7 +783,15 @@ const SettingTab = () => {
           isLoading={loading}
           color="success"
           isDisabled={!isEdit}
-          onPress={() => handleSaveSetting()}
+          onPress={() =>
+            dispatch(
+              AsyncSaveForm({
+                type: "edit",
+                data: { setting: formstate.setting, _id: formstate._id },
+                onSuccess: () => setisEdit(false),
+              }) as never
+            )
+          }
           className="text-white font-bold"
         >
           Save

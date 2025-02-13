@@ -1,5 +1,5 @@
 import { DateValue, RangeValue } from "@nextui-org/react";
-import { JSONContent } from "@tiptap/react";
+import { Content, JSONContent } from "@tiptap/react";
 
 // Form Types
 export enum FormTypeEnum {
@@ -26,6 +26,7 @@ export interface FormSettingType {
   text?: string;
   email?: boolean;
   returnscore?: returnscore;
+  autosave?: boolean;
 }
 
 interface User {
@@ -43,6 +44,7 @@ export interface FormDataType {
   contents?: Array<ContentType>;
   setting?: FormSettingType;
   user?: User;
+  totalpage: number;
   createdAt?: Date;
   updatedAt?: Date;
   responses?: Array<FormResponseType>;
@@ -87,14 +89,14 @@ export interface AnswerKey {
 // Conditional Type
 export interface ConditionalType {
   _id?: string;
-  QuestionIds: Array<number>;
-  key: Array<number>;
+  contentId?: number | string;
+  key?: number;
 }
 
 // Content Type
 export interface ContentType {
   _id?: string;
-  title?: JSONContent;
+  title?: JSONContent | Content;
   type: QuestionType;
   formId: string;
   text?: string;
@@ -107,7 +109,7 @@ export interface ContentType {
   answer?: AnswerKey;
   parent_question?: number | string;
   parentanswer_idx?: number;
-  conditional?: ConditionalType;
+  conditional?: Array<ConditionalType>;
   require?: boolean;
   selection?: Array<string>;
   page?: number;
@@ -119,6 +121,7 @@ export const DefaultContentType: ContentType = {
   page: 1,
   title: {
     type: "doc",
+
     content: [
       {
         type: "heading",
@@ -187,11 +190,13 @@ export const DefaultFormSetting: FormSettingType = {
   submitonce: false,
   returnscore: returnscore.manual,
   email: false,
+  autosave: false,
 };
 
 export const DefaultFormState: FormDataType = {
   title: "",
   type: FormTypeEnum.Normal,
+  totalpage: 0,
   contentIds: [],
   setting: DefaultFormSetting,
 };

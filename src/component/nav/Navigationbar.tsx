@@ -21,20 +21,34 @@ import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../../redux/openmodal";
 import { RootState } from "../../redux/store";
 import { AsyncLoggout, logout } from "../../redux/user.store";
-import { useState } from "react";
-import ApiRequest from "../../hooks/ApiHook";
-import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
+import { useEffect, useRef, useState } from "react";
+import { hasArrayChange } from "../../helperFunc";
+import { AsyncSaveForm } from "../../redux/formstore";
+import { useLocation } from "react-router";
+import AutoSaveForm from "../../hooks/AutoSaveHook";
 
 export default function NavigationBar() {
   const dispatch = useDispatch();
   const [loading, setloading] = useState(false);
-  const [isFormEdit, setisFormEdit] = useState(false);
+  const location = useLocation();
 
-  const formtitle = useSelector(
-    (root: RootState) => root.allform.formstate?.title
-  );
+  const {
+    formstate,
+    allquestion,
+    prevAllQuestion,
+    loading: saveLoading,
+    fetchloading,
+  } = useSelector((root: RootState) => root.allform);
+  const [formHasChange, setformHasChange] = useState(false);
   const openmodal = useSelector((root: RootState) => root.openmodal.setting);
-  const autosave = useSelector((root: RootState) => root.globalindex.autosave);
+  const page = useSelector((root: RootState) => root.allform.page);
+
+  const formtitleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const isChange = hasArrayChange(allquestion, prevAllQuestion);
+    setformHasChange(!isChange);
+  }, [allquestion]);
 
   const handleSignout = async () => {
     setloading(true);
@@ -43,25 +57,12 @@ export default function NavigationBar() {
     if (!issignout) return;
     dispatch(logout());
   };
-  const handleSaveContent = async () => {
-    setloading(true);
-    const request = await ApiRequest({
-      method: "PUT",
-      url: "/savecontent",
-      cookie: true,
-      refreshtoken: true,
-    });
-    setloading(false);
 
-    if (!request.success) {
-      ErrorToast({
-        toastid: "Save Content",
-        title: "Failed",
-        content: "Can't Save",
-      });
-      return;
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault(); // Prevent new line
+      formtitleRef.current?.blur(); // Optionally blur to finish editing
     }
-    SuccessToast({ title: "Success", content: "Saved" });
   };
 
   return (
@@ -73,27 +74,62 @@ export default function NavigationBar() {
           loading="eager"
           className="w-[50px] h-[50px] object-contain"
         />
-        <h1
-          contentEditable={formtitle ? true : false}
+        <div
+          ref={formtitleRef}
+          contentEditable={formstate.title ? true : false}
           suppressContentEditableWarning
-          onBlur={() => console.log("Edit Form Title")}
-          className="web-name text-3xl font-bold max-[450px]:hidden dark:text-white"
+          onBlur={(val) =>
+            dispatch(
+              AsyncSaveForm({
+                type: "edit",
+                notoast: true,
+                data: {
+                  title: val.currentTarget.innerHTML.toString(),
+                  _id: formstate._id,
+                },
+              }) as never
+            )
+          }
+          onKeyDown={handleKeyDown}
+          className="web-name text-3xl max-w-[500px] max-h-full overflow-x-auto font-bold max-[450px]:hidden dark:text-white 
+          "
         >
-          {formtitle ? formtitle : "Graduate Tracer"}
-        </h1>
+          {formstate.title
+            ? formstate.title
+            : location.pathname === "/dashboard"
+            ? "Graduate Tracer"
+            : ""}
+        </div>
       </div>
       <div className="profile">
         <div className="w-fit h-full flex flex-row items-center gap-x-3">
-          {!autosave && (
+          {fetchloading ? (
+            <></>
+          ) : !formstate.setting?.autosave ? (
             <Button
               className="max-w-xs text-white font-bold"
               variant="solid"
               color="success"
-              isDisabled={!isFormEdit}
-              onPress={() => handleSaveContent()}
+              isDisabled={!formHasChange || !formstate._id}
+              isLoading={saveLoading}
+              onPress={() =>
+                dispatch(
+                  AsyncSaveForm({
+                    type: "save",
+                    data: allquestion,
+                    formID: formstate._id ?? "",
+                    page,
+                    onSuccess: () => {
+                      setformHasChange(false);
+                    },
+                  }) as never
+                )
+              }
             >
               Save
             </Button>
+          ) : (
+            <AutoSaveForm />
           )}
           <ProfileIcon label="John Doe" color="lime" />
           <Popover

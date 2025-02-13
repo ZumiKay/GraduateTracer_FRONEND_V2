@@ -1,5 +1,5 @@
 import { Button, Checkbox, Form, Input } from "@nextui-org/react";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { PasswordInput } from "../component/FormComponent/Input";
 import { ForgotPasswordType, Logindatatype } from "../types/Login.types";
 import PictureBreakAndCombine from "../component/Animation/LogoAnimated";
@@ -12,8 +12,7 @@ import SuccessToast, {
 import RecaptchaButton from "../component/FormComponent/recapcha";
 import ReactDomSever from "react-dom/server";
 import EmailTemplate from "../component/FormComponent/EmailTemplate";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../redux/store";
+import { useDispatch } from "react-redux";
 import { AsyncGetUser } from "../redux/user.store";
 
 type authenticationtype = "login" | "prelogin" | "signup" | "forgot";
@@ -25,15 +24,25 @@ export default function AuthenticationPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const recaptcha = RecaptchaButton();
-  const { isAuthenticated } = useSelector(
-    (root: RootState) => root.usersession
-  );
-
   const [logindata, setlogindata] = useState<Logindatatype>({
     email: "",
     password: "",
     agree: false,
   });
+
+  useEffect(() => {
+    // Load the reCAPTCHA script
+    const script = document.createElement("script");
+    script.src = `https://www.google.com/recaptcha/api.js?render=${
+      import.meta.env.VITE_RECAPTCHA_KEY
+    }`;
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const handleClick = (type: authenticationtype) => {
     setpage(type);
@@ -53,11 +62,10 @@ export default function AuthenticationPage() {
       return;
     }
 
-    if (page === "forgot" && !logindata.email) {
-      return;
-    }
-
-    if (page === "signup" && !logindata.agree) {
+    if (
+      (page === "forgot" && !logindata.email) ||
+      (page === "signup" && !logindata.agree)
+    ) {
       return;
     }
 
@@ -113,7 +121,11 @@ export default function AuthenticationPage() {
 
     if (!verifyreccap) {
       setloading(false);
-      ErrorToast({ title: "Verification", content: "Failed To Verify" });
+      ErrorToast({
+        toastid: page,
+        title: "Verification",
+        content: "Failed To Verify",
+      });
       return;
     }
 
@@ -126,8 +138,8 @@ export default function AuthenticationPage() {
     setloading(false);
 
     if (!AuthenticationRequest.success) {
-      console.log("Error Ocucred");
       ErrorToast({
+        toastid: page,
         title: "Error",
         content: AuthenticationRequest.error ?? "Error Occured",
       });

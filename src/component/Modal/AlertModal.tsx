@@ -4,6 +4,7 @@ import { toast, ToastContentProps } from "react-toastify";
 import ModalWrapper from "./Modal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
+import { ApiRequestReturnType } from "../../hooks/ApiHook";
 
 type ToastContenttype = {
   title: string;
@@ -85,6 +86,59 @@ export function InfoToast(data: ToastContenttype) {
   });
 }
 
+export const PromiseToast = (
+  data: { promise: Promise<ApiRequestReturnType> },
+  custom?: { pending?: string; success?: string; error?: string }
+) => {
+  const toastId = "uniquepromise";
+  if (toast.isActive(toastId)) toast.dismiss(toastId);
+
+  let showToast = true;
+
+  const delayPromise = new Promise<ApiRequestReturnType>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      if (showToast) {
+        toast.promise(
+          data.promise.then((res) => {
+            if (!res.success) reject(res);
+            resolve(res);
+          }),
+          {
+            pending: custom?.pending ?? "Loading...",
+            success: custom?.success,
+            error: custom?.error ?? "Error Occurred",
+          },
+          {
+            toastId,
+            position: "bottom-right",
+            autoClose: 2000,
+            closeOnClick: true,
+            closeButton: true,
+          }
+        );
+      }
+    }, 1000); // Delay toast by 1s
+
+    data.promise
+      .then((res) => {
+        if (!res.success) {
+          clearTimeout(timeout);
+          reject(res);
+          return;
+        }
+        clearTimeout(timeout);
+        showToast = false; // Prevent toast from showing if completed in <1s
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
+
+  return delayPromise;
+};
+
 type ConfirmModalProps = {
   open: boolean;
   onClose: () => void;
@@ -92,6 +146,9 @@ type ConfirmModalProps = {
 export function ConfirmModal(props: ConfirmModalProps) {
   const confirmdata = useSelector(
     (root: RootState) => root.openmodal.confirm.data
+  );
+  const { loading: saveformLoading } = useSelector(
+    (root: RootState) => root.allform
   );
   const [loading, setloading] = useState(false);
   const Btn = () => {
@@ -108,7 +165,7 @@ export function ConfirmModal(props: ConfirmModalProps) {
             props.onClose();
           }}
           className="max-w-xs font-bold"
-          isLoading={loading}
+          isLoading={loading || saveformLoading}
           variant="flat"
         >
           Yes

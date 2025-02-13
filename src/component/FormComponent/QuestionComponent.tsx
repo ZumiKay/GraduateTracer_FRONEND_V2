@@ -19,9 +19,10 @@ import {
 import { CopyIcon, DeleteIcon, TrashIcon } from "../svg/GeneralIcon";
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { setallquestion } from "../../redux/formstore";
+import { setallquestion, setdisbounceQuestion } from "../../redux/formstore";
 import { RootState } from "../../redux/store";
 import Tiptap from "./TipTabEditor";
+import { ErrorToast } from "../Modal/AlertModal";
 
 const QuestionTypeOptions: Array<SelectionType<QuestionType>> = [
   { label: "Multiple Choice", value: QuestionType.MultipleChoice },
@@ -35,6 +36,7 @@ const QuestionTypeOptions: Array<SelectionType<QuestionType>> = [
 ];
 
 interface QuestionComponentProps {
+  id?: string;
   idx: number;
   color: string;
   value: ContentType;
@@ -47,6 +49,7 @@ interface QuestionComponentProps {
 }
 
 const QuestionComponent = ({
+  id,
   idx,
   value,
   color,
@@ -58,18 +61,23 @@ const QuestionComponent = ({
   onDuplication,
 }: QuestionComponentProps) => {
   const dispatch = useDispatch();
+  const allquestion = useSelector(
+    (root: RootState) => root.allform.allquestion
+  );
+  const { setting } = useSelector((root: RootState) => root.allform.formstate);
 
-  const onUpdateState = (newVal: Partial<ContentType>) => {
-    dispatch(
-      setallquestion((prev) =>
-        prev.map((ques, qidx) => {
-          if (qidx === idx) {
-            return { ...ques, ...newVal };
-          }
-          return ques;
-        })
-      )
-    );
+  const onUpdateState = async (newVal: Partial<ContentType>) => {
+    //Save and Update Question State
+    const updatedQuestions = allquestion.map((question, qidx) => {
+      if (question._id === id || qidx === idx) {
+        const val = { ...question, ...newVal };
+        if (setting?.autosave) dispatch(setdisbounceQuestion(val));
+        return val;
+      }
+      return question;
+    });
+
+    dispatch(setallquestion(updatedQuestions as Array<ContentType>));
   };
 
   const renderContentBaseOnQuestionType = () => {
@@ -140,7 +148,7 @@ const QuestionComponent = ({
       <div className="text_editor w-[97%] bg-white p-3 rounded-b-md flex flex-row items-start justify-start gap-x-3">
         <Tiptap
           qidx={idx}
-          value={value.title}
+          value={value.title as never}
           onChange={(val) => onUpdateState({ title: val })}
         />
         <Selection
@@ -284,10 +292,18 @@ export const ChoiceQuestionEdit = ({
   const handleScrolllToQuestion = (ansidx: number) => {
     if (handleScrollTo) {
       //scroll to
-      const question = allquestion.find((i) => i.parentanswer_idx === ansidx);
-      if (question) {
-        handleScrollTo(`${question.type}${allquestion.indexOf(question)}`);
-      } else alert("No Question Found");
+      const question = allquestion.find((i) =>
+        i.conditional?.some(
+          (i) => i.contentId === questionstate._id && i.key === ansidx
+        )
+      );
+      console.log("Question_id", questionstate._id);
+      console.log({ ansidx });
+      // if (question) {
+      //   handleScrollTo(`${question.type}${allquestion.indexOf(question)}`);
+      // } else {
+      //   ErrorToast({ title: "Failed", content: "Can't Find Question" });
+      // }
     }
   };
   return (

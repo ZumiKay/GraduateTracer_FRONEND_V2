@@ -101,7 +101,7 @@ interface TipTapProps {
   qidx?: number;
 }
 
-const Tiptap = ({ value, onChange, qidx }: TipTapProps) => {
+const Tiptap = ({ value, onChange }: TipTapProps) => {
   const editor = useEditor({
     extensions,
     editorProps: {
@@ -121,8 +121,13 @@ const Tiptap = ({ value, onChange, qidx }: TipTapProps) => {
   });
 
   useEffect(() => {
-    if (value) editor?.commands.setContent(value);
-  }, []);
+    if (editor && value) {
+      const currentContent = editor.getJSON();
+      if (JSON.stringify(currentContent) !== JSON.stringify(value)) {
+        editor.commands.setContent(value);
+      }
+    }
+  }, [value, editor]);
 
   const [addlink, setaddlink] = useState(false);
 

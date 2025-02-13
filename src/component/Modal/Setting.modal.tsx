@@ -3,7 +3,7 @@ import ModalWrapper from "./Modal";
 import { Button, Form, Input, Switch, Tab, Tabs } from "@nextui-org/react";
 import { MoonIcon, SunIcon, ThemeIcon } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
-import globalindex, { setsavetype } from "../../redux/globalindex";
+import globalindex from "../../redux/globalindex";
 import { RootState } from "../../redux/store";
 import { PasswordInput } from "../FormComponent/Input";
 
@@ -84,22 +84,7 @@ const GeneralOption = () => {
           </Switch>
         }
       />
-      <ListItem
-        Icon={<></>}
-        name="Save"
-        action={
-          <Switch
-            isSelected={selectstate.autosave}
-            size="sm"
-            className="w-full  dark:text-white"
-            onValueChange={(val) => {
-              dispatch(setsavetype(val));
-            }}
-          >
-            {selectstate.autosave ? "Auto" : "Manually"}
-          </Switch>
-        }
-      />
+
       <ListItem
         Icon={<></>}
         name="Logout from all devices"
