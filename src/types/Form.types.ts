@@ -102,16 +102,14 @@ export interface ContentType {
   text?: string;
   checkbox?: Array<CheckboxQuestionType>;
   multiple?: Array<CheckboxQuestionType>;
-  range?: RangeValue<DateValue>;
+  range?: RangeValue<string>;
   numrange?: RangeType<number>;
+  selection?: Array<string>;
   date?: Date;
   score?: number;
   answer?: AnswerKey;
-  parent_question?: number | string;
-  parentanswer_idx?: number;
   conditional?: Array<ConditionalType>;
   require?: boolean;
-  selection?: Array<string>;
   page?: number;
 }
 

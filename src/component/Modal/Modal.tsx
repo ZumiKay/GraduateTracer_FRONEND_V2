@@ -68,40 +68,59 @@ export const AddLinkModal = ({
 
   const handleAddOrEditLink = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const url = state.link;
+    if (!editorState) return;
+    let url = state.link.trim() as string;
 
-    // cancelled
+    // Cancelled if no URL
     if (!url) {
       return;
     }
 
-    // empty
+    // Remove link if the URL is empty
     if (url === "") {
-      editorState?.chain().focus().extendMarkRange("link").unsetLink().run();
-
-      return;
-    }
-    if (!selectedText) {
-      alert("No text selected to replace.");
+      editorState.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
 
-    // update link
+    // Ensure text is selected
+
+    const { from, to } = editorState.state.selection;
+    if (from === to) {
+      alert("No text selected to add a link.");
+      return;
+    }
+
     try {
+      // Apply link mark to selected text
+
+      if (!url.includes("https://")) {
+        url = `https://${url}`;
+      }
+
       editorState
-        ?.chain()
+        .chain()
         .focus()
         .extendMarkRange("link")
-        .setLink({ href: url })
-        .insertContent(state.texttoshow ?? "", { updateSelection: true })
+        .setLink({ href: url, target: "_blank" }) // Add target=_blank for external links
         .run();
+
+      // If `texttoshow` exists, replace selected text
+      if (state.texttoshow) {
+        editorState?.commands.insertContentAt({ from, to }, state.texttoshow);
+      }
+
+      setopen(false);
     } catch (e) {
       const error = e as { message?: string };
-      alert(error?.message ?? "Error Occured");
+      alert(error?.message ?? "An error occurred while adding the link.");
     }
   };
 
-  const handleRemoveLink = () => editorState?.chain().focus().unsetLink().run();
+  const handleRemoveLink = () => {
+    editorState?.chain().focus().unsetLink().run();
+    setopen(false);
+    setstate({ link: "", texttoshow: "" });
+  };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setstate((prev) => ({ ...prev, [e.target.name]: e.target.value }));

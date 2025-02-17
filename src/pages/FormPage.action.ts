@@ -3,7 +3,7 @@ import ApiRequest from "../hooks/ApiHook";
 import { ContentType } from "../types/Form.types";
 
 export const AutoSaveQuestion = async (data: {
-  data: Array<ContentType>;
+  data: Array<ContentType> | object;
   formId: string;
   type?: "save" | "edit";
   page?: number;

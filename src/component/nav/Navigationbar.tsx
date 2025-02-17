@@ -23,9 +23,11 @@ import { RootState } from "../../redux/store";
 import { AsyncLoggout, logout } from "../../redux/user.store";
 import { useEffect, useRef, useState } from "react";
 import { hasArrayChange } from "../../helperFunc";
-import { AsyncSaveForm } from "../../redux/formstore";
 import { useLocation } from "react-router";
 import AutoSaveForm from "../../hooks/AutoSaveHook";
+import { AutoSaveQuestion } from "../../pages/FormPage.action";
+import { ErrorToast } from "../Modal/AlertModal";
+import { ContentType } from "../../types/Form.types";
 
 export default function NavigationBar() {
   const dispatch = useDispatch();
@@ -36,12 +38,13 @@ export default function NavigationBar() {
     formstate,
     allquestion,
     prevAllQuestion,
-    loading: saveLoading,
+
     fetchloading,
   } = useSelector((root: RootState) => root.allform);
   const [formHasChange, setformHasChange] = useState(false);
   const openmodal = useSelector((root: RootState) => root.openmodal.setting);
   const page = useSelector((root: RootState) => root.allform.page);
+  const [saveloading, setsaveloading] = useState(false);
 
   const formtitleRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +67,21 @@ export default function NavigationBar() {
       formtitleRef.current?.blur(); // Optionally blur to finish editing
     }
   };
+  async function handleManuallySave<t>(data: t, type?: string) {
+    setsaveloading(true);
+    const saveReq = await AutoSaveQuestion({
+      data: data as never,
+      page,
+      type: (type as never) ?? "save",
+      formId: formstate._id ?? "",
+    });
+    setsaveloading(false);
+    if (!saveReq.success) {
+      ErrorToast({ title: "Failed", content: "Can't Save" });
+      return;
+    }
+    setformHasChange(false);
+  }
 
   return (
     <nav className="navigationbar w-full h-[70px] bg-[#f5f5f5] flex flex-row justify-between items-center p-2 dark:bg-gray-800 mb-10">
@@ -79,15 +97,12 @@ export default function NavigationBar() {
           contentEditable={formstate.title ? true : false}
           suppressContentEditableWarning
           onBlur={(val) =>
-            dispatch(
-              AsyncSaveForm({
-                type: "edit",
-                notoast: true,
-                data: {
-                  title: val.currentTarget.innerHTML.toString(),
-                  _id: formstate._id,
-                },
-              }) as never
+            handleManuallySave<object>(
+              {
+                title: val.currentTarget.innerHTML.toString(),
+                _id: formstate._id,
+              },
+              "edit"
             )
           }
           onKeyDown={handleKeyDown}
@@ -111,19 +126,10 @@ export default function NavigationBar() {
               variant="solid"
               color="success"
               isDisabled={!formHasChange || !formstate._id}
-              isLoading={saveLoading}
+              isLoading={saveloading}
               onPress={() =>
-                dispatch(
-                  AsyncSaveForm({
-                    type: "save",
-                    data: allquestion,
-                    formID: formstate._id ?? "",
-                    page,
-                    onSuccess: () => {
-                      setformHasChange(false);
-                    },
-                  }) as never
-                )
+                formstate._id &&
+                handleManuallySave<Array<ContentType>>(allquestion)
               }
             >
               Save

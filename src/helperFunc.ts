@@ -63,3 +63,9 @@ export const hasArrayChange = (arr1: Array<object>, arr2: Array<object>) => {
   // Element-wise deep comparison
   return arr1.every((item, index) => deepEqual(item, arr2[index]));
 };
+
+export const FormatDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(date.getDate()).padStart(2, "0")}`;

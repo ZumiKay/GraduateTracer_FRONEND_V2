@@ -15,6 +15,7 @@
     "@draft-js-plugins/editor": "^4.1.4",
     "@draft-js-plugins/linkify": "^4.2.2",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
+    "@internationalized/date": "^3.7.0",
     "@nextui-org/react": "^2.6.8",
     "@reduxjs/toolkit": "^2.5.0",
     "@tiptap/extension-link": "^2.11.2",

@@ -173,7 +173,7 @@ export const CustomRadio = (props: CustomChoiceProps) => {
           <Input
             className="ml-5"
             size="lg"
-            value={props.label}
+            value={props.value}
             variant="bordered"
             placeholder="Option"
             onChange={props.onChange}

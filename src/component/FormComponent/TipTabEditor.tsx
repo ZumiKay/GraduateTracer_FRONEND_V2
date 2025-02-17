@@ -8,7 +8,7 @@ import Italic from "@tiptap/extension-italic";
 import Code from "@tiptap/extension-code";
 import { LinkIcon } from "../svg/InputIcon";
 import Link from "@tiptap/extension-link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AddLinkModal } from "../Modal/Modal";
 import BulletList from "@tiptap/extension-bullet-list";
 import OrderedList from "@tiptap/extension-ordered-list";
@@ -40,27 +40,23 @@ const extensions = [
   Link.configure({
     openOnClick: false,
     autolink: true,
+    defaultProtocol: "https",
+    protocols: ["http", "https"],
     isAllowedUri: (url, ctx) => {
       try {
-        // construct URL
         const parsedUrl = url.includes(":")
           ? new URL(url)
           : new URL(`${ctx.defaultProtocol}://${url}`);
 
-        // use default validation
         if (!ctx.defaultValidate(parsedUrl.href)) {
           return false;
         }
-
-        // disallowed protocols
-        const disallowedProtocols = ["ftp", "file", "mailto"];
+        const disallowedProtocols = ["ftp", "file"];
         const protocol = parsedUrl.protocol.replace(":", "");
 
         if (disallowedProtocols.includes(protocol)) {
           return false;
         }
-
-        // only allow protocols specified in ctx.protocols
         const allowedProtocols = ctx.protocols.map((p) =>
           typeof p === "string" ? p : p.scheme
         );
@@ -69,7 +65,6 @@ const extensions = [
           return false;
         }
 
-        // disallowed domains
         const disallowedDomains = [
           "example-phishing.com",
           "malicious-site.net",
@@ -79,10 +74,9 @@ const extensions = [
         if (disallowedDomains.includes(domain)) {
           return false;
         }
-
-        // all checks have passed
         return true;
-      } catch {
+      } catch (error) {
+        console.log("Error Link", error);
         return false;
       }
     },
@@ -104,6 +98,8 @@ interface TipTapProps {
 const Tiptap = ({ value, onChange }: TipTapProps) => {
   const editor = useEditor({
     extensions,
+    content: value,
+
     editorProps: {
       attributes: {
         class:
@@ -120,16 +116,9 @@ const Tiptap = ({ value, onChange }: TipTapProps) => {
     },
   });
 
-  useEffect(() => {
-    if (editor && value) {
-      const currentContent = editor.getJSON();
-      if (JSON.stringify(currentContent) !== JSON.stringify(value)) {
-        editor.commands.setContent(value);
-      }
-    }
-  }, [value, editor]);
-
   const [addlink, setaddlink] = useState(false);
+
+  if (!editor) return null;
 
   const applyStyle = (style: "bold" | "italic" | "code") => {
     if (!editor) return;

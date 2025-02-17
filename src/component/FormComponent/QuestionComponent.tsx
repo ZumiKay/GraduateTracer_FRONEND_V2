@@ -23,6 +23,8 @@ import { setallquestion, setdisbounceQuestion } from "../../redux/formstore";
 import { RootState } from "../../redux/store";
 import Tiptap from "./TipTabEditor";
 import { ErrorToast } from "../Modal/AlertModal";
+import { parseDate } from "@internationalized/date";
+import { FormatDate } from "../../helperFunc";
 
 const QuestionTypeOptions: Array<SelectionType<QuestionType>> = [
   { label: "Multiple Choice", value: QuestionType.MultipleChoice },
@@ -43,9 +45,10 @@ interface QuestionComponentProps {
   isLinked: (ansidx: number) => boolean;
   onDelete: () => void;
   onAddCondition?: (answeridx: number) => void;
-  removeCondition?: (answeridx: number) => void;
+  removeCondition?: (answeridx: number, ty: "delete" | "unlink") => void;
   onDuplication: () => void;
   scrollToCondition?: (key: string) => void;
+  isConditioned: () => { key: string; qIdx: number; ansIdx: number };
 }
 
 const QuestionComponent = ({
@@ -59,6 +62,7 @@ const QuestionComponent = ({
   removeCondition,
   scrollToCondition,
   onDuplication,
+  isConditioned,
 }: QuestionComponentProps) => {
   const dispatch = useDispatch();
   const allquestion = useSelector(
@@ -69,11 +73,16 @@ const QuestionComponent = ({
   const onUpdateState = async (newVal: Partial<ContentType>) => {
     //Save and Update Question State
     const updatedQuestions = allquestion.map((question, qidx) => {
-      if (question._id === id || qidx === idx) {
-        const val = { ...question, ...newVal };
-        if (setting?.autosave) dispatch(setdisbounceQuestion(val));
-        return val;
+      if ((question._id && question._id === id) || qidx === idx) {
+        const updatedQuestion = { ...question, ...newVal };
+
+        if (setting?.autosave) {
+          dispatch(setdisbounceQuestion(updatedQuestion)); // Avoid multiple dispatches
+        }
+
+        return updatedQuestion;
       }
+
       return question;
     });
 
@@ -93,8 +102,8 @@ const QuestionComponent = ({
             onAddCondition={(answeridx) =>
               onAddCondition && onAddCondition(answeridx)
             }
-            removeCondition={(answeridx) =>
-              removeCondition && removeCondition(answeridx)
+            removeCondition={(answeridx, ty) =>
+              removeCondition && removeCondition(answeridx, ty)
             }
             handleScrollTo={scrollToCondition}
           />
@@ -128,7 +137,7 @@ const QuestionComponent = ({
               onAddCondition && onAddCondition(ansidx)
             }
             removeCondition={(ansidx) =>
-              removeCondition && removeCondition(ansidx)
+              removeCondition && removeCondition(ansidx, "unlink")
             }
             handleScrollTo={scrollToCondition}
             setstate={(val) => onUpdateState({ ...val })}
@@ -143,8 +152,11 @@ const QuestionComponent = ({
   return (
     <div
       style={{ backgroundColor: color }}
-      className="w-full h-fit rounded-md flex flex-col items-center gap-y-5 py-5"
+      className="w-full h-fit flex flex-col items-center gap-y-5 py-5 relative"
     >
+      <div className="question_count absolute -top-10 right-0 font-bold bg-secondary text-white p-2">
+        {`Question ${idx + 1}`}
+      </div>
       <div className="text_editor w-[97%] bg-white p-3 rounded-b-md flex flex-row items-start justify-start gap-x-3">
         <Tiptap
           qidx={idx}
@@ -172,16 +184,6 @@ const QuestionComponent = ({
         </div>
       )}
       <div className="detail_section w-fit h-[40px] flex flex-row self-end gap-x-3">
-        <div className="questionidx bg-white w-fit h-full p-2 rounded-md">
-          {value.parent_question !== undefined &&
-          value.parentanswer_idx !== undefined
-            ? `Conditional For Q${
-                typeof value.parent_question === "number"
-                  ? value.parent_question + 1
-                  : value.parent_question
-              } (A${value.parentanswer_idx + 1})`
-            : `Question ${idx + 1}`}
-        </div>
         <div className="danger_section w-fit h-full self-end p-2 mr-2 bg-white rounded-md flex flex-row items-center gap-x-5">
           <Tooltip placement="bottom" content="Delete Question">
             <div
@@ -214,6 +216,18 @@ const QuestionComponent = ({
           </Switch>
         </div>
       </div>
+      {isConditioned().qIdx !== -1 && (
+        <div
+          onClick={() => {
+            scrollToCondition?.(isConditioned().key);
+          }}
+          className="condition_indicator w-fit p-2  bg-secondary rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200 absolute top-[100%]"
+        >
+          {`Condition for question ${isConditioned().qIdx + 1} and option ${
+            isConditioned().ansIdx + 1
+          }`}
+        </div>
+      )}
     </div>
   );
 };
@@ -226,7 +240,7 @@ interface ChoiceQuestionProps {
   questionstate: ContentType;
   setquestionsate: (val: Partial<ContentType>) => void;
   onAddCondition?: (answeridx: number) => void;
-  removeCondition?: (answeridx: number) => void;
+  removeCondition?: (answeridx: number, ty: "delete" | "unlink") => void;
   isLinked?: (ansidx: number) => boolean;
   handleScrollTo?: (key: string) => void;
 }
@@ -266,9 +280,9 @@ export const ChoiceQuestionEdit = ({
 
     //Update Question State
     setquestionsate({
-      [questionstate.type]: updatedOptions.filter((item) => item.idx !== idx),
+      [questionstate.type]: updatedOptions.filter((_, oIdx) => oIdx !== idx),
     });
-    removeCondition?.(idx);
+    removeCondition?.(idx, "delete");
   };
 
   const handleChoiceQuestionChange = (
@@ -292,18 +306,24 @@ export const ChoiceQuestionEdit = ({
   const handleScrolllToQuestion = (ansidx: number) => {
     if (handleScrollTo) {
       //scroll to
-      const question = allquestion.find((i) =>
-        i.conditional?.some(
-          (i) => i.contentId === questionstate._id && i.key === ansidx
-        )
+      const question = allquestion.find((q) => q._id === questionstate._id);
+      const linkedContentId = question?.conditional?.find(
+        (c) => c.key === ansidx
       );
-      console.log("Question_id", questionstate._id);
-      console.log({ ansidx });
-      // if (question) {
-      //   handleScrollTo(`${question.type}${allquestion.indexOf(question)}`);
-      // } else {
-      //   ErrorToast({ title: "Failed", content: "Can't Find Question" });
-      // }
+
+      if (linkedContentId) {
+        const linkedQuestion = allquestion.find(
+          (q) => q._id === linkedContentId.contentId
+        );
+        if (linkedQuestion)
+          handleScrollTo(
+            `${linkedQuestion?.type}${
+              linkedQuestion?._id ?? allquestion.indexOf(linkedQuestion)
+            }`
+          );
+      } else {
+        ErrorToast({ title: "Failed", content: "Can't Find Question" });
+      }
     }
   };
   return (
@@ -320,7 +340,7 @@ export const ChoiceQuestionEdit = ({
               }}
               onDelete={() => handleDeleteOption(idx)}
               addConditionQuestion={() => onAddCondition?.(idx)}
-              removeConditionQuestion={() => removeCondition?.(idx)}
+              removeConditionQuestion={() => removeCondition?.(idx, "unlink")}
               handleScrollTo={() => handleScrolllToQuestion(idx)}
             />
           ))
@@ -332,7 +352,7 @@ export const ChoiceQuestionEdit = ({
               idx={idx}
               isLink={isLinked?.(idx)}
               addConditionQuestion={() => onAddCondition?.(idx)}
-              removeConditionQuestion={() => removeCondition?.(idx)}
+              removeConditionQuestion={() => removeCondition?.(idx, "unlink")}
               value={option.content}
               onChange={(e) => {
                 handleChoiceQuestionChange(e, idx);
@@ -375,10 +395,21 @@ const RangeQuestionEdit = ({
         <DateRangePicker
           onChange={(val) => {
             if (!val) return;
-            setquestionsate({ range: val });
+
+            setquestionsate({
+              range: {
+                start: FormatDate(new Date(val.start)),
+                end: FormatDate(new Date(val.end)),
+              },
+            });
           }}
           size="lg"
-          value={questionstate?.range}
+          value={
+            questionstate.range && {
+              start: parseDate(questionstate.range.start) as never,
+              end: parseDate(questionstate.range.end) as never,
+            }
+          }
           startName="start"
           aria-label="Date Range"
           endName="start"
@@ -418,7 +449,7 @@ const SelectionQuestionEdit = ({
   state: ContentType;
   setstate: (newVal: Partial<ContentType>) => void;
   onAddCondition?: (answeridx: number) => void;
-  removeCondition?: (answeridx: number) => void;
+  removeCondition?: (answeridx: number, ty: "delete" | "unlink") => void;
   isLinked?: (ansidx: number) => boolean;
   handleScrollTo?: (key: string) => void;
 }) => {
@@ -429,7 +460,7 @@ const SelectionQuestionEdit = ({
     //Refracter below code
 
     if (isLinked && isLinked(ansidx)) {
-      if (removeCondition) removeCondition(ansidx);
+      if (removeCondition) removeCondition(ansidx, "unlink");
     } else {
       if (onAddCondition) onAddCondition(ansidx);
     }
@@ -443,7 +474,7 @@ const SelectionQuestionEdit = ({
     setstate({ selection: state.selection?.filter((_, i) => i !== didx) });
 
     //Remove Condition from question
-    removeCondition?.(didx);
+    removeCondition?.(didx, "delete");
   };
 
   return (

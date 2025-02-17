@@ -34,7 +34,7 @@ const RefreshToken = async () => {
 
 export interface ApiRequestReturnType {
   success: boolean;
-  data?: { [key: string]: never };
+  data?: { [key: string]: never | string | string[]; insertedId: string[] };
   message?: string;
   error?: string;
   status?: number;

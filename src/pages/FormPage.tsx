@@ -16,6 +16,7 @@ import Selection, {
 } from "../component/FormComponent/Selection";
 import { SelectionType } from "../types/Global.types";
 import {
+  ContentType,
   DefaultContentType,
   DefaultFormSetting,
   FormDataType,
@@ -136,8 +137,6 @@ const QuestionTab = () => {
   );
   const [searchParam, setsearchParam] = useSearchParams();
 
-  const [loading, setloading] = useState(false);
-
   const dispatch = useDispatch();
   const allquestion = useSelector(
     (root: RootState) => root.allform.allquestion
@@ -146,21 +145,23 @@ const QuestionTab = () => {
   const handleAddQuestion = async () => {
     const updatedQuestions = [...allquestion, { ...DefaultContentType, page }];
     if (formstate.setting?.autosave) {
-      setloading(true);
       const createReq = AutoSaveQuestion({
         data: updatedQuestions,
         formId: formstate._id ?? "",
         type: "save",
         page,
       });
-      setloading(false);
       const process = await PromiseToast(
         { promise: createReq },
         { pending: "Creating", error: "Can't Create" }
       );
-      if (!process) return;
-
-      dispatch(setreloaddata(true));
+      if (!process.success || !process.data || !process.data.insertedId) return;
+      dispatch(
+        setallquestion((prev) => [
+          ...prev,
+          { ...DefaultContentType, _id: process.data?.insertedId[0], page },
+        ])
+      );
     } else
       dispatch(
         setallquestion((prev) => [...prev, { ...DefaultContentType, page }])
@@ -171,7 +172,7 @@ const QuestionTab = () => {
     const questionToDelete = allquestion[qidx];
 
     const deleteRequest = async () => {
-      if (id) {
+      if (id && formstate.setting?.autosave) {
         const request = await PromiseToast(
           {
             promise: ApiRequest({
@@ -188,10 +189,32 @@ const QuestionTab = () => {
         if (!request.success) return;
       }
 
-      dispatch(setallquestion(allquestion.filter((_, idx) => idx !== qidx)));
+      //Instance Update Questions
+
+      dispatch(
+        setallquestion((prev) =>
+          prev
+            .map((i) =>
+              i.conditional?.some(
+                (con) => (id && con.contentId === id) || con.contentId === qidx
+              )
+                ? {
+                    ...i,
+                    conditional: i.conditional.filter(
+                      (cond) =>
+                        (id && cond.contentId !== id) || cond.contentId !== qidx
+                    ),
+                  }
+                : i
+            )
+            .filter(
+              (question, idx) => (id && question._id !== id) || idx !== qidx
+            )
+        )
+      );
     };
 
-    if (questionToDelete.conditional)
+    if (questionToDelete.conditional && questionToDelete.conditional.length > 0)
       dispatch(
         setopenmodal({
           state: "confirm",
@@ -239,15 +262,11 @@ const QuestionTab = () => {
         if (!request.success || !request.data) {
           return;
         }
-        newContentId = request.data.newContentId;
+        newContentId = request.data.newContentId as string;
       } else {
         newContentId = questionId;
       }
 
-      toUpdateQuestion.conditional?.push({
-        contentId: newContentId,
-        key: anskey,
-      });
       dispatch(
         setallquestion((prev) => {
           const index =
@@ -257,29 +276,48 @@ const QuestionTab = () => {
 
           if (index === -1) return prev; // If not found, return previous state
 
-          const updatedList = [...prev];
+          // Create a new updated list
+          const updatedList = [
+            ...prev.map((i, idx) =>
+              idx === index
+                ? {
+                    ...i,
+                    conditional: [
+                      ...(i.conditional ?? []),
+                      {
+                        contentId: newContentId,
+                        key: anskey,
+                      },
+                    ],
+                  }
+                : i
+            ),
+          ] as ContentType[];
 
           // Update the existing question
-          updatedList[index] = {
-            ...toUpdateQuestion,
-          } as never;
 
-          // Insert new content right after
-          updatedList.splice(index + 1, 0, {
-            ...DefaultContentType,
-            page,
-            _id: typeof newContentId === "string" ? newContentId : undefined,
-          });
-
-          return updatedList;
+          // Insert new content **correctly** after the updated question
+          return [
+            ...updatedList.slice(0, index + 1), // Keep elements before and including the updated one
+            {
+              ...DefaultContentType,
+              page,
+              _id: typeof newContentId === "string" ? newContentId : undefined,
+            }, // Insert new question
+            ...updatedList.slice(index + 1), // Append the remaining elements
+          ];
         })
       );
     }
   };
 
-  const removeConditionedQuestion = async (ansidx: number, qidx: number) => {
+  const removeConditionedQuestion = async (
+    ansidx: number,
+    qidx: number,
+    ty: "unlink" | "delete"
+  ) => {
     // handle Remove Conditioned Option
-    let toremoveQuestion: string | number = 0;
+    let toremoveQuestion: string | number | null = null;
     const UpdatedQuestion = [
       ...allquestion
         .map((question, idx) => {
@@ -289,21 +327,28 @@ const QuestionTab = () => {
           const updatedQuestion = { ...question };
           const typeKey = updatedQuestion.type as keyof typeof updatedQuestion;
 
-          if (Array.isArray(updatedQuestion[typeKey])) {
+          if (Array.isArray(updatedQuestion[typeKey]) && ty === "delete") {
             updatedQuestion[typeKey] = updatedQuestion[typeKey].filter(
               (_, i) => i !== ansidx
             ) as never;
           }
           toremoveQuestion =
             updatedQuestion.conditional?.find((con) => con.key === ansidx)
-              ?.contentId ?? 0;
+              ?.contentId ?? null;
 
-          return updatedQuestion;
+          return {
+            ...updatedQuestion,
+            conditional: updatedQuestion.conditional?.filter(
+              (con) => con.contentId !== toremoveQuestion
+            ),
+          };
         })
         .filter((q, idx) =>
-          typeof toremoveQuestion === "string"
-            ? q._id !== toremoveQuestion
-            : idx !== toremoveQuestion
+          toremoveQuestion
+            ? typeof toremoveQuestion === "string"
+              ? q._id !== toremoveQuestion
+              : idx !== toremoveQuestion
+            : q
         ),
     ];
 
@@ -359,6 +404,16 @@ const QuestionTab = () => {
     allquestion[qidx] && allquestion[qidx].conditional
       ? allquestion[qidx].conditional.some((con) => con.key === ansidx)
       : false;
+  const checkConditionedContent = (id: string | number) => {
+    const qIdx = allquestion.findIndex(
+      (i) => i.conditional && i.conditional.some((con) => con.contentId === id)
+    );
+    const key = `${allquestion[qIdx]?.type}${allquestion[qIdx]?._id ?? qIdx}`;
+    const ansIdx =
+      allquestion[qIdx]?.conditional?.find((con) => con.contentId === id)
+        ?.key ?? 0;
+    return { key, qIdx, ansIdx };
+  };
 
   const scrollToDiv = (key: string) => {
     const element = componentRefs.current[key];
@@ -414,7 +469,7 @@ const QuestionTab = () => {
   return (
     <div
       style={{ color: formstate.setting?.text }}
-      className="w-full h-fit flex flex-col items-center gap-y-10"
+      className="w-full h-fit flex flex-col items-center gap-y-20"
     >
       {fetchloading ? (
         <Skeleton className="w-[80%] h-[300px] rounded-md" />
@@ -445,13 +500,16 @@ const QuestionTab = () => {
                 onAddCondition={(answeridx) =>
                   handleAddCondition(question._id ?? idx, answeridx)
                 }
-                removeCondition={(answeridx) => {
-                  removeConditionedQuestion(answeridx, idx);
+                removeCondition={(answeridx, ty) => {
+                  removeConditionedQuestion(answeridx, idx, ty);
                 }}
                 onDuplication={() => handleDuplication(idx)}
                 scrollToCondition={(val) => {
-                  console.log({ val });
+                  scrollToDiv(val);
                 }}
+                isConditioned={() =>
+                  checkConditionedContent(question._id ?? idx)
+                }
               />
             </div>
           ))
@@ -462,7 +520,6 @@ const QuestionTab = () => {
         onPress={() => {
           handleAddQuestion();
         }}
-        isLoading={loading}
       >
         New Question
       </Button>
@@ -702,6 +759,22 @@ const SettingTab = () => {
     {} as Record<string, typeof SettingOptions>
   );
 
+  const handleDeleteForm = () => {
+    dispatch(
+      setopenmodal({
+        state: "confirm",
+        value: {
+          open: true,
+          data: {
+            onAgree: async () => {
+              alert("Delete Form");
+            },
+          },
+        },
+      })
+    );
+  };
+
   return (
     <div className="setting-tab w-[80%] h-fit flex flex-col items-center gap-y-10 bg-white p-2 rounded-lg">
       <span className="text-red-300">
@@ -770,6 +843,18 @@ const SettingTab = () => {
           )}
         </>
       ))}
+
+      <div className="dangerous w-full h-full flex flex-row items-center justify-between">
+        <p className="text-lg font-bold">Deletion</p>
+        <Button
+          color="danger"
+          variant="bordered"
+          className="font-bold max-w-sm"
+          onPress={() => handleDeleteForm()}
+        >
+          Delete
+        </Button>
+      </div>
 
       <div className="btn_section w-full h-[40px] flex flex-row items-center gap-x-5">
         <Button
