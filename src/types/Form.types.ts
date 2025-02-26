@@ -1,10 +1,17 @@
-import { DateValue, RangeValue } from "@nextui-org/react";
+import { RangeValue } from "@nextui-org/react";
 import { Content, JSONContent } from "@tiptap/react";
 
-// Form Types
+// Form Enums
 export enum FormTypeEnum {
   Normal = "NORMAL",
   Quiz = "QUIZ",
+}
+export enum Tiptapcontent_Enum {
+  doc = "doc",
+  text = "text",
+  paragraph = "paragraph",
+  heading = "heading",
+  bulletlist = "bulletPointj",
 }
 
 export type FormType = `${FormTypeEnum}`;
@@ -60,6 +67,8 @@ export enum QuestionType {
   RangeDate = "rangedate",
   Selection = "select",
   RangeNumber = "rangenumber",
+  ShortAnswer = "shortanswer",
+  Paragraph = "paragraph",
 }
 
 // Range Type
@@ -89,12 +98,13 @@ export interface AnswerKey {
 // Conditional Type
 export interface ConditionalType {
   _id?: string;
-  contentId?: number | string;
+  contentId?: number;
   key?: number;
 }
 
 // Content Type
-export interface ContentType {
+export interface ContentType<t = unknown> {
+  idx: number;
   _id?: string;
   title?: JSONContent | Content;
   type: QuestionType;
@@ -111,9 +121,11 @@ export interface ContentType {
   conditional?: Array<ConditionalType>;
   require?: boolean;
   page?: number;
+  [key: string]: t | unknown;
 }
 
 export const DefaultContentType: ContentType = {
+  idx: 0,
   type: QuestionType.Text,
   formId: "",
   page: 1,

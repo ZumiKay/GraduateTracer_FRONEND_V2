@@ -8,7 +8,7 @@ import Italic from "@tiptap/extension-italic";
 import Code from "@tiptap/extension-code";
 import { LinkIcon } from "../svg/InputIcon";
 import Link from "@tiptap/extension-link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AddLinkModal } from "../Modal/Modal";
 import BulletList from "@tiptap/extension-bullet-list";
 import OrderedList from "@tiptap/extension-ordered-list";
@@ -93,20 +93,23 @@ interface TipTapProps {
   value?: JSONContent;
   onChange?: (val: JSONContent) => void;
   qidx?: number;
+  readonly?: boolean;
 }
 
-const Tiptap = ({ value, onChange }: TipTapProps) => {
+const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
   const editor = useEditor({
     extensions,
     content: value,
-
     editorProps: {
       attributes: {
-        class:
-          "w-full min-h-[40px] text-left h-fit outline-none border-b-2 border-gray-300 bg-gray-50",
+        class: `w-full min-h-[40px] text-left h-fit outline-none ${
+          readonly ? "" : "readwrite border-b-2 border-gray-300 bg-gray-50"
+        }`,
+      },
+      editable: () => {
+        return !readonly;
       },
     },
-
     onUpdate: () => {
       if (!editor) return;
 
@@ -116,7 +119,21 @@ const Tiptap = ({ value, onChange }: TipTapProps) => {
     },
   });
 
+  useEffect(() => {
+    return () => {
+      if (editor) {
+        editor.destroy();
+      }
+    };
+  }, [editor]);
+
   const [addlink, setaddlink] = useState(false);
+
+  useEffect(() => {
+    if (editor && JSON.stringify(value) !== JSON.stringify(editor.getJSON())) {
+      editor.commands.setContent(value as never);
+    }
+  }, [value, editor]);
 
   if (!editor) return null;
 
@@ -191,83 +208,84 @@ const Tiptap = ({ value, onChange }: TipTapProps) => {
       )}
       <div className="w-full h-fit flex flex-col gap-y-5">
         <EditorContent editor={editor} />
-
-        <div className="w-full h-[30px] flex flex-row gap-x-3 items-center cursor-default">
-          <Selection
-            className="w-[150px]"
-            items={HeaderOptions}
-            selectedKeys={[activeHeading()]}
-            onChange={(val) => toggleHeader(Number(val.target.value))}
-            placeholder="Heading"
-          />
-          <span
-            onClick={() => applyStyle("bold")}
-            className={`font-bold w-[30px] h-full grid place-content-center
+        {!readonly && (
+          <div className="w-full h-[30px] flex flex-row gap-x-3 items-center cursor-default">
+            <Selection
+              className="w-[150px]"
+              items={HeaderOptions}
+              selectedKeys={[activeHeading()]}
+              onChange={(val) => toggleHeader(Number(val.target.value))}
+              placeholder="Heading"
+            />
+            <span
+              onClick={() => applyStyle("bold")}
+              className={`font-bold w-[30px] h-full grid place-content-center
         rounded-lg hover:bg-primary active:bg-primary transition-colors ${
           isStyleActive("bold")
             ? "bg-primary text-white"
             : "bg-lightsucess text-black"
         }`}
-          >
-            B
-          </span>
-          <span
-            onClick={() => applyStyle("italic")}
-            className={`font-bold italic w-[30px] h-full grid place-content-center
+            >
+              B
+            </span>
+            <span
+              onClick={() => applyStyle("italic")}
+              className={`font-bold italic w-[30px] h-full grid place-content-center
             rounded-lg hover:bg-primary active:bg-primary transition-colors ${
               isStyleActive("italic")
                 ? "bg-primary text-white"
                 : "bg-lightsucess text-black"
             }`}
-          >
-            I
-          </span>
-          <span
-            onClick={() => applyStyle("code")}
-            className={`font-bold w-[30px] h-full grid place-content-center
+            >
+              I
+            </span>
+            <span
+              onClick={() => applyStyle("code")}
+              className={`font-bold w-[30px] h-full grid place-content-center
             rounded-lg hover:bg-primary active:bg-primary transition-colors ${
               isStyleActive("code")
                 ? "bg-primary text-white"
                 : "bg-lightsucess text-black"
             }`}
-          >
-            {`</>`}
-          </span>
-          <span
-            onClick={() => setaddlink(true)}
-            className={`font-bold w-[30px] h-full grid place-content-center
+            >
+              {`</>`}
+            </span>
+            <span
+              onClick={() => setaddlink(true)}
+              className={`font-bold w-[30px] h-full grid place-content-center
             rounded-lg hover:bg-primary active:bg-primary transition-colors ${
               isLinkSelection()
                 ? "bg-primary text-white"
                 : "bg-lightsucess text-black"
             }`}
-          >
-            <LinkIcon
-              width={"20px"}
-              height={"20px"}
-              fill={isLinkSelection() ? "#fff" : "#000000"}
-            />
-          </span>
-          <span
-            onClick={() => toggleListOrder()}
-            className={`font-bold w-[30px] h-full grid place-content-center
+            >
+              <LinkIcon
+                width={"20px"}
+                height={"20px"}
+                fill={isLinkSelection() ? "#fff" : "#000000"}
+              />
+            </span>
+            <span
+              onClick={() => toggleListOrder()}
+              className={`font-bold w-[30px] h-full grid place-content-center
             rounded-lg hover:bg-primary active:bg-primary transition-colors ${
               listactive("bulletList") || listactive("orderedList")
                 ? "bg-primary text-white"
                 : "bg-lightsucess text-black"
             }`}
-          >
-            <ListIcon
-              fill={
-                listactive("bulletList") || listactive("orderedList")
-                  ? "#fff"
-                  : "#000000"
-              }
-              width={"20px"}
-              height={"20px"}
-            />
-          </span>
-        </div>
+            >
+              <ListIcon
+                fill={
+                  listactive("bulletList") || listactive("orderedList")
+                    ? "#fff"
+                    : "#000000"
+                }
+                width={"20px"}
+                height={"20px"}
+              />
+            </span>
+          </div>
+        )}
       </div>
     </>
   );

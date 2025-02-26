@@ -1,3 +1,5 @@
+import { ContentType } from "./types/Form.types";
+
 export function hasObjectChanged<T>(oldObject: T, newValue: T): boolean {
   if (oldObject === newValue) return false;
 
@@ -69,3 +71,7 @@ export const FormatDate = (date: Date) =>
     2,
     "0"
   )}-${String(date.getDate()).padStart(2, "0")}`;
+export const CalculateNewIdx = (
+  delIndexes: number,
+  currentIdx: number
+): number => Math.abs(currentIdx - delIndexes);

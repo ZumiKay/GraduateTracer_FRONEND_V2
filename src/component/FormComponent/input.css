@@ -3,7 +3,9 @@
     position: relative;
 }
 
-.tiptap:focus::after {
+
+
+.readwrite:focus::after {
     content: "";
     position: absolute;
     top: 100%;
@@ -15,7 +17,7 @@
     animation: fromthemiddle 0.5s ease-in-out forwards; /* Apply the animation */
 }
 
-.tiptap:not(:focus)::after {
+.readwrite:not(:focus):after {
     content: "";
     position: absolute;
     top: 100%;

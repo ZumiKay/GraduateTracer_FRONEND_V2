@@ -8,6 +8,15 @@ export default {
   ],
   theme: {
     extend: {
+      spacing: {
+        card_respondant_width: "80%",
+        card_respondant_height: "500px",
+      },
+      fontSize: {
+        card_header_1: "3.5rem",
+        card_header_2: "2.5rem",
+        card_header_3: "2rem",
+      },
       colors: {
         primary: "#254336",
         secondary: "#B7B597",

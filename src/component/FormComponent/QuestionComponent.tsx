@@ -25,6 +25,7 @@ import Tiptap from "./TipTabEditor";
 import { ErrorToast } from "../Modal/AlertModal";
 import { parseDate } from "@internationalized/date";
 import { FormatDate } from "../../helperFunc";
+import { setopenmodal } from "../../redux/openmodal";
 
 const QuestionTypeOptions: Array<SelectionType<QuestionType>> = [
   { label: "Multiple Choice", value: QuestionType.MultipleChoice },
@@ -35,6 +36,8 @@ const QuestionTypeOptions: Array<SelectionType<QuestionType>> = [
   { label: "RangeDate", value: QuestionType.RangeDate },
   { label: "Selection", value: QuestionType.Selection },
   { label: "Text", value: QuestionType.Text },
+  { label: "Short Answer", value: QuestionType.ShortAnswer },
+  { label: "Paragraph", value: QuestionType.Paragraph },
 ];
 
 interface QuestionComponentProps {
@@ -149,14 +152,46 @@ const QuestionComponent = ({
         break;
     }
   };
+
+  const handleChangeQuestionType = (e: ChangeEvent<HTMLSelectElement>) => {
+    const { value: val } = e.target;
+    const ToBeDeleteType = value[value.type] as Record<string, unknown> | null;
+
+    if (ToBeDeleteType) {
+      dispatch(
+        setopenmodal({
+          state: "confirm",
+          value: {
+            open: true,
+            data: {
+              question: "All Options Will Be Delete",
+              onAgree: () => {
+                onUpdateState({
+                  type: val as QuestionType,
+                  [value.type]: null,
+                });
+              },
+            },
+          },
+        })
+      );
+    } else {
+      onUpdateState({
+        type: val as QuestionType,
+        [value.type]: null,
+      });
+    }
+  };
   return (
     <div
       style={{ backgroundColor: color }}
-      className="w-full h-fit flex flex-col items-center gap-y-5 py-5 relative"
+      className="w-full h-fit flex flex-col rounded-md items-center gap-y-5 py-5 relative"
     >
-      <div className="question_count absolute -top-10 right-0 font-bold bg-secondary text-white p-2">
-        {`Question ${idx + 1}`}
-      </div>
+      {isConditioned().qIdx === -1 && (
+        <div className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold bg-secondary text-white p-2 w-[150px]">
+          {`Question ${idx + 1}`}
+        </div>
+      )}
       <div className="text_editor w-[97%] bg-white p-3 rounded-b-md flex flex-row items-start justify-start gap-x-3">
         <Tiptap
           qidx={idx}
@@ -171,11 +206,10 @@ const QuestionComponent = ({
           radius="sm"
           color="warning"
           placeholder="Question Type"
+          selectedKeys={[value.type]}
           items={QuestionTypeOptions}
           defaultSelectedKeys={[value.type]}
-          onChange={(e) => {
-            onUpdateState({ type: e.target.value as QuestionType });
-          }}
+          onChange={handleChangeQuestionType}
         />
       </div>
       {value.type !== QuestionType.Text && (
@@ -218,12 +252,10 @@ const QuestionComponent = ({
       </div>
       {isConditioned().qIdx !== -1 && (
         <div
-          onClick={() => {
-            scrollToCondition?.(isConditioned().key);
-          }}
-          className="condition_indicator w-fit p-2  bg-secondary rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200 absolute top-[100%]"
+          onClick={() => scrollToCondition?.(isConditioned().key)}
+          className="condition_indicator w-fit p-2  bg-secondary rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200 absolute bottom-[100%]"
         >
-          {`Condition for question ${isConditioned().qIdx + 1} and option ${
+          {`Condition for Q${isConditioned().qIdx + 1} option ${
             isConditioned().ansIdx + 1
           }`}
         </div>
@@ -313,14 +345,10 @@ export const ChoiceQuestionEdit = ({
 
       if (linkedContentId) {
         const linkedQuestion = allquestion.find(
-          (q) => q._id === linkedContentId.contentId
+          (q) => q.idx === linkedContentId.contentId
         );
         if (linkedQuestion)
-          handleScrollTo(
-            `${linkedQuestion?.type}${
-              linkedQuestion?._id ?? allquestion.indexOf(linkedQuestion)
-            }`
-          );
+          handleScrollTo(`${linkedQuestion?.type}${linkedQuestion?.idx}`);
       } else {
         ErrorToast({ title: "Failed", content: "Can't Find Question" });
       }
