@@ -1,4 +1,4 @@
-import { Image } from "@nextui-org/react";
+import { Image } from "@heroui/react";
 import PlusSign from "../../assets/plus 2.png";
 import React from "react";
 import { FormDataType, FormTypeEnum } from "../../types/Form.types";

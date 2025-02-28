@@ -1,5 +1,5 @@
 import React from "react";
-import { Pagination, Button } from "@nextui-org/react";
+import { Pagination, Button } from "@heroui/react";
 import { useSearchParams } from "react-router";
 
 const RowPerPage = ["5", "10", "20"];

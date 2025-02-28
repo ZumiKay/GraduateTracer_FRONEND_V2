@@ -1,4 +1,4 @@
-import { Input, InputProps } from "@nextui-org/react";
+import { Input, InputProps } from "@heroui/react";
 import React from "react";
 import { EyeFilledIcon, EyeSlashFilledIcon } from "../svg/InputIcon";
 import { DropDownMenu } from "./Selection";

@@ -7,7 +7,7 @@ import {
   ListboxItem,
   ListboxSection,
   Button,
-} from "@nextui-org/react";
+} from "@heroui/react";
 
 import Logo from "../../assets/Logo.svg";
 import ProfileIcon from "./Profile";

@@ -1,4 +1,4 @@
-import { Button, Checkbox, Form, Input } from "@nextui-org/react";
+import { Button, Checkbox, Form, Input } from "@heroui/react";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { PasswordInput } from "../component/FormComponent/Input";
 import { ForgotPasswordType, Logindatatype } from "../types/Login.types";
@@ -9,7 +9,7 @@ import SuccessToast, {
   ErrorToast,
   InfoToast,
 } from "../component/Modal/AlertModal";
-import RecaptchaButton from "../component/FormComponent/recapcha";
+import RecaptchaButton from "../component/FormComponent/Recapcha";
 import ReactDomSever from "react-dom/server";
 import EmailTemplate from "../component/FormComponent/EmailTemplate";
 import { useDispatch } from "react-redux";

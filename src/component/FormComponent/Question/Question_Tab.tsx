@@ -17,7 +17,7 @@ import {
 } from "../../../redux/formstore";
 import ApiRequest, { ApiRequestReturnType } from "../../../hooks/ApiHook";
 import QuestionComponent from "../QuestionComponent";
-import { Button, Image, Pagination, Skeleton } from "@nextui-org/react";
+import { Button, Image, Pagination, Skeleton } from "@heroui/react";
 import { PlusIcon } from "../../svg/GeneralIcon";
 import { setopenmodal } from "../../../redux/openmodal";
 import MinusIcon from "../../../assets/minus.png";
@@ -38,11 +38,12 @@ const QuestionTab = () => {
   );
 
   const handleAddQuestion = async () => {
+    console.log({ lenght: allquestion.length });
     const updatedQuestions = [
       ...allquestion,
       {
         ...DefaultContentType,
-        idx: allquestion.length > 0 ? allquestion.length - 1 : 0,
+        idx: allquestion.length > 0 ? allquestion.length : 0,
         page,
       },
     ];
@@ -383,10 +384,7 @@ const QuestionTab = () => {
   };
 
   return (
-    <div
-      style={{ color: formstate.setting?.text }}
-      className="w-full h-fit flex flex-col items-center gap-y-20"
-    >
+    <div className="w-full h-fit flex flex-col items-center gap-y-20">
       {fetchloading ? (
         <Skeleton className="w-[80%] h-[300px] rounded-md" />
       ) : (
@@ -509,10 +507,6 @@ const QuestionTab = () => {
           New Page
         </Button>
       </div>
-
-      <Button color="danger" onPress={() => console.log({ allquestion })}>
-        Test State
-      </Button>
     </div>
   );
 };

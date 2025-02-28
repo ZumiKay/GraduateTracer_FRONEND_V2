@@ -1,4 +1,4 @@
-import { Input } from "@nextui-org/react";
+import { Input } from "@heroui/react";
 import { SelectionType } from "../../types/Global.types";
 import Selection from "../FormComponent/Selection";
 import { SearchIcon } from "../svg/GeneralIcon";

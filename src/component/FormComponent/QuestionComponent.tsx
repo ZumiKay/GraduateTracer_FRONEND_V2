@@ -9,13 +9,7 @@ import {
 import { SelectionType } from "../../types/Global.types";
 import { CustomCheckBox, CustomRadio, RenderDropDownMenu } from "./Input";
 import Selection from "./Selection";
-import {
-  Button,
-  DateRangePicker,
-  Input,
-  Switch,
-  Tooltip,
-} from "@nextui-org/react";
+import { Button, Input, Switch, Tooltip } from "@heroui/react";
 import { CopyIcon, DeleteIcon, TrashIcon } from "../svg/GeneralIcon";
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -23,9 +17,9 @@ import { setallquestion, setdisbounceQuestion } from "../../redux/formstore";
 import { RootState } from "../../redux/store";
 import Tiptap from "./TipTabEditor";
 import { ErrorToast } from "../Modal/AlertModal";
-import { parseDate } from "@internationalized/date";
-import { FormatDate } from "../../helperFunc";
+
 import { setopenmodal } from "../../redux/openmodal";
+import { DateRangePickerQuestionType } from "./Solution/Answer_Component";
 
 const QuestionTypeOptions: Array<SelectionType<QuestionType>> = [
   { label: "Multiple Choice", value: QuestionType.MultipleChoice },
@@ -114,13 +108,7 @@ const QuestionComponent = ({
       }
 
       case QuestionType.RangeDate: {
-        return (
-          <RangeQuestionEdit
-            questionstate={value}
-            setquestionsate={(val) => onUpdateState({ ...val })}
-            type={QuestionType.RangeDate}
-          />
-        );
+        return <DateRangePickerQuestionType />;
       }
       case QuestionType.RangeNumber: {
         return (
@@ -184,11 +172,14 @@ const QuestionComponent = ({
   };
   return (
     <div
-      style={{ backgroundColor: color }}
-      className="w-full h-fit flex flex-col rounded-md items-center gap-y-5 py-5 relative"
+      style={{ border: `15px solid ${color}` }}
+      className="w-full h-fit flex flex-col rounded-md bg-white items-center gap-y-5 py-5 relative"
     >
       {isConditioned().qIdx === -1 && (
-        <div className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold bg-secondary text-white p-2 w-[150px]">
+        <div
+          style={{ backgroundColor: color }}
+          className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-black p-2 w-[150px]"
+        >
           {`Question ${idx + 1}`}
         </div>
       )}
@@ -252,8 +243,9 @@ const QuestionComponent = ({
       </div>
       {isConditioned().qIdx !== -1 && (
         <div
+          style={{ backgroundColor: color }}
           onClick={() => scrollToCondition?.(isConditioned().key)}
-          className="condition_indicator w-fit p-2  bg-secondary rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200 absolute bottom-[100%]"
+          className="condition_indicator w-fit p-2 rounded-b-md text-black font-medium cursor-pointer hover:bg-gray-200 absolute bottom-[100%]"
         >
           {`Condition for Q${isConditioned().qIdx + 1} option ${
             isConditioned().ansIdx + 1
@@ -420,43 +412,22 @@ const RangeQuestionEdit = ({
   return (
     <div className="w-full h-fit flex flex-row items-center gap-x-5">
       {type === QuestionType.RangeDate ? (
-        <DateRangePicker
-          onChange={(val) => {
-            if (!val) return;
-
-            setquestionsate({
-              range: {
-                start: FormatDate(new Date(val.start)),
-                end: FormatDate(new Date(val.end)),
-              },
-            });
-          }}
-          size="lg"
-          value={
-            questionstate.range && {
-              start: parseDate(questionstate.range.start) as never,
-              end: parseDate(questionstate.range.end) as never,
-            }
-          }
-          startName="start"
-          aria-label="Date Range"
-          endName="start"
-        />
+        <DateRangePickerQuestionType />
       ) : (
         <>
           <Input
             type="number"
             size="lg"
-            placeholder="Start Number"
-            value={questionstate.numrange?.start?.toString()}
+            placeholder="Start"
             onChange={handleDateRangeChange}
+            value={questionstate.numrange?.start.toString()}
             name="start"
           />
           <Input
             type="number"
             size="lg"
-            placeholder="End Number"
-            value={questionstate.numrange?.end?.toString()}
+            placeholder="End"
+            value={questionstate.numrange?.end.toString()}
             onChange={handleDateRangeChange}
             name="end"
           />

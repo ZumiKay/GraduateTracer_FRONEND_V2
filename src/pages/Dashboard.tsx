@@ -1,4 +1,4 @@
-import { Button } from "@nextui-org/react";
+import { Button } from "@heroui/react";
 import Card, { CreateCardBtn } from "../component/Card/Card";
 import FilterSection from "../component/Filter/FilterSection";
 import FormPagination from "../component/FormComponent/Pagination";

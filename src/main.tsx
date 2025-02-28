@@ -5,7 +5,7 @@ import App from "./App.tsx";
 import { Provider } from "react-redux";
 import { store } from "./redux/store.tsx";
 import { BrowserRouter } from "react-router";
-import { NextUIProvider } from "@nextui-org/react";
+import { HeroUIProvider } from "@heroui/react";
 import { ToastContainer } from "react-toastify";
 import "babel-polyfill";
 import "es6-shim";
@@ -13,12 +13,12 @@ import "es6-shim";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Provider store={store}>
-      <NextUIProvider>
+      <HeroUIProvider>
         <BrowserRouter>
           <ToastContainer closeButton closeOnClick />
           <App />
         </BrowserRouter>
-      </NextUIProvider>
+      </HeroUIProvider>
     </Provider>
   </StrictMode>
 );

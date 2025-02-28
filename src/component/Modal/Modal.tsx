@@ -8,7 +8,7 @@ import {
   ModalFooter,
   ModalHeader,
   ModalProps,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import React, { ChangeEvent, FormEvent, useState } from "react";
 import { Editor } from "@tiptap/react";
 

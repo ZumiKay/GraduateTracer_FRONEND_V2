@@ -1,4 +1,4 @@
-import { RangeValue } from "@nextui-org/react";
+import { RangeValue } from "@heroui/react";
 import { Content, JSONContent } from "@tiptap/react";
 
 // Form Enums
@@ -85,7 +85,7 @@ export interface CheckboxQuestionType {
 
 // Answer Key
 export interface AnswerKey {
-  _id: string;
+  _id?: string;
   answer:
     | string
     | number
@@ -102,6 +102,11 @@ export interface ConditionalType {
   key?: number;
 }
 
+export interface ParentContentType {
+  _id?: string;
+  idx: number;
+}
+
 // Content Type
 export interface ContentType<t = unknown> {
   idx: number;
@@ -115,6 +120,7 @@ export interface ContentType<t = unknown> {
   range?: RangeValue<string>;
   numrange?: RangeType<number>;
   selection?: Array<string>;
+  parentcontent?: ParentContentType;
   date?: Date;
   score?: number;
   answer?: AnswerKey;
@@ -192,9 +198,19 @@ export interface FormResponseType {
 }
 
 // Default Form Setting
+
+export const BgColorTemplate = {
+  Color1: "#A1E3F9",
+  Color2: "#F8F3D9",
+  Color3: "#C7DB9C",
+  Color4: "#F8E7F6",
+  Color5: "#FFF2C2",
+  Color6: "#F8F5E9",
+};
+
 export const DefaultFormSetting: FormSettingType = {
-  qcolor: "#D3F1DF",
-  bg: "#ffffff",
+  qcolor: BgColorTemplate.Color1,
+  bg: BgColorTemplate.Color2,
   navbar: "#f5f5f5",
   text: "#000000",
   submitonce: false,

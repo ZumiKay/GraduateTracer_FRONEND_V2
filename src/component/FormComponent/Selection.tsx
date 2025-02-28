@@ -10,7 +10,7 @@ import {
   Select,
   SelectItem,
   SelectProps,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { SelectionType } from "../../types/Global.types";
 import { ChromePicker, Color } from "react-color";
 import { Key } from "react";
@@ -23,7 +23,7 @@ export default function Selection(props: SelectionProps) {
   return (
     <Select {...props} items={props.items} aria-label="selection">
       {(item) => (
-        <SelectItem key={item.value} value={item.value}>
+        <SelectItem key={item.value} textValue={item.value}>
           {item.label}
         </SelectItem>
       )}

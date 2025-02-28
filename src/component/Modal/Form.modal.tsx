@@ -1,4 +1,4 @@
-import { Button, Checkbox, Form, Input } from "@nextui-org/react";
+import { Button, Checkbox, Form, Input } from "@heroui/react";
 import ModalWrapper from "./Modal";
 import Selection from "../FormComponent/Selection";
 import { SelectionType } from "../../types/Global.types";
@@ -62,7 +62,7 @@ export default function CreateForm({
             return;
           }
 
-          const formData = response.data as FormDataType;
+          const formData = response.data as unknown as FormDataType;
           const formElements = formRef.current?.elements;
 
           if (!formRef.current || !formElements) {

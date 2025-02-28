@@ -1,4 +1,4 @@
-import { CircularProgress, Skeleton } from "@nextui-org/react";
+import { CircularProgress, Skeleton } from "@heroui/react";
 
 export default function ContainerLoading() {
   return (
@@ -12,4 +12,10 @@ export default function ContainerLoading() {
 
 export const CardLoading = () => {
   return <Skeleton className="w-[300px] h-[200px] rounded-lg" />;
+};
+
+export const QuestionLoading = ({ count = 1 }: { count: number }) => {
+  return Array.from({ length: count }).map(() => (
+    <Skeleton className="w-card_respondant_width h-card_respondant_height rounded-lg" />
+  ));
 };

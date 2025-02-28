@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useState } from "react";
 import ModalWrapper from "./Modal";
-import { Button, Form, Input, Switch, Tab, Tabs } from "@nextui-org/react";
+import { Button, Form, Input, Switch, Tab, Tabs } from "@heroui/react";
 import { MoonIcon, SunIcon, ThemeIcon } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
 import globalindex from "../../redux/globalindex";
