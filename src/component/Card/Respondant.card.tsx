@@ -1,7 +1,7 @@
-import { Input, RadioGroup } from "@heroui/react";
+import { Chip, Input, RadioGroup } from "@heroui/react";
 import { AnswerKey, ContentType, QuestionType } from "../../types/Form.types";
 import Tiptap from "../FormComponent/TipTabEditor";
-import { ChangeEvent, useCallback, useState } from "react";
+import { useCallback } from "react";
 import {
   ChoiceAnswer,
   DateQuestionType,
@@ -13,25 +13,20 @@ import {
 interface TextCardProps {
   content: ContentType;
   color?: string;
+  onChangeScore: (score: number) => void;
   onSelectAnswer?: (val: Pick<AnswerKey, "answer">) => void;
+  ty?: "result" | "form";
+  idx: number;
 }
 
 const Respondant_Question_Card = ({
   content,
   color,
+  ty,
   onSelectAnswer,
+  onChangeScore,
+  idx,
 }: TextCardProps) => {
-  const [score, setscore] = useState({
-    score: 0,
-    total: 1,
-  });
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { value, name } = e.target;
-
-    setscore((prev) => ({ ...prev, [name]: value }));
-  };
-
   function handleAnswer<t>(ans: t) {
     if (onSelectAnswer) {
       onSelectAnswer({ answer: ans as never });
@@ -45,33 +40,53 @@ const Respondant_Question_Card = ({
         const Choices = content[content.type]?.map((choice, cIdx) => (
           <ChoiceAnswer
             key={`choice${cIdx}`}
+            name={`choicename${cIdx}`}
             choicety={content.type as never}
+            value={content.answer?.answer as number}
             data={{
               label: choice.content,
               value: choice.idx,
             }}
-            onChange={handleAnswer}
+            onChange={(val) => handleAnswer(Number(val))}
           />
         ));
         if (content.type === QuestionType.MultipleChoice) {
           return (
-            <RadioGroup className="w-full h-fit  p-3">{Choices}</RadioGroup>
+            <RadioGroup
+              value={content.answer?.answer as string}
+              onValueChange={(val) => handleAnswer(val)}
+              className="w-full h-fit p-3"
+              name={`radiogroup${content.idx}`}
+            >
+              {Choices}
+            </RadioGroup>
           );
         }
         return Choices;
       }
       case QuestionType.Paragraph:
-        return <ParagraphAnswer onChange={handleAnswer} />;
+        return (
+          <ParagraphAnswer
+            name={`paragraph${content.idx}`}
+            onChange={handleAnswer}
+            readonly={!ty}
+          />
+        );
       case QuestionType.RangeNumber:
         return (
-          <RangeNumberAnswer onChange={handleAnswer} value={content.numrange} />
+          <RangeNumberAnswer
+            name={`range${content.idx}`}
+            onChange={handleAnswer}
+            value={content.numrange}
+          />
         );
       case QuestionType.Date:
         return (
           <DateQuestionType
-            value={content.date}
+            value={content.answer?.answer as Date}
             placeholder="Select Date"
             onChange={handleAnswer}
+            name={`date${content.idx}`}
           />
         );
       case QuestionType.Number: {
@@ -83,6 +98,7 @@ const Respondant_Question_Card = ({
             placeholder="Answer"
             errorMessage="Please enter a valid number"
             onChange={(e) => handleAnswer(e.target.value)}
+            aria-label={`number${content.idx}`}
           />
         );
       }
@@ -94,11 +110,15 @@ const Respondant_Question_Card = ({
             size="md"
             type="text"
             placeholder="Answer"
+            aria-label={`shortanswer${content.idx}`}
             onChange={(e) => handleAnswer(e.target.value)}
+            readOnly={!ty}
           />
         );
       case QuestionType.RangeDate:
-        return <DateRangePickerQuestionType />;
+        return (
+          <DateRangePickerQuestionType name={`dateranage${content.idx}`} />
+        );
 
       default:
         return <></>;
@@ -107,10 +127,10 @@ const Respondant_Question_Card = ({
 
   const ContentTitle = useCallback(() => {
     return content.parentcontent
-      ? `Question ${content.idx + 1} (Belong to Q${
-          content.parentcontent.idx + 1
-        })`
-      : `Question ${content.idx + 1}`;
+      ? `Question ${idx + 1} (Belong to Q${
+          content.parentcontent.qIdx ?? 0 + 1
+        } Opt.${content.parentcontent.optIdx})`
+      : `Question ${idx + 1}`;
   }, [content]);
 
   return (
@@ -136,7 +156,7 @@ const Respondant_Question_Card = ({
         {RenderAnswers()}
       </div>
 
-      {content.type !== QuestionType.Text && (
+      {content.type !== QuestionType.Text && !ty && (
         <div
           className={`score_container w-fit self-end h-[50px] flex flex-row gap-x-5 border-t-2 border-blue-200 mt-5 p-2`}
         >
@@ -145,23 +165,19 @@ const Respondant_Question_Card = ({
             radius={"none"}
             className="max-w-xs h-full"
             type="number"
+            validationBehavior="aria"
+            aria-label={`score${content.idx}`}
+            value={content.score ? content.score.toString() : undefined}
             min={0}
-            value={score.score.toString()}
-            placeholder="Enter Score"
+            onChange={(e) => onChangeScore(Number(e.target.value ?? "0"))}
             label="Score"
-            onChange={handleChange}
+            endContent={ty && "/10"}
           />
-          <Input
-            size="md"
-            radius={"none"}
-            className="w-full h-full"
-            label="Total Score"
-            type="number"
-            min={1}
-            value={score.total.toString()}
-            placeholder="Total score"
-            onChange={handleChange}
-          />
+        </div>
+      )}
+      {content.require && (
+        <div className="required_container self-start">
+          <Chip color="danger">Required</Chip>
         </div>
       )}
     </div>

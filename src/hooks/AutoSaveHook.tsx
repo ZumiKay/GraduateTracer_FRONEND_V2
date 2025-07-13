@@ -30,7 +30,13 @@ const AutoSaveForm = () => {
       if (formstate._id) {
         setloading(true);
         const request = await AutoSaveQuestion({
-          data: allquestion,
+          data: allquestion.map((question) => ({
+            ...question,
+            conditional: question.conditional?.map((cond) => ({
+              ...cond,
+              contentIdx: undefined,
+            })),
+          })),
           page,
           formId: formstate._id,
           type: "save",

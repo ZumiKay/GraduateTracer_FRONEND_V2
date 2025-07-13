@@ -52,6 +52,7 @@ export interface FormDataType {
   setting?: FormSettingType;
   user?: User;
   totalpage: number;
+  totalscore?: number;
   createdAt?: Date;
   updatedAt?: Date;
   responses?: Array<FormResponseType>;
@@ -65,7 +66,7 @@ export enum QuestionType {
   Number = "number",
   Date = "date",
   RangeDate = "rangedate",
-  Selection = "select",
+  Selection = "selection",
   RangeNumber = "rangenumber",
   ShortAnswer = "shortanswer",
   Paragraph = "paragraph",
@@ -98,18 +99,20 @@ export interface AnswerKey {
 // Conditional Type
 export interface ConditionalType {
   _id?: string;
-  contentId?: number;
+  contentId?: string;
+  contentIdx?: number;
   key?: number;
 }
 
 export interface ParentContentType {
   _id?: string;
-  idx: number;
+  qId: string;
+  qIdx?: number;
+  optIdx: number;
 }
 
 // Content Type
 export interface ContentType<t = unknown> {
-  idx: number;
   _id?: string;
   title?: JSONContent | Content;
   type: QuestionType;
@@ -131,7 +134,6 @@ export interface ContentType<t = unknown> {
 }
 
 export const DefaultContentType: ContentType = {
-  idx: 0,
   type: QuestionType.Text,
   formId: "",
   page: 1,

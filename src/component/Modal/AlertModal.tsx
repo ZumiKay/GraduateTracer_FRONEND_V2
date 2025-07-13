@@ -168,7 +168,7 @@ export function ConfirmModal(props: ConfirmModalProps) {
           isLoading={loading || saveformLoading}
           variant="flat"
         >
-          Yes
+          {confirmdata?.btn?.agree ?? "Yes"}
         </Button>
         <Button
           color="danger"
@@ -179,7 +179,7 @@ export function ConfirmModal(props: ConfirmModalProps) {
           className="max-w-xs font-bold"
           variant="flat"
         >
-          No
+          {confirmdata?.btn?.disagree ?? "No"}
         </Button>
       </div>
     );

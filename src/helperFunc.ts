@@ -1,5 +1,3 @@
-import { ContentType } from "./types/Form.types";
-
 export function hasObjectChanged<T>(oldObject: T, newValue: T): boolean {
   if (oldObject === newValue) return false;
 

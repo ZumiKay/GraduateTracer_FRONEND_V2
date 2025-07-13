@@ -24,6 +24,7 @@ interface AnswerComponent_Props<t> {
   };
   choicety?: QuestionType.CheckBox | QuestionType.MultipleChoice;
   placeholder?: string;
+  readonly?: boolean;
 }
 
 export const ParagraphAnswer = (
@@ -38,11 +39,13 @@ export const ParagraphAnswer = (
         size="lg"
         height={"100%"}
         value={props.value}
+        aria-label={props.name}
         maxRows={10}
         name={props.name}
         onChange={(e) => props.onChange && props.onChange(e.target.value)}
         onClear={() => props.onChange && props.onChange("")}
         placeholder={props.placeholder ?? "Type your answer here"}
+        isReadOnly={props.readonly}
       />
     </div>
   );
@@ -66,6 +69,7 @@ export const ChoiceAnswer = (props: AnswerComponent_Props<number>) => {
     <Radio
       className="w-full h-fit p-2  mb-2"
       value={props.data?.value.toString() ?? ""}
+      aria-label={props.name}
     >
       <p className="text-lg font-medium w-full h-full">{props.data?.label}</p>
     </Radio>
@@ -93,7 +97,7 @@ export const RangeNumberAnswer = (
           value={value}
           onChange={setValue}
           maxValue={props.value?.end ?? 0}
-          aria-label="slider"
+          aria-label={props.name}
         />
       </div>
       <div className="input_field max-w-md w-full h-[30px] inline-flex items-center justify-between gap-x-3">
@@ -199,6 +203,8 @@ export const ShortAnswer = (props: AnswerComponent_Props<string>) => {
       placeholder={props.placeholder ?? "Type your answer here"}
       onChange={(e) => props.onChange && props.onChange(e.target.value)}
       value={props.value}
+      aria-label={props.name}
+      isReadOnly={props.readonly}
     />
   );
 };

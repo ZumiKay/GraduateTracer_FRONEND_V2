@@ -15,18 +15,14 @@ import { SelectionType } from "../../types/Global.types";
 import { ChromePicker, Color } from "react-color";
 import { Key } from "react";
 
-interface SelectionProps extends Omit<SelectProps, "children"> {
+interface SelectionProps extends Omit<SelectProps, "children" | "aria-hidden"> {
   items: Array<SelectionType<string>>;
 }
 
 export default function Selection(props: SelectionProps) {
   return (
     <Select {...props} items={props.items} aria-label="selection">
-      {(item) => (
-        <SelectItem key={item.value} textValue={item.value}>
-          {item.label}
-        </SelectItem>
-      )}
+      {(item) => <SelectItem key={item.value}>{item.label}</SelectItem>}
     </Select>
   );
 }

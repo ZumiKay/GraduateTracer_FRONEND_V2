@@ -20,7 +20,6 @@ export const EmailIcon = () => {
 export const EyeSlashFilledIcon = (props?: Record<string, unknown>) => {
   return (
     <svg
-      aria-hidden="true"
       fill="none"
       focusable="false"
       height="1em"
@@ -56,7 +55,6 @@ export const EyeSlashFilledIcon = (props?: Record<string, unknown>) => {
 export const EyeFilledIcon = (props?: Record<string, unknown>) => {
   return (
     <svg
-      aria-hidden="true"
       fill="none"
       focusable="false"
       height="1em"

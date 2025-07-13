@@ -8,7 +8,7 @@ import Italic from "@tiptap/extension-italic";
 import Code from "@tiptap/extension-code";
 import { LinkIcon } from "../svg/InputIcon";
 import Link from "@tiptap/extension-link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AddLinkModal } from "../Modal/Modal";
 import BulletList from "@tiptap/extension-bullet-list";
 import OrderedList from "@tiptap/extension-ordered-list";
@@ -84,6 +84,7 @@ const extensions = [
 ];
 
 const HeaderOptions: Array<SelectionType<string>> = [
+  { label: "None", value: "0" },
   { label: "H1", value: "1" },
   { label: "H2", value: "2" },
   { label: "H3", value: "3" },
@@ -117,7 +118,26 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
 
       if (onChange) onChange(jsonValue);
     },
+    onSelectionUpdate: () => {
+      setheader(activeHeading());
+    },
   });
+
+  const activeHeading = useCallback(() => {
+    let value = "";
+
+    if (editor?.isActive("heading", { level: 1 })) {
+      value = "1";
+    } else if (editor?.isActive("heading", { level: 2 })) {
+      value = "2";
+    } else if (editor?.isActive("heading", { level: 3 })) {
+      value = "3";
+    } else value = "0";
+
+    return value;
+  }, [editor]);
+
+  const [header, setheader] = useState<string>("0");
 
   useEffect(() => {
     return () => {
@@ -173,27 +193,17 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
   };
 
   const toggleHeader = (val: number) => {
-    editor
-      ?.chain()
-      .focus()
-      .toggleHeading({
-        level: (val === 0 ? Number(activeHeading()) : val) as never,
-      })
-      .run();
-  };
-
-  const activeHeading = (): string => {
-    let value = "";
-
-    if (editor?.isActive("heading", { level: 1 })) {
-      value = "1";
-    } else if (editor?.isActive("heading", { level: 2 })) {
-      value = "2";
-    } else if (editor?.isActive("heading", { level: 3 })) {
-      value = "3";
-    }
-
-    return value;
+    if (!val) {
+      console.log({ val });
+      return editor.chain().focus().setParagraph().run();
+    } else
+      return editor
+        .chain()
+        .focus()
+        .toggleHeading({
+          level: val as never,
+        })
+        .run();
   };
 
   return (
@@ -207,14 +217,19 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
         />
       )}
       <div className="w-full h-fit flex flex-col gap-y-5">
-        <EditorContent editor={editor} />
+        <EditorContent editor={editor} tabIndex={-1} aria-hidden={false} />
         {!readonly && (
           <div className="w-full h-[30px] flex flex-row gap-x-3 items-center cursor-default">
             <Selection
               className="w-[150px]"
               items={HeaderOptions}
-              selectedKeys={[activeHeading()]}
-              onChange={(val) => toggleHeader(Number(val.target.value))}
+              selectedKeys={[header]}
+              onChange={(val) => {
+                const { value } = val.target;
+                setheader(value);
+
+                toggleHeader(Number(value));
+              }}
               placeholder="Heading"
             />
             <span

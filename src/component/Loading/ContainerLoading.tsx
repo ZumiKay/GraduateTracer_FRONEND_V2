@@ -15,7 +15,10 @@ export const CardLoading = () => {
 };
 
 export const QuestionLoading = ({ count = 1 }: { count: number }) => {
-  return Array.from({ length: count }).map(() => (
-    <Skeleton className="w-card_respondant_width h-card_respondant_height rounded-lg" />
+  return Array.from({ length: count }).map((_, idx) => (
+    <Skeleton
+      key={`loading ${idx}`}
+      className="w-card_respondant_width h-card_respondant_height rounded-lg"
+    />
   ));
 };

@@ -3,7 +3,7 @@ import { AsyncSaveForm, setformstate } from "../../../redux/formstore";
 import {
   BgColorTemplate,
   DefaultFormSetting,
-  FormSettingType,
+  FormDataType,
   FormTypeEnum,
   returnscore,
 } from "../../../types/Form.types";
@@ -124,27 +124,50 @@ const SettingTab = () => {
     );
   };
 
-  const handleIsSaved = (newValue: Partial<FormSettingType>) => {
-    const prevValue = { ...formstate.setting };
+  const handleIsSaved = (newValue: Partial<FormDataType>) => {
+    const prevValue = { ...formstate };
 
     const isChange = hasObjectChanged(prevValue, newValue);
 
     setisEdit(isChange);
   };
 
-  const handleChangeSetting = (newVal: Partial<FormSettingType>) => {
-    dispatch(
-      setformstate({
-        ...formstate,
-        setting: {
-          ...formstate.setting,
-          ...newVal,
-        },
-      })
-    );
-    handleIsSaved(newVal);
-  };
+  const handleChangeSetting = (newVal: Partial<FormDataType> | string) => {
+    type SettingType = NonNullable<FormDataType["setting"]>;
 
+    if (typeof newVal === "string") {
+      return (
+        formstate[newVal as keyof FormDataType] ??
+        formstate.setting?.[newVal as keyof SettingType]
+      );
+    }
+
+    const settingKeys = new Set<keyof SettingType>(
+      Object.keys(formstate.setting ?? {}) as (keyof SettingType)[]
+    );
+
+    const updatedState: FormDataType = {
+      ...formstate,
+      setting: {
+        ...(formstate.setting ?? {}),
+        ...Object.fromEntries(
+          Object.entries(newVal).filter(([key]) =>
+            settingKeys.has(key as keyof SettingType)
+          )
+        ),
+      },
+      ...Object.fromEntries(
+        Object.entries(newVal).filter(
+          ([key]) => !settingKeys.has(key as keyof SettingType)
+        )
+      ),
+    };
+
+    dispatch(setformstate(updatedState));
+    handleIsSaved(newVal);
+
+    return updatedState;
+  };
   const groupedOptions = SettingOptions(formstate.type as FormTypeEnum).reduce(
     (acc, option) => {
       const section = option?.section ?? "Misc"; // Default section if missing
@@ -186,9 +209,6 @@ const SettingTab = () => {
 
   return (
     <div className="setting-tab w-[80%] h-fit flex flex-col items-center gap-y-10 bg-white p-2 rounded-lg">
-      <span className="text-red-300">
-        {"when customize color please make sure all content are visible"}
-      </span>
       {Object.entries(groupedOptions).map(([section, item]) => (
         <>
           <p key={section} className="text-4xl font-bold text-left w-full">
@@ -218,14 +238,13 @@ const SettingTab = () => {
                       <Selection
                         className="w-[150px]"
                         items={setting.option ?? []}
-                        selectedKeys={[formstate[setting.state as never]]}
+                        selectedKeys={[
+                          handleChangeSetting(setting.state) as string,
+                        ]}
                         onChange={(val) =>
-                          dispatch(
-                            setformstate({
-                              ...formstate,
-                              [setting.state as never]: val.target.value,
-                            } as never)
-                          ) as never
+                          handleChangeSetting({
+                            [setting.state]: val.target.value,
+                          })
                         }
                       />
                     ) : setting.type === "switch" ? (
@@ -237,8 +256,9 @@ const SettingTab = () => {
                           aria-label={setting.label}
                           {...(formstate.setting
                             ? {
-                                isSelected:
-                                  formstate.setting[setting.state as never],
+                                isSelected: handleChangeSetting(
+                                  setting.state
+                                ) as boolean,
                               }
                             : {})}
                         />
@@ -281,7 +301,11 @@ const SettingTab = () => {
             dispatch(
               AsyncSaveForm({
                 type: "edit",
-                data: { setting: formstate.setting, _id: formstate._id },
+                data: {
+                  type: formstate.type,
+                  setting: formstate.setting,
+                  _id: formstate._id,
+                },
                 onSuccess: () => setisEdit(false),
               }) as never
             )

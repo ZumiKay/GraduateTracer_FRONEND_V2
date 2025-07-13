@@ -65,7 +65,6 @@ const formstore = createSlice({
     reloaddata: true,
     pauseAutoSave: false,
     debounceQuestion: null as ContentType | null,
-    isShowCond: null as { [key: string]: boolean } | null,
   },
   reducers: {
     setformstate: (state, action: PayloadAction<FormDataType>) => {
@@ -107,9 +106,6 @@ const formstore = createSlice({
     setdisbounceQuestion: (state, action: PayloadAction<ContentType>) => {
       state.debounceQuestion = action.payload;
     },
-    setShowCond: (state, action: PayloadAction<{ [key: string]: boolean }>) => {
-      state.isShowCond = action.payload;
-    },
   },
   extraReducers: (builder) => {
     builder.addCase(AsyncSaveForm.fulfilled, (state) => {
@@ -133,6 +129,5 @@ export const {
   setreloaddata,
   setpauseAutoSave,
   setdisbounceQuestion,
-  setShowCond,
 } = formstore.actions;
 export default formstore;

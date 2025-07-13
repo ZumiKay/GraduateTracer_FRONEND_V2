@@ -6,6 +6,10 @@ export type ConfirmModalDataType = {
     question?: string;
     onAgree?: () => Promise<void> | void;
     onClose?: () => void;
+    btn?: {
+      agree?: string;
+      disagree?: string;
+    };
   };
 };
 

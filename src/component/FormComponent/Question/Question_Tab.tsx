@@ -1,11 +1,11 @@
-import { useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { RootState } from "../../../redux/store";
 import { useDispatch, useSelector } from "react-redux";
-import { useSearchParams } from "react-router";
 import {
   CheckboxQuestionType,
   ContentType,
   DefaultContentType,
+  ParentContentType,
 } from "../../../types/Form.types";
 import { AutoSaveQuestion } from "../../../pages/FormPage.action";
 import { ErrorToast, PromiseToast } from "../../Modal/AlertModal";
@@ -17,40 +17,49 @@ import {
 } from "../../../redux/formstore";
 import ApiRequest, { ApiRequestReturnType } from "../../../hooks/ApiHook";
 import QuestionComponent from "../QuestionComponent";
-import { Button, Image, Pagination, Skeleton } from "@heroui/react";
+import { Button, Image } from "@heroui/react";
 import { PlusIcon } from "../../svg/GeneralIcon";
 import { setopenmodal } from "../../../redux/openmodal";
 import MinusIcon from "../../../assets/minus.png";
 import PlusImg from "../../../assets/add.png";
+import { QuestionLoading } from "../../Loading/ContainerLoading";
+import { useSetSearchParam } from "../../../hooks/CustomHook";
 
 const QuestionTab = () => {
-  //scroll ref
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const { setParams } = useSetSearchParam();
 
-  const { formstate, page, fetchloading } = useSelector(
-    (root: RootState) => root.allform
+  // Memoize selectors to prevent unnecessary re-renders
+  const formState = useSelector((root: RootState) => root.allform.formstate);
+  const page = useSelector((root: RootState) => root.allform.page);
+  const fetchLoading = useSelector(
+    (root: RootState) => root.allform.fetchloading
   );
-  const [searchParam, setsearchParam] = useSearchParams();
-
-  const dispatch = useDispatch();
-  const allquestion = useSelector(
+  const allQuestion = useSelector(
     (root: RootState) => root.allform.allquestion
   );
 
-  const handleAddQuestion = async () => {
-    console.log({ lenght: allquestion.length });
+  const dispatch = useDispatch();
+
+  // Memoize filtered questions to avoid recalculating on every render
+  const filteredQuestions = useMemo(
+    () => allQuestion.filter((i) => i.page === page),
+    [allQuestion, page]
+  );
+
+  const handleAddQuestion = useCallback(async () => {
     const updatedQuestions = [
-      ...allquestion,
+      ...allQuestion,
       {
         ...DefaultContentType,
-        idx: allquestion.length > 0 ? allquestion.length : 0,
         page,
       },
     ];
-    if (formstate.setting?.autosave) {
+
+    if (formState.setting?.autosave) {
       const createReq = AutoSaveQuestion({
         data: updatedQuestions,
-        formId: formstate._id ?? "",
+        formId: formState._id ?? "",
         type: "save",
         page,
       });
@@ -58,404 +67,483 @@ const QuestionTab = () => {
         { promise: createReq },
         { pending: "Creating", error: "Can't Create" }
       );
-      if (!process.success || !process.data || !process.data.insertedId) return;
+      if (!process.success || !process.data) return;
+      const savedData = process.data as Array<string>;
       dispatch(
         setallquestion((prev) => [
           ...prev,
           {
             ...DefaultContentType,
-            idx: prev.length,
-            _id: process.data?.insertedId[0],
+            _id: savedData[0],
             page,
           },
         ])
       );
-    } else dispatch(setallquestion(updatedQuestions));
-  };
+    } else {
+      dispatch(setallquestion(updatedQuestions));
+    }
+  }, [allQuestion, page, formState.setting?.autosave, formState._id, dispatch]);
 
-  const handleDeleteQuestion = async (qidx: number) => {
-    const questionToDelete = allquestion[qidx];
+  const handleDeleteQuestion = useCallback(
+    async (qidx: number) => {
+      const questionToDelete = allQuestion[qidx];
+      if (!questionToDelete) return;
 
-    const deleteRequest = async () => {
-      if (formstate.setting?.autosave && questionToDelete._id) {
+      const deleteRequest = async () => {
+        if (formState.setting?.autosave && questionToDelete._id) {
+          const request = await PromiseToast(
+            {
+              promise: ApiRequest({
+                url: "/deletecontent",
+                method: "DELETE",
+                cookie: true,
+                refreshtoken: true,
+                data: { id: questionToDelete._id, formId: formState._id },
+              }),
+            },
+            { pending: "Deleting Question", error: "Can't Delete" }
+          );
+
+          if (!request.success) return;
+        }
+
+        dispatch(
+          setallquestion((prev) =>
+            prev
+              .filter((_, idx) => idx !== qidx)
+              .map((question) => {
+                const hasRelevantCondition = question.conditional?.some(
+                  (cond) =>
+                    cond.contentIdx === qidx ||
+                    cond.contentId === questionToDelete._id
+                );
+
+                if (!hasRelevantCondition) return question;
+
+                return {
+                  ...question,
+                  conditional: question?.conditional
+                    ?.filter((condition) =>
+                      questionToDelete._id
+                        ? condition.contentId !== questionToDelete._id
+                        : condition.contentIdx !== qidx
+                    )
+                    .map((condition) => ({
+                      ...condition,
+                      contentIdx:
+                        condition.contentIdx !== undefined &&
+                        condition.contentIdx > qidx
+                          ? condition.contentIdx - 1
+                          : condition.contentIdx,
+                    })),
+                };
+              })
+          )
+        );
+      };
+
+      const hasConditionals =
+        questionToDelete.conditional &&
+        questionToDelete.conditional?.length > 0;
+
+      if (hasConditionals) {
+        dispatch(
+          setopenmodal({
+            state: "confirm",
+            value: { open: true, data: { onAgree: deleteRequest } },
+          })
+        );
+      } else {
+        await deleteRequest();
+      }
+    },
+    [allQuestion, formState.setting?.autosave, formState._id, dispatch]
+  );
+
+  const handleAddCondition = useCallback(
+    async (questionIdx: number, anskey: number): Promise<void> => {
+      const toUpdateQuestion = allQuestion[questionIdx];
+      if (!toUpdateQuestion) return;
+
+      let newContentId: number | string =
+        toUpdateQuestion._id ?? questionIdx + 1;
+
+      if (formState.setting?.autosave) {
         const request = await PromiseToast(
           {
             promise: ApiRequest({
-              url: "/deletecontent",
-              method: "DELETE",
+              url: "/handlecondition",
+              method: "POST",
               cookie: true,
               refreshtoken: true,
-              data: { id: questionToDelete._id, formId: formstate._id },
+              data: {
+                content: { id: toUpdateQuestion._id },
+                key: anskey,
+                newContent: { ...DefaultContentType, page },
+                formId: formState._id,
+              },
             }),
           },
-          { pending: "Deleting Question", error: "Can't Delete" }
+          { pending: "Adding", success: "Condition Added", error: "Can't Add" }
         );
 
-        if (!request.success) return;
+        if (!request.success || request.data) return;
+        newContentId = request.data as string;
       }
 
-      // Update the allquestion state
       dispatch(
         setallquestion((prev) => {
-          return prev
-            .filter((_, idx) => idx !== qidx) // Remove the question at qidx
-            .map((question, newIdx) => {
-              // Update conditionals: remove references to qidx and adjust higher indices
-              const updatedConditional = question.conditional
-                ?.filter((cond) => cond.contentId !== qidx)
-                .map((cond) =>
-                  cond.contentId && cond.contentId > qidx
-                    ? { ...cond, contentId: cond.contentId - 1 }
-                    : cond
-                );
-
-              return {
-                ...question,
-                idx: newIdx, // Reassign idx based on new position
-                conditional: updatedConditional,
-              };
-            });
-        })
-      );
-    };
-
-    // Prompt confirmation if the question has conditionals, otherwise delete immediately
-    if (
-      questionToDelete.conditional &&
-      questionToDelete.conditional.length > 0
-    ) {
-      dispatch(
-        setopenmodal({
-          state: "confirm",
-          value: { open: true, data: { onAgree: deleteRequest } },
-        })
-      );
-    } else {
-      await deleteRequest();
-    }
-  };
-
-  const handleAddCondition = async (
-    questionIdx: number,
-    anskey: number
-  ): Promise<void> => {
-    const toUpdateQuestion = allquestion[questionIdx];
-    if (!toUpdateQuestion) return;
-
-    // Calculate new content ID as the next available index
-
-    const newContentId = questionIdx + 1;
-
-    // Handle autosave API call if enabled
-    if (formstate.setting?.autosave) {
-      const request = await PromiseToast(
-        {
-          promise: ApiRequest({
-            url: "/handlecondition",
-            method: "POST",
-            cookie: true,
-            refreshtoken: true,
-            data: {
-              contentId: toUpdateQuestion._id,
-              key: anskey,
-              newContent: { ...DefaultContentType, idx: newContentId, page },
-              formId: formstate._id,
-            },
-          }),
-        },
-        { pending: "Adding", success: "Condition Added", error: "Can't Add" }
-      );
-
-      if (!request.success) return;
-    }
-
-    // Update state with new conditions
-    dispatch(
-      setallquestion((prev) => {
-        // Create the new conditional
-        const newConditional = { contentId: newContentId, key: anskey };
-
-        // Update the question at questionIdx by adding the new conditional
-        const updatedQuestion = {
-          ...prev[questionIdx],
-          conditional: [
-            newConditional,
-            ...(prev[questionIdx].conditional?.map((cond) => ({
-              ...cond,
-              contentId: cond.contentId ? cond.contentId + 1 : undefined,
-            })) ?? []),
-          ],
-        };
-
-        // Create the new content to insert after the updated question
-        const newContent = {
-          ...DefaultContentType,
-          page,
-          idx: newContentId,
-        };
-
-        // Insert the new content right after the updated question
-        const updatedList = [
-          ...prev.slice(0, questionIdx + 1),
-          newContent,
-          ...prev.slice(questionIdx + 1),
-        ];
-
-        // Adjust idx for all items to match their new positions
-        const finalList = updatedList.map((item, idx) =>
-          idx === questionIdx
-            ? updatedQuestion
-            : {
-                ...item,
-                idx: idx,
-              }
-        );
-
-        return finalList;
-      })
-    );
-  };
-
-  const removeConditionedQuestion = async (
-    ansidx: number,
-    qidx: number,
-    ty: "unlink" | "delete"
-  ): Promise<void> => {
-    // Find the question to update
-    const questionToUpdate = allquestion[qidx];
-    if (!questionToUpdate) return;
-
-    // Determine the contentId to remove based on the answer index
-    const toRemoveContentId = questionToUpdate.conditional?.find(
-      (con) => con.key === ansidx
-    )?.contentId;
-
-    // Update the question at qidx
-    const updatedQuestion = {
-      ...questionToUpdate,
-      conditional: questionToUpdate.conditional
-        ?.filter((con) => con.contentId !== toRemoveContentId)
-        .map((cond) => {
-          return {
-            ...cond,
-            contentId:
-              cond.contentId && toRemoveContentId
-                ? cond.contentId > toRemoveContentId
-                  ? cond.contentId - 1
-                  : cond.contentId
-                : undefined,
+          const newConditional = {
+            ...(typeof newContentId === "string"
+              ? { contentId: newContentId }
+              : { contentIdx: newContentId }),
+            key: anskey,
           };
-        }),
-    } as ContentType<Array<CheckboxQuestionType>>;
 
-    if (
-      ty === "delete" &&
-      Array.isArray(updatedQuestion[updatedQuestion.type as never])
-    ) {
-      updatedQuestion[updatedQuestion.type] = (
-        updatedQuestion[updatedQuestion.type] as Array<CheckboxQuestionType>
-      ).filter((i) => i.idx !== ansidx) as never;
-    }
+          const updatedQuestion = {
+            ...toUpdateQuestion,
+            conditional: [
+              ...(toUpdateQuestion.conditional?.map((prevCond) => ({
+                ...prevCond,
+                contentIdx:
+                  prevCond.contentIdx !== undefined && prevCond.contentIdx + 1,
+              })) ?? []),
+              newConditional,
+            ],
+          };
 
-    // Remove the conditioned question if it exists and reassign indices
-    const updatedAllQuestion = allquestion
-      .filter((q) => q._id !== toRemoveContentId && q.idx !== toRemoveContentId)
-      .map((q, idx) => ({ ...q, idx })); // Reassign idx based on new positions
+          const newContent = {
+            ...DefaultContentType,
+            parentcontent: {
+              optIdx: anskey,
+              qIdx: questionIdx,
+              qId: toUpdateQuestion._id,
+            },
+            page,
+          } as ContentType;
 
-    // Replace the question at qidx with the updated version
-    const finalQuestionList = updatedAllQuestion.map((q) =>
-      q.idx === qidx ? updatedQuestion : q
-    );
+          const updatedList = [
+            ...prev.slice(0, questionIdx + 1),
+            newContent,
+            ...prev.slice(questionIdx + 1),
+          ];
 
-    // Handle autosave if enabled
-    if (formstate.setting?.autosave && formstate._id) {
-      const isSaved = await PromiseToast({
-        promise: AutoSaveQuestion({
-          data: finalQuestionList,
-          formId: formstate._id,
-          type: "save",
-          page,
-        }),
-      });
+          const finalList = updatedList.map((item, idx) =>
+            idx === questionIdx ? updatedQuestion : item
+          ) as Array<ContentType>;
 
-      if (!isSaved) {
-        ErrorToast({ title: "Failed", content: "Error occurred" });
-        return;
+          return finalList;
+        })
+      );
+    },
+    [allQuestion, formState.setting?.autosave, formState._id, page, dispatch]
+  );
+
+  const removeConditionedQuestion = useCallback(
+    async (
+      ansidx: number,
+      qidx: number,
+      ty: "unlink" | "delete"
+    ): Promise<void> => {
+      const questionToUpdate = allQuestion[qidx];
+      if (!questionToUpdate) return;
+
+      const questionConditionContent = questionToUpdate.conditional?.find(
+        (con) => con.key === ansidx
+      );
+
+      const updatedQuestion = {
+        ...questionToUpdate,
+        conditional: questionToUpdate.conditional
+          ?.filter(
+            (con) =>
+              con.contentId !== questionConditionContent?.contentId ||
+              con.contentIdx !== questionConditionContent?.contentIdx
+          )
+          .map((cond) => {
+            return {
+              ...cond,
+              contentIdx:
+                cond.contentIdx !== undefined &&
+                questionConditionContent?.contentIdx !== undefined &&
+                cond.contentIdx > questionConditionContent?.contentIdx
+                  ? cond.contentIdx - 1
+                  : cond.contentIdx,
+            };
+          }),
+      } as ContentType<Array<CheckboxQuestionType>>;
+
+      if (
+        ty === "delete" &&
+        Array.isArray(updatedQuestion[updatedQuestion.type as never])
+      ) {
+        updatedQuestion[updatedQuestion.type] = (
+          updatedQuestion[updatedQuestion.type] as Array<CheckboxQuestionType>
+        ).filter((i, idx) =>
+          i.idx ? i.idx !== ansidx : idx !== ansidx
+        ) as never;
       }
-    }
 
-    // Update the state
-    dispatch(setallquestion(finalQuestionList));
-  };
+      const updatedAllQuestion = allQuestion.filter((q, idx) =>
+        q._id
+          ? q._id !== questionConditionContent?.contentId
+          : idx !== questionConditionContent?.contentIdx
+      );
 
-  const handleDuplication = async (idx: number) => {
-    ///make a copy of the question base on idx
-    const updatequestions = [
-      ...allquestion.slice(0, idx + 1),
-      { ...allquestion[idx], _id: undefined },
-      ...allquestion.slice(idx + 1).map((i) => ({ ...i, idx: i.idx + 1 })),
-    ];
+      const finalQuestionList = updatedAllQuestion.map((q, idx) =>
+        (q._id ? q._id === questionToUpdate._id : idx === qidx)
+          ? updatedQuestion
+          : q
+      );
 
-    if (formstate.setting?.autosave && formstate._id) {
-      const isSaved = await PromiseToast(
-        {
+      if (formState.setting?.autosave && formState._id) {
+        const isSaved = await PromiseToast({
           promise: AutoSaveQuestion({
-            data: updatequestions,
-            formId: formstate._id,
+            data: finalQuestionList,
+            formId: formState._id,
             type: "save",
             page,
           }),
-        },
-        { pending: "Copying" }
+        });
+
+        if (!isSaved) {
+          ErrorToast({ title: "Failed", content: "Error occurred" });
+          return;
+        }
+      }
+
+      dispatch(setallquestion(finalQuestionList));
+    },
+    [allQuestion, formState.setting?.autosave, formState._id, page, dispatch]
+  );
+
+  const handleDuplication = useCallback(
+    async (idx: number) => {
+      const questionToBeDuplicate = allQuestion[idx];
+      const contentToBeAdd = questionToBeDuplicate.conditional
+        ? [
+            questionToBeDuplicate,
+            ...allQuestion
+              .filter((fil, idx) =>
+                questionToBeDuplicate.conditional?.some(
+                  (cond) =>
+                    cond.contentId === fil._id || cond.contentIdx === idx
+                )
+              )
+              .map((question) => ({
+                ...question,
+                conditional: question.conditional?.map((cond) => ({
+                  ...cond,
+                  contentIdx: idx + 1,
+                })),
+              })),
+          ].map((question) => ({ ...question, _id: undefined }))
+        : { ...questionToBeDuplicate, _id: undefined };
+
+      const updatequestions = [
+        ...allQuestion.slice(0, idx + 1),
+        ...(Array.isArray(contentToBeAdd) ? contentToBeAdd : [contentToBeAdd]),
+        ...allQuestion.slice(idx + 1),
+      ];
+
+      if (formState.setting?.autosave && formState._id) {
+        const isSaved = await PromiseToast(
+          {
+            promise: AutoSaveQuestion({
+              data: updatequestions,
+              formId: formState._id,
+              type: "save",
+              page,
+            }),
+          },
+          { pending: "Copying" }
+        );
+
+        if (!isSaved) {
+          ErrorToast({ title: "Failed", content: "Can't Save" });
+          return;
+        }
+      }
+      dispatch(setallquestion(updatequestions));
+    },
+    [allQuestion, formState.setting?.autosave, formState._id, page, dispatch]
+  );
+
+  const checkIsLinkedForQuestionOption = useCallback(
+    (ansidx: number, qidx: number) =>
+      allQuestion[qidx] && allQuestion[qidx].conditional
+        ? allQuestion[qidx].conditional.some((con) => con.key === ansidx)
+        : false,
+    [allQuestion]
+  );
+
+  const checkConditionedContent = useCallback(
+    (id: string | number, parentcontent?: ParentContentType) => {
+      if (parentcontent) {
+        return {
+          key: id,
+          qIdx: parentcontent.qIdx as number,
+          ansIdx: parentcontent.optIdx as number,
+        };
+      }
+
+      const qIdx = allQuestion.findIndex((question) =>
+        question.conditional?.some(
+          (con) => con.contentId === id || con.contentIdx === id
+        )
       );
 
-      if (!isSaved) {
-        ErrorToast({ title: "Failed", content: "Can't Save" });
-        return;
+      if (qIdx === -1) {
+        return { key: "", qIdx: -1, ansIdx: 0 };
       }
-    }
-    dispatch(setallquestion(updatequestions));
-  };
 
-  const checkIsLinkedForQuestionOption = (ansidx: number, qidx: number) =>
-    allquestion[qidx] && allquestion[qidx].conditional
-      ? allquestion[qidx].conditional.some((con) => con.key === ansidx)
-      : false;
-  const checkConditionedContent = (id: string | number) => {
-    const qIdx = allquestion.findIndex(
-      (i) => i.conditional && i.conditional.some((con) => con.contentId === id)
-    );
-    const key = `${allquestion[qIdx]?.type}${qIdx}`;
-    const ansIdx =
-      allquestion[qIdx]?.conditional?.find((con) => con.contentId === id)
-        ?.key ?? 0;
-    return { key, qIdx, ansIdx };
-  };
+      const key = `${allQuestion[qIdx].type}${qIdx}`;
+      const ansIdx =
+        allQuestion[qIdx].conditional?.find(
+          (con) => con.contentId === id || con.contentIdx === id
+        )?.key ?? 0;
 
-  const scrollToDiv = (key: string) => {
+      return { key, qIdx, ansIdx };
+    },
+    [allQuestion]
+  );
+
+  const scrollToDiv = useCallback((key: string) => {
+    console.log({ key });
     const element = componentRefs.current[key];
-
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  };
+  }, []);
 
-  const handlePage = async (type: "add" | "delete", deletepage?: number) => {
-    let updatedPage = 0;
-    const updateSearchParam = (newPage: number) => {
-      dispatch(setpage(newPage));
-      dispatch(setformstate({ ...formstate, totalpage: newPage }));
-      setsearchParam((prev) => ({ ...prev, page: newPage }));
-    };
+  const handlePage = useCallback(
+    async (type: "add" | "delete", deletepage?: number) => {
+      if (type === "add") {
+        if (
+          allQuestion.some(
+            (question) => question.page === page && !question._id
+          )
+        ) {
+          dispatch(
+            setopenmodal({
+              state: "confirm",
+              value: {
+                open: true,
+                data: {
+                  question: "Please save question",
+                },
+              },
+            })
+          );
+          return;
+        }
+      }
 
-    if (type === "add") {
-      //Add new page
-      updatedPage = formstate.totalpage + 1;
-      updateSearchParam(updatedPage);
-    } else {
-      updatedPage = formstate.totalpage;
+      let updatedPage = 0;
+      const updateSearchParam = (newPage: number) => {
+        dispatch(setpage(newPage));
+        dispatch(setformstate({ ...formState, totalpage: newPage }));
+        setParams({ page: newPage.toString() });
+      };
 
-      updateSearchParam(updatedPage <= 1 ? 1 : updatedPage - 1);
-    }
-    //Save Page
+      if (type === "add") {
+        updatedPage = formState.totalpage + 1;
+        updateSearchParam(updatedPage);
+      } else {
+        updatedPage = formState.totalpage;
+        updateSearchParam(updatedPage <= 1 ? 1 : updatedPage - 1);
+      }
 
-    const request = (await PromiseToast(
-      {
-        promise: ApiRequest({
-          url: "/modifypage",
-          method: "PUT",
-          cookie: true,
-          refreshtoken: true,
-          data: {
-            formId: formstate._id,
-            ty: type,
-            deletepage,
-          },
-        }),
-      },
-      { pending: "Adding Page", success: "Added" }
-    )) as ApiRequestReturnType;
+      const request = (await PromiseToast(
+        {
+          promise: ApiRequest({
+            url: "/modifypage",
+            method: "PUT",
+            cookie: true,
+            refreshtoken: true,
+            data: {
+              formId: formState._id,
+              ty: type,
+              deletepage,
+            },
+          }),
+        },
+        { pending: "Adding Page", success: "Added" }
+      )) as ApiRequestReturnType;
 
-    if (!request.success) {
-      ErrorToast({ title: "Failed", content: "Can't Save" });
-      return;
-    }
-    if (type === "delete") dispatch(setreloaddata(true));
-  };
+      if (!request.success) {
+        ErrorToast({ title: "Failed", content: "Can't Save" });
+        return;
+      }
+      if (type === "delete") dispatch(setreloaddata(true));
+      dispatch(setpage(updatedPage));
+    },
+    [allQuestion, page, formState, setParams, dispatch]
+  );
+
+  // Memoize the question color
+  const questionColor = useMemo(
+    () => formState.setting?.qcolor as string,
+    [formState.setting?.qcolor]
+  );
 
   return (
     <div className="w-full h-fit flex flex-col items-center gap-y-20">
-      {fetchloading ? (
-        <Skeleton className="w-[80%] h-[300px] rounded-md" />
+      {fetchLoading ? (
+        <QuestionLoading count={3} />
       ) : (
-        allquestion
-          .filter((i) => i.page === page)
-          .map((question) => (
+        filteredQuestions.map((question, idx) => {
+          const questionKey = `${question.type}${question._id ?? idx}`;
+          return (
             <div
               className="w-[80%] h-fit"
-              key={`${question.type}${question.idx}`}
-              ref={(el) =>
-                (componentRefs.current[`${question.type}${question.idx}`] = el)
-              }
+              key={questionKey}
+              ref={(el) => {
+                componentRefs.current[questionKey] = el;
+              }}
             >
               <QuestionComponent
-                idx={question.idx}
+                idx={idx}
                 id={question._id}
                 isLinked={(ansidx) =>
-                  checkIsLinkedForQuestionOption(ansidx, question.idx)
+                  checkIsLinkedForQuestionOption(ansidx, idx)
                 }
                 value={question}
-                color={formstate.setting?.qcolor as string}
-                onDelete={() => {
-                  handleDeleteQuestion(question.idx);
-                }}
+                color={questionColor}
+                onDelete={() => handleDeleteQuestion(idx)}
                 onAddCondition={(answeridx) =>
-                  handleAddCondition(question.idx, answeridx)
+                  handleAddCondition(idx, answeridx)
                 }
-                removeCondition={(answeridx, ty) => {
-                  removeConditionedQuestion(answeridx, question.idx, ty);
-                }}
-                onDuplication={() => handleDuplication(question.idx)}
-                scrollToCondition={(val) => {
-                  scrollToDiv(val);
-                }}
-                isConditioned={() => checkConditionedContent(question.idx)}
+                removeCondition={(answeridx, ty) =>
+                  removeConditionedQuestion(answeridx, idx, ty)
+                }
+                onDuplication={() => handleDuplication(idx)}
+                scrollToCondition={scrollToDiv}
+                isConditioned={() =>
+                  checkConditionedContent(
+                    question._id ?? idx,
+                    question.parentcontent
+                  ) as never
+                }
               />
             </div>
-          ))
+          );
+        })
       )}
       <Button
         startContent={<PlusIcon width={"25px"} height={"25px"} />}
         className="w-[90%] h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
-        onPress={() => {
-          handleAddQuestion();
-        }}
+        onPress={handleAddQuestion}
       >
         New Question
       </Button>
-      {formstate.totalpage > 1 ? (
-        <Pagination
-          loop
-          showControls
-          color="primary"
-          initialPage={1}
-          total={formstate.totalpage ?? 0}
-          page={page}
-          onChange={(val) => {
-            setsearchParam({ ...searchParam, page: val.toString() });
-            dispatch(setpage(val) as never);
-            dispatch(setreloaddata(true));
-          }}
-        />
-      ) : (
-        ""
-      )}
+
       <div className="page-btn w-full h-fit flex flex-row items-center justify-between">
         <Button
           className="max-w-xs font-bold text-red-400 border-x-0 border-t-0 transition-transform hover:translate-x-1"
           radius="none"
           style={
-            formstate.totalpage === 1 || page === 1 ? { display: "none" } : {}
+            formState.totalpage === 1 || page === 1 ? { display: "none" } : {}
           }
           color="danger"
           variant="bordered"
@@ -466,9 +554,7 @@ const QuestionTab = () => {
                 value: {
                   open: true,
                   data: {
-                    onAgree: () => {
-                      handlePage("delete", page);
-                    },
+                    onAgree: () => handlePage("delete", page),
                   },
                 },
               })
@@ -477,7 +563,7 @@ const QuestionTab = () => {
           startContent={
             <Image
               src={MinusIcon}
-              alt="plus"
+              alt="minus"
               width={20}
               height={20}
               loading="lazy"
@@ -487,13 +573,11 @@ const QuestionTab = () => {
           Delete Page
         </Button>
         <Button
-          className="max-w-xs font-bold text-black border-x-0  border-t-0 transition-transform hover:translate-x-1"
+          className="max-w-xs font-bold text-black border-x-0 border-t-0 transition-transform hover:translate-x-1"
           radius="none"
           color="primary"
           variant="bordered"
-          onPress={() => {
-            handlePage("add");
-          }}
+          onPress={() => handlePage("add")}
           startContent={
             <Image
               src={PlusImg}

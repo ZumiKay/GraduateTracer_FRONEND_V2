@@ -150,7 +150,6 @@ export const ThemeIcon = ({ dark }: { dark: boolean }) => {
 export const MoonIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      aria-hidden="true"
       focusable="false"
       height="1em"
       role="presentation"
@@ -169,7 +168,6 @@ export const MoonIcon = (props: React.SVGProps<SVGSVGElement>) => {
 export const SunIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      aria-hidden="true"
       focusable="false"
       height="1em"
       role="presentation"
@@ -222,7 +220,6 @@ export const TrashIcon = (props: React.SVGProps<SVGSVGElement>) => {
 export const SearchIcon = (props: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
-      aria-hidden="true"
       fill="none"
       focusable="false"
       height="1em"
