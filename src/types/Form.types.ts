@@ -94,6 +94,7 @@ export interface AnswerKey {
     | RangeType<Date>
     | RangeType<number>
     | Array<number>;
+  isCorrect?: boolean;
 }
 
 // Conditional Type
@@ -130,6 +131,8 @@ export interface ContentType<t = unknown> {
   conditional?: Array<ConditionalType>;
   require?: boolean;
   page?: number;
+  hasAnswer?: boolean;
+  isValidated?: boolean;
   [key: string]: t | unknown;
 }
 
@@ -228,3 +231,27 @@ export const DefaultFormState: FormDataType = {
   contentIds: [],
   setting: DefaultFormSetting,
 };
+
+// Validation Types
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  missingAnswers: string[];
+  missingScores: string[];
+}
+
+export interface FormValidationSummary {
+  canReturnScoreAutomatically: boolean;
+  totalValidQuestions: number;
+  totalInvalidQuestions: number;
+  totalScore: number;
+  validationResults: ValidationResult[];
+  errors?: string[];
+  warnings?: string[];
+  canProceed?: boolean;
+  canSubmit?: boolean;
+  action?: string;
+}
+
+// Default Form State

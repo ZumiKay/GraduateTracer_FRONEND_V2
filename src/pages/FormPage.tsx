@@ -21,6 +21,8 @@ import SettingTab from "../component/FormComponent/Setting/Setting_Tab";
 import { setopenmodal } from "../redux/openmodal";
 import { useSetSearchParam } from "../hooks/CustomHook";
 import { useCallback, useMemo } from "react";
+import useFormValidation from "../hooks/ValidationHook";
+
 type alltabs = "question" | "solution" | "preview" | "response" | "setting";
 
 export default function FormPage() {
@@ -30,6 +32,7 @@ export default function FormPage() {
     (root: RootState) => root.allform
   );
   const navigate = useNavigate();
+  const { validateForm, showValidationWarnings } = useFormValidation();
 
   const { searchParam, setParams } = useSetSearchParam();
   const [tab, setTab] = useState<alltabs>(
@@ -91,12 +94,28 @@ export default function FormPage() {
   );
 
   const handleTabs = useCallback(
-    (val: alltabs) => {
+    async (val: alltabs) => {
       const proceedFunc = () => {
         setParams({ tab: val });
         setTab(val);
         dispatch(setreloaddata(true));
       };
+
+      // Validate before switching to solution tab
+      if (val === "solution" && formstate._id) {
+        try {
+          const validation = await validateForm(formstate._id, "switch_tab");
+          if (
+            validation &&
+            validation.warnings &&
+            validation.warnings.length > 0
+          ) {
+            showValidationWarnings(validation);
+          }
+        } catch (error) {
+          console.error("Validation error:", error);
+        }
+      }
 
       if (!isFillAllRequired && tab === "solution") {
         dispatch(
@@ -119,7 +138,15 @@ export default function FormPage() {
         proceedFunc();
       }
     },
-    [isFillAllRequired, tab, setParams, dispatch]
+    [
+      isFillAllRequired,
+      tab,
+      setParams,
+      dispatch,
+      formstate._id,
+      validateForm,
+      showValidationWarnings,
+    ]
   );
 
   const handlePage = useCallback(
@@ -139,8 +166,9 @@ export default function FormPage() {
 
   return (
     <div
-      style={{ backgroundColor: formstate.setting?.bg }}
-      className="formpage w-full min-h-screen h-full pb-5"
+      className={`formpage w-full min-h-screen h-full pb-5 ${
+        formstate.setting?.bg ? `bg-[${formstate.setting.bg}]` : ""
+      }`}
     >
       <Tabs
         className="w-full h-fit bg-white"

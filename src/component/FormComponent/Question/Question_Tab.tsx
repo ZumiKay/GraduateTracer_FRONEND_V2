@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { RootState } from "../../../redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -14,6 +14,7 @@ import {
   setformstate,
   setpage,
   setreloaddata,
+  setshowLinkedQuestion,
 } from "../../../redux/formstore";
 import ApiRequest, { ApiRequestReturnType } from "../../../hooks/ApiHook";
 import QuestionComponent from "../QuestionComponent";
@@ -24,10 +25,12 @@ import MinusIcon from "../../../assets/minus.png";
 import PlusImg from "../../../assets/add.png";
 import { QuestionLoading } from "../../Loading/ContainerLoading";
 import { useSetSearchParam } from "../../../hooks/CustomHook";
+import QuestionStructure from "./QuestionStructure";
 
 const QuestionTab = () => {
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const { setParams } = useSetSearchParam();
+  const [showStructure, setShowStructure] = useState(true);
 
   // Memoize selectors to prevent unnecessary re-renders
   const formState = useSelector((root: RootState) => root.allform.formstate);
@@ -37,6 +40,9 @@ const QuestionTab = () => {
   );
   const allQuestion = useSelector(
     (root: RootState) => root.allform.allquestion
+  );
+  const showLinkedQuestion = useSelector(
+    (root: RootState) => root.allform.showLinkedQuestions
   );
 
   const dispatch = useDispatch();
@@ -487,109 +493,199 @@ const QuestionTab = () => {
     [formState.setting?.qcolor]
   );
 
-  return (
-    <div className="w-full h-fit flex flex-col items-center gap-y-20">
-      {fetchLoading ? (
-        <QuestionLoading count={3} />
-      ) : (
-        filteredQuestions.map((question, idx) => {
-          const questionKey = `${question.type}${question._id ?? idx}`;
-          return (
-            <div
-              className="w-[80%] h-fit"
-              key={questionKey}
-              ref={(el) => {
-                componentRefs.current[questionKey] = el;
-              }}
-            >
-              <QuestionComponent
-                idx={idx}
-                id={question._id}
-                isLinked={(ansidx) =>
-                  checkIsLinkedForQuestionOption(ansidx, idx)
-                }
-                value={question}
-                color={questionColor}
-                onDelete={() => handleDeleteQuestion(idx)}
-                onAddCondition={(answeridx) =>
-                  handleAddCondition(idx, answeridx)
-                }
-                removeCondition={(answeridx, ty) =>
-                  removeConditionedQuestion(answeridx, idx, ty)
-                }
-                onDuplication={() => handleDuplication(idx)}
-                scrollToCondition={scrollToDiv}
-                isConditioned={() =>
-                  checkConditionedContent(
-                    question._id ?? idx,
-                    question.parentcontent
-                  ) as never
-                }
-              />
-            </div>
-          );
-        })
-      )}
-      <Button
-        startContent={<PlusIcon width={"25px"} height={"25px"} />}
-        className="w-[90%] h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
-        onPress={handleAddQuestion}
-      >
-        New Question
-      </Button>
+  const shouldShowConditionedQuestion = useCallback(
+    (question: number | string): boolean => {
+      const linkedQuestion = showLinkedQuestion?.find(
+        (i) => i.question === question
+      );
+      const currentVisibility =
+        linkedQuestion?.show !== undefined ? linkedQuestion.show : true;
 
-      <div className="page-btn w-full h-fit flex flex-row items-center justify-between">
-        <Button
-          className="max-w-xs font-bold text-red-400 border-x-0 border-t-0 transition-transform hover:translate-x-1"
-          radius="none"
-          style={
-            formState.totalpage === 1 || page === 1 ? { display: "none" } : {}
-          }
-          color="danger"
-          variant="bordered"
-          onPress={() => {
-            dispatch(
-              setopenmodal({
-                state: "confirm",
-                value: {
-                  open: true,
-                  data: {
-                    onAgree: () => handlePage("delete", page),
-                  },
-                },
-              })
+      if (!currentVisibility) {
+        return false;
+      }
+
+      // Check if this question is a child of another question
+      const questionData = allQuestion.find(
+        (q) => q._id === question || q._id === question.toString()
+      );
+      if (questionData?.parentcontent) {
+        // Recursively check parent question visibility
+        return shouldShowConditionedQuestion(questionData.parentcontent.qId);
+      }
+
+      return currentVisibility;
+    },
+    [showLinkedQuestion, allQuestion]
+  );
+
+  // Handle question click from structure
+  const handleQuestionClick = useCallback((questionKey: string) => {
+    const element = componentRefs.current[questionKey];
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  // Handle visibility toggle from structure
+  const handleToggleVisibility = useCallback(
+    (questionId: string | number) => {
+      const currentState = showLinkedQuestion ?? [];
+      const existingIndex = currentState.findIndex(
+        (item) => item.question === questionId
+      );
+
+      const newState = [...currentState];
+      const currentVisibility =
+        existingIndex !== -1 ? currentState[existingIndex].show : true;
+      const newVisibility = !currentVisibility;
+
+      if (existingIndex !== -1) {
+        newState[existingIndex] = {
+          ...newState[existingIndex],
+          show: newVisibility,
+        };
+      } else {
+        newState.push({ question: questionId, show: newVisibility });
+      }
+
+      dispatch(setshowLinkedQuestion(newState as never));
+    },
+    [showLinkedQuestion, dispatch]
+  );
+
+  return (
+    <div className="w-full h-fit flex flex-row">
+      {/* Question Structure Sidebar */}
+      {showStructure && (
+        <QuestionStructure
+          onQuestionClick={handleQuestionClick}
+          onToggleVisibility={handleToggleVisibility}
+          currentPage={page}
+          onClose={() => setShowStructure(false)}
+        />
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center gap-y-20 p-4">
+        {/* Toggle Structure Button */}
+        {!showStructure && (
+          <Button
+            className="self-start mb-4"
+            variant="flat"
+            onPress={() => setShowStructure(true)}
+          >
+            Show Question Structure
+          </Button>
+        )}
+
+        {fetchLoading ? (
+          <QuestionLoading count={3} />
+        ) : (
+          filteredQuestions.map((question, idx) => {
+            const questionKey = `${question.type}${question._id ?? idx}`;
+            const isChildCondition = question.parentcontent
+              ? shouldShowConditionedQuestion(question.parentcontent.qId)
+              : true;
+            return (
+              isChildCondition && (
+                <div
+                  className="w-[90%] h-fit"
+                  key={questionKey}
+                  ref={(el) => {
+                    componentRefs.current[questionKey] = el;
+                  }}
+                >
+                  <QuestionComponent
+                    idx={idx}
+                    id={question._id}
+                    isLinked={(ansidx) =>
+                      checkIsLinkedForQuestionOption(ansidx, idx)
+                    }
+                    value={question}
+                    color={questionColor}
+                    onDelete={() => handleDeleteQuestion(idx)}
+                    onAddCondition={(answeridx) =>
+                      handleAddCondition(idx, answeridx)
+                    }
+                    removeCondition={(answeridx, ty) =>
+                      removeConditionedQuestion(answeridx, idx, ty)
+                    }
+                    onDuplication={() => handleDuplication(idx)}
+                    scrollToCondition={scrollToDiv}
+                    isConditioned={() =>
+                      checkConditionedContent(
+                        question._id ?? idx,
+                        question.parentcontent
+                      ) as never
+                    }
+                  />
+                </div>
+              )
             );
-          }}
-          startContent={
-            <Image
-              src={MinusIcon}
-              alt="minus"
-              width={20}
-              height={20}
-              loading="lazy"
-            />
-          }
-        >
-          Delete Page
-        </Button>
+          })
+        )}
         <Button
-          className="max-w-xs font-bold text-black border-x-0 border-t-0 transition-transform hover:translate-x-1"
-          radius="none"
-          color="primary"
-          variant="bordered"
-          onPress={() => handlePage("add")}
-          startContent={
-            <Image
-              src={PlusImg}
-              alt="plus"
-              width={20}
-              height={20}
-              loading="lazy"
-            />
-          }
+          startContent={<PlusIcon width={"25px"} height={"25px"} />}
+          className="w-[90%] h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
+          onPress={handleAddQuestion}
         >
-          New Page
+          New Question
         </Button>
+
+        <div className="page-btn w-full h-fit flex flex-row items-center justify-between">
+          <Button
+            className="max-w-xs font-bold text-red-400 border-x-0 border-t-0 transition-transform hover:translate-x-1"
+            radius="none"
+            style={
+              formState.totalpage === 1 || page === 1 ? { display: "none" } : {}
+            }
+            color="danger"
+            variant="bordered"
+            onPress={() => {
+              dispatch(
+                setopenmodal({
+                  state: "confirm",
+                  value: {
+                    open: true,
+                    data: {
+                      onAgree: () => handlePage("delete", page),
+                    },
+                  },
+                })
+              );
+            }}
+            startContent={
+              <Image
+                src={MinusIcon}
+                alt="minus"
+                width={20}
+                height={20}
+                loading="lazy"
+              />
+            }
+          >
+            Delete Page
+          </Button>
+          <Button
+            className="max-w-xs font-bold text-black border-x-0 border-t-0 transition-transform hover:translate-x-1"
+            radius="none"
+            color="primary"
+            variant="bordered"
+            onPress={() => handlePage("add")}
+            startContent={
+              <Image
+                src={PlusImg}
+                alt="plus"
+                width={20}
+                height={20}
+                loading="lazy"
+              />
+            }
+          >
+            New Page
+          </Button>
+        </div>
       </div>
     </div>
   );

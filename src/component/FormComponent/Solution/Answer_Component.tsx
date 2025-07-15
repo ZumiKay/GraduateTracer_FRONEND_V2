@@ -25,6 +25,7 @@ interface AnswerComponent_Props<t> {
   choicety?: QuestionType.CheckBox | QuestionType.MultipleChoice;
   placeholder?: string;
   readonly?: boolean;
+  isDisable?: boolean;
 }
 
 export const ParagraphAnswer = (
@@ -46,6 +47,7 @@ export const ParagraphAnswer = (
         onClear={() => props.onChange && props.onChange("")}
         placeholder={props.placeholder ?? "Type your answer here"}
         isReadOnly={props.readonly}
+        isDisabled={props.isDisable}
       />
     </div>
   );
@@ -55,23 +57,29 @@ export const ChoiceAnswer = (props: AnswerComponent_Props<number>) => {
   return props.choicety === QuestionType.CheckBox ? (
     <Checkbox
       aria-label={props.name}
-      className="w-full h-fit p-2 border-2 border-gray-300"
+      className="w-full h-fit p-3 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors duration-200"
       checked={props.value === props.data?.value}
       size="md"
       name={props.name}
       onValueChange={(val) =>
         props.onChange && props.onChange(val ? props.data?.value ?? 0 : -1)
       }
+      isDisabled={props.isDisable}
     >
-      <p className="text-lg font-medium w-full h-full">{props.data?.label}</p>
+      <p className="text-base font-medium text-gray-800 w-full h-full leading-relaxed">
+        {props.data?.label}
+      </p>
     </Checkbox>
   ) : (
     <Radio
-      className="w-full h-fit p-2  mb-2"
+      className="w-full h-fit p-3 mb-3 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors duration-200"
       value={props.data?.value.toString() ?? ""}
       aria-label={props.name}
+      isDisabled={props.isDisable}
     >
-      <p className="text-lg font-medium w-full h-full">{props.data?.label}</p>
+      <p className="text-base font-medium text-gray-800 w-full h-full leading-relaxed">
+        {props.data?.label}
+      </p>
     </Radio>
   );
 };
@@ -87,8 +95,10 @@ export const RangeNumberAnswer = (
   useEffect(() => {
     if (props.onChange) {
       ///Set Value
+      const val = value as number[];
+      props.onChange({ start: val[0], end: val[1] });
     }
-  }, [value]);
+  }, [props, value]);
   return (
     <div className="w-full h-fit flex flex-col items-center gap-y-3">
       <div className="flex flex-col gap-2 w-full h-full max-w-md items-start justify-center">
@@ -98,6 +108,7 @@ export const RangeNumberAnswer = (
           onChange={setValue}
           maxValue={props.value?.end ?? 0}
           aria-label={props.name}
+          isDisabled={props.isDisable}
         />
       </div>
       <div className="input_field max-w-md w-full h-[30px] inline-flex items-center justify-between gap-x-3">
@@ -108,6 +119,7 @@ export const RangeNumberAnswer = (
           labelPlacement="outside-left"
           isReadOnly
           size="lg"
+          isDisabled={props.isDisable}
         />
         <Input
           value={value[1 as never]}
@@ -116,6 +128,7 @@ export const RangeNumberAnswer = (
           readOnly
           label="End"
           size="lg"
+          isDisabled={props.isDisable}
         />
       </div>
     </div>
@@ -144,6 +157,7 @@ export const DateQuestionType = (props: AnswerComponent_Props<Date>) => {
         label={props.placeholder ?? "Date"}
         visibleMonths={2}
         onChange={setvalue}
+        isDisabled={props.isDisable}
       />
     </div>
   );
@@ -182,6 +196,7 @@ export const DateRangePickerQuestionType = (
           setValue((prev) => ({ ...prev, start: val } as never))
         }
         visibleMonths={2}
+        isDisabled={props.isDisable}
       />
       <DatePicker
         value={value?.end}
@@ -189,6 +204,7 @@ export const DateRangePickerQuestionType = (
         labelPlacement="outside"
         visibleMonths={2}
         onChange={(val) => setValue((prev) => ({ ...prev, end: val } as never))}
+        isDisabled={props.isDisable}
       />
     </div>
   );
@@ -205,6 +221,7 @@ export const ShortAnswer = (props: AnswerComponent_Props<string>) => {
       value={props.value}
       aria-label={props.name}
       isReadOnly={props.readonly}
+      isDisabled={props.isDisable}
     />
   );
 };

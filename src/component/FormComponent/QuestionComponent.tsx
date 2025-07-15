@@ -1,11 +1,15 @@
-import { ChangeEvent, CSSProperties, useCallback, useMemo, memo } from "react";
+import { ChangeEvent, useCallback, useMemo, memo } from "react";
 import { ContentType, QuestionType } from "../../types/Form.types";
 import { SelectionType } from "../../types/Global.types";
 import Selection from "./Selection";
 import { Switch, Tooltip } from "@heroui/react";
-import { CopyIcon, TrashIcon } from "../svg/GeneralIcon";
+import { CopyIcon, ShowLinkedIcon, TrashIcon } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
-import { setallquestion, setdisbounceQuestion } from "../../redux/formstore";
+import {
+  setallquestion,
+  setdisbounceQuestion,
+  setshowLinkedQuestion,
+} from "../../redux/formstore";
 import { RootState } from "../../redux/store";
 import Tiptap from "./TipTabEditor";
 import { setopenmodal } from "../../redux/openmodal";
@@ -41,7 +45,15 @@ interface QuestionComponentProps {
   onDuplication: () => void;
   scrollToCondition?: (key: string) => void;
   isConditioned: () => { key: string; qIdx: number; ansIdx: number };
+  onShowLinkedQuestions?: (val: boolean) => void;
 }
+
+// Memoized selectors to prevent unnecessary re-renders
+const selectAllQuestions = (state: RootState) => state.allform.allquestion;
+const selectAutosave = (state: RootState) =>
+  state.allform.formstate.setting?.autosave;
+const selectShowLinkedQuestions = (state: RootState) =>
+  state.allform.showLinkedQuestions;
 
 const QuestionComponent = memo(
   ({
@@ -59,15 +71,23 @@ const QuestionComponent = memo(
   }: QuestionComponentProps) => {
     const dispatch = useDispatch();
 
-    // Use specific selectors to avoid unnecessary re-renders
-    const allquestion = useSelector(
-      (root: RootState) => root.allform.allquestion,
-      (prev, curr) => prev === curr
-    );
-    const autosave = useSelector(
-      (root: RootState) => root.allform.formstate.setting?.autosave,
-      (prev, curr) => prev === curr
-    );
+    const allquestion = useSelector(selectAllQuestions);
+    const autosave = useSelector(selectAutosave);
+    const allshowLinkedQuestions = useSelector(selectShowLinkedQuestions);
+
+    const questionId = useMemo(() => id ?? idx, [id, idx]);
+
+    const conditionInfo = useMemo(() => isConditioned(), [isConditioned]);
+    const isNotConditioned = conditionInfo.qIdx === -1;
+    const isNotTextType = value.type !== QuestionType.Text;
+
+    // Memoized current show state - show by default if no explicit setting exists
+    const currentShowState = useMemo(() => {
+      const linkedQuestion = allshowLinkedQuestions?.find(
+        (item) => item.question === questionId
+      );
+      return linkedQuestion?.show !== undefined ? linkedQuestion.show : true;
+    }, [allshowLinkedQuestions, questionId]);
 
     const onUpdateState = useCallback(
       async (newVal: Partial<ContentType>) => {
@@ -191,39 +211,55 @@ const QuestionComponent = memo(
     );
 
     const handleConditionScroll = useCallback(() => {
-      const conditionInfo = isConditioned();
       scrollToCondition?.(conditionInfo.key);
-    }, [isConditioned, scrollToCondition]);
+    }, [scrollToCondition, conditionInfo.key]);
 
-    const styles: Record<string, CSSProperties> = useMemo(
-      () => ({
-        s1: {
-          border: `15px solid ${color}`,
-        },
-        s2: {
-          backgroundColor: color,
-        },
-      }),
+    const handleShowLinkedQuestions = useCallback(() => {
+      const currentState = allshowLinkedQuestions ?? [];
+      const existingIndex = currentState.findIndex(
+        (item) => item.question === questionId
+      );
+
+      const newState = [...currentState];
+      // Since we show by default, toggle means: if currently showing (default), hide it
+      // If currently hidden (explicitly set to false), show it
+      const newShowState = !currentShowState;
+
+      if (existingIndex !== -1) {
+        newState[existingIndex] = {
+          ...newState[existingIndex],
+          show: newShowState,
+        };
+      } else {
+        newState.push({ question: questionId, show: newShowState });
+      }
+
+      dispatch(setshowLinkedQuestion(newState as never));
+    }, [allshowLinkedQuestions, dispatch, questionId, currentShowState]);
+
+    // Memoized styles to prevent recalculation
+    const borderStyle = useMemo(() => ({ borderColor: color }), [color]);
+    const backgroundStyle = useMemo(
+      () => ({ backgroundColor: color }),
       [color]
     );
-
-    const conditionInfo = useMemo(() => isConditioned(), [isConditioned]);
-    const isNotConditioned = conditionInfo.qIdx === -1;
-    const isNotTextType = value.type !== QuestionType.Text;
+    const highlightStyle = useMemo(
+      () => (currentShowState ? { backgroundColor: "lightblue" } : {}),
+      [currentShowState]
+    );
 
     return (
       <div
-        style={styles.s1}
-        className="w-full h-fit flex flex-col rounded-md bg-white items-center gap-y-5 py-5 relative"
+        className="w-full h-fit flex flex-col rounded-md bg-white border-[15px] items-center gap-y-5 py-5 relative"
+        style={borderStyle}
       >
-        {isNotConditioned && (
-          <div
-            style={styles.s2}
-            className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px]"
-          >
-            {`Question ${idx + 1}`}
-          </div>
-        )}
+        <div
+          style={backgroundStyle}
+          className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px]"
+        >
+          {`Question ${idx + 1}`}
+        </div>
+
         <div className="text_editor w-[97%] bg-white p-3 rounded-b-md flex flex-row items-start justify-start gap-x-3">
           <Tiptap
             qidx={idx}
@@ -251,12 +287,24 @@ const QuestionComponent = memo(
         )}
         <div className="detail_section w-fit h-[40px] flex flex-row self-end gap-x-3">
           <div className="danger_section w-fit h-full self-end p-2 mr-2 bg-white rounded-md flex flex-row items-center gap-x-5">
+            {value.conditional && value.conditional.length > 0 && (
+              <Tooltip placement="bottom" content="Show Linked Question">
+                <div
+                  onClick={handleShowLinkedQuestions}
+                  style={highlightStyle}
+                  className="w-fit h-fit p-2 hover:bg-slate-200 rounded-md"
+                >
+                  <ShowLinkedIcon width="20px" height="20px" />
+                </div>
+              </Tooltip>
+            )}
+
             <Tooltip placement="bottom" content="Delete Question">
               <div
                 onClick={onDelete}
                 className="w-fit h-fit p-2 hover:bg-slate-200 rounded-md"
               >
-                <TrashIcon width={"20px"} height={"20px"} />
+                <TrashIcon width="20px" height="20px" />
               </div>
             </Tooltip>
 
@@ -265,9 +313,10 @@ const QuestionComponent = memo(
                 onClick={onDuplication}
                 className="w-fit h-fit p-2 hover:bg-slate-200 rounded-md"
               >
-                <CopyIcon width={"20px"} height={"20px"} />
+                <CopyIcon width="20px" height="20px" />
               </div>
             </Tooltip>
+
             {isNotTextType && (
               <Switch
                 onValueChange={handleRequireChange}
@@ -280,17 +329,19 @@ const QuestionComponent = memo(
             )}
           </div>
         </div>
-        {!isNotConditioned && (
-          <div
-            style={styles.s2}
-            onClick={handleConditionScroll}
-            className="condition_indicator w-fit p-2 rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200 absolute bottom-[100%]"
-          >
-            {`Condition for Q${conditionInfo.qIdx + 1} option ${
-              conditionInfo.ansIdx + 1
-            }`}
-          </div>
-        )}
+        {!isNotConditioned &&
+          conditionInfo.qIdx !== -1 &&
+          !isNaN(conditionInfo.qIdx) && (
+            <div
+              onClick={handleConditionScroll}
+              style={backgroundStyle}
+              className="condition_indicator w-fit p-2 rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200"
+            >
+              {`Condition for Q${conditionInfo.qIdx + 1} option ${
+                conditionInfo.ansIdx + 1
+              }`}
+            </div>
+          )}
       </div>
     );
   }

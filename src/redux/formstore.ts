@@ -6,6 +6,7 @@ import {
 } from "../types/Form.types";
 import ApiRequest from "../hooks/ApiHook";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
+import { ShowLinkedQuestionType } from "../types/Global.types";
 
 export const AsyncSaveForm = createAsyncThunk(
   "form/save",
@@ -65,6 +66,7 @@ const formstore = createSlice({
     reloaddata: true,
     pauseAutoSave: false,
     debounceQuestion: null as ContentType | null,
+    showLinkedQuestions: null as Array<ShowLinkedQuestionType> | null,
   },
   reducers: {
     setformstate: (state, action: PayloadAction<FormDataType>) => {
@@ -106,6 +108,12 @@ const formstore = createSlice({
     setdisbounceQuestion: (state, action: PayloadAction<ContentType>) => {
       state.debounceQuestion = action.payload;
     },
+    setshowLinkedQuestion: (
+      state,
+      action: PayloadAction<Array<ShowLinkedQuestionType>>
+    ) => {
+      state.showLinkedQuestions = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(AsyncSaveForm.fulfilled, (state) => {
@@ -129,5 +137,6 @@ export const {
   setreloaddata,
   setpauseAutoSave,
   setdisbounceQuestion,
+  setshowLinkedQuestion,
 } = formstore.actions;
 export default formstore;
