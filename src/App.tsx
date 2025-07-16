@@ -9,6 +9,7 @@ import SettingModal from "./component/Modal/Setting.modal";
 import OpenModal from "./redux/openmodal";
 import FormPage from "./pages/FormPage";
 import { useEffect } from "react";
+import PublicFormAccess from "./component/Response/PublicFormAccess";
 
 import { ConfirmModal } from "./component/Modal/AlertModal";
 import { AsyncGetUser } from "./redux/user.store";
@@ -54,11 +55,20 @@ function App() {
         />
       )}
       <main className="w-full min-h-screen h-full bg-white dark:bg-black flex flex-col items-center">
-        {pathname !== "/" && <NavigationBar />}
+        {pathname !== "/" &&
+          pathname !== "/form-access" &&
+          !pathname.startsWith("/form-access/") && <NavigationBar />}
         <Routes>
           <Route element={<PublichRoute />}>
             <Route index element={<AuthenticationPage />} />
           </Route>
+
+          {/* Public Form Access Routes */}
+
+          <Route
+            path="/form-access/:formId/:token"
+            element={<PublicFormAccess />}
+          />
 
           <Route element={<PrivateRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />

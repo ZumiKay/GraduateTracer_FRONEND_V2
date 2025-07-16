@@ -34,6 +34,7 @@ export interface FormSettingType {
   email?: boolean;
   returnscore?: returnscore;
   autosave?: boolean;
+  acceptResponses?: boolean; // New field to control if form accepts responses
 }
 
 interface User {
@@ -222,6 +223,7 @@ export const DefaultFormSetting: FormSettingType = {
   returnscore: returnscore.manual,
   email: false,
   autosave: false,
+  acceptResponses: true, // Default to accepting responses
 };
 
 export const DefaultFormState: FormDataType = {

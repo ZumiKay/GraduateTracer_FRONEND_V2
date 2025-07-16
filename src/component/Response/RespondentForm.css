@@ -1,0 +1,171 @@
+/* RespondentForm Styling */
+.respondent-form {
+  background-color: var(--form-bg, #ffffff);
+  color: var(--form-text, #000000);
+  min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.form-header-card {
+  background-color: var(--form-navbar, #f5f5f5) !important;
+  border-color: var(--form-qcolor, #e5e7eb) !important;
+  border-width: 2px;
+  transition: all 0.3s ease;
+}
+
+.form-header-card .card-header {
+  background-color: transparent !important;
+}
+
+.form-title {
+  color: var(--form-text, #000000) !important;
+  font-weight: 700;
+}
+
+.form-progress-text {
+  color: var(--form-text, #666666) !important;
+  opacity: 0.8;
+}
+
+.form-question-card {
+  background-color: var(--form-navbar, #f5f5f5) !important;
+  border-color: var(--form-qcolor, #e5e7eb) !important;
+  border-width: 2px;
+  transition: all 0.3s ease;
+}
+
+.form-question-card:hover {
+  border-color: var(--form-qcolor, #3b82f6) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.form-question-card .card-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid var(--form-qcolor, #e5e7eb);
+}
+
+.form-question-card .card-body {
+  background-color: transparent !important;
+}
+
+.form-question-number {
+  background-color: var(--form-qcolor, #3b82f6) !important;
+  color: white !important;
+  font-weight: 600;
+  border-radius: 50%;
+}
+
+.form-question-title {
+  color: var(--form-text, #000000) !important;
+  font-weight: 600;
+}
+
+.form-question-subtitle {
+  color: var(--form-text, #666666) !important;
+  opacity: 0.7;
+}
+
+.form-info-card {
+  background-color: var(--form-navbar, #f5f5f5) !important;
+  border-color: var(--form-qcolor, #e5e7eb) !important;
+  border-width: 2px;
+  transition: all 0.3s ease;
+}
+
+.form-info-card .card-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid var(--form-qcolor, #e5e7eb);
+}
+
+.form-info-card .card-body {
+  background-color: transparent !important;
+}
+
+.form-info-header {
+  color: var(--form-text, #000000) !important;
+  font-weight: 600;
+}
+
+.form-success-card {
+  background-color: var(--form-navbar, #f5f5f5) !important;
+  border-color: var(--form-qcolor, #e5e7eb) !important;
+  border-width: 2px;
+  transition: all 0.3s ease;
+}
+
+.form-success-card .card-body {
+  background-color: transparent !important;
+}
+
+.form-success-title {
+  color: var(--form-text, #000000) !important;
+  font-weight: 700;
+}
+
+.form-success-text {
+  color: var(--form-text, #666666) !important;
+  opacity: 0.8;
+}
+
+.form-success-subtext {
+  color: var(--form-text, #888888) !important;
+  opacity: 0.6;
+}
+
+.form-closed-card {
+  background-color: var(--form-navbar, #f5f5f5) !important;
+  border-color: var(--form-qcolor, #e5e7eb) !important;
+  border-width: 2px;
+  transition: all 0.3s ease;
+}
+
+.form-closed-card .card-body {
+  background-color: transparent !important;
+}
+
+.form-closed-title {
+  color: var(--form-text, #000000) !important;
+  font-weight: 700;
+}
+
+.form-closed-text {
+  color: var(--form-text, #666666) !important;
+  opacity: 0.8;
+}
+
+.form-closed-subtext {
+  color: var(--form-text, #888888) !important;
+  opacity: 0.6;
+}
+
+/* Input styling to match form theme */
+.respondent-form .form-question-card input,
+.respondent-form .form-question-card textarea,
+.respondent-form .form-question-card select {
+  background-color: var(--form-bg, #ffffff) !important;
+  color: var(--form-text, #000000) !important;
+  border-color: var(--form-qcolor, #e5e7eb) !important;
+}
+
+.respondent-form .form-question-card input:focus,
+.respondent-form .form-question-card textarea:focus,
+.respondent-form .form-question-card select:focus {
+  border-color: var(--form-qcolor, #3b82f6) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Error Alert styling */
+.respondent-form .alert {
+  border-color: var(--form-qcolor, #ef4444) !important;
+}
+
+/* Button styling */
+.respondent-form .btn-primary {
+  background-color: var(--form-qcolor, #3b82f6) !important;
+  border-color: var(--form-qcolor, #3b82f6) !important;
+}
+
+.respondent-form .btn-primary:hover {
+  background-color: var(--form-qcolor, #2563eb) !important;
+  border-color: var(--form-qcolor, #2563eb) !important;
+}

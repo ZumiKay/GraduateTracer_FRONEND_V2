@@ -18,12 +18,20 @@ import { ErrorToast } from "../component/Modal/AlertModal";
 import Solution_Tab from "../component/FormComponent/Solution/Solution_Tab";
 import QuestionTab from "../component/FormComponent/Question/Question_Tab";
 import SettingTab from "../component/FormComponent/Setting/Setting_Tab";
+import ResponseDashboard from "../component/Response/ResponseDashboard";
+import ResponseAnalytics from "../component/Response/ResponseAnalytics";
 import { setopenmodal } from "../redux/openmodal";
 import { useSetSearchParam } from "../hooks/CustomHook";
 import { useCallback, useMemo } from "react";
 import useFormValidation from "../hooks/ValidationHook";
 
-type alltabs = "question" | "solution" | "preview" | "response" | "setting";
+type alltabs =
+  | "question"
+  | "solution"
+  | "preview"
+  | "response"
+  | "analytics"
+  | "setting";
 
 export default function FormPage() {
   const param = useParams();
@@ -44,8 +52,6 @@ export default function FormPage() {
       navigate("/dashboard", { replace: true });
       return;
     }
-
-    dispatch(setfetchloading(true));
 
     const ty = tab === "question" ? "detail" : tab;
 
@@ -93,6 +99,11 @@ export default function FormPage() {
     [allquestion]
   );
 
+  // Compute reliable form ID
+  const formId = useMemo(() => {
+    return param.id || formstate._id || "";
+  }, [param.id, formstate._id]);
+
   const handleTabs = useCallback(
     async (val: alltabs) => {
       const proceedFunc = () => {
@@ -102,9 +113,9 @@ export default function FormPage() {
       };
 
       // Validate before switching to solution tab
-      if (val === "solution" && formstate._id) {
+      if (val === "solution" && formId) {
         try {
-          const validation = await validateForm(formstate._id, "switch_tab");
+          const validation = await validateForm(formId, "switch_tab");
           if (
             validation &&
             validation.warnings &&
@@ -143,7 +154,7 @@ export default function FormPage() {
       tab,
       setParams,
       dispatch,
-      formstate._id,
+      formId,
       validateForm,
       showValidationWarnings,
     ]
@@ -182,7 +193,12 @@ export default function FormPage() {
         <Tab key={"solution"} title="Solution">
           <Solution_Tab />
         </Tab>
-        <Tab key={"response"} title="Response"></Tab>
+        <Tab key={"response"} title="Response">
+          <ResponseDashboard formId={formId} form={formstate} />
+        </Tab>
+        <Tab key={"analytics"} title="Analytics">
+          <ResponseAnalytics formId={formId} form={formstate} />
+        </Tab>
         <Tab key={"setting"} title="Setting">
           <div className="w-full min-h-screen h-full grid place-items-center">
             <SettingTab />

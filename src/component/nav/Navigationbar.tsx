@@ -35,9 +35,11 @@ import { AutoSaveQuestion } from "../../pages/FormPage.action";
 import { ErrorToast } from "../Modal/AlertModal";
 import { ContentType } from "../../types/Form.types";
 import { setallquestion, setprevallquestion } from "../../redux/formstore";
+import NotificationSystem from "../Notification/NotificationSystem";
 // Memoized components for better performance
 const MemoizedProfileIcon = React.memo(ProfileIcon);
 const MemoizedAutoSaveForm = React.memo(AutoSaveForm);
+const MemoizedNotificationSystem = React.memo(NotificationSystem);
 
 // Memoized selector to prevent unnecessary re-renders
 const selectFormData = createSelector(
@@ -58,6 +60,7 @@ const selectFormData = createSelector(
 export default function Navigationbar() {
   // Memoized selectors to prevent unnecessary re-renders
   const formData = useSelector(selectFormData);
+  const userSession = useSelector((root: RootState) => root.usersession);
   const dispatch = useDispatch();
   const [loading, setloading] = useState(false);
   const [saveloading, setsaveloading] = useState(false);
@@ -220,6 +223,11 @@ export default function Navigationbar() {
           {!isSettingTab && !formData.fetchloading && !isAutosaveDisabled && (
             <MemoizedAutoSaveForm />
           )}
+
+          <MemoizedNotificationSystem
+            userId={userSession?.user?._id || ""}
+            className="mr-2"
+          />
 
           <MemoizedProfileIcon label="John Doe" color="lime" />
 

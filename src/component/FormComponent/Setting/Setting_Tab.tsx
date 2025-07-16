@@ -73,6 +73,12 @@ const SettingOptions = (formtype: FormTypeEnum): SettingOptionType =>
       state: "autosave",
       section: "General",
     },
+    {
+      label: "Accept Responses",
+      type: "switch",
+      state: "acceptResponses",
+      section: "General",
+    },
     formtype === FormTypeEnum.Quiz
       ? {
           label: "Return Score",
@@ -145,6 +151,7 @@ const SettingTab = () => {
     const settingKeys = new Set<keyof SettingType>(
       Object.keys(formstate.setting ?? {}) as (keyof SettingType)[]
     );
+    settingKeys.add("acceptResponses");
 
     const updatedState: FormDataType = {
       ...formstate,
