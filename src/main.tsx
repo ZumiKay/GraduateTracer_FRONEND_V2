@@ -10,6 +10,11 @@ import { ToastContainer } from "react-toastify";
 import "babel-polyfill";
 import "es6-shim";
 
+// Import test utility in development mode
+if (import.meta.env.DEV) {
+  import("./utils/testFormAccess.ts");
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Provider store={store}>

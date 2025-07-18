@@ -15,6 +15,7 @@ import {
   DownArrow,
   LogoutIcon,
   SettingIcon,
+  ResponsesIcon,
 } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../../redux/openmodal";
@@ -29,13 +30,13 @@ import React, {
 } from "react";
 import { createSelector } from "@reduxjs/toolkit";
 import { hasArrayChange } from "../../helperFunc";
-import { useLocation, useSearchParams } from "react-router";
+import { useLocation, useSearchParams, useNavigate } from "react-router";
 import AutoSaveForm from "../../hooks/AutoSaveHook";
-import { AutoSaveQuestion } from "../../pages/FormPage.action";
 import { ErrorToast } from "../Modal/AlertModal";
-import { ContentType } from "../../types/Form.types";
-import { setallquestion, setprevallquestion } from "../../redux/formstore";
+import { setformstate, setprevallquestion } from "../../redux/formstore";
 import NotificationSystem from "../Notification/NotificationSystem";
+import useImprovedAutoSave from "../../hooks/useImprovedAutoSave";
+import { DefaultFormState } from "../../types/Form.types";
 // Memoized components for better performance
 const MemoizedProfileIcon = React.memo(ProfileIcon);
 const MemoizedAutoSaveForm = React.memo(AutoSaveForm);
@@ -62,6 +63,7 @@ export default function Navigationbar() {
   const formData = useSelector(selectFormData);
   const userSession = useSelector((root: RootState) => root.usersession);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [loading, setloading] = useState(false);
   const [saveloading, setsaveloading] = useState(false);
   const [formHasChange, setformHasChange] = useState(false);
@@ -70,6 +72,13 @@ export default function Navigationbar() {
   const [searchParam] = useSearchParams();
 
   const openmodal = useSelector((root: RootState) => root.openmodal.setting);
+
+  // Add improved autosave hook
+  const { manualSave } = useImprovedAutoSave({
+    debounceMs: 500,
+    retryAttempts: 3,
+    retryDelayMs: 2000,
+  });
 
   // Memoized values
   const isSettingTab = useMemo(
@@ -128,50 +137,60 @@ export default function Navigationbar() {
     []
   );
 
-  const handleManuallySave = useCallback(
-    async <t,>(data: t, type?: string) => {
-      setsaveloading(true);
-      const saveReq = await AutoSaveQuestion({
-        data: data as never,
-        page: formData.page,
-        type: (type as never) ?? "save",
-        formId: formData.formstate._id ?? "",
-      });
+  const handleManuallySave = useCallback(async () => {
+    if (!formData.formstate._id) return;
+
+    setsaveloading(true);
+    try {
+      const success = await manualSave();
+      if (success) {
+        // Update the previous question state for comparison
+        dispatch(setprevallquestion(formData.allquestion));
+        setformHasChange(false); // Reset change state after successful save
+      }
+    } catch (error) {
+      console.error("Manual save failed:", error);
+      ErrorToast({ title: "Failed", content: "Can't Save" });
+    } finally {
       setsaveloading(false);
+    }
+  }, [manualSave, formData.allquestion, formData.formstate._id, dispatch]);
 
-      if (!saveReq.success) {
-        ErrorToast({ title: "Failed", content: "Can't Save" });
-        return;
+  // Keyboard shortcut for manual save (Ctrl+S / Cmd+S)
+  useEffect(() => {
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "s") {
+        event.preventDefault();
+        if (
+          formData.formstate._id &&
+          !saveloading &&
+          shouldShowSaveButton &&
+          formHasChange
+        ) {
+          handleManuallySave();
+        }
       }
+    };
 
-      if (saveReq.data)
-        setprevallquestion(saveReq.data as unknown as Array<ContentType>);
-      if (saveReq.data) {
-        dispatch(
-          setprevallquestion(saveReq.data as unknown as Array<ContentType>)
-        );
-        dispatch(setallquestion(saveReq.data as unknown as Array<ContentType>));
-      }
-    },
-    [formData, dispatch]
-  );
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, [
+    formData.formstate._id,
+    saveloading,
+    shouldShowSaveButton,
+    formHasChange,
+    handleManuallySave,
+  ]);
 
-  const handleTitleBlur = useCallback(
-    (val: React.FocusEvent<HTMLDivElement>) => {
-      handleManuallySave<object>(
-        {
-          title: val.currentTarget.innerHTML.toString(),
-          _id: formData.formstate._id,
-        },
-        "edit"
-      );
-    },
-    [handleManuallySave, formData.formstate._id]
-  );
+  const handleTitleBlur = useCallback(() => {
+    handleManuallySave();
+  }, [handleManuallySave]);
 
   const handleSavePress = useCallback(() => {
     if (formData.formstate._id) {
-      handleManuallySave<Array<ContentType>>(formData.allquestion);
+      handleManuallySave();
     }
   }, [formData, handleManuallySave]);
 
@@ -184,9 +203,17 @@ export default function Navigationbar() {
     );
   }, [dispatch]);
 
+  const handleToHome = useCallback(() => {
+    navigate("/");
+    dispatch(setformstate(DefaultFormState));
+  }, [dispatch, navigate]);
+
   return (
     <nav className="navigationbar w-full h-[70px] bg-[#f5f5f5] flex flex-row justify-between items-center p-2 dark:bg-gray-800 mb-10">
-      <div className="w-fit h-full flex flex-row items-center gap-x-5">
+      <div
+        onClick={handleToHome}
+        className="w-fit h-full flex flex-row items-center gap-x-5"
+      >
         <Image
           src={Logo}
           alt="logo"
@@ -248,6 +275,12 @@ export default function Navigationbar() {
                   <ListboxSection showDivider>
                     <ListboxItem startContent={<ArchiveIcon />}>
                       Achieve
+                    </ListboxItem>
+                    <ListboxItem
+                      onPress={() => navigate("/my-responses")}
+                      startContent={<ResponsesIcon />}
+                    >
+                      My Responses
                     </ListboxItem>
                   </ListboxSection>
                   <ListboxSection showDivider>

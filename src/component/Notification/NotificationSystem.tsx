@@ -9,6 +9,8 @@ import {
 } from "@heroicons/react/24/outline";
 import ApiRequest from "../../hooks/ApiHook";
 import { formatDistanceToNow } from "date-fns";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
 
 interface Notification {
   id: string;
@@ -40,16 +42,18 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
   userId,
   className,
 }) => {
+  const users = useSelector((root: RootState) => root.usersession);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchNotifications = useCallback(async () => {
+    if (!users.user?._id) return;
     try {
       setLoading(true);
       const response = await ApiRequest({
-        url: `/api/notifications?userId=${userId}`,
+        url: `/notifications?userId=${users.user?._id}`,
         method: "GET",
         cookie: true,
       });
@@ -67,7 +71,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [users.user?._id]);
 
   useEffect(() => {
     fetchNotifications();

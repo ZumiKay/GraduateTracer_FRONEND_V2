@@ -1,5 +1,4 @@
 import { Button } from "@heroui/react";
-import Card, { CreateCardBtn } from "../component/Card/Card";
 import FilterSection from "../component/Filter/FilterSection";
 import FormPagination from "../component/FormComponent/Pagination";
 import { useEffect, useState } from "react";
@@ -12,7 +11,9 @@ import { setallformstate } from "../redux/formstore";
 import { FormDataType } from "../types/Form.types";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 import { CardLoading } from "../component/Loading/ContainerLoading";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
+import FormCard from "../component/Card/FormCard";
+import CreateCardBtn from "../component/Card/CreateCardBtn";
 
 function Dashboard() {
   const [isManage, setisManage] = useState(false);
@@ -21,8 +22,15 @@ function Dashboard() {
   const selector = useSelector((state: RootState) => state.openmodal);
   const { allformstate } = useSelector((state: RootState) => state.allform);
   const [loading, setloading] = useState(false);
-  const [page, setpage] = useState(1);
-  const [limit, setlimit] = useState(5);
+  const [searchParam] = useSearchParams();
+  const [page, setpage] = useState(Number(searchParam.get("page")) || 1);
+  const [limit, setlimit] = useState(Number(searchParam.get("show")) || 5);
+  const [paginationData, setPaginationData] = useState({
+    totalPages: 1,
+    totalCount: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
   const navigate = useNavigate();
 
   const handleManageCardSelection = (id: string) => {
@@ -36,6 +44,19 @@ function Dashboard() {
       navigate(`/form/${id}`, { replace: true });
     }
   };
+
+  // Sync URL parameters with state
+  useEffect(() => {
+    const urlPage = Number(searchParam.get("page")) || 1;
+    const urlLimit = Number(searchParam.get("show")) || 5;
+
+    if (urlPage !== page) {
+      setpage(urlPage);
+    }
+    if (urlLimit !== limit) {
+      setlimit(urlLimit);
+    }
+  }, [searchParam, page, limit]);
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -56,9 +77,19 @@ function Dashboard() {
         return;
       }
       dispatch(setallformstate((response.data as Array<FormDataType>) ?? []));
+
+      // Update pagination data from response
+      if (response.pagination) {
+        setPaginationData({
+          totalPages: response.pagination.totalPages,
+          totalCount: response.pagination.totalCount,
+          hasNextPage: response.pagination.hasNextPage,
+          hasPrevPage: response.pagination.hasPrevPage,
+        });
+      }
     };
     fetchForm();
-  }, [dispatch, page, limit]);
+  }, [dispatch, page, limit, searchParam]);
 
   const handleDeleteForm = async () => {
     setloading(true);
@@ -171,7 +202,7 @@ function Dashboard() {
             : allformstate.map(
                 (form, idx) =>
                   form._id && (
-                    <Card
+                    <FormCard
                       key={idx}
                       data={form}
                       type={form.type as never}
@@ -182,11 +213,13 @@ function Dashboard() {
                   )
               )}
         </div>
-        <div className="mt-auto">
+        <div className="mt-auto flex justify-center">
           <FormPagination
             onPageChange={setpage}
             onLimitChange={setlimit}
-            total={allformstate.length === 0 ? 1 : allformstate.length}
+            total={paginationData.totalPages}
+            totalCount={paginationData.totalCount}
+            currentItems={allformstate.length}
           />
         </div>
       </div>

@@ -52,11 +52,14 @@ export interface FormDataType {
   contents?: Array<ContentType>;
   setting?: FormSettingType;
   user?: User;
+  owners?: Array<string>; // Additional owners/collaborators
   totalpage: number;
   totalscore?: number;
   createdAt?: Date;
   updatedAt?: Date;
   responses?: Array<FormResponseType>;
+  isOwner?: boolean; // True if current user is the primary owner
+  isCollaborator?: boolean; // True if current user is a collaborator
 }
 
 // Question Types
@@ -223,7 +226,7 @@ export const DefaultFormSetting: FormSettingType = {
   returnscore: returnscore.manual,
   email: false,
   autosave: false,
-  acceptResponses: true, // Default to accepting responses
+  acceptResponses: true,
 };
 
 export const DefaultFormState: FormDataType = {

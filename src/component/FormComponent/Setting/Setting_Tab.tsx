@@ -15,6 +15,7 @@ import { setopenmodal } from "../../../redux/openmodal";
 import { hasObjectChanged } from "../../../helperFunc";
 import Selection from "../Selection";
 import { CustomizeColorPicker } from "./Setting_component";
+import FormOwnerManager from "../../FormOwnerManager";
 
 const ReturnScoreOption: Array<SelectionType<string>> = [
   { label: "Partial", value: returnscore.partial },
@@ -102,6 +103,7 @@ const SettingTab = () => {
   const { formstate, loading } = useSelector((root: RootState) => root.allform);
   const dispatch = useDispatch();
   const [isEdit, setisEdit] = useState(false);
+  const [showOwnerManager, setShowOwnerManager] = useState(false);
 
   const handleRestoreSetting = async () => {
     dispatch(
@@ -151,7 +153,7 @@ const SettingTab = () => {
     const settingKeys = new Set<keyof SettingType>(
       Object.keys(formstate.setting ?? {}) as (keyof SettingType)[]
     );
-    settingKeys.add("acceptResponses");
+    if (!settingKeys.has("acceptResponses")) settingKeys.add("acceptResponses");
 
     const updatedState: FormDataType = {
       ...formstate,
@@ -217,7 +219,7 @@ const SettingTab = () => {
   return (
     <div className="setting-tab w-[80%] h-fit flex flex-col items-center gap-y-10 bg-white p-2 rounded-lg">
       {Object.entries(groupedOptions).map(([section, item]) => (
-        <>
+        <div key={`${section} of setting`} className="w-full h-fit">
           <p key={section} className="text-4xl font-bold text-left w-full">
             {section}
           </p>
@@ -277,7 +279,7 @@ const SettingTab = () => {
                 />
               )
           )}
-        </>
+        </div>
       ))}
 
       <div className="dangerous w-full h-full flex flex-row items-center justify-between">
@@ -291,6 +293,29 @@ const SettingTab = () => {
           Delete
         </Button>
       </div>
+
+      {/* Collaborative Features Section */}
+      <div className="collaborative w-full h-full flex flex-row items-center justify-between">
+        <div className="flex flex-col">
+          <p className="text-lg font-bold">Collaboration</p>
+          <p className="text-sm text-gray-600">
+            Manage form access and collaborative editing
+          </p>
+        </div>
+        <Button
+          color="primary"
+          variant="bordered"
+          className="font-bold max-w-sm"
+          onPress={() => setShowOwnerManager(true)}
+        >
+          Manage Access
+        </Button>
+      </div>
+
+      {/* Owner Manager Modal */}
+      {showOwnerManager && (
+        <FormOwnerManager onClose={() => setShowOwnerManager(false)} />
+      )}
 
       <div className="btn_section w-full h-[40px] flex flex-row items-center gap-x-5">
         <Button

@@ -38,6 +38,14 @@ export interface ApiRequestReturnType {
   message?: string;
   error?: string;
   status?: number;
+  pagination?: {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+    limit: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
 }
 const ApiRequest = async ({
   method,
@@ -69,6 +77,7 @@ const ApiRequest = async ({
       data: response.data.data,
       status: response.status,
       message: response.data.message,
+      pagination: response.data.pagination,
     };
   } catch (error) {
     console.log("Api Request Error", error);

@@ -24,6 +24,7 @@ import { setopenmodal } from "../redux/openmodal";
 import { useSetSearchParam } from "../hooks/CustomHook";
 import { useCallback, useMemo } from "react";
 import useFormValidation from "../hooks/ValidationHook";
+import ImprovedAutoSave from "../component/AutoSave/ImprovedAutoSave";
 
 type alltabs =
   | "question"
@@ -53,36 +54,117 @@ export default function FormPage() {
       return;
     }
 
+    dispatch(setfetchloading(true));
+
     const ty = tab === "question" ? "detail" : tab;
 
-    const response = await ApiRequest({
-      method: "GET",
-      url: `/filteredform?ty=${ty}&q=${param?.id}&page=${page}`,
-      refreshtoken: true,
-      cookie: true,
-    });
+    try {
+      const response = await ApiRequest({
+        method: "GET",
+        url: `/filteredform?ty=${ty}&q=${param?.id}&page=${page}`,
+        refreshtoken: true,
+        cookie: true,
+      });
 
-    dispatch(setfetchloading(false));
-    dispatch(setreloaddata(false));
+      if (!response.success) {
+        dispatch(setfetchloading(false));
+        dispatch(setreloaddata(false));
 
-    if (!response.success) {
+        // Handle different error cases
+        if (response.status === 403) {
+          ErrorToast({
+            toastid: "FormAccess",
+            title: "Access Denied",
+            content: "You don't have permission to access this form",
+          });
+        } else if (response.status === 404) {
+          ErrorToast({
+            toastid: "UniqueForm",
+            title: "Not Found",
+            content: "Form Not Found",
+          });
+        } else {
+          ErrorToast({
+            toastid: "FormError",
+            title: "Error",
+            content: response.error || "Failed to load form",
+          });
+        }
+
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      const result = response.data as unknown as FormDataType;
+
+      // Debug the response data
+      console.log("Backend response data:", {
+        formId: result._id,
+        title: result.title,
+        isOwner: result.isOwner,
+        isCollaborator: result.isCollaborator,
+        user: result.user,
+        owners: result.owners,
+      });
+
+      // Double-check access on frontend (redundant but safer)
+      const hasAccess = result.isOwner || result.isCollaborator;
+
+      // If backend didn't set access flags, assume no access for security
+      if (result.isOwner === undefined && result.isCollaborator === undefined) {
+        console.warn(
+          "Backend didn't provide access information, denying access"
+        );
+        ErrorToast({
+          toastid: "FormAccess",
+          title: "Access Denied",
+          content: "Unable to verify form access permissions",
+        });
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      if (!hasAccess) {
+        console.log("Access denied - Form access check failed:", {
+          isOwner: result.isOwner,
+          isCollaborator: result.isCollaborator,
+          hasAccess,
+        });
+        ErrorToast({
+          toastid: "FormAccess",
+          title: "Access Denied",
+          content: "You don't have permission to access this form",
+        });
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      // Set form content
+      dispatch(setformstate({ ...formstate, ...result, contents: undefined }));
+      dispatch(setallquestion(result.contents ?? []));
+
+      // Track if the state change
+      dispatch(setprevallquestion(result.contents ?? []));
+
+      console.log("Form loaded successfully:", {
+        formId: result._id,
+        isOwner: result.isOwner,
+        isCollaborator: result.isCollaborator,
+        hasAccess,
+      });
+    } catch (error) {
+      console.error("Error fetching form:", error);
+
       ErrorToast({
-        toastid: "UniqueForm",
-        title: "Not Found",
-        content: "Form Not Found",
+        toastid: "FormError",
+        title: "Error",
+        content: "Failed to load form data",
       });
       navigate("/dashboard", { replace: true });
-      return;
+    } finally {
+      dispatch(setfetchloading(false));
+      dispatch(setreloaddata(false));
     }
-
-    const result = response.data as unknown as FormDataType;
-
-    //Set form content
-    dispatch(setformstate({ ...formstate, ...result, contents: undefined }));
-    dispatch(setallquestion(result.contents ?? []));
-
-    //Track if the state change
-    dispatch(setprevallquestion(result.contents ?? []));
   }, [param.id, page, tab, navigate, formstate, dispatch]);
 
   useEffect(() => {
@@ -188,7 +270,10 @@ export default function FormPage() {
         onSelectionChange={(val) => handleTabs(val as alltabs)}
       >
         <Tab key={"question"} title="Question">
-          <QuestionTab />
+          <div className="relative">
+            <QuestionTab />
+            <ImprovedAutoSave />
+          </div>
         </Tab>
         <Tab key={"solution"} title="Solution">
           <Solution_Tab />

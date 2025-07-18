@@ -8,12 +8,16 @@ interface FormpaginationProps {
   total: number;
   onPageChange: (val: number) => void;
   onLimitChange: (val: number) => void;
+  totalCount?: number;
+  currentItems?: number;
 }
 
 export default function FormPagination({
   total,
   onPageChange,
   onLimitChange,
+  totalCount,
+  currentItems,
 }: FormpaginationProps) {
   const [param, setparam] = useSearchParams();
   const [currentPage, setCurrentPage] = React.useState(
@@ -40,27 +44,40 @@ export default function FormPagination({
     }
   };
   return (
-    <div className="w-full h-fit flex flex-col gap-5">
-      <Pagination
-        color="secondary"
-        page={currentPage}
-        total={total ?? 1}
-        onChange={(val) => {
-          handleParam("page", val ? val.toString() : "1");
-          setCurrentPage(val);
-          onPageChange(val);
-        }}
-      />
-      <div className="flex gap-2">
+    <div className="w-full h-fit flex flex-col items-center gap-5 bg-white p-4 rounded-lg shadow-sm border">
+      {/* Pagination info */}
+      {totalCount && (
+        <div className="text-sm text-default-500 text-center">
+          Showing {currentItems || 0} of {totalCount} forms (Page {currentPage}{" "}
+          of {total})
+        </div>
+      )}
+
+      <div className="flex justify-center">
+        <Pagination
+          color="secondary"
+          page={currentPage}
+          total={total ?? 1}
+          onChange={(val) => {
+            handleParam("page", val ? val.toString() : "1");
+            setCurrentPage(val);
+            onPageChange(val);
+          }}
+          className="flex justify-center"
+        />
+      </div>
+      <div className="flex gap-3 items-center justify-center">
         <Button
-          className="bg-primary font-bold text-white"
+          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 font-bold text-white transition-all duration-200"
           size="sm"
           variant="flat"
+          disabled={currentPage <= 1}
           onPress={() => {
             setCurrentPage((prev) => {
               const nxt = prev - 1;
               if (nxt >= 1) {
                 handleParam("page", nxt.toString());
+                onPageChange(nxt);
                 return nxt;
               } else {
                 return 1;
@@ -71,14 +88,16 @@ export default function FormPagination({
           Previous
         </Button>
         <Button
-          color="secondary"
+          className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 font-bold text-white transition-all duration-200"
           size="sm"
           variant="flat"
+          disabled={currentPage >= total}
           onPress={() => {
             setCurrentPage((prev) => {
               const nxt = prev + 1;
               if (prev < total) {
                 handleParam("page", nxt.toString());
+                onPageChange(nxt);
                 return nxt;
               } else {
                 return total;
@@ -88,13 +107,13 @@ export default function FormPagination({
         >
           Next
         </Button>
-        <label className="flex items-center text-default-500 text-small">
+        <label className="flex items-center text-default-600 text-small ml-4">
           Rows per page:
           <select
             onChange={handleChange}
             name="show"
             value={showperpage}
-            className="bg-transparent outline-none text-default-400 text-small"
+            className="bg-transparent outline-none text-default-400 text-small ml-2 border-b border-default-300 focus:border-primary"
           >
             {RowPerPage.map((item) => (
               <option key={item} value={item}>

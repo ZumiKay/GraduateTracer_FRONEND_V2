@@ -15,6 +15,7 @@ import {
   setpage,
   setreloaddata,
   setshowLinkedQuestion,
+  setpauseAutoSave,
 } from "../../../redux/formstore";
 import ApiRequest, { ApiRequestReturnType } from "../../../hooks/ApiHook";
 import QuestionComponent from "../QuestionComponent";
@@ -95,57 +96,65 @@ const QuestionTab = () => {
       const questionToDelete = allQuestion[qidx];
       if (!questionToDelete) return;
 
+      // Pause autosave during delete operation
+      dispatch(setpauseAutoSave(true));
+
       const deleteRequest = async () => {
-        if (formState.setting?.autosave && questionToDelete._id) {
-          const request = await PromiseToast(
-            {
-              promise: ApiRequest({
-                url: "/deletecontent",
-                method: "DELETE",
-                cookie: true,
-                refreshtoken: true,
-                data: { id: questionToDelete._id, formId: formState._id },
-              }),
-            },
-            { pending: "Deleting Question", error: "Can't Delete" }
+        try {
+          if (formState.setting?.autosave && questionToDelete._id) {
+            const request = await PromiseToast(
+              {
+                promise: ApiRequest({
+                  url: "/deletecontent",
+                  method: "DELETE",
+                  cookie: true,
+                  refreshtoken: true,
+                  data: { id: questionToDelete._id, formId: formState._id },
+                }),
+              },
+              { pending: "Deleting Question", error: "Can't Delete" }
+            );
+
+            if (!request.success) return;
+          }
+
+          dispatch(
+            setallquestion((prev) =>
+              prev
+                .filter((_, idx) => idx !== qidx)
+                .map((question) => {
+                  const hasRelevantCondition = question.conditional?.some(
+                    (cond) =>
+                      cond.contentIdx === qidx ||
+                      cond.contentId === questionToDelete._id
+                  );
+
+                  if (!hasRelevantCondition) return question;
+
+                  return {
+                    ...question,
+                    conditional: question?.conditional
+                      ?.filter((condition) =>
+                        questionToDelete._id
+                          ? condition.contentId !== questionToDelete._id
+                          : condition.contentIdx !== qidx
+                      )
+                      .map((condition) => ({
+                        ...condition,
+                        contentIdx:
+                          condition.contentIdx !== undefined &&
+                          condition.contentIdx > qidx
+                            ? condition.contentIdx - 1
+                            : condition.contentIdx,
+                      })),
+                  };
+                })
+            )
           );
-
-          if (!request.success) return;
+        } finally {
+          // Resume autosave after delete operation
+          dispatch(setpauseAutoSave(false));
         }
-
-        dispatch(
-          setallquestion((prev) =>
-            prev
-              .filter((_, idx) => idx !== qidx)
-              .map((question) => {
-                const hasRelevantCondition = question.conditional?.some(
-                  (cond) =>
-                    cond.contentIdx === qidx ||
-                    cond.contentId === questionToDelete._id
-                );
-
-                if (!hasRelevantCondition) return question;
-
-                return {
-                  ...question,
-                  conditional: question?.conditional
-                    ?.filter((condition) =>
-                      questionToDelete._id
-                        ? condition.contentId !== questionToDelete._id
-                        : condition.contentIdx !== qidx
-                    )
-                    .map((condition) => ({
-                      ...condition,
-                      contentIdx:
-                        condition.contentIdx !== undefined &&
-                        condition.contentIdx > qidx
-                          ? condition.contentIdx - 1
-                          : condition.contentIdx,
-                    })),
-                };
-              })
-          )
-        );
       };
 
       const hasConditionals =

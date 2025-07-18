@@ -8,8 +8,12 @@ import { RootState } from "./redux/store";
 import SettingModal from "./component/Modal/Setting.modal";
 import OpenModal from "./redux/openmodal";
 import FormPage from "./pages/FormPage";
+import UserResponsesPage from "./pages/UserResponsesPage";
 import { useEffect } from "react";
 import PublicFormAccess from "./component/Response/PublicFormAccess";
+import CookieConsent from "./component/Cookie/CookieConsent";
+import Footer from "./component/Cookie/Footer";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 
 import { ConfirmModal } from "./component/Modal/AlertModal";
 import { AsyncGetUser } from "./redux/user.store";
@@ -70,15 +74,28 @@ function App() {
             element={<PublicFormAccess />}
           />
 
+          {/* Privacy Policy - Public Route */}
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+
           <Route element={<PrivateRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/form/:id" element={<FormPage />} />
+            <Route path="/my-responses" element={<UserResponsesPage />} />
           </Route>
 
           {/* Not Found  */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+
+        {/* Add Footer for most pages */}
+        {pathname !== "/" &&
+          pathname !== "/form-access" &&
+          !pathname.startsWith("/form-access/") &&
+          pathname !== "/privacy-policy" && <Footer />}
       </main>
+
+      {/* Cookie Consent Banner */}
+      <CookieConsent />
     </>
   );
 }

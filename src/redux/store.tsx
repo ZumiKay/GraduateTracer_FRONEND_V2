@@ -3,6 +3,7 @@ import globalindex from "./globalindex";
 import OpenModal from "./openmodal";
 import formstore from "./formstore";
 import sessionReducer from "./user.store";
+import cookieConsentSlice from "./cookieConsent.store";
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     openmodal: OpenModal.reducer,
     allform: formstore.reducer,
     usersession: sessionReducer,
+    cookieConsent: cookieConsentSlice.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
