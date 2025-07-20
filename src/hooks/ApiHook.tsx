@@ -1,17 +1,26 @@
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 
 interface ApiRequestProps {
-  method: "GET" | "PUT" | "DELETE" | "POST";
+  method: "GET" | "PUT" | "DELETE" | "POST" | "PATCH";
   cookie?: boolean;
   url: string;
   data?: Record<string, unknown>;
   refreshtoken?: boolean;
+  reactQuery?: boolean;
 }
 
 interface ErrorResponse {
   message: string;
   code?: number;
   errors?: Array<{ message: string }>;
+}
+
+interface ApiError extends Error {
+  status?: number;
+  response?: {
+    data?: ErrorResponse;
+    status?: number;
+  };
 }
 
 const RefreshToken = async () => {
@@ -38,6 +47,7 @@ export interface ApiRequestReturnType {
   message?: string;
   error?: string;
   status?: number;
+  reactQuery?: boolean;
   pagination?: {
     currentPage: number;
     totalPages: number;
@@ -53,6 +63,7 @@ const ApiRequest = async ({
   url,
   data,
   refreshtoken,
+  reactQuery = false,
 }: ApiRequestProps): Promise<ApiRequestReturnType> => {
   const accessToken = localStorage.getItem("accessToken");
   // Function to handle API requests
@@ -78,6 +89,7 @@ const ApiRequest = async ({
       status: response.status,
       message: response.data.message,
       pagination: response.data.pagination,
+      reactQuery,
     };
   } catch (error) {
     console.log("Api Request Error", error);
@@ -86,9 +98,16 @@ const ApiRequest = async ({
     // Handle timeout error
     if (err.code === "ECONNABORTED" || err.message === "Request Timeout") {
       console.error("Request timed out. Please try again later.");
+
+      if (reactQuery) {
+        // For React Query, throw the error to trigger error boundary
+        throw new Error("Request timed out. Please try again later");
+      }
+
       return {
         success: false,
         error: "Request timed out. Please try again later",
+        reactQuery,
       };
     }
 
@@ -96,10 +115,17 @@ const ApiRequest = async ({
       //Referesh Token
       const newAccesstoken = await RefreshToken();
       if (!newAccesstoken.success) {
+        const errorMsg = "Login session expired";
+
+        if (reactQuery) {
+          throw new Error(errorMsg);
+        }
+
         return {
           success: false,
-          error: "Login session expired",
+          error: errorMsg,
           status: err.status,
+          reactQuery,
         };
       }
       const header = {
@@ -109,26 +135,77 @@ const ApiRequest = async ({
       //retry request
       try {
         const retryResponse = await axios({ ...config, headers: header });
-        return { success: true, data: { ...retryResponse.data } };
+        return {
+          success: true,
+          data: { ...retryResponse.data },
+          reactQuery,
+        };
       } catch (retryError) {
         console.error("Retry request failed", retryError);
-        return { success: false, error: (retryError as AxiosError).message };
+        const retryErrorMsg = (retryError as AxiosError).message;
+
+        if (reactQuery) {
+          throw new Error(retryErrorMsg);
+        }
+
+        return {
+          success: false,
+          error: retryErrorMsg,
+          reactQuery,
+        };
       }
     }
 
     const errorResponse = err.response?.data as ErrorResponse;
+    const errorMessage =
+      (errorResponse?.errors
+        ? errorResponse.errors[0]?.message
+        : errorResponse?.message) ??
+      err.message ??
+      "Error Occured";
+
+    if (reactQuery) {
+      // For React Query, throw the error to be handled by error boundaries
+      const error = new Error(errorMessage) as ApiError;
+      error.status = err.status;
+      error.response = {
+        data: err.response?.data as ErrorResponse,
+        status: err.response?.status,
+      };
+      throw error;
+    }
 
     return {
       success: false,
       status: err.status,
-      error:
-        (errorResponse?.errors
-          ? errorResponse.errors[0]?.message
-          : errorResponse?.message) ??
-        err.message ??
-        "Error Occured",
+      error: errorMessage,
+      reactQuery,
     };
   }
+};
+
+// Wrapper function specifically for React Query
+export const createQueryFn = (
+  requestConfig: Omit<ApiRequestProps, "reactQuery">
+) => {
+  return async () => {
+    const response = await ApiRequest({ ...requestConfig, reactQuery: true });
+    return response.data;
+  };
+};
+
+// Wrapper for mutation functions
+export const createMutationFn = (
+  requestConfig: Omit<ApiRequestProps, "reactQuery" | "data">
+) => {
+  return async (data?: Record<string, unknown>) => {
+    const response = await ApiRequest({
+      ...requestConfig,
+      data,
+      reactQuery: true,
+    });
+    return response.data;
+  };
 };
 
 export default ApiRequest;

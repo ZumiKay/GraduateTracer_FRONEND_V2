@@ -74,7 +74,7 @@ export const formOwnerService = {
 
     if (!response.success) throw response.error;
 
-    return response.data as never;
+    return response as never;
   },
 
   // Add a new owner to a form

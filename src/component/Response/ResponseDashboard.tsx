@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Card,
   CardHeader,
@@ -32,7 +32,8 @@ import {
   FiEdit3,
   FiBarChart,
 } from "react-icons/fi";
-import ApiRequest, { ApiRequestReturnType } from "../../hooks/ApiHook";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import ApiRequest from "../../hooks/ApiHook";
 import { FormDataType } from "../../types/Form.types";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
 
@@ -79,16 +80,8 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   formId,
   form,
 }) => {
-  const [responses, setResponses] = useState<ResponseData[]>([]);
-  const [filteredResponses, setFilteredResponses] = useState<ResponseData[]>(
-    []
-  );
+  const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [emailSendingLoading, setEmailSendingLoading] = useState(false);
-  const [linkGeneratingLoading, setLinkGeneratingLoading] = useState(false);
-  const [scoreUpdateLoading, setScoreUpdateLoading] = useState(false);
   const [filters, setFilters] = useState({
     status: "",
     dateRange: "",
@@ -113,8 +106,50 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     onClose: onScoreClose,
   } = useDisclosure();
 
-  // Apply filters to responses
-  const applyFilters = useCallback(() => {
+  // Fetch responses using React Query
+  const {
+    data: responses = [],
+    error,
+    isLoading,
+  } = useQuery({
+    queryKey: ["responses", formId, currentPage],
+    queryFn: async () => {
+      if (!formId) {
+        throw new Error("No formId provided");
+      }
+
+      const params = new URLSearchParams({
+        id: formId,
+        p: currentPage.toString(),
+        lt: "10",
+      });
+
+      const result = await ApiRequest({
+        url: `/getresponsebyform?${params}`,
+        method: "GET",
+        cookie: true,
+        refreshtoken: true,
+        reactQuery: true,
+      });
+
+      return result.data as ResponseData[];
+    },
+    enabled: !!formId,
+    staleTime: 30000, // 30 seconds
+    retry: (failureCount) => {
+      // Don't retry on certain errors
+      if (failureCount >= 3) return false;
+      return true;
+    },
+  });
+
+  // Calculate total pages based on response count
+  const totalPages = useMemo(() => {
+    return responses.length < 10 ? currentPage : currentPage + 1;
+  }, [responses.length, currentPage]);
+
+  // Apply filters to responses using useMemo instead of useEffect
+  const filteredResponses = useMemo(() => {
     let filtered = responses;
 
     // Filter by search term
@@ -179,65 +214,20 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       }
     }
 
-    setFilteredResponses(filtered);
+    return filtered;
   }, [responses, filters]);
 
-  useEffect(() => {
-    applyFilters();
-  }, [applyFilters]);
-
-  // Fetch responses with filters
-  const fetchResponses = useCallback(
-    async (page = 1) => {
-      if (!formId) {
-        console.log("No formId provided, skipping response fetch");
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({
-          id: formId,
-          p: page.toString(),
-          lt: "10",
-        });
-
-        console.log({ formId });
-
-        const result = (await ApiRequest({
-          url: `/getresponsebyform?${params}`,
-          method: "GET",
-          cookie: true,
-        })) as ApiRequestReturnType;
-
-        if (result.success && result.data) {
-          const responses = result.data as ResponseData[];
-          setResponses(responses);
-          // Calculate total pages based on response count (backend doesn't provide total count)
-          setTotalPages(responses.length < 10 ? page : page + 1);
-        } else {
-          ErrorToast({
-            toastid: errorToastId,
-            title: "Error",
-            content: result.message || "Failed to fetch responses",
-          });
-        }
-      } catch (error) {
-        console.error("Error fetching responses:", error);
-        ErrorToast({
-          toastid: errorToastId,
-          title: "Error",
-          content: "Failed to fetch responses",
-        });
-      } finally {
-        setLoading(false);
-      }
-    },
-    [formId]
-  );
+  // Handle query errors using React Query's error handling
+  if (error) {
+    ErrorToast({
+      toastid: errorToastId,
+      title: "Error",
+      content: (error as Error).message || "Failed to fetch responses",
+    });
+  }
 
   // Send form links via email
-  const sendFormLinks = async () => {
+  const sendFormLinks = () => {
     if (!emailList.trim()) return;
 
     if (!formId) {
@@ -261,45 +251,12 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       return;
     }
 
-    setEmailSendingLoading(true);
-    try {
-      const result = (await ApiRequest({
-        url: "/response/send-links",
-        method: "POST",
-        cookie: true,
-        data: {
-          formId,
-          emails,
-          message: `You have been invited to complete the survey: ${form.title}`,
-        },
-      })) as ApiRequestReturnType;
-
-      if (result.success) {
-        setEmailModalOpen(false);
-        setEmailList("");
-        SuccessToast({
-          title: "Success",
-          content: "Form links sent successfully!",
-        });
-      } else {
-        ErrorToast({
-          title: "Error",
-          content: result.message || "Failed to send form links",
-        });
-      }
-    } catch (error) {
-      console.error("Error sending form links:", error);
-      ErrorToast({
-        title: "Error",
-        content: "Failed to send form links",
-      });
-    } finally {
-      setEmailSendingLoading(false);
-    }
+    const message = `You have been invited to complete the survey: ${form.title}`;
+    sendLinksMutation.mutate({ emails, message });
   };
 
   // Generate form link
-  const generateFormLink = async () => {
+  const generateFormLink = () => {
     if (!formId) {
       ErrorToast({
         title: "Error",
@@ -308,47 +265,18 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       return;
     }
 
-    setLinkGeneratingLoading(true);
-    try {
-      const result = (await ApiRequest({
-        url: "/response/generate-link",
-        method: "POST",
-        cookie: true,
-        data: { formId, secure: true },
-      })) as ApiRequestReturnType;
-
-      if (result.success && result.data) {
-        const linkData = result.data as FormLinkResponse;
-        setGeneratedLink(
-          linkData.link || linkData.url || (result.data as string)
-        );
-        setLinkModalOpen(true);
-        SuccessToast({
-          title: "Success",
-          content: "Form link generated successfully!",
-        });
-      } else {
-        ErrorToast({
-          title: "Error",
-          content: result.message || "Failed to generate form link",
-        });
-      }
-    } catch (error) {
-      console.error("Error generating form link:", error);
-      ErrorToast({
-        title: "Error",
-        content: "Failed to generate form link",
-      });
-    } finally {
-      setLinkGeneratingLoading(false);
-    }
+    generateLinkMutation.mutate();
   };
 
-  // Update response score
-  const updateResponseScore = async (responseId: string, newScore: number) => {
-    setScoreUpdateLoading(true);
-
-    try {
+  // Update response score using React Query mutation
+  const updateScoreMutation = useMutation({
+    mutationFn: async ({
+      responseId,
+      newScore,
+    }: {
+      responseId: string;
+      newScore: number;
+    }) => {
       const result = await ApiRequest({
         method: "PUT",
         url: `/response/update-score`,
@@ -357,47 +285,94 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
           score: newScore,
         },
         cookie: true,
+        reactQuery: true,
       });
-
-      if (result.success) {
-        // Update local state
-        setResponses((prev) =>
-          prev.map((resp) =>
-            resp._id === responseId
-              ? { ...resp, totalScore: newScore, isManuallyScored: true }
-              : resp
-          )
-        );
-        setFilteredResponses((prev) =>
-          prev.map((resp) =>
-            resp._id === responseId
-              ? { ...resp, totalScore: newScore, isManuallyScored: true }
-              : resp
-          )
-        );
-
-        onScoreClose();
-        SuccessToast({
-          title: "Success",
-          content: "Response score updated successfully!",
-        });
-      } else {
-        ErrorToast({
-          title: "Error",
-          content: result.message || "Failed to update response score",
-          toastid: errorToastId,
-        });
-      }
-    } catch {
+      return result.data;
+    },
+    onSuccess: () => {
+      // Invalidate and refetch responses
+      queryClient.invalidateQueries({ queryKey: ["responses", formId] });
+      onScoreClose();
+      SuccessToast({
+        title: "Success",
+        content: "Response score updated successfully!",
+      });
+    },
+    onError: (error: Error) => {
       ErrorToast({
         title: "Error",
-        content: "Failed to update response score",
+        content: error.message || "Failed to update response score",
         toastid: errorToastId,
       });
-    } finally {
-      setScoreUpdateLoading(false);
-    }
-  };
+    },
+  });
+
+  // Send form links using React Query mutation
+  const sendLinksMutation = useMutation({
+    mutationFn: async ({
+      emails,
+      message,
+    }: {
+      emails: string[];
+      message: string;
+    }) => {
+      const result = await ApiRequest({
+        url: "/response/send-links",
+        method: "POST",
+        cookie: true,
+        data: {
+          formId,
+          emails,
+          message,
+        },
+        reactQuery: true,
+      });
+      return result.data;
+    },
+    onSuccess: () => {
+      setEmailModalOpen(false);
+      setEmailList("");
+      SuccessToast({
+        title: "Success",
+        content: "Form links sent successfully!",
+      });
+    },
+    onError: (error: Error) => {
+      ErrorToast({
+        title: "Error",
+        content: error.message || "Failed to send form links",
+      });
+    },
+  });
+
+  // Generate form link using React Query mutation
+  const generateLinkMutation = useMutation({
+    mutationFn: async () => {
+      const result = await ApiRequest({
+        url: "/response/generate-link",
+        method: "POST",
+        cookie: true,
+        data: { formId, secure: true },
+        reactQuery: true,
+      });
+      return result.data as FormLinkResponse;
+    },
+    onSuccess: (data) => {
+      const link = data.link || data.url || (data as unknown as string);
+      setGeneratedLink(link);
+      setLinkModalOpen(true);
+      SuccessToast({
+        title: "Success",
+        content: "Form link generated successfully!",
+      });
+    },
+    onError: (error: Error) => {
+      ErrorToast({
+        title: "Error",
+        content: error.message || "Failed to generate form link",
+      });
+    },
+  });
 
   // Copy link to clipboard
   const copyLink = () => {
@@ -432,10 +407,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     }
   };
 
-  useEffect(() => {
-    fetchResponses(currentPage);
-  }, [currentPage, fetchResponses]);
-
   return (
     <div className="space-y-6">
       {/* Header with Actions */}
@@ -452,13 +423,17 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
           <Button
             color="secondary"
             startContent={
-              linkGeneratingLoading ? <Spinner size="sm" /> : <FiLink />
+              generateLinkMutation.isPending ? (
+                <Spinner size="sm" />
+              ) : (
+                <FiLink />
+              )
             }
             onPress={generateFormLink}
-            isLoading={linkGeneratingLoading}
-            disabled={linkGeneratingLoading}
+            isLoading={generateLinkMutation.isPending}
+            disabled={generateLinkMutation.isPending}
           >
-            {linkGeneratingLoading ? "Generating..." : "Generate Link"}
+            {generateLinkMutation.isPending ? "Generating..." : "Generate Link"}
           </Button>
           <Button
             color="success"
@@ -533,7 +508,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             <TableBody
               items={filteredResponses}
               loadingContent={<Spinner size="lg" />}
-              isLoading={loading}
+              isLoading={isLoading}
               emptyContent={
                 <div className="text-center py-8">
                   <p className="text-gray-500">No responses found</p>
@@ -664,10 +639,14 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             <Button
               color="primary"
               onClick={sendFormLinks}
-              isLoading={emailSendingLoading}
-              disabled={emailSendingLoading}
+              isLoading={sendLinksMutation.isPending}
+              disabled={sendLinksMutation.isPending}
             >
-              {emailSendingLoading ? <Spinner size="sm" /> : "Send Links"}
+              {sendLinksMutation.isPending ? (
+                <Spinner size="sm" />
+              ) : (
+                "Send Links"
+              )}
             </Button>
           </ModalFooter>
         </ModalContent>
@@ -786,7 +765,10 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                         const newScore = parseInt(
                           (e.target as HTMLInputElement).value
                         );
-                        updateResponseScore(selectedResponse._id, newScore);
+                        updateScoreMutation.mutate({
+                          responseId: selectedResponse._id,
+                          newScore,
+                        });
                       }
                     }}
                   />
@@ -800,19 +782,26 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             </Button>
             <Button
               color="primary"
-              isLoading={scoreUpdateLoading}
-              disabled={scoreUpdateLoading}
+              isLoading={updateScoreMutation.isPending}
+              disabled={updateScoreMutation.isPending}
               onClick={() => {
                 const input = document.querySelector(
                   'input[type="number"]'
                 ) as HTMLInputElement;
                 if (input && selectedResponse) {
                   const newScore = parseInt(input.value);
-                  updateResponseScore(selectedResponse._id, newScore);
+                  updateScoreMutation.mutate({
+                    responseId: selectedResponse._id,
+                    newScore,
+                  });
                 }
               }}
             >
-              {scoreUpdateLoading ? <Spinner size="sm" /> : "Update Score"}
+              {updateScoreMutation.isPending ? (
+                <Spinner size="sm" />
+              ) : (
+                "Update Score"
+              )}
             </Button>
           </ModalFooter>
         </ModalContent>

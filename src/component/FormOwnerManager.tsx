@@ -16,15 +16,6 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({ onClose }) => {
 
   // Check if user has any form access (either creator or collaborator)
   const hasFormAccess = isFormCreator || isCollaborator;
-
-  // Debug logging
-  console.log("FormOwnerManager component state:", {
-    formId,
-    isFormCreator,
-    isCollaborator,
-    hasFormAccess,
-  });
-
   const [owners, setOwners] = useState<FormOwner[]>([]);
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -41,7 +32,6 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({ onClose }) => {
     });
     try {
       const response = await formOwnerService.getFormOwners(formId as string);
-      console.log("Get owners response:", response);
       if (response?.data) {
         const allOwners = [];
         if (response.data.primaryOwner) {
@@ -49,10 +39,11 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({ onClose }) => {
         }
         if (
           response.data.additionalOwners &&
-          Array.isArray(response.data.additionalOwners)
+          response.data.additionalOwners.length > 0
         ) {
           allOwners.push(...response.data.additionalOwners);
         }
+        console.log(allOwners);
         setOwners(allOwners);
       } else {
         setOwners([]);

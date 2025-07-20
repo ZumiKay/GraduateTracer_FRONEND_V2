@@ -25,6 +25,7 @@ import { useSetSearchParam } from "../hooks/CustomHook";
 import { useCallback, useMemo } from "react";
 import useFormValidation from "../hooks/ValidationHook";
 import ImprovedAutoSave from "../component/AutoSave/ImprovedAutoSave";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 type alltabs =
   | "question"
@@ -33,6 +34,39 @@ type alltabs =
   | "response"
   | "analytics"
   | "setting";
+
+// Define error type for React Query
+interface ApiError extends Error {
+  status?: number;
+  response?: {
+    status?: number;
+    data?: unknown;
+  };
+}
+
+//Fetch Function
+
+const fetchFormTab = async ({
+  tab,
+  page,
+  formId,
+}: {
+  tab: alltabs;
+  page: number;
+  formId: string;
+}) => {
+  const ty = tab === "question" ? "detail" : tab;
+
+  const response = await ApiRequest({
+    url: `/filteredform?ty=${ty}&q=${formId}&page=${page}`,
+    method: "GET",
+    cookie: true,
+    refreshtoken: true,
+    reactQuery: true,
+  });
+
+  return response.data as FormDataType;
+};
 
 export default function FormPage() {
   const param = useParams();
@@ -48,56 +82,42 @@ export default function FormPage() {
     (searchParam.get("tab") ?? "question") as alltabs
   );
 
-  const AsyncGetForm = useCallback(async () => {
+  // Compute reliable form ID
+  const formId = useMemo(() => {
+    return param.id || formstate._id || "";
+  }, [param.id, formstate._id]);
+
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["FormInfo", formId, page, tab, reloaddata], // Include reloaddata in key
+    queryFn: () => fetchFormTab({ tab, page, formId }),
+    placeholderData: keepPreviousData,
+    staleTime: 5000,
+    enabled: !!formId && tab !== "analytics" && tab !== "response", // Don't fetch for analytics and response tabs
+    retry: (failureCount, error: Error) => {
+      // Don't retry on 403/404 errors
+      const apiError = error as ApiError;
+      if (apiError?.status === 403 || apiError?.status === 404) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+  });
+
+  // Handle success and error in a single optimized useEffect
+  useEffect(() => {
+    // Handle loading state
+    dispatch(setfetchloading(isLoading));
+
+    // Handle initial navigation check
     if (!param.id) {
       navigate("/dashboard", { replace: true });
       return;
     }
 
-    dispatch(setfetchloading(true));
+    // Handle success
+    if (data && !isLoading && !error) {
+      const result = data as FormDataType;
 
-    const ty = tab === "question" ? "detail" : tab;
-
-    try {
-      const response = await ApiRequest({
-        method: "GET",
-        url: `/filteredform?ty=${ty}&q=${param?.id}&page=${page}`,
-        refreshtoken: true,
-        cookie: true,
-      });
-
-      if (!response.success) {
-        dispatch(setfetchloading(false));
-        dispatch(setreloaddata(false));
-
-        // Handle different error cases
-        if (response.status === 403) {
-          ErrorToast({
-            toastid: "FormAccess",
-            title: "Access Denied",
-            content: "You don't have permission to access this form",
-          });
-        } else if (response.status === 404) {
-          ErrorToast({
-            toastid: "UniqueForm",
-            title: "Not Found",
-            content: "Form Not Found",
-          });
-        } else {
-          ErrorToast({
-            toastid: "FormError",
-            title: "Error",
-            content: response.error || "Failed to load form",
-          });
-        }
-
-        navigate("/dashboard", { replace: true });
-        return;
-      }
-
-      const result = response.data as unknown as FormDataType;
-
-      // Debug the response data
       console.log("Backend response data:", {
         formId: result._id,
         title: result.title,
@@ -107,10 +127,9 @@ export default function FormPage() {
         owners: result.owners,
       });
 
-      // Double-check access on frontend (redundant but safer)
+      // Double-check access on frontend
       const hasAccess = result.isOwner || result.isCollaborator;
 
-      // If backend didn't set access flags, assume no access for security
       if (result.isOwner === undefined && result.isCollaborator === undefined) {
         console.warn(
           "Backend didn't provide access information, denying access"
@@ -142,8 +161,6 @@ export default function FormPage() {
       // Set form content
       dispatch(setformstate({ ...formstate, ...result, contents: undefined }));
       dispatch(setallquestion(result.contents ?? []));
-
-      // Track if the state change
       dispatch(setprevallquestion(result.contents ?? []));
 
       console.log("Form loaded successfully:", {
@@ -152,45 +169,59 @@ export default function FormPage() {
         isCollaborator: result.isCollaborator,
         hasAccess,
       });
-    } catch (error) {
-      console.error("Error fetching form:", error);
 
-      ErrorToast({
-        toastid: "FormError",
-        title: "Error",
-        content: "Failed to load form data",
-      });
-      navigate("/dashboard", { replace: true });
-    } finally {
-      dispatch(setfetchloading(false));
-      dispatch(setreloaddata(false));
-    }
-  }, [param.id, page, tab, navigate, formstate, dispatch]);
-
-  useEffect(() => {
-    if (!param.id) {
-      navigate("/dashboard", { replace: true });
-      return;
+      // Reset reload flag after successful fetch
+      if (reloaddata) {
+        dispatch(setreloaddata(false));
+      }
     }
 
-    if (reloaddata) AsyncGetForm();
-  }, [param.id, reloaddata, AsyncGetForm, navigate]);
+    // Handle errors
+    if (error && !isLoading) {
+      console.error("React Query error:", error);
 
+      const apiError = error as ApiError;
+
+      if (apiError?.status === 403) {
+        ErrorToast({
+          toastid: "FormAccess",
+          title: "Access Denied",
+          content: "You don't have permission to access this form",
+        });
+      } else if (apiError?.status === 404) {
+        ErrorToast({
+          toastid: "UniqueForm",
+          title: "Not Found",
+          content: "Form Not Found",
+        });
+      } else {
+        ErrorToast({
+          toastid: "FormError",
+          title: "Error",
+          content: apiError?.message || "Failed to load form",
+        });
+      }
+
+      navigate("/dashboard", { replace: true });
+
+      if (reloaddata) {
+        dispatch(setreloaddata(false));
+      }
+    }
+  }, [data, error, isLoading, param.id, reloaddata]);
+
+  // Memoize required check for performance
   const isFillAllRequired = useMemo(
     () => allquestion.some((i) => (i.require ? i.answer && i.score : true)),
     [allquestion]
   );
 
-  // Compute reliable form ID
-  const formId = useMemo(() => {
-    return param.id || formstate._id || "";
-  }, [param.id, formstate._id]);
-
   const handleTabs = useCallback(
     async (val: alltabs) => {
       const proceedFunc = () => {
-        setParams({ tab: val });
+        setParams({ tab: val, page: "1" });
         setTab(val);
+        setpage(1);
         dispatch(setreloaddata(true));
       };
 
@@ -292,18 +323,21 @@ export default function FormPage() {
       </Tabs>
 
       {/* Pagination */}
-      <div className="w-full h-fit grid place-content-center">
-        <Pagination
-          loop
-          showControls
-          className="bg-white rounded-xl"
-          color="default"
-          initialPage={1}
-          total={formstate.totalpage ?? 0}
-          page={page}
-          onChange={handlePage}
-        />
-      </div>
+
+      {tab !== "analytics" && tab !== "setting" && (
+        <div className="w-full h-fit grid place-content-center">
+          <Pagination
+            loop
+            showControls
+            className="bg-white rounded-xl"
+            color="default"
+            initialPage={1}
+            total={formstate.totalpage ?? 0}
+            page={page}
+            onChange={handlePage}
+          />
+        </div>
+      )}
     </div>
   );
 }

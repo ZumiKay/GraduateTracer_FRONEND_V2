@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardHeader,
@@ -35,7 +35,8 @@ import {
   FiDownload,
   FiRefreshCw,
 } from "react-icons/fi";
-import ApiRequest, { ApiRequestReturnType } from "../../hooks/ApiHook";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import ApiRequest from "../../hooks/ApiHook";
 import { FormDataType } from "../../types/Form.types";
 
 interface ResponseAnalyticsProps {
@@ -117,70 +118,76 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
   formId,
   form,
 }) => {
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState("7d");
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Fetch analytics data
-  useEffect(() => {
-    const fetchAnalytics = async () => {
+  // Fetch analytics data using React Query
+  const {
+    data: analytics,
+    error,
+    isLoading,
+  } = useQuery({
+    queryKey: ["analytics", formId, selectedPeriod],
+    queryFn: async () => {
       if (!formId) {
-        console.log("No formId provided, skipping analytics fetch");
-        setLoading(false);
-        return;
+        throw new Error("No formId provided");
       }
 
-      try {
-        setLoading(true);
-        const result = (await ApiRequest({
-          url: `/response/analytics/${formId}?period=${selectedPeriod}`,
-          method: "GET",
-        })) as ApiRequestReturnType;
+      const result = await ApiRequest({
+        url: `/response/analytics/${formId}?period=${selectedPeriod}`,
+        method: "GET",
+        cookie: true,
+        refreshtoken: true,
+        reactQuery: true,
+      });
 
-        if (result.success && result.data) {
-          setAnalytics(result.data as AnalyticsData);
-        }
-      } catch (error) {
-        console.error("Error fetching analytics:", error);
-      } finally {
-        setLoading(false);
+      return result.data as AnalyticsData;
+    },
+    enabled: !!formId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: (failureCount) => {
+      if (failureCount >= 2) return false;
+      return true;
+    },
+  });
+
+  // Handle query errors
+  if (error) {
+    console.error("Error fetching analytics:", error);
+  }
+
+  // Export analytics mutation
+  const exportMutation = useMutation({
+    mutationFn: async (format: "pdf" | "csv") => {
+      if (!formId) {
+        throw new Error("No formId provided");
       }
-    };
 
-    fetchAnalytics();
-  }, [formId, selectedPeriod]);
-
-  // Export analytics data
-  const exportAnalytics = async (format: "pdf" | "csv") => {
-    if (!formId) {
-      console.error("No formId provided, cannot export analytics");
-      return;
-    }
-
-    try {
-      const result = (await ApiRequest({
+      const result = await ApiRequest({
         url: `/response/analytics/${formId}/export?format=${format}`,
         method: "GET",
-      })) as ApiRequestReturnType;
+        reactQuery: true,
+      });
 
-      if (result.success) {
-        const blob = new Blob([result.data as BlobPart]);
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${form.title}-analytics.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (error) {
+      return { data: result.data, format };
+    },
+    onSuccess: ({ data, format }) => {
+      const blob = new Blob([data as BlobPart]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${form.title}-analytics.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    },
+    onError: (error: Error) => {
       console.error("Error exporting analytics:", error);
-    }
-  };
+    },
+  });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="w-full p-6">
         <div className="flex items-center justify-center h-64">
@@ -238,16 +245,20 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => exportAnalytics("pdf")}
+            onClick={() => exportMutation.mutate("pdf")}
             startContent={<FiDownload />}
+            isLoading={exportMutation.isPending}
+            disabled={exportMutation.isPending}
           >
             Export PDF
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => exportAnalytics("csv")}
+            onClick={() => exportMutation.mutate("csv")}
             startContent={<FiDownload />}
+            isLoading={exportMutation.isPending}
+            disabled={exportMutation.isPending}
           >
             Export CSV
           </Button>

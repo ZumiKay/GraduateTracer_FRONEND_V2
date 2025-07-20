@@ -10,18 +10,33 @@ import ApiRequest from "../../../hooks/ApiHook";
 import useFormValidation from "../../../hooks/ValidationHook";
 import SolutionInput from "./SolutionInput";
 import { ErrorToast, InfoToast } from "../../Modal/AlertModal";
+import { useQuery } from "@tanstack/react-query";
+
+// API functions for React Query
+interface FormTotalSummary {
+  totalpage: number;
+  totalquestion: number;
+  totalscore: number;
+}
+
+const fetchFormTotalSummary = async (
+  formId: string
+): Promise<FormTotalSummary> => {
+  const response = await ApiRequest({
+    url: `/filteredform?ty=total&q=${formId}`,
+    method: "GET",
+    cookie: true,
+    refreshtoken: true,
+    reactQuery: true,
+  });
+  return response.data as FormTotalSummary;
+};
 
 const Solution_Tab = () => {
   const { allquestion, fetchloading, formstate } = useSelector(
     (root: RootState) => root.allform
   );
 
-  const [totalsummerize, settotalsummerize] = useState({
-    totalpage: 0,
-    totalquestion: 0,
-    totalscore: 0,
-  });
-  const [loading, setloading] = useState(false);
   const [validationSummary, setValidationSummary] =
     useState<FormValidationSummary | null>(null);
   const dispatch = useDispatch();
@@ -29,27 +44,24 @@ const Solution_Tab = () => {
   const { validateForm, isValidating, showValidationErrors } =
     useFormValidation();
 
+  // React Query for form total summary
+  const { data: totalsummerize, isLoading: loading } = useQuery({
+    queryKey: ["formTotalSummary", formstate._id],
+    queryFn: () => fetchFormTotalSummary(formstate._id!),
+    enabled: !!formstate._id,
+    staleTime: 30000, // Cache for 30 seconds
+    retry: 2,
+  });
+
+  // Initial validation when component mounts or form ID changes - optimized to avoid dependency issues
   useEffect(() => {
-    const gettotalitem = async () => {
-      setloading(true);
-      const getreq = await ApiRequest({
-        url: "/filteredform?ty=total&q=" + formstate._id,
-        method: "GET",
-        cookie: true,
-        refreshtoken: true,
-      });
-      setloading(false);
+    let isMounted = true;
 
-      if (!getreq.success || !getreq.data) return;
-
-      settotalsummerize(getreq.data as never);
-    };
-
-    const validateFormData = async () => {
-      if (formstate._id) {
+    const runValidation = async () => {
+      if (formstate._id && isMounted) {
         try {
           const validation = await validateForm(formstate._id, "solution");
-          if (validation) {
+          if (validation && isMounted) {
             setValidationSummary(validation);
           }
         } catch (error) {
@@ -58,10 +70,11 @@ const Solution_Tab = () => {
       }
     };
 
-    if (formstate._id) {
-      gettotalitem();
-      validateFormData();
-    }
+    runValidation();
+
+    return () => {
+      isMounted = false;
+    };
   }, [formstate._id, validateForm]);
 
   //Helper Function
@@ -160,19 +173,19 @@ const Solution_Tab = () => {
               <>
                 <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
                   <p className="text-2xl font-bold text-blue-700">
-                    {totalsummerize.totalscore}
+                    {totalsummerize?.totalscore ?? 0}
                   </p>
                   <p className="text-sm text-blue-600">Total Score</p>
                 </div>
                 <div className="text-center p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg">
                   <p className="text-2xl font-bold text-green-700">
-                    {totalsummerize.totalquestion}
+                    {totalsummerize?.totalquestion ?? 0}
                   </p>
                   <p className="text-sm text-green-600">Total Questions</p>
                 </div>
                 <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg">
                   <p className="text-2xl font-bold text-purple-700">
-                    {totalsummerize.totalpage}
+                    {totalsummerize?.totalpage ?? 0}
                   </p>
                   <p className="text-sm text-purple-600">Total Pages</p>
                 </div>
