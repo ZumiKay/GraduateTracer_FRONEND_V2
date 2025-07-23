@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:analyze": "ANALYZE=true npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "jest",
@@ -69,6 +70,7 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8.4.49",
+    "rollup-plugin-visualizer": "^6.0.3",
     "tailwindcss": "^3.4.17",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",

@@ -1,4 +1,4 @@
-import { RangeValue } from "@heroui/react";
+import { DateValue, RangeValue } from "@heroui/react";
 import { Content, JSONContent } from "@tiptap/react";
 
 // Form Enums
@@ -32,7 +32,7 @@ export interface FormSettingType {
   navbar?: string;
   text?: string;
   email?: boolean;
-  returnscore?: returnscore;
+  returnscore?: returnscore; // Only available for quiz type forms
   autosave?: boolean;
   acceptResponses?: boolean; // New field to control if form accepts responses
 }
@@ -125,8 +125,8 @@ export interface ContentType<t = unknown> {
   text?: string;
   checkbox?: Array<CheckboxQuestionType>;
   multiple?: Array<CheckboxQuestionType>;
-  range?: RangeValue<string>;
-  numrange?: RangeType<number>;
+  rangedate?: RangeValue<DateValue>;
+  rangenumber?: RangeType<number>;
   selection?: Array<string>;
   parentcontent?: ParentContentType;
   date?: Date;
@@ -223,10 +223,22 @@ export const DefaultFormSetting: FormSettingType = {
   navbar: "#f5f5f5",
   text: "#000000",
   submitonce: false,
-  returnscore: returnscore.manual,
   email: false,
   autosave: false,
   acceptResponses: true,
+  // returnscore is not set by default - only added for quiz types
+};
+
+// Function to get default settings based on form type
+export const getDefaultFormSetting = (formType: FormType): FormSettingType => {
+  const baseSettings = { ...DefaultFormSetting };
+
+  // Only add returnscore setting for quiz types
+  if (formType === FormTypeEnum.Quiz) {
+    baseSettings.returnscore = returnscore.manual; // Default to manual for quizzes
+  }
+
+  return baseSettings;
 };
 
 export const DefaultFormState: FormDataType = {
@@ -234,7 +246,7 @@ export const DefaultFormState: FormDataType = {
   type: FormTypeEnum.Normal,
   totalpage: 0,
   contentIds: [],
-  setting: DefaultFormSetting,
+  setting: getDefaultFormSetting(FormTypeEnum.Normal),
 };
 
 // Validation Types

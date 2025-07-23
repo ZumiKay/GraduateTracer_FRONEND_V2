@@ -1,11 +1,10 @@
-import { Chip, Input, RadioGroup } from "@heroui/react";
+import { Chip, DateRangePicker, Input, RadioGroup } from "@heroui/react";
 import { AnswerKey, ContentType, QuestionType } from "../../types/Form.types";
 import Tiptap from "../FormComponent/TipTabEditor";
 import { useCallback } from "react";
 import {
   ChoiceAnswer,
   DateQuestionType,
-  DateRangePickerQuestionType,
   ParagraphAnswer,
   RangeNumberAnswer,
 } from "../FormComponent/Solution/Answer_Component";
@@ -97,7 +96,6 @@ const Respondant_Question_Card = ({
               name={`paragraph${content.idx}`}
               onChange={handleAnswer}
               readonly={!ty || isDisable}
-              isDisable={isDisable}
             />
           </div>
         );
@@ -109,8 +107,8 @@ const Respondant_Question_Card = ({
             <RangeNumberAnswer
               name={`range${content.idx}`}
               onChange={handleAnswer}
-              value={content.numrange}
-              isDisable={isDisable}
+              value={content.rangenumber}
+              readonly={isDisable}
             />
           </div>
         );
@@ -124,7 +122,7 @@ const Respondant_Question_Card = ({
               placeholder="Select Date"
               onChange={handleAnswer}
               name={`date${content.idx}`}
-              isDisable={isDisable}
+              readonly={isDisable}
             />
           </div>
         );
@@ -142,7 +140,7 @@ const Respondant_Question_Card = ({
               onChange={(e) => handleAnswer(e.target.value)}
               aria-label={`number${content.idx}`}
               className="w-full"
-              isDisabled={isDisable}
+              readOnly={isDisable}
               variant="bordered"
             />
           </div>
@@ -162,7 +160,6 @@ const Respondant_Question_Card = ({
               onChange={(e) => handleAnswer(e.target.value)}
               readOnly={!ty || isDisable}
               className="w-full"
-              isDisabled={isDisable}
               variant="bordered"
             />
           </div>
@@ -174,19 +171,14 @@ const Respondant_Question_Card = ({
             <p className="text-sm font-medium text-gray-700">
               Select date range:
             </p>
-            <DateRangePickerQuestionType
-              isDisable={isDisable}
-              name={`daterange${content.idx}`}
+            <DateRangePicker
+              value={content.rangedate ?? null}
+              onChange={handleAnswer}
+              aria-label={`rangedate${content.idx}`}
+              isReadOnly={!ty || isDisable}
+              className="w-full"
+              size="md"
             />
-          </div>
-        );
-
-      case QuestionType.Text:
-        return (
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm text-blue-600 font-medium">
-              ℹ️ This is a display text - no answer required
-            </p>
           </div>
         );
 
@@ -313,10 +305,12 @@ const Respondant_Question_Card = ({
                 Required
               </Chip>
             )}
-            {content.score && content.score > 0 && (
+            {content.score && content.score > 0 ? (
               <Chip color="success" size="sm" variant="flat">
                 {content.score} pts
               </Chip>
+            ) : (
+              ""
             )}
           </div>
 

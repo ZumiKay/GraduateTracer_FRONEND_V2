@@ -10,9 +10,12 @@ import {
   Textarea,
 } from "@heroui/react";
 import { QuestionType, RangeType } from "../../../types/Form.types";
-import { useEffect, useState } from "react";
-import { parseDate } from "@internationalized/date";
-import { FormatDate } from "../../../helperFunc";
+import { useCallback, useEffect, useState } from "react";
+import {
+  CalendarDate,
+  CalendarDateTime,
+  parseDate,
+} from "@internationalized/date";
 
 interface AnswerComponent_Props<t> {
   onChange?: (val: t) => void;
@@ -146,7 +149,7 @@ export const DateQuestionType = (props: AnswerComponent_Props<Date>) => {
         props.onChange(new Date(value.toString()));
       }
     }
-  }, [value]);
+  }, [props, value]);
 
   return (
     <div className="flex w-full flex-wrap md:flex-nowrap gap-4">
@@ -163,28 +166,24 @@ export const DateQuestionType = (props: AnswerComponent_Props<Date>) => {
   );
 };
 
-export const DateRangePickerQuestionType = (
-  props: AnswerComponent_Props<RangeValue<string>>
-) => {
+export const DateRangePickerQuestionType = ({
+  questionstate,
+  setquestionstate,
+}: {
+  questionstate?: RangeValue<DateValue>;
+  setquestionstate: (name: string, val: DateValue) => void;
+}) => {
   const [value, setValue] = useState<RangeValue<DateValue> | null>(
-    props.value
-      ? {
-          start: parseDate("2024-04-01"),
-          end: parseDate("2024-04-08"),
-        }
-      : null
+    questionstate ?? null
   );
 
-  useEffect(() => {
-    if (props.onChange) {
-      if (value) {
-        props.onChange({
-          start: FormatDate(new Date(value.start.toString())),
-          end: FormatDate(new Date(value.end.toString())),
-        });
-      }
-    }
-  }, [value]);
+  const handleChangeDate = useCallback(
+    (name: string, val: CalendarDate | CalendarDateTime | null) => {
+      if (val) setquestionstate(name, val);
+      setValue((prev) => ({ ...prev, [name]: val } as never));
+    },
+    [setquestionstate]
+  );
 
   return (
     <div className="flex w-full flex-wrap md:flex-nowrap gap-4">
@@ -192,19 +191,15 @@ export const DateRangePickerQuestionType = (
         value={value?.start}
         label={"Start Date"}
         labelPlacement="outside"
-        onChange={(val) =>
-          setValue((prev) => ({ ...prev, start: val } as never))
-        }
+        onChange={(val) => handleChangeDate("start", val as never)}
         visibleMonths={2}
-        isDisabled={props.isDisable}
       />
       <DatePicker
         value={value?.end}
         label={"End Date"}
         labelPlacement="outside"
+        onChange={(val) => handleChangeDate("end", val as never)}
         visibleMonths={2}
-        onChange={(val) => setValue((prev) => ({ ...prev, end: val } as never))}
-        isDisabled={props.isDisable}
       />
     </div>
   );

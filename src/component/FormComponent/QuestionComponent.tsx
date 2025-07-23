@@ -2,7 +2,7 @@ import { ChangeEvent, useCallback, useMemo, memo } from "react";
 import { ContentType, QuestionType } from "../../types/Form.types";
 import { SelectionType } from "../../types/Global.types";
 import Selection from "./Selection";
-import { Switch, Tooltip } from "@heroui/react";
+import { NumberInput, Switch, Tooltip } from "@heroui/react";
 import { CopyIcon, ShowLinkedIcon, TrashIcon } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -13,12 +13,11 @@ import {
 import { RootState } from "../../redux/store";
 import Tiptap from "./TipTabEditor";
 import { setopenmodal } from "../../redux/openmodal";
-import { DateRangePickerQuestionType } from "./Solution/Answer_Component";
 import {
   ChoiceQuestionEdit,
-  RangeQuestionEdit,
   SelectionQuestionEdit,
 } from "./QuestionComponentAssets";
+import { DateRangePickerQuestionType } from "./Solution/Answer_Component";
 
 const QuestionTypeOptions: Array<SelectionType<QuestionType>> = [
   { label: "Multiple Choice", value: QuestionType.MultipleChoice },
@@ -128,15 +127,48 @@ const QuestionComponent = memo(
         }
 
         case QuestionType.RangeDate: {
-          return <DateRangePickerQuestionType />;
+          return (
+            <DateRangePickerQuestionType
+              questionstate={value.rangedate}
+              setquestionstate={(name, val) =>
+                onUpdateState({ ...(value.rangedate ?? {}), [name]: val })
+              }
+            />
+          );
         }
+
         case QuestionType.RangeNumber: {
           return (
-            <RangeQuestionEdit
-              questionstate={value}
-              setquestionsate={onUpdateState}
-              type={QuestionType.RangeNumber}
-            />
+            <div className="RangeNumber w-full flex flex-row justify-between">
+              <NumberInput
+                name="start"
+                size="md"
+                label="Start"
+                value={value.rangenumber?.start}
+                onChange={(val) =>
+                  onUpdateState({
+                    numrange: {
+                      ...(value.numrange ?? {}),
+                      start: val as number,
+                    },
+                  } as never)
+                }
+              />
+              <NumberInput
+                name="end"
+                size="md"
+                label="End"
+                value={value.rangenumber?.end}
+                onChange={(val) =>
+                  onUpdateState({
+                    numrange: {
+                      ...(value.numrange ?? {}),
+                      end: val as number,
+                    },
+                  } as never)
+                }
+              />
+            </div>
           );
         }
         case QuestionType.Selection: {
@@ -193,7 +225,7 @@ const QuestionComponent = memo(
         } else {
           onUpdateState({
             type: val as QuestionType,
-            [value.type]: null,
+            [value.type]: undefined,
           });
         }
       },

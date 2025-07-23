@@ -81,10 +81,11 @@ export default function Navigationbar() {
   });
 
   // Memoized values
-  const isSettingTab = useMemo(
-    () => searchParam.get("tab") === "setting",
+  const currentTab = useMemo(
+    () => searchParam.get("tab") || "question",
     [searchParam]
   );
+  const isSettingTab = useMemo(() => currentTab === "setting", [currentTab]);
   const isDashboard = useMemo(
     () => location.pathname === "/dashboard",
     [location.pathname]
@@ -93,9 +94,20 @@ export default function Navigationbar() {
     () => !formData.formstate.setting?.autosave,
     [formData.formstate.setting?.autosave]
   );
+
+  // Only show save button for tabs that have saveable content and when autosave is disabled
+  const canSaveTabs = useMemo(
+    () => ["question", "solution", "response"].includes(currentTab),
+    [currentTab]
+  );
+
   const shouldShowSaveButton = useMemo(
-    () => !isSettingTab && !formData.fetchloading && isAutosaveDisabled,
-    [isSettingTab, formData.fetchloading, isAutosaveDisabled]
+    () =>
+      canSaveTabs &&
+      !formData.fetchloading &&
+      isAutosaveDisabled &&
+      !isDashboard,
+    [canSaveTabs, formData.fetchloading, isAutosaveDisabled, isDashboard]
   );
 
   const displayTitle = useMemo(() => {
@@ -142,11 +154,43 @@ export default function Navigationbar() {
 
     setsaveloading(true);
     try {
-      const success = await manualSave();
-      if (success) {
-        // Update the previous question state for comparison
-        dispatch(setprevallquestion(formData.allquestion));
-        setformHasChange(false); // Reset change state after successful save
+      let success = false;
+
+      // Handle different tab saving
+      switch (currentTab) {
+        case "question":
+          success = await manualSave();
+          if (success) {
+            // Update the previous question state for comparison
+            dispatch(setprevallquestion(formData.allquestion));
+            setformHasChange(false); // Reset change state after successful save
+          }
+          break;
+
+        case "solution":
+          success = await manualSave();
+          if (success) {
+            dispatch(setprevallquestion(formData.allquestion));
+            setformHasChange(false);
+          }
+          break;
+
+        case "response":
+          // For response tab, we might need to save form settings or response corrections
+          success = await manualSave();
+          if (success) {
+            dispatch(setprevallquestion(formData.allquestion));
+            setformHasChange(false);
+          }
+          break;
+
+        default:
+          success = await manualSave();
+          if (success) {
+            dispatch(setprevallquestion(formData.allquestion));
+            setformHasChange(false);
+          }
+          break;
       }
     } catch (error) {
       console.error("Manual save failed:", error);
@@ -154,7 +198,13 @@ export default function Navigationbar() {
     } finally {
       setsaveloading(false);
     }
-  }, [manualSave, formData.allquestion, formData.formstate._id, dispatch]);
+  }, [
+    manualSave,
+    formData.allquestion,
+    formData.formstate._id,
+    dispatch,
+    currentTab,
+  ]);
 
   // Keyboard shortcut for manual save (Ctrl+S / Cmd+S)
   useEffect(() => {

@@ -2,10 +2,10 @@ import { Button, Switch } from "@heroui/react";
 import { AsyncSaveForm, setformstate } from "../../../redux/formstore";
 import {
   BgColorTemplate,
-  DefaultFormSetting,
   FormDataType,
   FormTypeEnum,
   returnscore,
+  getDefaultFormSetting,
 } from "../../../types/Form.types";
 import { SelectionType } from "../../../types/Global.types";
 import { useDispatch, useSelector } from "react-redux";
@@ -112,20 +112,24 @@ const SettingTab = () => {
         value: {
           open: true,
           data: {
-            onAgree: () =>
+            onAgree: () => {
+              const defaultSettings = getDefaultFormSetting(
+                formstate.type as FormTypeEnum
+              );
               dispatch(
                 AsyncSaveForm({
                   type: "edit",
-                  data: { setting: DefaultFormSetting, _id: formstate._id },
+                  data: { setting: defaultSettings, _id: formstate._id },
                   onSuccess: () =>
                     dispatch(
                       setformstate({
                         ...formstate,
-                        setting: DefaultFormSetting,
+                        setting: defaultSettings,
                       })
                     ),
                 }) as never
-              ),
+              );
+            },
           },
         },
       })
@@ -155,7 +159,7 @@ const SettingTab = () => {
     );
     if (!settingKeys.has("acceptResponses")) settingKeys.add("acceptResponses");
 
-    const updatedState: FormDataType = {
+    const baseUpdatedState: FormDataType = {
       ...formstate,
       setting: {
         ...(formstate.setting ?? {}),
@@ -171,6 +175,36 @@ const SettingTab = () => {
         )
       ),
     };
+
+    let updatedState = baseUpdatedState;
+
+    // Handle form type changes - apply appropriate default settings
+    if (newVal.type && newVal.type !== formstate.type) {
+      const newType = newVal.type as FormTypeEnum;
+      const defaultSettings = getDefaultFormSetting(newType);
+
+      // Merge with current settings, but handle returnscore specifically
+      if (newType === FormTypeEnum.Quiz) {
+        // Add returnscore for quiz types
+        updatedState = {
+          ...updatedState,
+          setting: {
+            ...updatedState.setting,
+            returnscore:
+              formstate.setting?.returnscore ?? defaultSettings.returnscore,
+          },
+        };
+      } else {
+        // Remove returnscore for non-quiz types
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { returnscore, ...settingsWithoutReturnScore } =
+          updatedState.setting || {};
+        updatedState = {
+          ...updatedState,
+          setting: settingsWithoutReturnScore,
+        };
+      }
+    }
 
     dispatch(setformstate(updatedState));
     handleIsSaved(newVal);

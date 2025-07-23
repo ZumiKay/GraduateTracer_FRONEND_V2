@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import {
   Card,
   CardHeader,
@@ -625,4 +625,6 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
   );
 };
 
-export default ResponseAnalytics;
+ResponseAnalytics.displayName = "ResponseAnalytics";
+
+export default memo(ResponseAnalytics);

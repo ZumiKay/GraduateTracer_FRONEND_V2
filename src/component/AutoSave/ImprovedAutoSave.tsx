@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo, useMemo } from "react";
 import { Chip, Tooltip, Button } from "@heroui/react";
 import {
   FiWifi,
@@ -33,7 +33,8 @@ const ImprovedAutoSave: React.FC<ImprovedAutoSaveProps> = ({
   const { autoSaveStatus, manualSave, isOnline, offlineQueueSize } =
     useImprovedAutoSave(config);
 
-  const getStatusColor = () => {
+  // Memoize status color for performance
+  const statusColor = useMemo(() => {
     switch (autoSaveStatus.status) {
       case "saving":
         return "warning";
@@ -46,7 +47,9 @@ const ImprovedAutoSave: React.FC<ImprovedAutoSaveProps> = ({
       default:
         return "default";
     }
-  };
+  }, [autoSaveStatus.status]);
+
+  const getStatusColor = () => statusColor;
 
   const getStatusIcon = () => {
     switch (autoSaveStatus.status) {
@@ -163,4 +166,6 @@ const ImprovedAutoSave: React.FC<ImprovedAutoSaveProps> = ({
   );
 };
 
-export default ImprovedAutoSave;
+ImprovedAutoSave.displayName = "ImprovedAutoSave";
+
+export default memo(ImprovedAutoSave);

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, memo } from "react";
 import {
   Card,
   CardHeader,
@@ -810,4 +810,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   );
 };
 
-export default ResponseDashboard;
+ResponseDashboard.displayName = "ResponseDashboard";
+
+export default memo(ResponseDashboard);

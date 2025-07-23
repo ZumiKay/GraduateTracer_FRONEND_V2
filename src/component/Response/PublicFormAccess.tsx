@@ -13,7 +13,7 @@ import {
 import { FiUser, FiMail, FiLock, FiUserCheck } from "react-icons/fi";
 import { useParams } from "react-router-dom";
 import ApiRequest, { ApiRequestReturnType } from "../../hooks/ApiHook";
-import { FormDataType, FormTypeEnum } from "../../types/Form.types";
+import { FormDataType } from "../../types/Form.types";
 import { PasswordInput } from "../FormComponent/Input";
 import { ErrorToast } from "../Modal/AlertModal";
 import SuccessToast from "../Modal/AlertModal";
@@ -82,7 +82,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
 
   // Check if user is already authenticated or has guest data
   useEffect(() => {
-    console.log({ formId, token });
     const checkAuthentication = async () => {
       try {
         const result = await ApiRequest({
@@ -367,22 +366,21 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
               </Button>
 
               {/* Show guest access option for quiz forms */}
-              {form?.type === FormTypeEnum.Quiz && (
-                <div className="text-center">
-                  <p className="text-gray-600 text-sm mb-2">
-                    Don't have an account?
-                  </p>
-                  <Button
-                    variant="ghost"
-                    color="secondary"
-                    className="w-full"
-                    onPress={() => setShowGuestForm(true)}
-                    startContent={<FiUserCheck />}
-                  >
-                    Continue as Guest
-                  </Button>
-                </div>
-              )}
+
+              <div className="text-center">
+                <p className="text-gray-600 text-sm mb-2">
+                  Don't have an account?
+                </p>
+                <Button
+                  variant="ghost"
+                  color="secondary"
+                  className="w-full"
+                  onPress={() => setShowGuestForm(true)}
+                  startContent={<FiUserCheck />}
+                >
+                  Continue as Guest
+                </Button>
+              </div>
             </Form>
           ) : (
             // Guest Access Form

@@ -1,6 +1,6 @@
 import { Pagination, Tab, Tabs } from "@heroui/react";
 import { useNavigate, useParams } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo, memo } from "react";
 
 import { FormDataType } from "../types/Form.types";
 import { useDispatch, useSelector } from "react-redux";
@@ -22,7 +22,6 @@ import ResponseDashboard from "../component/Response/ResponseDashboard";
 import ResponseAnalytics from "../component/Response/ResponseAnalytics";
 import { setopenmodal } from "../redux/openmodal";
 import { useSetSearchParam } from "../hooks/CustomHook";
-import { useCallback, useMemo } from "react";
 import useFormValidation from "../hooks/ValidationHook";
 import ImprovedAutoSave from "../component/AutoSave/ImprovedAutoSave";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -68,7 +67,7 @@ const fetchFormTab = async ({
   return response.data as FormDataType;
 };
 
-export default function FormPage() {
+function FormPage() {
   const param = useParams();
   const dispatch = useDispatch();
   const { formstate, reloaddata, page, allquestion } = useSelector(
@@ -93,6 +92,8 @@ export default function FormPage() {
     placeholderData: keepPreviousData,
     staleTime: 5000,
     enabled: !!formId && tab !== "analytics" && tab !== "response", // Don't fetch for analytics and response tabs
+    refetchOnWindowFocus: false, // Prevent unnecessary refetches
+    refetchOnMount: false, // Prevent refetch on component mount
     retry: (failureCount, error: Error) => {
       // Don't retry on 403/404 errors
       const apiError = error as ApiError;
@@ -118,22 +119,10 @@ export default function FormPage() {
     if (data && !isLoading && !error) {
       const result = data as FormDataType;
 
-      console.log("Backend response data:", {
-        formId: result._id,
-        title: result.title,
-        isOwner: result.isOwner,
-        isCollaborator: result.isCollaborator,
-        user: result.user,
-        owners: result.owners,
-      });
-
       // Double-check access on frontend
       const hasAccess = result.isOwner || result.isCollaborator;
 
       if (result.isOwner === undefined && result.isCollaborator === undefined) {
-        console.warn(
-          "Backend didn't provide access information, denying access"
-        );
         ErrorToast({
           toastid: "FormAccess",
           title: "Access Denied",
@@ -144,11 +133,6 @@ export default function FormPage() {
       }
 
       if (!hasAccess) {
-        console.log("Access denied - Form access check failed:", {
-          isOwner: result.isOwner,
-          isCollaborator: result.isCollaborator,
-          hasAccess,
-        });
         ErrorToast({
           toastid: "FormAccess",
           title: "Access Denied",
@@ -158,17 +142,15 @@ export default function FormPage() {
         return;
       }
 
-      // Set form content
-      dispatch(setformstate({ ...formstate, ...result, contents: undefined }));
+      // Set form content - avoid circular dependency by not spreading formstate
+      dispatch(
+        setformstate({
+          ...result,
+          contents: undefined, // Remove contents to avoid duplication
+        })
+      );
       dispatch(setallquestion(result.contents ?? []));
       dispatch(setprevallquestion(result.contents ?? []));
-
-      console.log("Form loaded successfully:", {
-        formId: result._id,
-        isOwner: result.isOwner,
-        isCollaborator: result.isCollaborator,
-        hasAccess,
-      });
 
       // Reset reload flag after successful fetch
       if (reloaddata) {
@@ -208,11 +190,29 @@ export default function FormPage() {
         dispatch(setreloaddata(false));
       }
     }
-  }, [data, error, isLoading, param.id, reloaddata]);
+  }, [data, error, isLoading, param.id, reloaddata, dispatch, navigate]);
 
-  // Memoize required check for performance
+  // Memoize required check for performance - Fixed logic
   const isFillAllRequired = useMemo(
-    () => allquestion.some((i) => (i.require ? i.answer && i.score : true)),
+    () =>
+      allquestion.every((i) => {
+        if (!i.require) return true; // Non-required questions are always "filled"
+        if (!i.answer) return false; // Required question without answer
+
+        // Check if answer has a value
+        const answerValue = i.answer.answer;
+        if (answerValue === undefined || answerValue === null) return false;
+
+        // Handle different answer types
+        if (typeof answerValue === "string") {
+          return answerValue.trim() !== "";
+        }
+        if (Array.isArray(answerValue)) {
+          return answerValue.length > 0;
+        }
+
+        return true; // For numbers, dates, etc.
+      }),
     [allquestion]
   );
 
@@ -221,7 +221,7 @@ export default function FormPage() {
       const proceedFunc = () => {
         setParams({ tab: val, page: "1" });
         setTab(val);
-        setpage(1);
+        dispatch(setpage(1));
         dispatch(setreloaddata(true));
       };
 
@@ -241,7 +241,7 @@ export default function FormPage() {
         }
       }
 
-      if (!isFillAllRequired && tab === "solution") {
+      if (!isFillAllRequired && val === "solution") {
         dispatch(
           setopenmodal({
             state: "confirm",
@@ -264,7 +264,6 @@ export default function FormPage() {
     },
     [
       isFillAllRequired,
-      tab,
       setParams,
       dispatch,
       formId,
@@ -276,7 +275,7 @@ export default function FormPage() {
   const handlePage = useCallback(
     (val: number) => {
       setParams({ page: val.toString() });
-      dispatch(setpage(val) as never);
+      dispatch(setpage(val));
       dispatch(setreloaddata(true));
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
@@ -310,10 +309,22 @@ export default function FormPage() {
           <Solution_Tab />
         </Tab>
         <Tab key={"response"} title="Response">
-          <ResponseDashboard formId={formId} form={formstate} />
+          {formId ? (
+            <ResponseDashboard formId={formId} form={formstate} />
+          ) : (
+            <div className="w-full h-40 flex items-center justify-center">
+              <p className="text-gray-500">Loading form data...</p>
+            </div>
+          )}
         </Tab>
         <Tab key={"analytics"} title="Analytics">
-          <ResponseAnalytics formId={formId} form={formstate} />
+          {formId ? (
+            <ResponseAnalytics formId={formId} form={formstate} />
+          ) : (
+            <div className="w-full h-40 flex items-center justify-center">
+              <p className="text-gray-500">Loading form data...</p>
+            </div>
+          )}
         </Tab>
         <Tab key={"setting"} title="Setting">
           <div className="w-full min-h-screen h-full grid place-items-center">
@@ -341,3 +352,7 @@ export default function FormPage() {
     </div>
   );
 }
+
+FormPage.displayName = "FormPage";
+
+export default memo(FormPage);

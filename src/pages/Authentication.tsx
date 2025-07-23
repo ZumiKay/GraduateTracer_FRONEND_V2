@@ -1,4 +1,17 @@
-import { Button, Checkbox, Form, Input } from "@heroui/react";
+import {
+  Button,
+  Checkbox,
+  Form,
+  Input,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  useDisclosure,
+  Divider,
+  Chip,
+} from "@heroui/react";
 import {
   ChangeEvent,
   FormEvent,
@@ -22,6 +35,8 @@ import EmailTemplate from "../component/FormComponent/EmailTemplate";
 import { useDispatch } from "react-redux";
 import { AsyncGetUser } from "../redux/user.store";
 import { memo, useMemo } from "react";
+import PrivacyPolicy from "../component/Cookie/PrivacyPolicy";
+import { FiMail, FiLock, FiUser, FiShield } from "react-icons/fi";
 
 type authenticationtype = "login" | "prelogin" | "signup" | "forgot";
 
@@ -40,25 +55,117 @@ interface AuthFormProps {
   onSignup: () => void;
 }
 
-// Password validation function
-const validatePassword = (password: string): string | null => {
-  if (password.length < 8) {
-    return "Password must be at least 8 characters long";
+// Enhanced Password validation with strength indicator
+const validatePasswordStrength = (
+  password: string
+): { isValid: boolean; message: string; strength: number } => {
+  let strength = 0;
+  const checks = [
+    { test: /.{8,}/, message: "At least 8 characters" },
+    { test: /[A-Z]/, message: "One uppercase letter" },
+    { test: /[a-z]/, message: "One lowercase letter" },
+    { test: /\d/, message: "One number" },
+    { test: /[!@#$%^&*(),.?":{}|<>]/, message: "One special character" },
+  ];
+
+  for (const check of checks) {
+    if (check.test.test(password)) {
+      strength++;
+    }
   }
-  if (!/[A-Z]/.test(password)) {
-    return "Password must contain at least one uppercase letter";
-  }
-  if (!/[a-z]/.test(password)) {
-    return "Password must contain at least one lowercase letter";
-  }
-  if (!/\d/.test(password)) {
-    return "Password must contain at least one number";
-  }
-  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-    return "Password must contain at least one special character";
-  }
-  return null;
+
+  const failedChecks = checks.filter((check) => !check.test.test(password));
+  const isValid = failedChecks.length === 0;
+
+  return {
+    isValid,
+    message: isValid
+      ? "Strong password"
+      : failedChecks.map((c) => c.message).join(", "),
+    strength,
+  };
 };
+
+// Simple validation function for PasswordInput component
+const validatePassword = (password: string): string | null => {
+  const result = validatePasswordStrength(password);
+  return result.isValid ? null : result.message;
+};
+
+// Privacy Policy Modal Component
+const PrivacyPolicyModal = memo(
+  ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="5xl"
+      scrollBehavior="inside"
+      classNames={{
+        base: "max-h-[90vh]",
+        body: "max-h-[70vh] overflow-y-auto",
+      }}
+    >
+      <ModalContent>
+        <ModalHeader className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <FiShield className="text-primary" />
+            <span>Privacy Policy & Terms of Service</span>
+          </div>
+        </ModalHeader>
+        <ModalBody>
+          <PrivacyPolicy className="p-0" />
+        </ModalBody>
+        <ModalFooter>
+          <Button color="primary" onPress={onClose} startContent={<FiShield />}>
+            I Understand
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  )
+);
+
+// Enhanced Password Strength Indicator
+const PasswordStrengthIndicator = memo(({ strength }: { strength: number }) => {
+  const getStrengthColor = () => {
+    if (strength < 2) return "danger";
+    if (strength < 4) return "warning";
+    return "success";
+  };
+
+  const getStrengthText = () => {
+    if (strength < 2) return "Weak";
+    if (strength < 4) return "Medium";
+    return "Strong";
+  };
+
+  return (
+    <div className="w-full mt-1">
+      <div className="flex justify-between items-center text-xs mb-1">
+        <span className="text-gray-400">Password Strength</span>
+        <Chip size="sm" color={getStrengthColor()} variant="flat">
+          {getStrengthText()}
+        </Chip>
+      </div>
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((level) => (
+          <div
+            key={level}
+            className={`h-1 flex-1 rounded ${
+              level <= strength
+                ? strength < 2
+                  ? "bg-red-500"
+                  : strength < 4
+                  ? "bg-yellow-500"
+                  : "bg-green-500"
+                : "bg-gray-200"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+});
 
 const ForgotPasswordActions = memo(
   ({ loading, onCancel }: { loading: boolean; onCancel: () => void }) => (
@@ -97,20 +204,40 @@ const AuthForm = memo(
     onSignup,
   }: AuthFormProps) => {
     const formRef = useRef<HTMLFormElement | null>(null);
+    const {
+      isOpen: isPolicyOpen,
+      onOpen: onPolicyOpen,
+      onClose: onPolicyClose,
+    } = useDisclosure();
+    const [passwordStrength, setPasswordStrength] = useState(0);
+
+    // Handle password change with strength calculation
+    const handlePasswordChange = useCallback(
+      (e: ChangeEvent<HTMLInputElement>) => {
+        const { value } = e.target;
+        const strength = validatePasswordStrength(value);
+        setPasswordStrength(strength.strength);
+        onChange(e);
+      },
+      [onChange]
+    );
 
     const forgotPasswordContent = useMemo(() => {
       if (forgot?.ty === "confirm") {
         return (
           <Input
             isRequired
-            errorMessage="Please enter a valid email"
-            label="Code"
+            errorMessage="Please enter a valid verification code"
+            label="Verification Code"
             labelPlacement="inside"
             name="code"
-            placeholder="Verfiy Code"
-            type="number"
+            placeholder="Enter 6-digit verification code"
+            type="text"
             onChange={(e) => onForgotChange(e.target.value)}
             size="lg"
+            startContent={<FiMail className="text-gray-400" />}
+            maxLength={6}
+            className="text-center"
           />
         );
       }
@@ -118,26 +245,34 @@ const AuthForm = memo(
       if (forgot?.ty === "change") {
         return (
           <>
-            <PasswordInput
-              isRequired
-              name="password"
-              placeholder="Password"
-              label="New Password"
-              value={logindata.password}
-              onChange={onChange}
-              validate={validatePassword}
-              size="lg"
-            />
+            <div className="space-y-2">
+              <PasswordInput
+                isRequired
+                name="password"
+                placeholder="New Password"
+                label="New Password"
+                value={logindata.password}
+                onChange={handlePasswordChange}
+                validate={validatePassword}
+                size="lg"
+                startContent={<FiLock className="text-gray-400" />}
+              />
+              {type === "signup" && logindata.password && (
+                <PasswordStrengthIndicator strength={passwordStrength} />
+              )}
+            </div>
             <PasswordInput
               isRequired
               name="confirmpassword"
-              placeholder="Confirm Password"
-              label="Confirm Password"
+              placeholder="Confirm New Password"
+              label="Confirm New Password"
               value={logindata.confirmpassword}
               onChange={onChange}
               validate={(e) =>
-                e !== logindata.password ? "Must match password" : null
+                e !== logindata.password ? "Passwords do not match" : null
               }
+              size="lg"
+              startContent={<FiLock className="text-gray-400" />}
             />
           </>
         );
@@ -150,11 +285,14 @@ const AuthForm = memo(
       logindata.confirmpassword,
       onChange,
       onForgotChange,
+      handlePasswordChange,
+      passwordStrength,
+      type,
     ]);
 
     const passwordValidation = useMemo(
       () => (e: string) =>
-        e !== logindata.password ? "Must match password" : null,
+        e !== logindata.password ? "Passwords do not match" : null,
       [logindata.password]
     );
 
@@ -164,43 +302,53 @@ const AuthForm = memo(
       }
 
       return (
-        <div className="w-full h-fit flex flex-row gap-x-5">
+        <div className="w-full h-fit flex flex-row gap-x-3">
           {type === "signup" ? (
             <Button
               type="button"
               onPress={onBack}
-              isLoading={loading}
-              className="text-white font-bold bg-secondary w-full h-[40px] rounded-md"
+              isDisabled={loading}
+              variant="bordered"
+              className="font-bold w-full h-[45px] rounded-lg transition-all hover:scale-105"
+              startContent={<FiUser className="text-lg" />}
             >
-              Back
+              Back to Login
             </Button>
           ) : (
-            <Button
-              type="submit"
-              isLoading={loading}
-              className="text-white font-bold bg-secondary w-full h-[40px] rounded-md"
-            >
-              Login
-            </Button>
+            <>
+              <span></span>
+              <Button
+                type="submit"
+                isLoading={loading}
+                className="text-white font-bold bg-gradient-to-r from-primary to-secondary w-full h-[45px] rounded-lg transition-all hover:scale-105 shadow-lg"
+                startContent={!loading && <FiLock className="text-lg" />}
+              >
+                {loading ? "Signing In..." : "Sign In"}
+              </Button>
+            </>
           )}
           {type === "signup" ? (
             <>
+              <span></span>
               <Button
                 type="submit"
-                className="text-black font-bold bg-lightsucess w-full h-[40px] rounded-md"
+                isLoading={loading}
+                className="text-white font-bold bg-gradient-to-r from-success to-lightsucess w-full h-[45px] rounded-lg transition-all hover:scale-105 shadow-lg"
+                startContent={!loading && <FiUser className="text-lg" />}
               >
-                Create
+                {loading ? "Creating..." : "Create Account"}
               </Button>
-              <span className="hidden"></span>
             </>
           ) : (
             <Button
               type="button"
               onPress={onSignup}
-              isLoading={loading}
-              className="text-black font-bold bg-lightsucess w-full h-[40px] rounded-md"
+              isDisabled={loading}
+              variant="bordered"
+              className="font-bold w-full h-[45px] rounded-lg transition-all hover:scale-105"
+              startContent={<FiUser className="text-lg" />}
             >
-              Signup
+              Create Account
             </Button>
           )}
         </div>
@@ -208,76 +356,131 @@ const AuthForm = memo(
     }, [type, onBack, loading, onSignup, onCancel]);
 
     return (
-      <Form
-        ref={formRef}
-        onSubmit={onSubmit}
-        className="w-[90%] h-fit flex flex-col gap-y-5 items-end"
-        validationBehavior="native"
-      >
-        <Input
-          isRequired
-          errorMessage="Please enter a valid email"
-          label="Email"
-          labelPlacement="inside"
-          name="email"
-          placeholder="Enter your email"
-          type="email"
-          value={logindata.email}
-          onChange={onChange}
-          size="lg"
-        />
-
-        {forgotPasswordContent}
-
-        {type !== "forgot" && (
-          <>
-            <PasswordInput
+      <>
+        <Form
+          ref={formRef}
+          onSubmit={onSubmit}
+          className="w-[90%] h-fit flex flex-col gap-y-6 items-end"
+          validationBehavior="native"
+          aria-label={`${
+            type === "signup"
+              ? "Sign up"
+              : type === "forgot"
+              ? "Password reset"
+              : "Sign in"
+          } form`}
+        >
+          <div className="space-y-1 w-full">
+            <Input
               isRequired
-              name="password"
-              placeholder="Password"
-              label="Password"
-              value={logindata.password}
+              errorMessage="Please enter a valid email address"
+              label="Email Address"
+              labelPlacement="inside"
+              name="email"
+              placeholder="Enter your email"
+              type="email"
+              value={logindata.email}
               onChange={onChange}
-              validate={type === "signup" ? validatePassword : undefined}
               size="lg"
+              startContent={<FiMail className="text-gray-400" />}
+              className="transition-all focus-within:scale-[1.02]"
             />
+          </div>
 
-            {type === "login" || type === "prelogin" ? (
-              <p
-                onClick={onForgotPassword}
-                className="text-sm text-white font-bold cursor-default hover:text-gray-300 active:text-gray-300"
-              >
-                Forgot Password
-              </p>
-            ) : (
-              <PasswordInput
-                isRequired
-                name="confirmpassword"
-                placeholder="Confirm Password"
-                label="Confirm Password"
-                value={logindata.confirmpassword}
-                onChange={onChange}
-                validate={passwordValidation}
-              />
-            )}
+          {forgotPasswordContent}
 
-            {type === "signup" && (
-              <Checkbox
-                name="agree"
-                onValueChange={onAgreeChange}
-                isRequired
-                color="secondary"
-              >
-                <p className="text-sm text-white font-bold">
-                  Agree to Policy and Privacy
-                </p>
-              </Checkbox>
-            )}
+          {type !== "forgot" && (
+            <>
+              <div className="space-y-2 w-full">
+                <PasswordInput
+                  isRequired
+                  name="password"
+                  placeholder="Password"
+                  label="Password"
+                  value={logindata.password}
+                  onChange={type === "signup" ? handlePasswordChange : onChange}
+                  validate={type === "signup" ? validatePassword : undefined}
+                  size="lg"
+                  startContent={<FiLock className="text-gray-400" />}
+                  className="transition-all focus-within:scale-[1.02]"
+                />
+                {type === "signup" && logindata.password && (
+                  <PasswordStrengthIndicator strength={passwordStrength} />
+                )}
+              </div>
 
-            {formActions}
-          </>
-        )}
-      </Form>
+              {type === "login" || type === "prelogin" ? (
+                <Button
+                  onPress={onForgotPassword}
+                  variant="light"
+                  size="sm"
+                  className="text-white hover:text-gray-200 underline self-start"
+                >
+                  Forgot your password?
+                </Button>
+              ) : (
+                <div className="space-y-2 w-full">
+                  <PasswordInput
+                    isRequired
+                    name="confirmpassword"
+                    placeholder="Confirm Password"
+                    label="Confirm Password"
+                    value={logindata.confirmpassword}
+                    onChange={onChange}
+                    validate={passwordValidation}
+                    size="lg"
+                    startContent={<FiLock className="text-gray-400" />}
+                    className="transition-all focus-within:scale-[1.02]"
+                  />
+                </div>
+              )}
+
+              {type === "signup" && (
+                <div className="w-full space-y-3">
+                  <Divider className="bg-white/20" />
+                  <Checkbox
+                    name="agree"
+                    onValueChange={onAgreeChange}
+                    isRequired
+                    color="secondary"
+                    size="sm"
+                    classNames={{
+                      base: "items-start",
+                      wrapper: "mt-1",
+                    }}
+                  >
+                    <div className="text-sm text-white leading-relaxed">
+                      I agree to the{" "}
+                      <Button
+                        onPress={onPolicyOpen}
+                        variant="light"
+                        size="sm"
+                        className="text-secondary hover:text-secondary-400 underline p-0 h-auto min-w-0 inline"
+                      >
+                        Terms of Service and Privacy Policy
+                      </Button>{" "}
+                      and consent to the processing of my personal data.
+                      <br />
+                    </div>
+                  </Checkbox>
+                  <a
+                    href="/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/70 hover:text-white underline p-0 h-auto min-w-0 inline text-xs mt-1"
+                  >
+                    View full privacy policy →
+                  </a>
+                </div>
+              )}
+
+              {formActions}
+            </>
+          )}
+        </Form>
+
+        <PrivacyPolicyModal isOpen={isPolicyOpen} onClose={onPolicyClose} />
+      </>
     );
   }
 );
@@ -423,7 +626,7 @@ export default function AuthenticationPage() {
         ErrorToast({
           toastid: page,
           title: "Error",
-          content: AuthenticationRequest.error ?? "Error Occured",
+          content: AuthenticationRequest.error ?? "Error Occurred",
         });
         return;
       }
@@ -431,22 +634,39 @@ export default function AuthenticationPage() {
       // Handle success responses
       if (page === "login") {
         dispatch(AsyncGetUser() as never);
+        SuccessToast({
+          title: "Welcome!",
+          content: "Successfully logged in",
+        });
         navigate("/dashboard", { replace: true });
       } else if (page === "signup") {
-        SuccessToast({ title: "User", content: "Created" });
+        SuccessToast({
+          title: "Account Created!",
+          content: "Welcome to Graduate Tracer",
+        });
         setlogindata(DefaultLoginState);
         setpage("login");
       } else if (page === "forgot") {
         if (forgot?.ty === "vfy") {
-          InfoToast({ title: "Info", content: "Please Check Email" });
+          InfoToast({
+            title: "Email Sent",
+            content: "Please check your email for verification code",
+          });
           setforgot({ ty: "confirm" });
         } else if (forgot?.ty === "confirm") {
-          InfoToast({ title: "Verified", content: "" });
+          InfoToast({
+            title: "Verified",
+            content: "Code verified successfully",
+          });
           setforgot({ ty: "change" });
         } else if (forgot?.ty === "change") {
           setforgot(undefined);
           setlogindata((prev) => ({ ...prev, email: "" }));
-          SuccessToast({ title: "Successfully", content: "Password Changed" });
+          SuccessToast({
+            title: "Password Updated",
+            content: "Your password has been changed successfully",
+          });
+          setpage("login");
         }
       }
     },
@@ -456,6 +676,7 @@ export default function AuthenticationPage() {
   const handleCancel = useCallback(() => {
     setpage("login");
     setforgot(undefined);
+    setlogindata(DefaultLoginState);
   }, []);
 
   const handleForgotPassword = useCallback(() => {
@@ -464,45 +685,120 @@ export default function AuthenticationPage() {
   }, []);
 
   const handleBack = useCallback(() => {
-    handleClick("prelogin");
-  }, [handleClick]);
+    setpage("login");
+    setlogindata(DefaultLoginState);
+  }, []);
 
   const handleSignup = useCallback(() => {
     handleClick("signup");
     setlogindata(DefaultLoginState);
   }, [handleClick]);
 
-  return (
-    <div className="w-full min-h-screen h-full bg-success flex flex-col items-center justify-center">
-      <div className="w-full h-[700px] flex flex-row items-center justify-center">
-        <div className="banner w-[500px] h-full border-5 border-primary bg-white rounded-l-lg flex flex-col items-center gap-y-10 shadow-medium">
-          <PictureBreakAndCombine />
+  // Dynamic page title
+  const getPageTitle = () => {
+    switch (page) {
+      case "signup":
+        return "Create Account";
+      case "forgot":
+        if (forgot?.ty === "confirm") return "Verify Code";
+        if (forgot?.ty === "change") return "New Password";
+        return "Reset Password";
+      default:
+        return "Welcome Back";
+    }
+  };
 
-          <h3 className="text-3xl font-bold text-black">Graduate Tracer</h3>
-          <p className="w-[90%] text-2xl">
-            {`Graduate Tracer is form creation web application that develop as
-          school project by Kay Koizumi.`}
-          </p>
-          <p className="w-[90%] text-sm font-light">
-            {`This Web Application act as proof of concept of Paragon International University.`}
-          </p>
+  return (
+    <div className="w-full min-h-screen h-full bg-gradient-to-br from-success via-primary to-secondary flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-6xl h-auto min-h-[700px] flex flex-row items-stretch justify-center shadow-2xl rounded-2xl overflow-hidden bg-white/5 backdrop-blur-sm">
+        {/* Left Banner */}
+        <div className="banner w-full md:w-[500px] h-full bg-white/95 backdrop-blur-md flex flex-col items-center justify-center gap-y-8 p-8 relative overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -translate-y-16 translate-x-16" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-secondary/10 rounded-full translate-y-12 -translate-x-12" />
+
+          <div className="relative z-10 flex flex-col items-center gap-y-8">
+            <div className="transform hover:scale-105 transition-transform duration-300">
+              <PictureBreakAndCombine />
+            </div>
+
+            <div className="text-center space-y-4">
+              <h3 className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                Graduate Tracer
+              </h3>
+              <p className="text-lg text-gray-700 leading-relaxed max-w-md">
+                A comprehensive form creation platform designed to streamline
+                data collection and analysis for educational institutions.
+              </p>
+            </div>
+
+            <div className="text-center space-y-3">
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                <FiShield className="text-primary" />
+                <span>Secure & Private</span>
+              </div>
+              <p className="text-xs text-gray-500 max-w-sm">
+                Developed as a proof of concept for Paragon International
+                University
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="authentication_page w-[500px] h-full bg-primary rounded-r-lg flex flex-col items-center gap-y-10 relative">
-          <h3 className="text-4xl text-white font-bold pt-10">Login</h3>
-          <AuthForm
-            type={page}
-            logindata={logindata}
-            forgot={forgot}
-            loading={loading}
-            onSubmit={handleSubmit}
-            onChange={handleChange}
-            onForgotChange={handleForgotChange}
-            onAgreeChange={handleAgreeChange}
-            onCancel={handleCancel}
-            onForgotPassword={handleForgotPassword}
-            onBack={handleBack}
-            onSignup={handleSignup}
-          />
+
+        {/* Right Authentication Form */}
+        <div className="authentication_page w-full md:w-[500px] bg-gradient-to-br from-primary via-primary-600 to-secondary flex flex-col items-center justify-center gap-y-8 p-8 relative overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute inset-0 bg-black/10" />
+          <div className="absolute top-0 left-0 w-40 h-40 bg-white/5 rounded-full -translate-y-20 -translate-x-20" />
+          <div className="absolute bottom-0 right-0 w-32 h-32 bg-white/5 rounded-full translate-y-16 translate-x-16" />
+
+          <div className="relative z-10 w-full max-w-sm space-y-8">
+            <div className="text-center space-y-2">
+              <h3 className="text-4xl text-white font-bold">
+                {getPageTitle()}
+              </h3>
+              {page === "login" && (
+                <p className="text-white/80 text-sm">
+                  Enter your credentials to access your account
+                </p>
+              )}
+              {page === "signup" && (
+                <p className="text-white/80 text-sm">
+                  Join our platform and start creating amazing forms
+                </p>
+              )}
+            </div>
+
+            <AuthForm
+              type={page}
+              logindata={logindata}
+              forgot={forgot}
+              loading={loading}
+              onSubmit={handleSubmit}
+              onChange={handleChange}
+              onForgotChange={handleForgotChange}
+              onAgreeChange={handleAgreeChange}
+              onCancel={handleCancel}
+              onForgotPassword={handleForgotPassword}
+              onBack={handleBack}
+              onSignup={handleSignup}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center space-y-2">
+        <p className="text-white/70 text-sm">
+          © 2024 Graduate Tracer. All rights reserved.
+        </p>
+        <div className="flex items-center justify-center gap-4 text-xs text-white/60">
+          <span>Secure Login</span>
+          <span>•</span>
+          <span>Privacy Protected</span>
+          <span>•</span>
+          <span>Data Encrypted</span>
         </div>
       </div>
     </div>

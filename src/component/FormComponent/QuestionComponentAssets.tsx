@@ -4,14 +4,12 @@ import {
   ConditionalType,
   ContentType,
   QuestionType,
-  RangeType,
 } from "../../types/Form.types";
 import { RootState } from "../../redux/store";
 import { ErrorToast } from "../Modal/AlertModal";
 import { CustomCheckBox, CustomRadio, RenderDropDownMenu } from "./Input";
 import { Button, Input } from "@heroui/react";
-import { ChangeEvent } from "react";
-import { DateRangePickerQuestionType } from "./Solution/Answer_Component";
+
 import { DeleteIcon } from "../svg/GeneralIcon";
 
 interface ChoiceQuestionProps {
@@ -127,51 +125,6 @@ export const ChoiceQuestionEdit = ({
       <Button onPress={handleAddOption} color="primary" className="font-bold">
         Add Options
       </Button>
-    </div>
-  );
-};
-
-export const RangeQuestionEdit = ({
-  type,
-  questionstate,
-  setquestionsate,
-}: {
-  type: QuestionType.RangeNumber | QuestionType.RangeDate;
-  questionstate: ContentType;
-  setquestionsate: (newVal: Partial<ContentType>) => void;
-}) => {
-  const handleDateRangeChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setquestionsate({
-      numrange: {
-        ...(questionstate.numrange ?? []),
-        [e.target.name]: Number(e.target.value),
-      } as RangeType<number>,
-    });
-  };
-  return (
-    <div className="w-full h-fit flex flex-row items-center gap-x-5">
-      {type === QuestionType.RangeDate ? (
-        <DateRangePickerQuestionType />
-      ) : (
-        <>
-          <Input
-            type="number"
-            size="lg"
-            placeholder="Start"
-            onChange={handleDateRangeChange}
-            value={questionstate.numrange?.start.toString()}
-            name="start"
-          />
-          <Input
-            type="number"
-            size="lg"
-            placeholder="End"
-            value={questionstate.numrange?.end.toString()}
-            onChange={handleDateRangeChange}
-            name="end"
-          />
-        </>
-      )}
     </div>
   );
 };

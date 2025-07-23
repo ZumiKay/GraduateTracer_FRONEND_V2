@@ -1,72 +1,60 @@
 import React, { useState, useEffect } from "react";
-import {
-  Card,
-  CardHeader,
-  CardBody,
-  Button,
-  Input,
-  Textarea,
-  Select,
-  SelectItem,
-  Checkbox,
-  CheckboxGroup,
-  RadioGroup,
-  Radio,
-  DatePicker,
-  Progress,
-  Alert,
-  Spinner,
-} from "@heroui/react";
-import { FiSend, FiChevronLeft, FiChevronRight } from "react-icons/fi";
-import { useParams } from "react-router-dom";
+import { Alert, Spinner } from "@heroui/react";
 import ApiRequest, { ApiRequestReturnType } from "../../hooks/ApiHook";
 import {
-  FormDataType,
-  ContentType,
-  QuestionType,
   FormTypeEnum,
+  QuestionType,
+  AnswerKey,
+  RangeType,
 } from "../../types/Form.types";
 import { getGuestData } from "../../utils/publicFormUtils";
+import Respondant_Question_Card from "../Card/Respondant.card";
 import "./RespondentForm.css";
 
-interface FormResponse {
-  questionId: string;
-  response: ResponseValue;
-}
+// Components
+import { FormHeader } from "./components/FormHeader";
+import { RespondentInfo } from "./components/RespondentInfo";
+import { ConditionalIndicator } from "./components/ConditionalIndicator";
+import { CheckboxQuestion } from "./components/CheckboxQuestion";
+import { MultipleChoiceQuestion } from "./components/MultipleChoiceQuestion";
+import { Navigation } from "./components/Navigation";
+import { FormStateCard } from "./components/FormStateCard";
+
+// Hooks
+import { useFormData } from "./hooks/useFormData";
+import { useFormResponses, ResponseValue } from "./hooks/useFormResponses";
+import { useFormValidation } from "./hooks/useFormValidation";
+
+// Utils
+import {
+  createValidationSummary,
+  logValidationSummary,
+} from "./utils/validationUtils";
+import { validateSubmissionData } from "./utils/testUtils";
 
 interface RespondentFormProps {
-  token?: string; // Optional token for secure forms
-  isGuest?: boolean; // Whether user is accessing as guest
+  token?: string;
+  isGuest?: boolean;
   guestData?: {
     name: string;
     email: string;
   };
 }
 
-interface RangeResponse {
-  start: string;
-  end: string;
-}
-
-type ResponseValue =
-  | string
-  | number
-  | boolean
-  | string[]
-  | number[]
-  | Date
-  | RangeResponse;
-
 const RespondentForm: React.FC<RespondentFormProps> = ({
   isGuest = false,
   guestData,
 }) => {
-  const { formId, token } = useParams<{ formId: string; token?: string }>();
-  const [form, setForm] = useState<FormDataType | null>(null);
-  const [questions, setQuestions] = useState<ContentType[]>([]);
-  const [responses, setResponses] = useState<FormResponse[]>([]);
+  const { form, questions, loading, error: formError } = useFormData();
+  const {
+    responses,
+    updateResponse,
+    initializeResponses,
+    checkIfQuestionShouldShow,
+  } = useFormResponses(questions);
+  const { isPageComplete, validateForm } = useFormValidation();
+
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -75,8 +63,14 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
     email: guestData?.email || "",
   });
 
-  // For guest users, disable editing of name and email
   const isGuestMode = Boolean(isGuest && guestData);
+
+  // Initialize responses when questions are loaded
+  useEffect(() => {
+    if (questions.length > 0) {
+      initializeResponses();
+    }
+  }, [questions, initializeResponses]);
 
   // Restore guest data from session storage if available
   useEffect(() => {
@@ -91,52 +85,6 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
     }
   }, [isGuest, guestData]);
 
-  // Fetch form data
-  useEffect(() => {
-    const fetchForm = async () => {
-      if (!formId) return;
-
-      try {
-        setLoading(true);
-        const url = token
-          ? `response/form/${formId}?token=${token}`
-          : `response/form/${formId}`;
-
-        const result = (await ApiRequest({
-          url,
-          method: "GET",
-        })) as ApiRequestReturnType;
-
-        if (result.success && result.data) {
-          const formData = result.data as FormDataType & {
-            contentIds: ContentType[];
-          };
-          setForm(formData);
-
-          // Cast to ContentType array since the backend populates it
-          const questions = (formData.contentIds || []) as ContentType[];
-          setQuestions(questions);
-
-          // Initialize responses
-          const initialResponses = questions.map((q) => ({
-            questionId: q._id || "",
-            response: "",
-          }));
-          setResponses(initialResponses);
-        } else {
-          setError("Form not found or access denied");
-        }
-      } catch (error) {
-        console.error("Error fetching form:", error);
-        setError("Failed to load form");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchForm();
-  }, [formId, token]);
-
   // Apply form styling to document root
   useEffect(() => {
     if (form?.setting) {
@@ -147,7 +95,6 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
       root.style.setProperty("--form-qcolor", form.setting.qcolor || "#e5e7eb");
     }
 
-    // Cleanup on unmount
     return () => {
       const root = document.documentElement;
       root.style.removeProperty("--form-bg");
@@ -157,45 +104,81 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
     };
   }, [form?.setting]);
 
-  // Update response
-  const updateResponse = (questionId: string, value: ResponseValue) => {
-    setResponses((prev) =>
-      prev.map((r) =>
-        r.questionId === questionId ? { ...r, response: value } : r
-      )
+  // Get current page questions with conditional logic
+  const getCurrentPageQuestions = () => {
+    const pageQuestions = questions.filter((q) => q.page === currentPage);
+    return pageQuestions.filter((question) =>
+      checkIfQuestionShouldShow(question, responses)
     );
   };
 
-  // Get current page questions
-  const getCurrentPageQuestions = () => {
-    return questions.filter((q) => q.page === currentPage);
-  };
+  // Handle question answer with type processing
+  const handleQuestionAnswer = (
+    questionId: string,
+    answer: Pick<AnswerKey, "answer">
+  ) => {
+    const question = questions.find((q) => q._id === questionId);
+    if (!question) return;
 
-  // Check if current page is complete
-  const isCurrentPageComplete = () => {
-    const currentQuestions = getCurrentPageQuestions();
-    return currentQuestions.every((q) => {
-      const response = responses.find((r) => r.questionId === q._id);
-      if (q.require) {
-        return response && response.response && response.response !== "";
-      }
-      return true;
-    });
+    let processedValue: ResponseValue = answer.answer as ResponseValue;
+
+    // Special processing for different question types
+    switch (question.type) {
+      case QuestionType.Date:
+        if (answer.answer instanceof Date) {
+          processedValue = answer.answer;
+        }
+        break;
+      case QuestionType.RangeNumber:
+      case QuestionType.RangeDate:
+        if (
+          typeof answer.answer === "object" &&
+          answer.answer !== null &&
+          "start" in answer.answer
+        ) {
+          processedValue = answer.answer;
+        }
+        break;
+      case QuestionType.Number:
+        if (
+          typeof answer.answer === "string" &&
+          !isNaN(Number(answer.answer))
+        ) {
+          processedValue = Number(answer.answer);
+        }
+        break;
+      case QuestionType.ShortAnswer:
+      case QuestionType.Paragraph:
+        processedValue = String(answer.answer);
+        break;
+      default:
+        processedValue = answer.answer as ResponseValue;
+        break;
+    }
+
+    updateResponse(questionId, processedValue);
   };
 
   // Submit form
   const handleSubmit = async () => {
     if (!form) return;
 
-    // Validate required fields
-    const requiredQuestions = questions.filter((q) => q.require);
-    const missingResponses = requiredQuestions.filter((q) => {
-      const response = responses.find((r) => r.questionId === q._id);
-      return !response || !response.response || response.response === "";
-    });
+    // Get all visible questions across all pages (considering conditional logic)
+    const allVisibleQuestions = questions.filter((question) =>
+      checkIfQuestionShouldShow(question, responses)
+    );
 
-    if (missingResponses.length > 0) {
-      setError("Please complete all required fields");
+    // Create validation summary for debugging
+    const validationSummary = createValidationSummary(
+      questions,
+      allVisibleQuestions,
+      responses
+    );
+    logValidationSummary(validationSummary);
+
+    const validationError = validateForm(allVisibleQuestions, responses);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -204,6 +187,50 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
       setError("Email is required for quiz forms");
       return;
     }
+
+    // Filter responses to only include visible questions for submission
+    const visibleQuestionIds = new Set(allVisibleQuestions.map((q) => q._id));
+    const filteredResponses = responses.filter(
+      (r) =>
+        visibleQuestionIds.has(r.questionId) &&
+        r.response !== "" &&
+        r.response !== null &&
+        r.response !== undefined
+    );
+
+    // Debug logging for form submission
+    if (import.meta.env.DEV) {
+      console.log("Form submission details:", {
+        totalQuestions: questions.length,
+        visibleQuestions: allVisibleQuestions.length,
+        totalResponses: responses.length,
+        filteredResponses: filteredResponses.length,
+        conditionalQuestions: allVisibleQuestions.filter((q) => q.parentcontent)
+          .length,
+        submittingData: filteredResponses.map((r) => ({
+          questionId: r.questionId,
+          responseType: typeof r.response,
+          hasResponse: !!r.response,
+          responsePreview: Array.isArray(r.response)
+            ? `Array(${r.response.length})`
+            : String(r.response).substring(0, 50),
+        })),
+      });
+    }
+
+    // Validate that we have at least some responses to submit
+    if (
+      filteredResponses.length === 0 &&
+      allVisibleQuestions.some((q) => q.require)
+    ) {
+      setError(
+        "Please fill out at least the required fields before submitting"
+      );
+      return;
+    }
+
+    // Additional validation for submission data
+    validateSubmissionData(allVisibleQuestions, responses);
 
     try {
       setSubmitting(true);
@@ -214,7 +241,7 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
         method: "POST",
         data: {
           formId: form._id,
-          responseset: responses.map((r) => ({
+          responseset: filteredResponses.map((r) => ({
             questionId: r.questionId,
             response: r.response,
           })),
@@ -236,161 +263,6 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
     }
   };
 
-  // Render question based on type
-  const renderQuestion = (question: ContentType) => {
-    const response = responses.find((r) => r.questionId === question._id);
-    const value = response?.response || "";
-
-    switch (question.type) {
-      case QuestionType.Text:
-      case QuestionType.ShortAnswer:
-        return (
-          <Input
-            placeholder="Enter your answer"
-            value={value as string}
-            onChange={(e) => updateResponse(question._id || "", e.target.value)}
-            isRequired={question.require}
-          />
-        );
-
-      case QuestionType.Paragraph:
-        return (
-          <Textarea
-            placeholder="Enter your answer"
-            value={value as string}
-            onChange={(e) => updateResponse(question._id || "", e.target.value)}
-            isRequired={question.require}
-            minRows={3}
-          />
-        );
-
-      case QuestionType.Number:
-        return (
-          <Input
-            type="number"
-            placeholder="Enter a number"
-            value={value as string}
-            onChange={(e) => updateResponse(question._id || "", e.target.value)}
-            isRequired={question.require}
-          />
-        );
-
-      case QuestionType.Date:
-        return (
-          <DatePicker
-            value={null}
-            onChange={(date) =>
-              updateResponse(
-                question._id || "",
-                date ? new Date(date.toString()) : ""
-              )
-            }
-            isRequired={question.require}
-          />
-        );
-
-      case QuestionType.MultipleChoice:
-        return (
-          <RadioGroup
-            value={value as string}
-            onValueChange={(val) => updateResponse(question._id || "", val)}
-            isRequired={question.require}
-          >
-            {question.multiple?.map((option, idx) => (
-              <Radio key={idx} value={option.content}>
-                {option.content}
-              </Radio>
-            ))}
-          </RadioGroup>
-        );
-
-      case QuestionType.CheckBox:
-        return (
-          <CheckboxGroup
-            value={value as string[]}
-            onValueChange={(values) =>
-              updateResponse(question._id || "", values)
-            }
-            isRequired={question.require}
-          >
-            {question.checkbox?.map((option, idx) => (
-              <Checkbox key={idx} value={option.content}>
-                {option.content}
-              </Checkbox>
-            ))}
-          </CheckboxGroup>
-        );
-
-      case QuestionType.Selection:
-        return (
-          <Select
-            placeholder="Select an option"
-            selectedKeys={value ? [value as string] : []}
-            onSelectionChange={(keys) => {
-              const selected = Array.from(keys)[0] as string;
-              updateResponse(question._id || "", selected);
-            }}
-            isRequired={question.require}
-          >
-            {question.multiple?.map((option) => (
-              <SelectItem key={option.content}>{option.content}</SelectItem>
-            )) || []}
-          </Select>
-        );
-
-      case QuestionType.RangeNumber:
-        return (
-          <div className="space-y-2">
-            <div className="flex gap-2 items-center">
-              <Input
-                type="number"
-                placeholder="Min"
-                value={value ? (value as RangeResponse).start : ""}
-                onChange={(e) => {
-                  const current = (value as RangeResponse) || {
-                    start: "",
-                    end: "",
-                  };
-                  updateResponse(question._id || "", {
-                    ...current,
-                    start: e.target.value,
-                  });
-                }}
-                className="flex-1"
-              />
-              <span>to</span>
-              <Input
-                type="number"
-                placeholder="Max"
-                value={value ? (value as RangeResponse).end : ""}
-                onChange={(e) => {
-                  const current = (value as RangeResponse) || {
-                    start: "",
-                    end: "",
-                  };
-                  updateResponse(question._id || "", {
-                    ...current,
-                    end: e.target.value,
-                  });
-                }}
-                className="flex-1"
-              />
-            </div>
-          </div>
-        );
-
-      default:
-        return (
-          <Input
-            placeholder="Enter your answer"
-            value={value as string}
-            onChange={(e) => updateResponse(question._id || "", e.target.value)}
-            isRequired={question.require}
-          />
-        );
-    }
-  };
-
   // Loading state
   if (loading) {
     return (
@@ -401,11 +273,11 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
   }
 
   // Error state
-  if (error && !form) {
+  if (formError && !form) {
     return (
       <div className="max-w-2xl mx-auto p-6">
         <Alert color="danger" title="Error">
-          {error}
+          {formError}
         </Alert>
       </div>
     );
@@ -415,21 +287,13 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
   if (form && form.setting?.acceptResponses === false) {
     return (
       <div className="max-w-2xl mx-auto p-6 respondent-form">
-        <Card className="form-closed-card">
-          <CardBody className="text-center p-8">
-            <div className="text-orange-500 text-6xl mb-4">🚫</div>
-            <h2 className="text-2xl font-bold mb-4 form-closed-title">
-              Form Closed
-            </h2>
-            <p className="form-closed-text mb-4">
-              This form is no longer accepting responses.
-            </p>
-            <p className="text-sm form-closed-subtext">
-              The form owner has disabled new submissions. Please contact them
-              if you need to submit a response.
-            </p>
-          </CardBody>
-        </Card>
+        <FormStateCard
+          type="closed"
+          icon="🚫"
+          title="Form Closed"
+          message="This form is no longer accepting responses."
+          subMessage="The form owner has disabled new submissions. Please contact them if you need to submit a response."
+        />
       </div>
     );
   }
@@ -438,23 +302,17 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
   if (success) {
     return (
       <div className="max-w-2xl mx-auto p-6 respondent-form">
-        <Card className="form-success-card">
-          <CardBody className="text-center p-8">
-            <div className="text-green-500 text-6xl mb-4">✓</div>
-            <h2 className="text-2xl font-bold mb-4 form-success-title">
-              Form Submitted Successfully!
-            </h2>
-            <p className="form-success-text mb-4">
-              Thank you for your response. Your submission has been recorded.
-            </p>
-            {form?.type === "QUIZ" && (
-              <p className="text-sm form-success-subtext">
-                Results will be sent to your email address if scoring is
-                enabled.
-              </p>
-            )}
-          </CardBody>
-        </Card>
+        <FormStateCard
+          type="success"
+          icon="✓"
+          title="Form Submitted Successfully!"
+          message="Thank you for your response. Your submission has been recorded."
+          subMessage={
+            form?.type === "QUIZ"
+              ? "Results will be sent to your email address if scoring is enabled."
+              : undefined
+          }
+        />
       </div>
     );
   }
@@ -463,98 +321,81 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
 
   const currentQuestions = getCurrentPageQuestions();
   const totalPages = Math.max(...questions.map((q) => q.page || 1));
-  const progress = (currentPage / totalPages) * 100;
+  const currentPageComplete = isPageComplete(currentQuestions, responses);
 
   return (
     <div className="max-w-4xl mx-auto p-6 min-h-screen respondent-form">
       {/* Form Header */}
-      <Card className="mb-6 form-header-card">
-        <CardHeader>
-          <div className="w-full">
-            <h1 className="text-3xl font-bold mb-2 form-title">{form.title}</h1>
-            <Progress
-              value={progress}
-              className="mb-4"
-              color="primary"
-              size="sm"
-            />
-            <p className="text-sm form-progress-text">
-              Page {currentPage} of {totalPages}
-            </p>
-          </div>
-        </CardHeader>
-      </Card>
+      <FormHeader
+        title={form.title}
+        currentPage={currentPage}
+        totalPages={totalPages}
+      />
 
       {/* Respondent Information (for quiz forms) */}
       {form.type === "QUIZ" && currentPage === 1 && (
-        <Card className="mb-6 form-info-card">
-          <CardHeader>
-            <h2 className="text-xl font-semibold form-info-header">
-              Your Information
-            </h2>
-          </CardHeader>
-          <CardBody>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Name"
-                placeholder="Enter your name"
-                value={respondentInfo.name}
-                onChange={(e) =>
-                  setRespondentInfo((prev) => ({
-                    ...prev,
-                    name: e.target.value,
-                  }))
-                }
-                isDisabled={isGuestMode}
-              />
-              <Input
-                label="Email"
-                type="email"
-                placeholder="Enter your email"
-                value={respondentInfo.email}
-                onChange={(e) =>
-                  setRespondentInfo((prev) => ({
-                    ...prev,
-                    email: e.target.value,
-                  }))
-                }
-                isDisabled={isGuestMode}
-                isRequired
-              />
-            </div>
-          </CardBody>
-        </Card>
+        <RespondentInfo
+          respondentInfo={respondentInfo}
+          setRespondentInfo={setRespondentInfo}
+          isGuestMode={isGuestMode}
+        />
       )}
 
       {/* Questions */}
       <div className="space-y-6">
-        {currentQuestions.map((question, index) => (
-          <Card key={question._id} className="form-question-card">
-            <CardHeader>
-              <div className="flex items-start gap-3">
-                <span className="form-question-number rounded-full w-8 h-8 flex items-center justify-center text-sm font-semibold">
-                  {(currentPage - 1) * 10 + index + 1}
-                </span>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold form-question-title">
-                    {typeof question.title === "string"
-                      ? question.title
-                      : "Question"}
-                    {question.require && (
-                      <span className="text-red-500 ml-1">*</span>
-                    )}
-                  </h3>
-                  {question.score && (
-                    <p className="text-sm form-question-subtitle">
-                      Points: {question.score}
-                    </p>
-                  )}
+        {currentQuestions.map((question, index) => {
+          const currentResponse = responses.find(
+            (r) => r.questionId === question._id
+          );
+
+          return (
+            <div key={question._id} className="question-wrapper">
+              <ConditionalIndicator question={question} questions={questions} />
+
+              {question.type === QuestionType.CheckBox ? (
+                <CheckboxQuestion
+                  question={question}
+                  currentResponse={currentResponse?.response}
+                  updateResponse={updateResponse}
+                />
+              ) : question.type === QuestionType.MultipleChoice ? (
+                <MultipleChoiceQuestion
+                  question={question}
+                  currentResponse={currentResponse?.response}
+                  updateResponse={updateResponse}
+                />
+              ) : (
+                // Use Respondant_Question_Card for other question types
+                <div className="p-6 bg-white rounded-lg border shadow-sm">
+                  <Respondant_Question_Card
+                    content={{
+                      ...question,
+                      answer: currentResponse?.response
+                        ? {
+                            answer:
+                              currentResponse.response as AnswerKey["answer"],
+                          }
+                        : undefined,
+                      // For RangeNumber questions, ensure the value is properly set
+                      numrange:
+                        question.type === QuestionType.RangeNumber &&
+                        currentResponse?.response
+                          ? (currentResponse.response as RangeType<number>)
+                          : question.numrange,
+                    }}
+                    color={form?.setting?.qcolor}
+                    ty="form"
+                    idx={(currentPage - 1) * 10 + index}
+                    onSelectAnswer={(answer) =>
+                      handleQuestionAnswer(question._id || "", answer)
+                    }
+                    isDisable={false}
+                  />
                 </div>
-              </div>
-            </CardHeader>
-            <CardBody>{renderQuestion(question)}</CardBody>
-          </Card>
-        ))}
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Error Display */}
@@ -565,50 +406,16 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
       )}
 
       {/* Navigation */}
-      <div className="flex justify-between items-center mt-8">
-        <Button
-          variant="light"
-          startContent={<FiChevronLeft />}
-          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-          isDisabled={currentPage === 1}
-        >
-          Previous
-        </Button>
-
-        <div className="flex gap-2">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-            <Button
-              key={page}
-              size="sm"
-              variant={page === currentPage ? "solid" : "light"}
-              onClick={() => setCurrentPage(page)}
-            >
-              {page}
-            </Button>
-          ))}
-        </div>
-
-        {currentPage < totalPages ? (
-          <Button
-            color="primary"
-            endContent={<FiChevronRight />}
-            onClick={() => setCurrentPage((prev) => prev + 1)}
-            isDisabled={!isCurrentPageComplete()}
-          >
-            Next
-          </Button>
-        ) : (
-          <Button
-            color="success"
-            endContent={<FiSend />}
-            onClick={handleSubmit}
-            isLoading={submitting}
-            isDisabled={!isCurrentPageComplete()}
-          >
-            Submit Form
-          </Button>
-        )}
-      </div>
+      <Navigation
+        currentPage={currentPage}
+        totalPages={totalPages}
+        isCurrentPageComplete={currentPageComplete}
+        submitting={submitting}
+        onPrevious={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+        onNext={() => setCurrentPage((prev) => prev + 1)}
+        onPageChange={setCurrentPage}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 };
