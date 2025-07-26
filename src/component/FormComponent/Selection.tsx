@@ -21,7 +21,7 @@ interface SelectionProps extends Omit<SelectProps, "children" | "aria-hidden"> {
 
 export default function Selection(props: SelectionProps) {
   return (
-    <Select {...props} items={props.items} aria-label="selection">
+    <Select {...props} items={props.items}>
       {(item) => <SelectItem key={item.value}>{item.label}</SelectItem>}
     </Select>
   );

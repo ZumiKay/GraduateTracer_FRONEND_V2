@@ -1,3 +1,14 @@
+/**
+ * Dashboard Component - Converted to React Query
+ *
+ * Features:
+ * - Uses React Query for data fetching with automatic caching and refetching
+ * - Optimistic updates for delete operations
+ * - Proper loading states and error handling
+ * - Automatic query invalidation after mutations
+ * - Stale-while-revalidate pattern for better UX
+ */
+
 import { Button } from "@heroui/react";
 import FilterSection from "../component/Filter/FilterSection";
 import FormPagination from "../component/FormComponent/Pagination";
@@ -6,7 +17,7 @@ import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../redux/openmodal";
 import { RootState } from "../redux/store";
 import CreateForm from "../component/Modal/Form.modal";
-import ApiRequest from "../hooks/ApiHook";
+import { createQueryFn, createMutationFn } from "../hooks/ApiHook";
 import { setallformstate } from "../redux/formstore";
 import { FormDataType } from "../types/Form.types";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
@@ -14,6 +25,7 @@ import { CardLoading } from "../component/Loading/ContainerLoading";
 import { useNavigate, useSearchParams } from "react-router";
 import FormCard from "../component/Card/FormCard";
 import CreateCardBtn from "../component/Card/CreateCardBtn";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Memoized header section component
 const HeaderSection = memo(
@@ -22,11 +34,13 @@ const HeaderSection = memo(
     selectedCard,
     onManageToggle,
     onDeletePress,
+    isDeleting,
   }: {
     isManage: boolean;
     selectedCard: Set<string>;
     onManageToggle: () => void;
     onDeletePress: () => void;
+    isDeleting?: boolean;
   }) => (
     <div className="header_section h-fit flex flex-row justify-between items-center gap-x-4 bg-white p-4 rounded-lg shadow-sm border">
       <FilterSection />
@@ -39,6 +53,7 @@ const HeaderSection = memo(
               : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
           }`}
           onPress={onManageToggle}
+          isDisabled={isDeleting}
         >
           {isManage ? "Cancel" : "Manage"}
         </Button>
@@ -47,6 +62,8 @@ const HeaderSection = memo(
             variant="flat"
             className="font-bold text-white bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 shadow-lg transition-all duration-200"
             onPress={onDeletePress}
+            isLoading={isDeleting}
+            isDisabled={isDeleting}
           >
             Delete {selectedCard.size}
           </Button>
@@ -102,7 +119,6 @@ function Dashboard() {
   const dispatch = useDispatch();
   const selector = useSelector((state: RootState) => state.openmodal);
   const { allformstate } = useSelector((state: RootState) => state.allform);
-  const [loading, setloading] = useState(false);
   const [searchParam] = useSearchParams();
   const [page, setpage] = useState(Number(searchParam.get("page")) || 1);
   const [limit, setlimit] = useState(Number(searchParam.get("show")) || 5);
@@ -113,6 +129,61 @@ function Dashboard() {
     hasPrevPage: false,
   });
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Fetch forms using React Query
+  const {
+    data: formsResponse,
+    isLoading,
+    error: fetchError,
+  } = useQuery({
+    queryKey: ["forms", page, limit],
+    queryFn: createQueryFn({
+      url: `/filteredform?ty=user&page=${page}&limit=${limit}`,
+      method: "GET",
+      cookie: true,
+      refreshtoken: true,
+    }),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 2,
+  });
+
+  // Delete forms mutation
+  const deleteFormsMutation = useMutation({
+    mutationFn: createMutationFn({
+      url: "/deleteform",
+      method: "DELETE",
+      cookie: true,
+      refreshtoken: true,
+    }),
+    onSuccess: () => {
+      SuccessToast({
+        title: "Success",
+        content: "Forms deleted successfully",
+        toastid: "delete-forms",
+      });
+
+      // Update local state immediately for optimistic UI
+
+      dispatch(
+        setallformstate(
+          allformstate.filter((form) => !selectedcard.has(form._id ?? ""))
+        )
+      );
+      setselectedcard(new Set());
+      setisManage(false);
+
+      // Invalidate and refetch forms
+      queryClient.invalidateQueries({ queryKey: ["forms"] });
+    },
+    onError: (error: Error) => {
+      ErrorToast({
+        title: "Failed",
+        content: error.message || "Can't Delete Forms",
+        toastid: "Delete Forms",
+      });
+    },
+  });
 
   // Memoized callback for card selection
   const handleManageCardSelection = useCallback(
@@ -167,79 +238,56 @@ function Dashboard() {
     }
   }, [searchParam, page, limit]);
 
-  // Memoized fetch function
-  const fetchForms = useCallback(async () => {
-    setloading(true);
-    try {
-      const response = await ApiRequest({
-        url: `/filteredform?ty=user&page=${page}&limit=${limit}`,
-        method: "GET",
-        cookie: true,
-        refreshtoken: true,
-      });
+  // Update Redux state and pagination when forms data changes
+  useEffect(() => {
+    if (formsResponse) {
+      const responseData = formsResponse as {
+        data: Array<FormDataType>;
+        pagination?: {
+          totalPages: number;
+          totalCount: number;
+          hasNextPage: boolean;
+          hasPrevPage: boolean;
+        };
+      };
 
-      if (!response.success) {
-        ErrorToast({
-          title: "Failed To Fetch",
-          content: "Error Connection",
-          toastid: "Error Connection",
-        });
-        return;
-      }
-
-      dispatch(setallformstate((response.data as Array<FormDataType>) ?? []));
+      dispatch(setallformstate(responseData.data ?? []));
 
       // Update pagination data from response
-      if (response.pagination) {
+      if (responseData.pagination) {
         setPaginationData({
-          totalPages: response.pagination.totalPages,
-          totalCount: response.pagination.totalCount,
-          hasNextPage: response.pagination.hasNextPage,
-          hasPrevPage: response.pagination.hasPrevPage,
+          totalPages: responseData.pagination.totalPages,
+          totalCount: responseData.pagination.totalCount,
+          hasNextPage: responseData.pagination.hasNextPage,
+          hasPrevPage: responseData.pagination.hasPrevPage,
         });
       }
-    } finally {
-      setloading(false);
     }
-  }, [dispatch, page, limit]);
+  }, [formsResponse, dispatch]);
 
+  // Handle fetch error
   useEffect(() => {
-    fetchForms();
-  }, [fetchForms]);
+    if (fetchError) {
+      ErrorToast({
+        title: "Failed To Fetch",
+        content: "Error Connection",
+        toastid: "Error Connection",
+      });
+    }
+  }, [fetchError]);
 
   const handleDeleteForm = useCallback(async () => {
-    setloading(true);
+    if (selectedcard.size === 0) return;
+
     try {
-      const response = await ApiRequest({
-        url: "/deleteform",
-        method: "DELETE",
-        cookie: true,
-        refreshtoken: true,
-        data: { ids: Array.from(selectedcard) },
+      await deleteFormsMutation.mutateAsync({
+        ids: Array.from(selectedcard),
       });
-
-      if (!response.success) {
-        ErrorToast({
-          title: "Failed",
-          content: "Can't Delete Form",
-          toastid: "Delete Form",
-        });
-        return;
-      }
-
-      dispatch(
-        setallformstate(
-          allformstate.length === 0
-            ? []
-            : allformstate.filter((form) => !selectedcard.has(form._id ?? ""))
-        )
-      );
-      setselectedcard(new Set());
-      SuccessToast({ title: "Success", content: "Form Deleted" });
-    } finally {
-      setloading(false);
+    } catch (error) {
+      // Error handling is done in the mutation's onError callback
+      console.error("Delete forms error:", error);
     }
-  }, [selectedcard, allformstate, dispatch]);
+  }, [selectedcard, deleteFormsMutation]);
 
   // Memoized delete press handler
   const handleDeletePress = useCallback(() => {
@@ -281,10 +329,11 @@ function Dashboard() {
           selectedCard={selectedcard}
           onManageToggle={handleManageToggle}
           onDeletePress={handleDeletePress}
+          isDeleting={deleteFormsMutation.isPending}
         />
 
         <FormGrid
-          loading={loading}
+          loading={isLoading || deleteFormsMutation.isPending}
           allformstate={allformstate}
           isManage={isManage}
           selectedCard={selectedcard}

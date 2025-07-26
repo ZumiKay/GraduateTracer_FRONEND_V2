@@ -1,4 +1,4 @@
-import React, { useState, useMemo, memo } from "react";
+import React, { useState, useMemo, memo, useCallback } from "react";
 import {
   Card,
   CardHeader,
@@ -34,7 +34,7 @@ import {
 } from "react-icons/fi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import ApiRequest from "../../hooks/ApiHook";
-import { FormDataType } from "../../types/Form.types";
+import { FormDataType, FormTypeEnum } from "../../types/Form.types";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
 
 interface ResponseSetType {
@@ -375,13 +375,13 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   });
 
   // Copy link to clipboard
-  const copyLink = () => {
+  const copyLink = useCallback(() => {
     navigator.clipboard.writeText(generatedLink);
     SuccessToast({ title: "Success", content: "Link copied to clipboard!" });
-  };
+  }, [generatedLink]);
 
   // Format date
-  const formatDate = (date: Date) => {
+  const formatDate = useCallback((date: Date) => {
     return new Date(date).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -389,23 +389,58 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
+  }, []);
 
   // Get status color
-  const getStatusColor = (
-    status: string
-  ): "success" | "warning" | "danger" | "default" => {
-    switch (status) {
-      case "completed":
-        return "success";
-      case "partial":
-        return "warning";
-      case "abandoned":
-        return "danger";
-      default:
-        return "default";
-    }
-  };
+  const getStatusColor = useCallback(
+    (status: string): "success" | "warning" | "danger" | "default" => {
+      switch (status) {
+        case "completed":
+          return "success";
+        case "partial":
+          return "warning";
+        case "abandoned":
+          return "danger";
+        default:
+          return "default";
+      }
+    },
+    []
+  );
+
+  // Filter handlers
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFilters((prev) => ({ ...prev, searchTerm: e.target.value }));
+    },
+    []
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleStatusChange = useCallback((keys: any) => {
+    const selected = Array.from(keys)[0] as string;
+    setFilters((prev) => ({ ...prev, status: selected || "" }));
+  }, []);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleDateRangeChange = useCallback((keys: any) => {
+    const selected = Array.from(keys)[0] as string;
+    setFilters((prev) => ({ ...prev, dateRange: selected || "" }));
+  }, []);
+
+  // Check if form is quiz type
+  const isQuizForm = useMemo(() => {
+    return form.type === FormTypeEnum.Quiz;
+  }, [form.type]);
+
+  // Modal handlers
+  const handleOpenEmailModal = useCallback(() => setEmailModalOpen(true), []);
+  const handleCloseEmailModal = useCallback(() => setEmailModalOpen(false), []);
+  const handleCloseLinkModal = useCallback(() => setLinkModalOpen(false), []);
+  const handleOpenAnalytics = useCallback(
+    () => window.open(`/analytics/${formId}`, "_blank"),
+    [formId]
+  );
 
   return (
     <div className="space-y-6">
@@ -416,7 +451,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
           <Button
             color="primary"
             startContent={<FiMail />}
-            onPress={() => setEmailModalOpen(true)}
+            onPress={handleOpenEmailModal}
           >
             Send Links
           </Button>
@@ -438,7 +473,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
           <Button
             color="success"
             startContent={<FiBarChart />}
-            onPress={() => window.open(`/analytics/${formId}`, "_blank")}
+            onPress={handleOpenAnalytics}
           >
             Analytics
           </Button>
@@ -455,18 +490,13 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             <Input
               placeholder="Search by name or email..."
               value={filters.searchTerm}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setFilters({ ...filters, searchTerm: e.target.value })
-              }
+              onChange={handleSearchChange}
               isClearable
             />
             <Select
               placeholder="Completion Status"
               selectedKeys={filters.status ? [filters.status] : []}
-              onSelectionChange={(keys) => {
-                const selected = Array.from(keys)[0] as string;
-                setFilters({ ...filters, status: selected || "" });
-              }}
+              onSelectionChange={handleStatusChange}
             >
               <SelectItem key="completed">Completed</SelectItem>
               <SelectItem key="partial">Partial</SelectItem>
@@ -475,10 +505,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             <Select
               placeholder="Date Range"
               selectedKeys={filters.dateRange ? [filters.dateRange] : []}
-              onSelectionChange={(keys) => {
-                const selected = Array.from(keys)[0] as string;
-                setFilters({ ...filters, dateRange: selected || "" });
-              }}
+              onSelectionChange={handleDateRangeChange}
             >
               <SelectItem key="today">Today</SelectItem>
               <SelectItem key="week">This Week</SelectItem>
@@ -500,7 +527,9 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             <TableHeader>
               <TableColumn>RESPONDENT</TableColumn>
               <TableColumn>EMAIL</TableColumn>
-              <TableColumn>SCORE</TableColumn>
+              <TableColumn className={isQuizForm ? "" : "hidden"}>
+                SCORE
+              </TableColumn>
               <TableColumn>STATUS</TableColumn>
               <TableColumn>SUBMITTED</TableColumn>
               <TableColumn>ACTIONS</TableColumn>
@@ -525,7 +554,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                   <TableCell>
                     {response.respondentEmail || response.guest?.email || "N/A"}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={isQuizForm ? "" : "hidden"}>
                     <div className="flex items-center gap-2">
                       <span>{response.totalScore || 0}</span>
                       {response.isManuallyScored && (
@@ -566,19 +595,21 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                           <FiEye />
                         </Button>
                       </Tooltip>
-                      <Tooltip content="Edit Score">
-                        <Button
-                          size="sm"
-                          variant="light"
-                          isIconOnly
-                          onClick={() => {
-                            setSelectedResponse(response);
-                            onScoreOpen();
-                          }}
-                        >
-                          <FiEdit3 />
-                        </Button>
-                      </Tooltip>
+                      {isQuizForm && (
+                        <Tooltip content="Edit Score">
+                          <Button
+                            size="sm"
+                            variant="light"
+                            isIconOnly
+                            onClick={() => {
+                              setSelectedResponse(response);
+                              onScoreOpen();
+                            }}
+                          >
+                            <FiEdit3 />
+                          </Button>
+                        </Tooltip>
+                      )}
                       <Tooltip content="Export PDF">
                         <Button
                           size="sm"
@@ -613,7 +644,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       </Card>
 
       {/* Email Modal */}
-      <Modal isOpen={emailModalOpen} onClose={() => setEmailModalOpen(false)}>
+      <Modal isOpen={emailModalOpen} onClose={handleCloseEmailModal}>
         <ModalContent>
           <ModalHeader>Send Form Links</ModalHeader>
           <ModalBody>
@@ -633,7 +664,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onClick={() => setEmailModalOpen(false)}>
+            <Button variant="light" onClick={handleCloseEmailModal}>
               Cancel
             </Button>
             <Button
@@ -653,7 +684,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       </Modal>
 
       {/* Link Generation Modal */}
-      <Modal isOpen={linkModalOpen} onClose={() => setLinkModalOpen(false)}>
+      <Modal isOpen={linkModalOpen} onClose={handleCloseLinkModal}>
         <ModalContent>
           <ModalHeader>Generated Form Link</ModalHeader>
           <ModalBody>
@@ -673,7 +704,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button onClick={() => setLinkModalOpen(false)}>Close</Button>
+            <Button onClick={handleCloseLinkModal}>Close</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -694,9 +725,11 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                     <strong>Email:</strong>{" "}
                     {selectedResponse.respondentEmail || "N/A"}
                   </div>
-                  <div>
-                    <strong>Score:</strong> {selectedResponse.totalScore || 0}
-                  </div>
+                  {isQuizForm && (
+                    <div>
+                      <strong>Score:</strong> {selectedResponse.totalScore || 0}
+                    </div>
+                  )}
                   <div>
                     <strong>Status:</strong>{" "}
                     {selectedResponse.completionStatus || "Unknown"}
@@ -718,7 +751,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                             Question {index + 1}
                           </div>
                           <div>{String(resp.response)}</div>
-                          {resp.score && (
+                          {isQuizForm && resp.score && (
                             <div className="text-sm text-gray-600">
                               Score: {resp.score}
                             </div>

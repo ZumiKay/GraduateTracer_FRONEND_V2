@@ -1,5 +1,3 @@
-// Example usage of ApiRequest with React Query
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import ApiRequest, { createQueryFn, createMutationFn } from "./ApiHook";
 
@@ -127,13 +125,10 @@ export const useAutoSaveForm = () => {
     },
     // Optimistic updates for better UX
     onMutate: async ({ formId, changes }) => {
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["filteredForm", formId] });
 
-      // Snapshot previous value
       const previousForm = queryClient.getQueryData(["filteredForm", formId]);
 
-      // Optimistically update
       queryClient.setQueryData(["filteredForm", formId], (old: unknown) => ({
         ...(old as Record<string, unknown>),
         ...changes,
@@ -142,7 +137,6 @@ export const useAutoSaveForm = () => {
       return { previousForm, formId };
     },
     onError: (_error, _variables, context) => {
-      // Rollback on error
       if (context?.previousForm) {
         queryClient.setQueryData(
           ["filteredForm", context.formId],

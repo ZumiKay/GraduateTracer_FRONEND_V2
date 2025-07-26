@@ -43,6 +43,13 @@ export const useFormResponses = (questions: ContentType[]) => {
       );
 
       if (!parentQuestion) {
+        if (import.meta.env.DEV) {
+          console.warn("Parent question not found for conditional question:", {
+            questionId: question._id,
+            parentId: question.parentcontent?.qId,
+            parentIdx: question.parentcontent?.qIdx,
+          });
+        }
         return false;
       }
 
@@ -56,6 +63,17 @@ export const useFormResponses = (questions: ContentType[]) => {
 
       const expectedAnswer = question.parentcontent?.optIdx;
 
+      if (import.meta.env.DEV) {
+        console.log("Checking conditional question:", {
+          questionId: question._id,
+          parentQuestionId: parentQuestion._id,
+          parentQuestionType: parentQuestion.type,
+          parentResponse: parentResponse.response,
+          expectedAnswer,
+          parentOptions: parentQuestion.multiple || parentQuestion.checkbox,
+        });
+      }
+
       if (parentQuestion.type === QuestionType.MultipleChoice) {
         const responseValue = parentResponse.response;
         const selectedOption = parentQuestion.multiple?.find((option) => {
@@ -66,7 +84,15 @@ export const useFormResponses = (questions: ContentType[]) => {
           return false;
         });
 
-        return selectedOption?.idx === expectedAnswer;
+        const shouldShow = selectedOption?.idx === expectedAnswer;
+        if (import.meta.env.DEV) {
+          console.log("Multiple choice conditional result:", {
+            shouldShow,
+            selectedOptionIdx: selectedOption?.idx,
+            expectedAnswer,
+          });
+        }
+        return shouldShow;
       }
 
       if (parentQuestion.type === QuestionType.CheckBox) {
@@ -76,10 +102,27 @@ export const useFormResponses = (questions: ContentType[]) => {
           ? [parentResponse.response as number]
           : [];
 
-        return selectedIndices.includes(expectedAnswer);
+        const shouldShow = selectedIndices.includes(expectedAnswer);
+        if (import.meta.env.DEV) {
+          console.log("Checkbox conditional result:", {
+            shouldShow,
+            selectedIndices,
+            expectedAnswer,
+          });
+        }
+        return shouldShow;
       }
 
-      return parentResponse.response === expectedAnswer;
+      // For other question types, direct comparison
+      const shouldShow = parentResponse.response === expectedAnswer;
+      if (import.meta.env.DEV) {
+        console.log("Direct comparison conditional result:", {
+          shouldShow,
+          parentResponse: parentResponse.response,
+          expectedAnswer,
+        });
+      }
+      return shouldShow;
     },
     [questions]
   );
@@ -127,9 +170,60 @@ export const useFormResponses = (questions: ContentType[]) => {
     [questions, checkIfQuestionShouldShow]
   );
 
+  // Batch update multiple responses (useful for restoring from storage)
+  const batchUpdateResponses = useCallback(
+    (
+      responsesToUpdate: Array<{ questionId: string; response: ResponseValue }>
+    ) => {
+      setResponses((prev) => {
+        let updated = [...prev];
+
+        // Apply all updates first
+        responsesToUpdate.forEach(({ questionId, response }) => {
+          updated = updated.map((r) =>
+            r.questionId === questionId ? { ...r, response } : r
+          );
+        });
+
+        // Then handle conditional logic once
+        const handleConditionalUpdates = (responses: FormResponse[]) => {
+          let hasChanges = false;
+
+          const updatedResponses = responses.map((response) => {
+            const question = questions.find(
+              (q) => q._id === response.questionId
+            );
+            if (!question || !question.parentcontent) {
+              return response;
+            }
+
+            const shouldShow = checkIfQuestionShouldShow(question, responses);
+
+            if (!shouldShow && response.response !== "") {
+              hasChanges = true;
+              return { ...response, response: "" };
+            }
+
+            return response;
+          });
+
+          if (hasChanges) {
+            return handleConditionalUpdates(updatedResponses);
+          }
+
+          return updatedResponses;
+        };
+
+        return handleConditionalUpdates(updated);
+      });
+    },
+    [questions, checkIfQuestionShouldShow]
+  );
+
   return {
     responses,
     updateResponse,
+    batchUpdateResponses,
     initializeResponses,
     checkIfQuestionShouldShow,
   };

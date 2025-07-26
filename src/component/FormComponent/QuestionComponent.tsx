@@ -269,25 +269,14 @@ const QuestionComponent = memo(
       dispatch(setshowLinkedQuestion(newState as never));
     }, [allshowLinkedQuestions, dispatch, questionId, currentShowState]);
 
-    // Memoized styles to prevent recalculation
-    const borderStyle = useMemo(() => ({ borderColor: color }), [color]);
-    const backgroundStyle = useMemo(
-      () => ({ backgroundColor: color }),
-      [color]
-    );
-    const highlightStyle = useMemo(
-      () => (currentShowState ? { backgroundColor: "lightblue" } : {}),
-      [currentShowState]
-    );
-
     return (
       <div
         className="w-full h-fit flex flex-col rounded-md bg-white border-[15px] items-center gap-y-5 py-5 relative"
-        style={borderStyle}
+        style={{ borderColor: color }}
       >
         <div
-          style={backgroundStyle}
-          className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px]"
+          style={{ backgroundColor: color }}
+          className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px] text-center "
         >
           {`Question ${idx + 1}`}
         </div>
@@ -323,7 +312,11 @@ const QuestionComponent = memo(
               <Tooltip placement="bottom" content="Show Linked Question">
                 <div
                   onClick={handleShowLinkedQuestions}
-                  style={highlightStyle}
+                  style={{
+                    backgroundColor: currentShowState
+                      ? "lightblue"
+                      : "transparent",
+                  }}
                   className="w-fit h-fit p-2 hover:bg-slate-200 rounded-md"
                 >
                   <ShowLinkedIcon width="20px" height="20px" />
@@ -366,7 +359,7 @@ const QuestionComponent = memo(
           !isNaN(conditionInfo.qIdx) && (
             <div
               onClick={handleConditionScroll}
-              style={backgroundStyle}
+              style={{ backgroundColor: color }}
               className="condition_indicator w-fit p-2 rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200"
             >
               {`Condition for Q${conditionInfo.qIdx + 1} option ${

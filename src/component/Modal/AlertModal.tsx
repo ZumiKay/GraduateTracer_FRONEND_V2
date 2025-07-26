@@ -96,42 +96,38 @@ export const PromiseToast = (
   let showToast = true;
 
   const delayPromise = new Promise<ApiRequestReturnType>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      if (showToast) {
-        toast.promise(
-          data.promise.then((res) => {
-            if (!res.success) reject(res);
-            resolve(res);
-          }),
-          {
-            pending: custom?.pending ?? "Loading...",
-            success: custom?.success,
-            error: custom?.error ?? "Error Occurred",
-          },
-          {
-            toastId,
-            position: "bottom-right",
-            autoClose: 2000,
-            closeOnClick: true,
-            closeButton: true,
-          }
-        );
-      }
-    }, 1000); // Delay toast by 1s
+    if (showToast) {
+      toast.promise(
+        data.promise.then((res) => {
+          if (!res.success) reject(res);
+          resolve(res);
+        }),
+        {
+          pending: custom?.pending ?? "Loading...",
+          success: custom?.success,
+          error: custom?.error ?? "Error Occurred",
+        },
+        {
+          toastId,
+          position: "bottom-right",
+          autoClose: 2000,
+          closeOnClick: true,
+          closeButton: true,
+        }
+      );
+    }
 
     data.promise
       .then((res) => {
         if (!res.success) {
-          clearTimeout(timeout);
           reject(res);
           return;
         }
-        clearTimeout(timeout);
+
         showToast = false; // Prevent toast from showing if completed in <1s
         resolve(res);
       })
       .catch((err) => {
-        clearTimeout(timeout);
         reject(err);
       });
   });

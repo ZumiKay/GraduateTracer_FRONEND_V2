@@ -128,16 +128,21 @@ const ApiRequest = async ({
           reactQuery,
         };
       }
+      // Get the refreshed token from localStorage after successful refresh
+      const refreshedToken = localStorage.getItem("accessToken");
       const header = {
         ...config.headers,
-        Authorization: `Bearer ${newAccesstoken}`,
+        Authorization: refreshedToken ? `Bearer ${refreshedToken}` : undefined,
       };
       //retry request
       try {
         const retryResponse = await axios({ ...config, headers: header });
         return {
           success: true,
-          data: { ...retryResponse.data },
+          data: retryResponse.data.data,
+          status: retryResponse.status,
+          message: retryResponse.data.message,
+          pagination: retryResponse.data.pagination,
           reactQuery,
         };
       } catch (retryError) {
@@ -185,16 +190,18 @@ const ApiRequest = async ({
 };
 
 // Wrapper function specifically for React Query
+// eslint-disable-next-line react-refresh/only-export-components
 export const createQueryFn = (
   requestConfig: Omit<ApiRequestProps, "reactQuery">
 ) => {
   return async () => {
     const response = await ApiRequest({ ...requestConfig, reactQuery: true });
-    return response.data;
+    return response;
   };
 };
 
 // Wrapper for mutation functions
+// eslint-disable-next-line react-refresh/only-export-components
 export const createMutationFn = (
   requestConfig: Omit<ApiRequestProps, "reactQuery" | "data">
 ) => {
@@ -207,5 +214,4 @@ export const createMutationFn = (
     return response.data;
   };
 };
-
 export default ApiRequest;

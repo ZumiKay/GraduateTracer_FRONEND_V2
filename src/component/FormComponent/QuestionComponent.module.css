@@ -1,0 +1,21 @@
+/* QuestionComponent.module.css */
+.questionContainer {
+  border-width: 15px;
+  border-color: var(--question-border-color, #e5e7eb);
+}
+
+.questionCount {
+  background-color: var(--question-bg-color, #3b82f6);
+}
+
+.highlightActive {
+  background-color: lightblue;
+}
+
+.highlightInactive {
+  background-color: transparent;
+}
+
+.conditionIndicator {
+  background-color: var(--question-bg-color, #3b82f6);
+}

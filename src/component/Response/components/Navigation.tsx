@@ -30,6 +30,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         startContent={<FiChevronLeft />}
         onClick={onPrevious}
         isDisabled={currentPage === 1}
+        aria-label="Go to previous page"
       >
         Previous
       </Button>
@@ -41,6 +42,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             size="sm"
             variant={page === currentPage ? "solid" : "light"}
             onPress={() => onPageChange(page)}
+            aria-label={`Go to page ${page}`}
           >
             {page}
           </Button>
@@ -53,6 +55,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           endContent={<FiChevronRight />}
           onPress={onNext}
           isDisabled={!isCurrentPageComplete}
+          aria-label="Go to next page"
         >
           Next
         </Button>
@@ -63,6 +66,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           onPress={onSubmit}
           isLoading={submitting}
           isDisabled={!isCurrentPageComplete}
+          aria-label="Submit form"
         >
           Submit Form
         </Button>

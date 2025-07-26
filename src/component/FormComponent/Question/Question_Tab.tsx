@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, memo } from "react";
 import { RootState } from "../../../redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -13,6 +13,7 @@ import {
   setallquestion,
   setformstate,
   setpage,
+  setprevallquestion,
   setreloaddata,
   setshowLinkedQuestion,
   setpauseAutoSave,
@@ -27,11 +28,13 @@ import PlusImg from "../../../assets/add.png";
 import { QuestionLoading } from "../../Loading/ContainerLoading";
 import { useSetSearchParam } from "../../../hooks/CustomHook";
 import QuestionStructure from "./QuestionStructure";
+import { checkUnsavedQuestions } from "../../../utils/formValidation";
 
 const QuestionTab = () => {
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const { setParams } = useSetSearchParam();
   const [showStructure, setShowStructure] = useState(true);
+  const [isPageLoading, setIsPageLoading] = useState(false);
 
   // Memoize selectors to prevent unnecessary re-renders
   const formState = useSelector((root: RootState) => root.allform.formstate);
@@ -42,13 +45,43 @@ const QuestionTab = () => {
   const allQuestion = useSelector(
     (root: RootState) => root.allform.allquestion
   );
+  const prevAllQuestion = useSelector(
+    (root: RootState) => root.allform.prevAllQuestion
+  );
   const showLinkedQuestion = useSelector(
     (root: RootState) => root.allform.showLinkedQuestions
   );
 
   const dispatch = useDispatch();
 
-  // Memoize filtered questions to avoid recalculating on every render
+  const hasUnsavedQuestions = useCallback(() => {
+    return checkUnsavedQuestions(allQuestion, prevAllQuestion, page);
+  }, [allQuestion, prevAllQuestion, page]);
+
+  const showSaveConfirmation = useCallback(
+    (onConfirm: () => void) => {
+      dispatch(
+        setopenmodal({
+          state: "confirm",
+          value: {
+            open: true,
+
+            data: {
+              question:
+                "You have unsaved questions. Please save them before proceeding.",
+              onAgree: onConfirm,
+              btn: {
+                agree: "Proceed",
+                disagree: "No",
+              },
+            },
+          },
+        })
+      );
+    },
+    [dispatch]
+  );
+
   const filteredQuestions = useMemo(
     () => allQuestion.filter((i) => i.page === page),
     [allQuestion, page]
@@ -202,7 +235,7 @@ const QuestionTab = () => {
           { pending: "Adding", success: "Condition Added", error: "Can't Add" }
         );
 
-        if (!request.success || request.data) return;
+        if (!request.success || !request.data) return;
         newContentId = request.data as string;
       }
 
@@ -431,72 +464,105 @@ const QuestionTab = () => {
     }
   }, []);
 
-  const handlePage = useCallback(
+  const handlePageInternal = useCallback(
     async (type: "add" | "delete", deletepage?: number) => {
-      if (type === "add") {
-        if (
-          allQuestion.some(
-            (question) => question.page === page && !question._id
-          )
-        ) {
-          dispatch(
-            setopenmodal({
-              state: "confirm",
-              value: {
-                open: true,
-                data: {
-                  question: "Please save question",
-                },
-              },
-            })
-          );
-          return;
-        }
+      // Set loading state for delete operations
+      if (type === "delete") {
+        setIsPageLoading(true);
       }
 
       let updatedPage = 0;
-      const updateSearchParam = (newPage: number) => {
-        dispatch(setpage(newPage));
-        dispatch(setformstate({ ...formState, totalpage: newPage }));
-        setParams({ page: newPage.toString() });
-      };
+      let newTotalPages = formState.totalpage;
 
       if (type === "add") {
-        updatedPage = formState.totalpage + 1;
-        updateSearchParam(updatedPage);
+        newTotalPages = formState.totalpage + 1;
+        updatedPage = newTotalPages;
       } else {
-        updatedPage = formState.totalpage;
-        updateSearchParam(updatedPage <= 1 ? 1 : updatedPage - 1);
+        newTotalPages = Math.max(1, formState.totalpage - 1);
+        updatedPage = newTotalPages;
+        // If deleting current page or a page before current page, adjust current page
+        if (deletepage && deletepage <= page) {
+          updatedPage = Math.max(1, page - 1);
+        } else {
+          updatedPage = page > newTotalPages ? newTotalPages : page;
+        }
       }
 
-      const request = (await PromiseToast(
-        {
-          promise: ApiRequest({
-            url: "/modifypage",
-            method: "PUT",
-            cookie: true,
-            refreshtoken: true,
-            data: {
-              formId: formState._id,
-              ty: type,
-              deletepage,
-            },
-          }),
-        },
-        { pending: "Adding Page", success: "Added" }
-      )) as ApiRequestReturnType;
+      try {
+        const request = (await PromiseToast(
+          {
+            promise: ApiRequest({
+              url: "/modifypage",
+              method: "PUT",
+              cookie: true,
+              refreshtoken: true,
+              data: {
+                formId: formState._id,
+                ty: type,
+                deletepage,
+              },
+            }),
+          },
+          {
+            pending: type === "add" ? "Adding Page" : "Deleting Page",
+            success: type === "add" ? "Added" : "Deleted",
+          }
+        )) as ApiRequestReturnType;
 
-      if (!request.success) {
-        ErrorToast({ title: "Failed", content: "Can't Save" });
-        return;
+        if (!request.success) {
+          ErrorToast({ title: "Failed", content: "Can't Save" });
+          return;
+        }
+
+        if (type === "delete" && deletepage) {
+          // Immediately update the questions array to remove questions from deleted page
+          const updatedQuestions = allQuestion
+            .filter((q) => q.page !== deletepage)
+            .map((q) => ({
+              ...q,
+              // Shift page numbers down for pages after the deleted page
+              page: q.page && q.page > deletepage ? q.page - 1 : q.page || 1,
+            }));
+
+          // Update both current and previous question states
+          dispatch(setallquestion(updatedQuestions));
+          dispatch(setprevallquestion(updatedQuestions));
+        }
+
+        // Update form state with correct total page count
+        dispatch(setformstate({ ...formState, totalpage: newTotalPages }));
+
+        // Update current page and URL
+        dispatch(setpage(updatedPage));
+        setParams({ page: updatedPage.toString() });
+
+        if (type === "delete") dispatch(setreloaddata(true));
+      } finally {
+        // Clear loading state
+        if (type === "delete") {
+          setIsPageLoading(false);
+        }
       }
-      if (type === "delete") dispatch(setreloaddata(true));
-      dispatch(setpage(updatedPage));
     },
-    [allQuestion, page, formState, setParams, dispatch]
+    [formState, setParams, dispatch, allQuestion, page]
   );
 
-  // Memoize the question color
+  const handlePage = useCallback(
+    async (type: "add" | "delete", deletepage?: number) => {
+      // Check for unsaved questions before proceeding
+      if (hasUnsavedQuestions()) {
+        showSaveConfirmation(() => {
+          // If user confirms, proceed without the check
+          handlePageInternal(type, deletepage);
+        });
+        return;
+      }
+
+      handlePageInternal(type, deletepage);
+    },
+    [hasUnsavedQuestions, showSaveConfirmation, handlePageInternal]
+  );
+
   const questionColor = useMemo(
     () => formState.setting?.qcolor as string,
     [formState.setting?.qcolor]
@@ -516,7 +582,7 @@ const QuestionTab = () => {
 
       // Check if this question is a child of another question
       const questionData = allQuestion.find(
-        (q) => q._id === question || q._id === question.toString()
+        (q) => q._id === question || q._id === question?.toString()
       );
       if (questionData?.parentcontent) {
         // Recursively check parent question visibility
@@ -583,12 +649,13 @@ const QuestionTab = () => {
             className="self-start mb-4"
             variant="flat"
             onPress={() => setShowStructure(true)}
+            aria-label="Show question structure sidebar"
           >
             Show Question Structure
           </Button>
         )}
 
-        {fetchLoading ? (
+        {fetchLoading || isPageLoading ? (
           <QuestionLoading count={3} />
         ) : (
           filteredQuestions.map((question, idx) => {
@@ -638,6 +705,7 @@ const QuestionTab = () => {
           startContent={<PlusIcon width={"25px"} height={"25px"} />}
           className="w-[90%] h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
           onPress={handleAddQuestion}
+          aria-label="Add new question"
         >
           New Question
         </Button>
@@ -651,6 +719,9 @@ const QuestionTab = () => {
             }
             color="danger"
             variant="bordered"
+            isLoading={isPageLoading}
+            isDisabled={isPageLoading}
+            aria-label="Delete current page"
             onPress={() => {
               dispatch(
                 setopenmodal({
@@ -665,23 +736,27 @@ const QuestionTab = () => {
               );
             }}
             startContent={
-              <Image
-                src={MinusIcon}
-                alt="minus"
-                width={20}
-                height={20}
-                loading="lazy"
-              />
+              !isPageLoading && (
+                <Image
+                  src={MinusIcon}
+                  alt="minus"
+                  width={20}
+                  height={20}
+                  loading="lazy"
+                />
+              )
             }
           >
-            Delete Page
+            {isPageLoading ? "Deleting..." : "Delete Page"}
           </Button>
           <Button
             className="max-w-xs font-bold text-black border-x-0 border-t-0 transition-transform hover:translate-x-1"
             radius="none"
             color="primary"
             variant="bordered"
+            isDisabled={isPageLoading}
             onPress={() => handlePage("add")}
+            aria-label="Add new page"
             startContent={
               <Image
                 src={PlusImg}
@@ -700,4 +775,4 @@ const QuestionTab = () => {
   );
 };
 
-export default QuestionTab;
+export default memo(QuestionTab);

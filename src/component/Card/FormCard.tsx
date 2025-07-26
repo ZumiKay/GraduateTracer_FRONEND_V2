@@ -78,8 +78,8 @@ const FormCard: React.FC<FormCardProps> = ({
   // Memoize card class names
   const cardClassName = useMemo(() => {
     return `h-fit cursor-pointer transition-all duration-200 hover:shadow-lg ${
-      isSelect ? "ring-2 ring-blue-500 shadow-lg" : ""
-    } ${isManage ? "hover:scale-105" : ""}`;
+      isSelect ? "ring-2 ring-blue-500 shadow-lg bg-blue-50" : ""
+    } ${isManage ? "hover:scale-105 select-none" : ""}`;
   }, [isSelect, isManage]);
 
   // Memoize type label
@@ -88,7 +88,7 @@ const FormCard: React.FC<FormCardProps> = ({
   }, [type]);
 
   return (
-    <Card className={cardClassName} isPressable={!isManage} onPress={onClick}>
+    <Card className={cardClassName} isPressable onPress={onClick}>
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start w-full">
           <div className="flex-1">

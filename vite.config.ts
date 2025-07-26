@@ -2,11 +2,13 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 import { visualizer } from "rollup-plugin-visualizer";
-
+import tailwindcss from "@tailwindcss/vite";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
+
     // Add bundle analyzer
     ...(process.env.ANALYZE === "true"
       ? [
@@ -38,7 +40,7 @@ export default defineConfig({
         manualChunks: {
           vendor: ["react", "react-dom"],
           router: ["react-router-dom"],
-          ui: ["@headlessui/react", "@heroicons/react"],
+          ui: ["@heroui/react", "@heroicons/react"],
           state: ["@reduxjs/toolkit", "react-redux"],
           query: ["@tanstack/react-query"],
         },
@@ -59,5 +61,8 @@ export default defineConfig({
   // Optimize dependencies
   optimizeDeps: {
     include: ["react", "react-dom", "react-router-dom"],
+  },
+  css: {
+    postcss: "./postcss.config.js",
   },
 });

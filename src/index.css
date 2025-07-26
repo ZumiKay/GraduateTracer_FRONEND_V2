@@ -1,7 +1,39 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+/* HEROUI */
+
+@plugin "./services/heroUIService.ts";
+@source '../node_modules/@heroui/theme/dist/**/*.{js,mjs,ts,jsx,tsx}';
+@custom-variant dark (&:is(.dark *));
+
+/* ************************/
+
+@theme {
+  --color-primary: #254336;
+  --color-secondary: #B7B597;
+  --color-lightsecondary: #DAD3BE;
+  --color-darkprimary: #181C14;
+  --color-success: #6B8A7A;
+  --color-lightsucess: #D3F1DF;
+  --color-danger: #F08080;
+  --color-warning: #A294F9; 
+  --spacing-card-respondant-width: 80%;
+  --spacing-card-respondant-height: 500px; 
+  --font-size-card-header-1: 3.5rem;
+  --font-size-card-header-2: 2.5rem;
+  --font-size-card-header-3: 2rem; 
+  --animate-border-expand: borderExpand 0.5s forwards;
+}
+
+@keyframes borderExpand {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 100%;
+    background-color: #A294F9;
+  }
+}
 
 @layer base {
   input[type="number"]::-webkit-outer-spin-button,
@@ -11,6 +43,7 @@
   }
   input[type="number"] {
     -moz-appearance: textfield;
+    appearance: textfield;
   }
 }
 

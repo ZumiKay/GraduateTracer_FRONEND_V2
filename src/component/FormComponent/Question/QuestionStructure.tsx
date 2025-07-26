@@ -96,11 +96,13 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
   );
   const formState = useSelector((root: RootState) => root.allform.formstate);
 
-  // Filter questions for current page
-  const filteredQuestions = useMemo(
-    () => allQuestion.filter((q) => q.page === currentPage),
-    [allQuestion, currentPage]
-  );
+  // Filter questions for current page and ensure they exist
+  const filteredQuestions = useMemo(() => {
+    if (!allQuestion || !Array.isArray(allQuestion)) {
+      return [];
+    }
+    return allQuestion.filter((q) => q && q.page === currentPage);
+  }, [allQuestion, currentPage]);
 
   // Get question type label
   const getQuestionTypeLabel = useCallback((type: QuestionType) => {
@@ -162,13 +164,20 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
     (question: ContentType) => {
       if (!canToggleVisibility(question)) return true;
 
-      const questionId = question._id || `question-${question.title}`;
+      const questionId =
+        question._id?.toString() || `temp-question-${Date.now()}`;
       const linkedQuestion = showLinkedQuestion?.find(
         (i) => i.question === questionId
       );
       return linkedQuestion?.show !== undefined ? linkedQuestion.show : true;
     },
     [showLinkedQuestion, canToggleVisibility]
+  );
+
+  // Get total questions count for current page
+  const totalQuestionsOnPage = useMemo(
+    () => filteredQuestions.length,
+    [filteredQuestions]
   );
 
   // Build hierarchical structure with recursive nesting
@@ -183,18 +192,18 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
         (q) => q.parentcontent?.qId === parentId
       );
 
-      return children.map((child) => ({
+      return children.map((child, index) => ({
         ...child,
-        children: buildChildren(child._id || `question-${child.title}`),
+        children: buildChildren(child._id || `temp-child-${parentId}-${index}`),
       }));
     };
 
     // First, add all parent questions (questions without parentcontent)
-    filteredQuestions.forEach((question) => {
+    filteredQuestions.forEach((question, index) => {
       if (!question.parentcontent) {
         hierarchy.push({
           ...question,
-          children: buildChildren(question._id || `question-${question.title}`),
+          children: buildChildren(question._id || `temp-parent-${index}`),
         });
       }
     });
@@ -202,10 +211,34 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
     return hierarchy;
   }, [filteredQuestions]);
 
-  const questionHierarchy = useMemo(
-    () => buildQuestionHierarchy(),
-    [buildQuestionHierarchy]
-  );
+  const questionHierarchy = useMemo(() => {
+    return buildQuestionHierarchy();
+  }, [buildQuestionHierarchy]);
+
+  // Get visible questions count (non-conditional or visible conditional questions)
+  const visibleQuestionsCount = useMemo(() => {
+    // Count questions that are actually visible in the hierarchy
+    const countVisibleInHierarchy = (
+      questions: (ContentType & { children: ContentType[] })[]
+    ): number => {
+      let count = 0;
+      questions.forEach((question) => {
+        // Count the question itself if it's visible
+        if (isQuestionVisible(question)) {
+          count += 1;
+          // If the question is visible, also count its visible children
+          if (question.children.length > 0) {
+            count += countVisibleInHierarchy(
+              question.children as (ContentType & { children: ContentType[] })[]
+            );
+          }
+        }
+      });
+      return count;
+    };
+
+    return countVisibleInHierarchy(questionHierarchy);
+  }, [questionHierarchy, isQuestionVisible]);
 
   // Handle question click
   const handleQuestionClick = useCallback(
@@ -219,7 +252,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
   // Handle visibility toggle
   const handleToggleVisibility = useCallback(
     (question: ContentType) => {
-      const questionId = question._id || `question-${question.title}`;
+      const questionId = question._id || `temp-question-${Date.now()}`;
       if (questionId) {
         onToggleVisibility(questionId);
       }
@@ -227,26 +260,44 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
     [onToggleVisibility]
   );
 
+  // Generate a unique key for questions
+  const generateQuestionKey = useCallback(
+    (question: ContentType, index: number = 0) => {
+      if (question._id) {
+        return question._id.toString();
+      }
+      // Use a combination of type, index, and a portion of the title content
+      const titleHash =
+        typeof question.title === "string"
+          ? question.title.slice(0, 10)
+          : JSON.stringify(question.title).slice(0, 20);
+      return `${question.type}-${index}-${titleHash.replace(
+        /[^a-zA-Z0-9]/g,
+        ""
+      )}`;
+    },
+    []
+  );
+
   // Render a single question card (used for both parent and child questions)
   const renderQuestionCard = useCallback(
     (
       question: ContentType & { children: ContentType[] },
       level: number = 0,
-      parentQuestion?: ContentType
+      parentQuestion?: ContentType,
+      index: number = 0
     ) => {
       const isChild = level > 0;
       const indentClass = isChild ? `ml-${level * 4}` : "";
       const borderClass = isChild ? "border-l-4 border-blue-300" : "";
+      const questionKey = generateQuestionKey(question, index);
 
       return (
-        <div
-          key={question._id || `question-${question.title}`}
-          className={`${indentClass} mt-2`}
-        >
+        <div key={questionKey} className={`${indentClass} mt-2`}>
           <Card
             className={`cursor-pointer hover:shadow-lg transition-shadow ${borderClass}`}
             isPressable
-            onPress={() => handleQuestionClick(question, 0)}
+            onPress={() => handleQuestionClick(question, index)}
           >
             <CardBody className="p-4">
               {/* Parent indicator for child questions */}
@@ -281,10 +332,12 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   {/* Level indicator for better hierarchy visualization */}
-                  {level > 0 && (
+                  {level > 0 ? (
                     <Chip size="sm" color="secondary" variant="flat">
                       Level {level + 1}
                     </Chip>
+                  ) : (
+                    <></>
                   )}
                   <Chip size="sm" color="primary" variant="flat">
                     {getQuestionTypeLabel(question.type)}
@@ -301,7 +354,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
                   )}
                 </div>
 
-                {canToggleVisibility(question) && (
+                {canToggleVisibility(question) ? (
                   <Button
                     size="sm"
                     variant="light"
@@ -315,6 +368,8 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
                       <EyeSlashIcon width="16" height="16" />
                     )}
                   </Button>
+                ) : (
+                  <></>
                 )}
               </div>
 
@@ -322,10 +377,12 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
                 {getQuestionTitle(question)}
               </p>
 
-              {question.score && question.score > 0 && (
+              {question.score && question.score > 0 ? (
                 <Chip size="sm" color="success" variant="flat" className="mt-2">
                   {question.score} pts
                 </Chip>
+              ) : (
+                <></>
               )}
 
               {question.children.length > 0 && (
@@ -347,6 +404,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
       isQuestionVisible,
       handleToggleVisibility,
       getQuestionTitle,
+      generateQuestionKey,
     ]
   );
 
@@ -357,29 +415,29 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
       level: number = 0,
       parentQuestion?: ContentType
     ) => {
-      return questions.map((question) => (
-        <div
-          key={question._id || `question-${question.title}`}
-          className="space-y-2"
-        >
-          {renderQuestionCard(question, level, parentQuestion)}
+      return questions.map((question, index) => {
+        const questionKey = generateQuestionKey(question, index);
+        return (
+          <div key={questionKey} className="space-y-2">
+            {renderQuestionCard(question, level, parentQuestion, index)}
 
-          {/* Recursively render child questions if parent is visible */}
-          {isQuestionVisible(question) && question.children.length > 0 && (
-            <div className="space-y-2">
-              {renderQuestionsRecursively(
-                question.children as (ContentType & {
-                  children: ContentType[];
-                })[],
-                level + 1,
-                question // Pass current question as parent for its children
-              )}
-            </div>
-          )}
-        </div>
-      ));
+            {/* Recursively render child questions if parent is visible */}
+            {isQuestionVisible(question) && question.children.length > 0 && (
+              <div className="space-y-2">
+                {renderQuestionsRecursively(
+                  question.children as (ContentType & {
+                    children: ContentType[];
+                  })[],
+                  level + 1,
+                  question // Pass current question as parent for its children
+                )}
+              </div>
+            )}
+          </div>
+        );
+      });
     },
-    [renderQuestionCard, isQuestionVisible]
+    [renderQuestionCard, isQuestionVisible, generateQuestionKey]
   );
 
   return (
@@ -391,6 +449,9 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
           </h2>
           <p className="text-sm text-gray-600 mt-1">
             Page {currentPage} of {formState.totalpage}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            {visibleQuestionsCount} of {totalQuestionsOnPage} questions visible
           </p>
         </div>
         <Button
@@ -409,6 +470,11 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
           {questionHierarchy.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <p>No questions on this page</p>
+              <p className="text-xs mt-2">
+                {totalQuestionsOnPage > 0
+                  ? "All questions are conditionally hidden"
+                  : "Click the add button to create your first question"}
+              </p>
             </div>
           ) : (
             <>

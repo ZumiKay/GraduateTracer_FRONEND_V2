@@ -1,4 +1,4 @@
-import { Chip, DateRangePicker, Input, RadioGroup } from "@heroui/react";
+import { Chip, Input, RadioGroup } from "@heroui/react";
 import { AnswerKey, ContentType, QuestionType } from "../../types/Form.types";
 import Tiptap from "../FormComponent/TipTabEditor";
 import { useCallback } from "react";
@@ -8,6 +8,7 @@ import {
   ParagraphAnswer,
   RangeNumberAnswer,
 } from "../FormComponent/Solution/Answer_Component";
+import DateRangeSelector from "../FormComponent/DateRanageSelector";
 
 interface TextCardProps {
   content: ContentType;
@@ -69,8 +70,8 @@ const Respondant_Question_Card = ({
                 value={content.answer?.answer as string}
                 onValueChange={(val) => handleAnswer(val)}
                 className="w-full space-y-2"
-                name={`radiogroup${content.idx}`}
                 isDisabled={isDisable}
+                aria-label="Select one option from the multiple choice list"
               >
                 {Choices}
               </RadioGroup>
@@ -93,7 +94,6 @@ const Respondant_Question_Card = ({
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700">Your answer:</p>
             <ParagraphAnswer
-              name={`paragraph${content.idx}`}
               onChange={handleAnswer}
               readonly={!ty || isDisable}
             />
@@ -105,7 +105,6 @@ const Respondant_Question_Card = ({
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700">Select range:</p>
             <RangeNumberAnswer
-              name={`range${content.idx}`}
               onChange={handleAnswer}
               value={content.rangenumber}
               readonly={isDisable}
@@ -121,7 +120,6 @@ const Respondant_Question_Card = ({
               value={content.answer?.answer as Date}
               placeholder="Select Date"
               onChange={handleAnswer}
-              name={`date${content.idx}`}
               readonly={isDisable}
             />
           </div>
@@ -138,10 +136,10 @@ const Respondant_Question_Card = ({
               placeholder="Enter your answer"
               errorMessage="Please enter a valid number"
               onChange={(e) => handleAnswer(e.target.value)}
-              aria-label={`number${content.idx}`}
               className="w-full"
               readOnly={isDisable}
               variant="bordered"
+              aria-label="Enter a number for your answer"
             />
           </div>
         );
@@ -156,36 +154,28 @@ const Respondant_Question_Card = ({
               radius="sm"
               type="text"
               placeholder="Enter your answer"
-              aria-label={`shortanswer${content.idx}`}
               onChange={(e) => handleAnswer(e.target.value)}
               readOnly={!ty || isDisable}
               className="w-full"
               variant="bordered"
+              aria-label="Enter your short answer"
             />
           </div>
         );
 
       case QuestionType.RangeDate:
         return (
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700">
-              Select date range:
-            </p>
-            <DateRangePicker
-              value={content.rangedate ?? null}
-              onChange={handleAnswer}
-              aria-label={`rangedate${content.idx}`}
-              isReadOnly={!ty || isDisable}
-              className="w-full"
-              size="md"
-            />
-          </div>
+          <DateRangeSelector
+            value={content.rangedate ?? null}
+            idx={idx}
+            onSelectionChange={handleAnswer}
+          />
         );
 
       default:
         return null;
     }
-  }, [content, handleAnswer, ty, isDisable]);
+  }, [content, handleAnswer, ty, isDisable, idx]);
 
   const ContentTitle = useCallback(() => {
     if (content.parentcontent) {
@@ -227,7 +217,7 @@ const Respondant_Question_Card = ({
     <div
       className={`relative w-card_respondant_width h-fit rounded-xl bg-white shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 ${
         isDisable
-          ? "opacity-60 cursor-not-allowed"
+          ? "cursor-not-allowed"
           : "hover:shadow-xl hover:border-gray-200 hover:-translate-y-1"
       }`}
     >
@@ -259,6 +249,7 @@ const Respondant_Question_Card = ({
           size="sm"
           variant="flat"
           className="text-xs font-medium"
+          aria-label={`Question type: ${getQuestionTypeLabel()}`}
         >
           {getQuestionTypeLabel()}
         </Chip>
@@ -266,7 +257,7 @@ const Respondant_Question_Card = ({
 
       {/* Disabled overlay */}
       {isDisable && (
-        <div className="absolute inset-0 bg-gray-900/10 z-10 pointer-events-none backdrop-blur-[0.5px]" />
+        <div className="absolute inset-0 bg-gray-900/10 z-10 pointer-events-none" />
       )}
 
       {/* Main content */}
@@ -301,12 +292,22 @@ const Respondant_Question_Card = ({
         <div className="flex justify-between items-center">
           <div className="flex gap-2">
             {content.require && (
-              <Chip color="danger" size="sm" variant="flat">
+              <Chip
+                color="danger"
+                size="sm"
+                variant="flat"
+                aria-label="This question is required"
+              >
                 Required
               </Chip>
             )}
             {content.score && content.score > 0 ? (
-              <Chip color="success" size="sm" variant="flat">
+              <Chip
+                color="success"
+                size="sm"
+                variant="flat"
+                aria-label={`This question is worth ${content.score} points`}
+              >
                 {content.score} pts
               </Chip>
             ) : (
@@ -315,7 +316,12 @@ const Respondant_Question_Card = ({
           </div>
 
           {isDisable && (
-            <Chip color="default" size="sm" variant="flat">
+            <Chip
+              color="default"
+              size="sm"
+              variant="flat"
+              aria-label="This question is in read-only mode"
+            >
               Read-only
             </Chip>
           )}

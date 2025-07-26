@@ -33,10 +33,18 @@ import { hasArrayChange } from "../../helperFunc";
 import { useLocation, useSearchParams, useNavigate } from "react-router";
 import AutoSaveForm from "../../hooks/AutoSaveHook";
 import { ErrorToast } from "../Modal/AlertModal";
-import { setformstate, setprevallquestion } from "../../redux/formstore";
+import {
+  setformstate,
+  setprevallquestion,
+  setallquestion,
+  setpage,
+  setreloaddata,
+  setfetchloading,
+} from "../../redux/formstore";
 import NotificationSystem from "../Notification/NotificationSystem";
 import useImprovedAutoSave from "../../hooks/useImprovedAutoSave";
 import { DefaultFormState } from "../../types/Form.types";
+import { AutoSaveQuestion } from "../../pages/FormPage.action";
 // Memoized components for better performance
 const MemoizedProfileIcon = React.memo(ProfileIcon);
 const MemoizedAutoSaveForm = React.memo(AutoSaveForm);
@@ -73,8 +81,8 @@ export default function Navigationbar() {
 
   const openmodal = useSelector((root: RootState) => root.openmodal.setting);
 
-  // Add improved autosave hook
-  const { manualSave } = useImprovedAutoSave({
+  // Add improved autosave hook (we only need it for the component, not for manual save)
+  useImprovedAutoSave({
     debounceMs: 500,
     retryAttempts: 3,
     retryDelayMs: 2000,
@@ -145,6 +153,8 @@ export default function Navigationbar() {
         e.preventDefault();
         formtitleRef.current?.blur();
       }
+      // Prevent event bubbling to avoid triggering navigation
+      e.stopPropagation();
     },
     []
   );
@@ -154,43 +164,44 @@ export default function Navigationbar() {
 
     setsaveloading(true);
     try {
-      let success = false;
+      let response = null;
 
-      // Handle different tab saving
+      // Prepare the data for saving, cleaning conditional properties
+      const saveData = formData.allquestion.map((question) => ({
+        ...question,
+        conditional: question.conditional?.map((cond) => ({
+          ...cond,
+          contentIdx: undefined, // Remove contentIdx as it's not needed for backend
+        })),
+      }));
+
+      // Handle different tab saving and get the full response
       switch (currentTab) {
         case "question":
-          success = await manualSave();
-          if (success) {
-            // Update the previous question state for comparison
-            dispatch(setprevallquestion(formData.allquestion));
-            setformHasChange(false); // Reset change state after successful save
-          }
-          break;
-
         case "solution":
-          success = await manualSave();
-          if (success) {
-            dispatch(setprevallquestion(formData.allquestion));
-            setformHasChange(false);
-          }
-          break;
-
         case "response":
-          // For response tab, we might need to save form settings or response corrections
-          success = await manualSave();
-          if (success) {
-            dispatch(setprevallquestion(formData.allquestion));
-            setformHasChange(false);
-          }
-          break;
-
         default:
-          success = await manualSave();
-          if (success) {
-            dispatch(setprevallquestion(formData.allquestion));
-            setformHasChange(false);
-          }
+          response = await AutoSaveQuestion({
+            data: saveData,
+            page: formData.page,
+            formId: formData.formstate._id,
+            type: "save",
+          });
           break;
+      }
+
+      if (response && response.success) {
+        // Update questions with server-returned data that includes _id values
+        if (response.data && Array.isArray(response.data)) {
+          dispatch(setallquestion(response.data));
+          dispatch(setprevallquestion(response.data));
+        } else {
+          // Fallback to current state if no data returned
+          dispatch(setprevallquestion(formData.allquestion));
+        }
+        setformHasChange(false); // Reset change state after successful save
+      } else {
+        throw new Error(response?.message || "Save failed");
       }
     } catch (error) {
       console.error("Manual save failed:", error);
@@ -199,9 +210,9 @@ export default function Navigationbar() {
       setsaveloading(false);
     }
   }, [
-    manualSave,
     formData.allquestion,
     formData.formstate._id,
+    formData.page,
     dispatch,
     currentTab,
   ]);
@@ -235,8 +246,20 @@ export default function Navigationbar() {
   ]);
 
   const handleTitleBlur = useCallback(() => {
+    if (formtitleRef.current) {
+      const newTitle = formtitleRef.current.textContent?.trim() || "";
+      if (newTitle !== formData.formstate.title && newTitle.length > 0) {
+        // Update the form state with the new title
+        dispatch(
+          setformstate({
+            ...formData.formstate,
+            title: newTitle,
+          })
+        );
+      }
+    }
     handleManuallySave();
-  }, [handleManuallySave]);
+  }, [handleManuallySave, formData.formstate, dispatch]);
 
   const handleSavePress = useCallback(() => {
     if (formData.formstate._id) {
@@ -254,21 +277,27 @@ export default function Navigationbar() {
   }, [dispatch]);
 
   const handleToHome = useCallback(() => {
-    navigate("/");
+    // Navigate to dashboard
+    navigate("/dashboard");
+
+    // Reset all form-related state
     dispatch(setformstate(DefaultFormState));
+    dispatch(setallquestion([]));
+    dispatch(setprevallquestion([]));
+    dispatch(setpage(1));
+    dispatch(setreloaddata(false));
+    dispatch(setfetchloading(false));
   }, [dispatch, navigate]);
 
   return (
     <nav className="navigationbar w-full h-[70px] bg-[#f5f5f5] flex flex-row justify-between items-center p-2 dark:bg-gray-800 mb-10">
-      <div
-        onClick={handleToHome}
-        className="w-fit h-full flex flex-row items-center gap-x-5"
-      >
+      <div className="w-fit h-full flex flex-row items-center gap-x-5">
         <Image
           src={Logo}
           alt="logo"
           loading="eager"
-          className="w-[50px] h-[50px] object-contain"
+          onClick={handleToHome}
+          className="w-[50px] h-[50px] object-contain cursor-pointer hover:opacity-80 transition-opacity"
         />
         <div
           ref={formtitleRef}
@@ -276,7 +305,8 @@ export default function Navigationbar() {
           suppressContentEditableWarning
           onBlur={handleTitleBlur}
           onKeyDown={handleKeyDown}
-          className="web-name text-3xl max-w-[500px] max-h-full overflow-x-auto font-bold max-[450px]:hidden dark:text-white"
+          onClick={(e) => e.stopPropagation()}
+          className="web-name text-3xl max-w-[500px] max-h-full overflow-x-auto font-bold max-[450px]:hidden dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded px-1"
         >
           {displayTitle}
         </div>
@@ -292,6 +322,7 @@ export default function Navigationbar() {
               isDisabled={!formHasChange || !formData.formstate._id}
               isLoading={saveloading}
               onPress={handleSavePress}
+              aria-label="Save form changes"
             >
               Save
             </Button>

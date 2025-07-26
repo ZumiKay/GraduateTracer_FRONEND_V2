@@ -25,6 +25,7 @@ import { useSetSearchParam } from "../hooks/CustomHook";
 import useFormValidation from "../hooks/ValidationHook";
 import ImprovedAutoSave from "../component/AutoSave/ImprovedAutoSave";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { checkUnsavedQuestions } from "../utils/formValidation";
 
 type alltabs =
   | "question"
@@ -70,9 +71,8 @@ const fetchFormTab = async ({
 function FormPage() {
   const param = useParams();
   const dispatch = useDispatch();
-  const { formstate, reloaddata, page, allquestion } = useSelector(
-    (root: RootState) => root.allform
-  );
+  const { formstate, reloaddata, page, allquestion, prevAllQuestion } =
+    useSelector((root: RootState) => root.allform);
   const navigate = useNavigate();
   const { validateForm, showValidationWarnings } = useFormValidation();
 
@@ -192,39 +192,8 @@ function FormPage() {
     }
   }, [data, error, isLoading, param.id, reloaddata, dispatch, navigate]);
 
-  // Memoize required check for performance - Fixed logic
-  const isFillAllRequired = useMemo(
-    () =>
-      allquestion.every((i) => {
-        if (!i.require) return true; // Non-required questions are always "filled"
-        if (!i.answer) return false; // Required question without answer
-
-        // Check if answer has a value
-        const answerValue = i.answer.answer;
-        if (answerValue === undefined || answerValue === null) return false;
-
-        // Handle different answer types
-        if (typeof answerValue === "string") {
-          return answerValue.trim() !== "";
-        }
-        if (Array.isArray(answerValue)) {
-          return answerValue.length > 0;
-        }
-
-        return true; // For numbers, dates, etc.
-      }),
-    [allquestion]
-  );
-
-  const handleTabs = useCallback(
-    async (val: alltabs) => {
-      const proceedFunc = () => {
-        setParams({ tab: val, page: "1" });
-        setTab(val);
-        dispatch(setpage(1));
-        dispatch(setreloaddata(true));
-      };
-
+  const continueTabSwitching = useCallback(
+    async (val: alltabs, proceedFunc: () => void) => {
       // Validate before switching to solution tab
       if (val === "solution" && formId) {
         try {
@@ -241,45 +210,63 @@ function FormPage() {
         }
       }
 
-      if (!isFillAllRequired && val === "solution") {
+      // Note: Removed required question validation for admin interface
+      // Required validation should only apply to respondent forms, not admin form builder
+      proceedFunc();
+    },
+    [formId, validateForm, showValidationWarnings]
+  );
+
+  const handleTabs = useCallback(
+    async (val: alltabs) => {
+      const proceedFunc = () => {
+        setParams({ tab: val, page: "1" });
+        setTab(val);
+        dispatch(setpage(1));
+        dispatch(setreloaddata(true));
+      };
+
+      // Note: Removed unsaved questions check when switching tabs
+      // The Question Tab component handles its own navigation protection
+      // Tab switching should not be blocked by unsaved questions
+      continueTabSwitching(val, proceedFunc);
+    },
+    [continueTabSwitching, setParams, dispatch]
+  );
+
+  const handlePage = useCallback(
+    (val: number) => {
+      // Check for unsaved questions before navigating
+      if (checkUnsavedQuestions(allquestion, prevAllQuestion, page)) {
         dispatch(
           setopenmodal({
             state: "confirm",
             value: {
               open: true,
               data: {
-                question: "Missing Some Info on required question",
-                onAgree: () => proceedFunc(),
-                btn: {
-                  agree: "Proceed",
-                  disagree: "Back",
+                question:
+                  "You have unsaved questions on this page. Please save them before navigating to another page.",
+                onAgree: () => {
+                  // If user confirms, proceed with navigation
+                  setParams({ page: val.toString() });
+                  dispatch(setpage(val));
+                  dispatch(setreloaddata(true));
+                  window.scrollTo({ top: 0, behavior: "smooth" });
                 },
               },
             },
           })
         );
-      } else {
-        proceedFunc();
+        return;
       }
-    },
-    [
-      isFillAllRequired,
-      setParams,
-      dispatch,
-      formId,
-      validateForm,
-      showValidationWarnings,
-    ]
-  );
 
-  const handlePage = useCallback(
-    (val: number) => {
+      // If no unsaved questions, proceed normally
       setParams({ page: val.toString() });
       dispatch(setpage(val));
       dispatch(setreloaddata(true));
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [setParams, dispatch]
+    [setParams, dispatch, allquestion, prevAllQuestion, page]
   );
 
   const selectedKey = useMemo(
@@ -335,7 +322,7 @@ function FormPage() {
 
       {/* Pagination */}
 
-      {tab !== "analytics" && tab !== "setting" && (
+      {tab !== "analytics" && tab !== "setting" ? (
         <div className="w-full h-fit grid place-content-center">
           <Pagination
             loop
@@ -348,6 +335,8 @@ function FormPage() {
             onChange={handlePage}
           />
         </div>
+      ) : (
+        <></>
       )}
     </div>
   );

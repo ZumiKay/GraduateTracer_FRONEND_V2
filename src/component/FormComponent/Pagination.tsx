@@ -46,11 +46,13 @@ export default function FormPagination({
   return (
     <div className="w-full h-fit flex flex-col items-center gap-5 bg-white p-4 rounded-lg shadow-sm border">
       {/* Pagination info */}
-      {totalCount && (
+      {totalCount ? (
         <div className="text-sm text-default-500 text-center">
           Showing {currentItems || 0} of {totalCount} forms (Page {currentPage}{" "}
           of {total})
         </div>
+      ) : (
+        <></>
       )}
 
       <div className="flex justify-center">
