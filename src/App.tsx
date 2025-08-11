@@ -1,5 +1,4 @@
 import { Route, Routes, useLocation } from "react-router";
-
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "./redux/store";
 import OpenModal from "./redux/openmodal";
@@ -7,9 +6,7 @@ import { useEffect, lazy, Suspense, memo, useMemo } from "react";
 import { ConfirmModal } from "./component/Modal/AlertModal";
 import { AsyncGetUser } from "./redux/user.store";
 import PrivateRoute, { PublichRoute } from "./route/PrivateRoute";
-import { Button } from "@heroui/react";
 
-// Lazy load components for code splitting
 const AuthenticationPage = lazy(() => import("./pages/Authentication"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const NavigationBar = lazy(() => import("./component/nav/Navigationbar"));
@@ -24,7 +21,6 @@ const Footer = lazy(() => import("./component/Cookie/Footer"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-// Loading component for suspense fallbacks
 const LoadingSpinner = memo(() => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -99,17 +95,6 @@ const App = memo(() => {
       )}
 
       <main className="w-full min-h-screen h-full bg-white dark:bg-black flex flex-col items-center">
-        {/* Temporary HeroUI Test */}
-        <div className="fixed bottom-4 right-4 z-50">
-          <Button
-            color="primary"
-            variant="solid"
-            onPress={() => console.log("HeroUI is working!")}
-          >
-            HeroUI Test
-          </Button>
-        </div>
-
         {shouldShowNavigation && (
           <Suspense
             fallback={
@@ -158,13 +143,6 @@ const App = memo(() => {
       <Suspense fallback={null}>
         <CookieConsent />
       </Suspense>
-
-      {/* HeroUI Style Test - Remove this once styles are confirmed working */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <Button color="primary" variant="solid" size="sm">
-          HeroUI Test
-        </Button>
-      </div>
     </Suspense>
   );
 });

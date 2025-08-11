@@ -82,16 +82,17 @@ const QuestionTab = () => {
     [dispatch]
   );
 
-  const filteredQuestions = useMemo(
-    () => allQuestion.filter((i) => i.page === page),
-    [allQuestion, page]
-  );
+  const filteredQuestions = useMemo(() => {
+    // Guard against undefined page fields by treating them as page 1
+    return allQuestion.filter((i) => (i.page ?? 1) === page);
+  }, [allQuestion, page]);
 
   const handleAddQuestion = useCallback(async () => {
-    const updatedQuestions = [
+    const updatedQuestions: Array<ContentType> = [
       ...allQuestion,
       {
         ...DefaultContentType,
+        qIdx: allQuestion.length,
         page,
       },
     ];
@@ -211,12 +212,46 @@ const QuestionTab = () => {
   const handleAddCondition = useCallback(
     async (questionIdx: number, anskey: number): Promise<void> => {
       const toUpdateQuestion = allQuestion[questionIdx];
-      if (!toUpdateQuestion) return;
+      if (!toUpdateQuestion) {
+        return;
+      }
 
-      let newContentId: number | string =
-        toUpdateQuestion._id ?? questionIdx + 1;
+      // Check if the question has a valid ID (is saved to database)
+      if (!toUpdateQuestion._id) {
+        console.error("Cannot add condition to unsaved question");
+        ErrorToast({
+          title: "Save Required",
+          content: "Please save the question before adding conditions to it.",
+        });
+        return;
+      }
 
-      if (formState.setting?.autosave) {
+      // Check if this is a nested conditional question (has parentcontent)
+      if (toUpdateQuestion.parentcontent) {
+        console.warn(
+          "Adding condition to a question that already has a parent"
+        );
+        // You might want to add a confirmation dialog here:
+        // const confirmNesting = window.confirm("This question is already a conditional question. Adding another condition will create nested conditions. Are you sure you want to continue?");
+        // if (!confirmNesting) return;
+      }
+
+      // Enhanced logging for debugging
+      if (import.meta.env.DEV) {
+        console.log("Adding condition:", {
+          questionIdx,
+          anskey,
+          questionId: toUpdateQuestion._id,
+          hasParentContent: !!toUpdateQuestion.parentcontent,
+          parentContent: toUpdateQuestion.parentcontent,
+          allQuestionsCount: allQuestion.length,
+        });
+      }
+
+      if (
+        formState.setting?.autosave !== undefined &&
+        formState.setting.autosave
+      ) {
         const request = await PromiseToast(
           {
             promise: ApiRequest({
@@ -225,7 +260,7 @@ const QuestionTab = () => {
               cookie: true,
               refreshtoken: true,
               data: {
-                content: { id: toUpdateQuestion._id },
+                content: { id: toUpdateQuestion._id, idx: questionIdx },
                 key: anskey,
                 newContent: { ...DefaultContentType, page },
                 formId: formState._id,
@@ -235,54 +270,64 @@ const QuestionTab = () => {
           { pending: "Adding", success: "Condition Added", error: "Can't Add" }
         );
 
-        if (!request.success || !request.data) return;
-        newContentId = request.data as string;
+        if (!request.success || !request.data) {
+          console.error("Failed to add condition:", request.error);
+          return;
+        }
+
+        // Server has handled the condition creation, so reload the data to get the updated state
+        dispatch(setreloaddata(true));
+      } else {
+        // For non-autosave mode, handle locally
+        const newContentId: number | string = questionIdx + 1;
+
+        dispatch(
+          setallquestion((prev) => {
+            const newConditional = {
+              contentIdx: newContentId,
+              key: anskey,
+            };
+
+            const updatedQuestion = {
+              ...toUpdateQuestion,
+              conditional: [
+                ...(toUpdateQuestion.conditional?.map((prevCond) => ({
+                  ...prevCond,
+                  contentIdx:
+                    prevCond.contentIdx !== undefined &&
+                    prevCond.contentIdx + 1,
+                })) ?? []),
+                newConditional,
+              ],
+            };
+
+            const newContent = {
+              ...DefaultContentType,
+              qIdx: 0,
+              parentcontent: {
+                optIdx: anskey,
+                qIdx: questionIdx,
+                qId: toUpdateQuestion._id,
+              },
+              page,
+            } as ContentType;
+
+            const updatedList = [
+              ...prev.slice(0, questionIdx + 1),
+              newContent,
+              ...prev.slice(questionIdx + 1),
+            ];
+
+            const finalList = updatedList.map((item, idx) =>
+              item._id === toUpdateQuestion._id || idx === questionIdx
+                ? updatedQuestion
+                : item
+            ) as Array<ContentType>;
+
+            return finalList;
+          })
+        );
       }
-
-      dispatch(
-        setallquestion((prev) => {
-          const newConditional = {
-            ...(typeof newContentId === "string"
-              ? { contentId: newContentId }
-              : { contentIdx: newContentId }),
-            key: anskey,
-          };
-
-          const updatedQuestion = {
-            ...toUpdateQuestion,
-            conditional: [
-              ...(toUpdateQuestion.conditional?.map((prevCond) => ({
-                ...prevCond,
-                contentIdx:
-                  prevCond.contentIdx !== undefined && prevCond.contentIdx + 1,
-              })) ?? []),
-              newConditional,
-            ],
-          };
-
-          const newContent = {
-            ...DefaultContentType,
-            parentcontent: {
-              optIdx: anskey,
-              qIdx: questionIdx,
-              qId: toUpdateQuestion._id,
-            },
-            page,
-          } as ContentType;
-
-          const updatedList = [
-            ...prev.slice(0, questionIdx + 1),
-            newContent,
-            ...prev.slice(questionIdx + 1),
-          ];
-
-          const finalList = updatedList.map((item, idx) =>
-            idx === questionIdx ? updatedQuestion : item
-          ) as Array<ContentType>;
-
-          return finalList;
-        })
-      );
     },
     [allQuestion, formState.setting?.autosave, formState._id, page, dispatch]
   );
@@ -457,7 +502,6 @@ const QuestionTab = () => {
   );
 
   const scrollToDiv = useCallback((key: string) => {
-    console.log({ key });
     const element = componentRefs.current[key];
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -673,7 +717,7 @@ const QuestionTab = () => {
                   }}
                 >
                   <QuestionComponent
-                    idx={idx}
+                    idx={question.qIdx ?? idx}
                     id={question._id}
                     isLinked={(ansidx) =>
                       checkIsLinkedForQuestionOption(ansidx, idx)

@@ -1,11 +1,19 @@
+import { useEffect, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Respondant_Question_Card from "../../Card/Respondant.card";
 import { RootState } from "../../../redux/store";
 import { QuestionLoading } from "../../Loading/ContainerLoading";
 import { CircularProgress, Button, Chip, Alert } from "@heroui/react";
-import { setallquestion, setdisbounceQuestion } from "../../../redux/formstore";
-import { ContentType, FormValidationSummary } from "../../../types/Form.types";
-import { useEffect, useState } from "react";
+import {
+  setallquestion,
+  setdisbounceQuestion,
+  setformstate,
+} from "../../../redux/formstore";
+import {
+  ContentType,
+  FormValidationSummary,
+  FormDataType,
+} from "../../../types/Form.types";
 import ApiRequest from "../../../hooks/ApiHook";
 import useFormValidation from "../../../hooks/ValidationHook";
 import SolutionInput from "./SolutionInput";
@@ -44,14 +52,41 @@ const Solution_Tab = () => {
   const { validateForm, isValidating, showValidationErrors } =
     useFormValidation();
 
-  // React Query for form total summary
-  const { data: totalsummerize, isLoading: loading } = useQuery({
+  // React Query for form total summary - this gets the correct total from ALL questions
+  const {
+    data: totalsummerize,
+    isLoading: loading,
+    refetch: refetchTotal,
+  } = useQuery({
     queryKey: ["formTotalSummary", formstate._id],
     queryFn: () => fetchFormTotalSummary(formstate._id!),
     enabled: !!formstate._id,
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 30000, // 30 seconds cache time to prevent unnecessary refetches
+    gcTime: 60000, // Keep data in cache for 1 minute
     retry: 2,
+    refetchOnWindowFocus: false, // Prevent refetch when user returns to tab
+    refetchOnReconnect: false, // Prevent refetch on network reconnect
   });
+
+  // Smart refetch function - only refetch when necessary
+  // Currently used for manual validation, can be extended for other operations
+  const refetchTotalIfNeeded = useCallback(
+    (reason: string) => {
+      console.log(`🔄 Considering refetch for: ${reason}`);
+
+      // Only refetch if we suspect the data might be out of sync
+      // Most score updates are handled locally via formstate.totalscore
+      if (reason === "manual_validate" || reason === "form_submission_check") {
+        console.log(`✅ Refetching total score: ${reason}`);
+        refetchTotal();
+      } else {
+        console.log(`⏭️ Skipping refetch: ${reason} (using local state)`);
+      }
+    },
+    [refetchTotal]
+  );
+
+  // (Optional future) Function to sync with server before submission can be re-added if needed
 
   // Initial validation when component mounts or form ID changes - optimized to avoid dependency issues
   useEffect(() => {
@@ -63,6 +98,18 @@ const Solution_Tab = () => {
           const validation = await validateForm(formstate._id, "solution");
           if (validation && isMounted) {
             setValidationSummary(validation);
+            dispatch(
+              setformstate({
+                ...formstate,
+                totalscore: validation.totalScore,
+              } as FormDataType)
+            );
+
+            // Remove unnecessary refetch since we already have the total score from validation
+            console.log(
+              "📊 Validation complete, totalscore updated:",
+              validation.totalScore
+            );
           }
         } catch (error) {
           console.error("Validation error:", error);
@@ -75,26 +122,46 @@ const Solution_Tab = () => {
     return () => {
       isMounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formstate._id, validateForm]);
 
-  //Helper Function
-  const updateQuestion = (newVal: Partial<ContentType>, qIdx: number) => {
-    const updatedQuestions = allquestion.map((question, index) => {
-      if (index === qIdx) {
-        const updatedQuestion = { ...question, ...newVal };
+  // Update a single question and push to Redux synchronously for immediate UI update
+  const updateQuestion = useCallback(
+    (newVal: Partial<ContentType>, qIdx: number) => {
+      console.log("💫 UPDATE QUESTION:", {
+        qIdx,
+        questionId: allquestion[qIdx]?._id,
+        updates: newVal,
+        isConditional: !!allquestion[qIdx]?.parentcontent,
+        oldScore: allquestion[qIdx]?.score,
+        newScore: newVal.score,
+        scoreDiff:
+          newVal.score !== undefined
+            ? newVal.score - (allquestion[qIdx]?.score || 0)
+            : "no score change",
+      });
 
-        if (formstate.setting?.autosave) {
-          dispatch(setdisbounceQuestion(updatedQuestion));
+      // Build new array synchronously to avoid dispatching inside reducer function payloads
+      let updatedForAutosave: ContentType | null = null;
+      const updatedQuestions = allquestion.map((question, index) => {
+        if (index === qIdx) {
+          const updatedQuestion = { ...question, ...newVal } as ContentType;
+          updatedForAutosave = updatedQuestion;
+          return updatedQuestion;
         }
+        return question;
+      });
 
-        return updatedQuestion;
+      // Dispatch the new questions array immediately (no functional payload)
+      dispatch(setallquestion(updatedQuestions as Array<ContentType>));
+
+      // Enqueue autosave of just the changed question
+      if (formstate.setting?.autosave && updatedForAutosave) {
+        dispatch(setdisbounceQuestion(updatedForAutosave));
       }
-
-      return question;
-    });
-
-    dispatch(setallquestion(updatedQuestions as Array<ContentType>));
-  };
+    },
+    [allquestion, dispatch, formstate.setting?.autosave]
+  );
 
   const handleValidateAll = async () => {
     if (!formstate._id) return;
@@ -103,6 +170,14 @@ const Solution_Tab = () => {
       const validation = await validateForm(formstate._id, "send_form");
       if (validation) {
         setValidationSummary(validation);
+        dispatch(
+          setformstate({
+            ...formstate,
+            totalscore: validation.totalScore,
+          } as FormDataType)
+        );
+        refetchTotalIfNeeded("manual_validate");
+
         if (validation.errors && validation.errors.length > 0) {
           showValidationErrors(validation);
         } else {
@@ -144,11 +219,11 @@ const Solution_Tab = () => {
   };
 
   return (
-    <div className="solution_tab w-full h-fit flex flex-col items-center pt-20 pb-20">
-      <div className="question_card w-full h-fit flex flex-col items-center gap-20">
-        {/* Enhanced Summary Section */}
-        <div className="w-full max-w-4xl bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex justify-between items-center mb-6">
+    <div className="solution_tab w-full h-fit flex flex-col items-center">
+      {/* Fixed/Sticky Form Summary Section */}
+      <div className="sticky top-0 z-10 w-full bg-white shadow-md border-b border-gray-200 py-4">
+        <div className="w-full max-w-4xl mx-auto px-6">
+          <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-800">Form Summary</h2>
             <div className="flex items-center gap-3">
               {getValidationStatus()}
@@ -164,35 +239,45 @@ const Solution_Tab = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {loading ? (
               <div className="col-span-3 flex justify-center">
                 <CircularProgress size="sm" />
               </div>
             ) : (
               <>
-                <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-700">
-                    {totalsummerize?.totalscore ?? 0}
+                <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
+                  <p className="text-xl font-bold text-blue-700">
+                    {(formstate as FormDataType).totalscore ??
+                      totalsummerize?.totalscore ??
+                      0}
                   </p>
-                  <p className="text-sm text-blue-600">Total Score</p>
+                  <p className="text-xs text-blue-600">
+                    Total Score (All Questions)
+                  </p>
                 </div>
-                <div className="text-center p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg">
-                  <p className="text-2xl font-bold text-green-700">
+                <div className="text-center p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-lg">
+                  <p className="text-xl font-bold text-green-700">
                     {totalsummerize?.totalquestion ?? 0}
                   </p>
-                  <p className="text-sm text-green-600">Total Questions</p>
+                  <p className="text-xs text-green-600">Total Questions</p>
                 </div>
-                <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-700">
+                <div className="text-center p-3 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg">
+                  <p className="text-xl font-bold text-purple-700">
                     {totalsummerize?.totalpage ?? 0}
                   </p>
-                  <p className="text-sm text-purple-600">Total Pages</p>
+                  <p className="text-xs text-purple-600">Total Pages</p>
                 </div>
               </>
             )}
           </div>
+        </div>
+      </div>
 
+      {/* Main Content Area with proper top spacing */}
+      <div className="question_card w-full h-fit flex flex-col items-center gap-20 pt-8 pb-20">
+        {/* Expandable Validation Details Section */}
+        <div className="w-full max-w-4xl">
           {/* Validation Alerts */}
           {validationSummary &&
             validationSummary.errors &&
@@ -218,18 +303,20 @@ const Solution_Tab = () => {
             )}
 
           {formstate.type === "QUIZ" && validationSummary && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-semibold mb-2">Quiz Configuration</h3>
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+              <h3 className="font-semibold mb-2 text-gray-800">
+                Quiz Configuration Details
+              </h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-600">Valid Questions:</span>
-                  <span className="ml-2 font-medium">
+                  <span className="ml-2 font-medium text-green-600">
                     {validationSummary.totalValidQuestions}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-600">Issues Found:</span>
-                  <span className="ml-2 font-medium">
+                  <span className="ml-2 font-medium text-red-600">
                     {validationSummary.totalInvalidQuestions}
                   </span>
                 </div>
@@ -257,25 +344,59 @@ const Solution_Tab = () => {
           <QuestionLoading count={3} />
         ) : (
           <div className="w-full max-w-4xl space-y-8">
-            {allquestion.map((question, idx) => (
-              <div key={`question-${idx}`} className="space-y-4">
-                <Respondant_Question_Card
-                  idx={idx}
-                  content={question}
-                  onSelectAnswer={({ answer }) => {
-                    updateQuestion({ answer: { answer } }, idx);
-                  }}
-                  color={formstate.setting?.qcolor}
-                  isDisable={true}
-                />
-                <SolutionInput
-                  content={question}
-                  onUpdateContent={(updates) => updateQuestion(updates, idx)}
-                  isValidated={question.isValidated}
-                  hasAnswer={question.hasAnswer}
-                />
+            {/* Conditional Questions Info */}
+            {allquestion.some((q) => q.parentcontent) && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="text-sm font-medium text-blue-800">
+                  📋 Conditional Questions Detected
+                </h3>
+                <p className="text-xs text-blue-600 mt-1">
+                  This form contains{" "}
+                  {allquestion.filter((q) => q.parentcontent).length}{" "}
+                  conditional question(s) that appear based on parent question
+                  answers. You can assign scores and answer keys to these
+                  questions - they will be used when the conditions are met
+                  during form submission.
+                </p>
               </div>
-            ))}
+            )}
+
+            {allquestion.map((question, idx) => {
+              const isConditional = !!question.parentcontent;
+
+              return (
+                <div
+                  key={`question-${question._id || idx}-${idx}`}
+                  className={`space-y-4 ${
+                    isConditional
+                      ? "bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400"
+                      : ""
+                  }`}
+                >
+                  {isConditional && (
+                    <div className="text-xs text-blue-600 mb-2">
+                      🔗 Conditional Question - Shows when parent condition is
+                      met
+                    </div>
+                  )}
+                  <Respondant_Question_Card
+                    idx={question.qIdx ?? idx}
+                    content={question}
+                    onSelectAnswer={({ answer }) => {
+                      updateQuestion({ answer: { answer } }, idx);
+                    }}
+                    color={formstate.setting?.qcolor}
+                    isDisable={true}
+                  />
+                  <SolutionInput
+                    key={`solution-${question._id || idx}-${idx}`}
+                    content={question}
+                    onUpdateContent={(updates) => updateQuestion(updates, idx)}
+                    isValidated={question.isValidated}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

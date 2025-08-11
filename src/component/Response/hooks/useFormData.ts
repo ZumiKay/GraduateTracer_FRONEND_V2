@@ -33,6 +33,28 @@ export const useFormData = () => {
 
           // Cast to ContentType array since the backend populates it
           const questions = (formData.contentIds || []) as ContentType[];
+
+          // Debug logging for questions received
+          if (import.meta.env.DEV) {
+            console.log("Questions received from backend:", {
+              totalQuestions: questions.length,
+              questionsWithParents: questions.filter((q) => q.parentcontent)
+                .length,
+              questionsWithConditionals: questions.filter(
+                (q) => q.conditional && q.conditional.length > 0
+              ).length,
+              allQuestions: questions.map((q) => ({
+                id: q._id,
+                type: q.type,
+                hasParent: !!q.parentcontent,
+                parentContent: q.parentcontent,
+                hasConditionals: !!(q.conditional && q.conditional.length > 0),
+                conditionals: q.conditional,
+                page: q.page,
+              })),
+            });
+          }
+
           setQuestions(questions);
         } else {
           setError("Form not found or access denied");

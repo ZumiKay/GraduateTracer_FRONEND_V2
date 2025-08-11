@@ -2,7 +2,7 @@ import { ChangeEvent, useCallback, useMemo, memo } from "react";
 import { ContentType, QuestionType } from "../../types/Form.types";
 import { SelectionType } from "../../types/Global.types";
 import Selection from "./Selection";
-import { NumberInput, Switch, Tooltip } from "@heroui/react";
+import { Switch, Tooltip } from "@heroui/react";
 import { CopyIcon, ShowLinkedIcon, TrashIcon } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -15,6 +15,7 @@ import Tiptap from "./TipTabEditor";
 import { setopenmodal } from "../../redux/openmodal";
 import {
   ChoiceQuestionEdit,
+  RangeNumberInputComponent,
   SelectionQuestionEdit,
 } from "./QuestionComponentAssets";
 import { DateRangePickerQuestionType } from "./Solution/Answer_Component";
@@ -131,7 +132,12 @@ const QuestionComponent = memo(
             <DateRangePickerQuestionType
               questionstate={value.rangedate}
               setquestionstate={(name, val) =>
-                onUpdateState({ ...(value.rangedate ?? {}), [name]: val })
+                onUpdateState({
+                  rangedate: {
+                    ...(value.rangedate ?? {}),
+                    [name]: val,
+                  } as never,
+                })
               }
             />
           );
@@ -139,36 +145,17 @@ const QuestionComponent = memo(
 
         case QuestionType.RangeNumber: {
           return (
-            <div className="RangeNumber w-full flex flex-row justify-between">
-              <NumberInput
-                name="start"
-                size="md"
-                label="Start"
-                value={value.rangenumber?.start}
-                onChange={(val) =>
-                  onUpdateState({
-                    numrange: {
-                      ...(value.numrange ?? {}),
-                      start: val as number,
-                    },
-                  } as never)
-                }
-              />
-              <NumberInput
-                name="end"
-                size="md"
-                label="End"
-                value={value.rangenumber?.end}
-                onChange={(val) =>
-                  onUpdateState({
-                    numrange: {
-                      ...(value.numrange ?? {}),
-                      end: val as number,
-                    },
-                  } as never)
-                }
-              />
-            </div>
+            <RangeNumberInputComponent
+              val={value.rangenumber}
+              onChange={(name, val) =>
+                onUpdateState({
+                  rangenumber: {
+                    ...(value.rangenumber ?? {}),
+                    [name]: val,
+                  } as never,
+                })
+              }
+            />
           );
         }
         case QuestionType.Selection: {
@@ -274,12 +261,14 @@ const QuestionComponent = memo(
         className="w-full h-fit flex flex-col rounded-md bg-white border-[15px] items-center gap-y-5 py-5 relative"
         style={{ borderColor: color }}
       >
-        <div
-          style={{ backgroundColor: color }}
-          className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px] text-center "
-        >
-          {`Question ${idx + 1}`}
-        </div>
+        {idx && !value.parentcontent && (
+          <div
+            style={{ backgroundColor: color }}
+            className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px] text-center "
+          >
+            {`Question ${idx + 1}`}
+          </div>
+        )}
 
         <div className="text_editor w-[97%] bg-white p-3 rounded-b-md flex flex-row items-start justify-start gap-x-3">
           <Tiptap

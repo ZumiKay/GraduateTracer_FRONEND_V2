@@ -44,7 +44,7 @@ export const hasArrayChange = (arr1: Array<object>, arr2: Array<object>) => {
       return a.every((item, index) => deepEqual(item, b[index]));
     }
 
-    // Handle Object comparison
+    // Handle Object comparison with special handling for numeric properties like score
     if (typeof a === "object") {
       const aKeys = Object.keys(a);
       const bKeys = Object.keys(b);
@@ -52,16 +52,26 @@ export const hasArrayChange = (arr1: Array<object>, arr2: Array<object>) => {
       if (aKeys.length !== bKeys.length) return false;
       if (!aKeys.every((key) => bKeys.includes(key))) return false;
 
-      return aKeys.every((key) => deepEqual(a[key as never], b[key as never]));
+      return aKeys.every((key) => {
+        const aVal = a[key as never];
+        const bVal = b[key as never];
+
+        // Special handling for numeric values (like score) to handle type coercion
+        if (typeof aVal === "number" && typeof bVal === "number") {
+          return aVal === bVal;
+        }
+
+        return deepEqual(aVal, bVal);
+      });
     }
 
     return false;
   }
 
-  if (arr1.length !== arr2.length) return false;
+  if (arr1.length !== arr2.length) return true; // Return true if arrays have different lengths (change detected)
 
-  // Element-wise deep comparison
-  return arr1.every((item, index) => deepEqual(item, arr2[index]));
+  // Element-wise deep comparison - return true if ANY element is different (change detected)
+  return !arr1.every((item, index) => deepEqual(item, arr2[index]));
 };
 
 export const FormatDate = (date: Date) =>

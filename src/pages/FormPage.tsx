@@ -24,7 +24,7 @@ import { setopenmodal } from "../redux/openmodal";
 import { useSetSearchParam } from "../hooks/CustomHook";
 import useFormValidation from "../hooks/ValidationHook";
 import ImprovedAutoSave from "../component/AutoSave/ImprovedAutoSave";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { checkUnsavedQuestions } from "../utils/formValidation";
 
 type alltabs =
@@ -86,14 +86,20 @@ function FormPage() {
     return param.id || formstate._id || "";
   }, [param.id, formstate._id]);
 
-  const { data, error, isLoading } = useQuery({
-    queryKey: ["FormInfo", formId, page, tab, reloaddata], // Include reloaddata in key
+  const { data, error, isLoading, isFetching } = useQuery({
+    // Remove reloaddata from the key to avoid accidental refetches on local state changes
+    queryKey: ["FormInfo", formId, page, tab],
     queryFn: () => fetchFormTab({ tab, page, formId }),
-    placeholderData: keepPreviousData,
-    staleTime: 5000,
-    enabled: !!formId && tab !== "analytics" && tab !== "response", // Don't fetch for analytics and response tabs
-    refetchOnWindowFocus: false, // Prevent unnecessary refetches
-    refetchOnMount: false, // Prevent refetch on component mount
+    // Do not use placeholder data to ensure we only apply fresh server data when reloading
+
+    // Keep data fresh for a bit while editing; increase if needed
+    staleTime: 30000,
+    // Only fetch when explicitly requested via reloaddata and allowed tabs
+    enabled:
+      !!formId && reloaddata && tab !== "analytics" && tab !== "response",
+    refetchOnWindowFocus: false, // Prevent window refetches
+    refetchOnReconnect: false, // Prevent reconnect refetches
+    refetchOnMount: false,
     retry: (failureCount, error: Error) => {
       // Don't retry on 403/404 errors
       const apiError = error as ApiError;
@@ -106,8 +112,8 @@ function FormPage() {
 
   // Handle success and error in a single optimized useEffect
   useEffect(() => {
-    // Handle loading state
-    dispatch(setfetchloading(isLoading));
+    // Handle loading state (treat background fetch as loading to reflect UI intent)
+    dispatch(setfetchloading(isLoading || isFetching));
 
     // Handle initial navigation check
     if (!param.id) {
@@ -115,8 +121,8 @@ function FormPage() {
       return;
     }
 
-    // Handle success
-    if (data && !isLoading && !error) {
+    // Handle success for any fresh data
+    if (data && !error) {
       const result = data as FormDataType;
 
       // Double-check access on frontend
@@ -142,20 +148,32 @@ function FormPage() {
         return;
       }
 
-      // Set form content - avoid circular dependency by not spreading formstate
-      dispatch(
-        setformstate({
-          ...result,
-          contents: undefined, // Remove contents to avoid duplication
-        })
-      );
-      dispatch(setallquestion(result.contents ?? []));
-      dispatch(setprevallquestion(result.contents ?? []));
-
-      // Reset reload flag after successful fetch
+      // Only write new data when reload was explicitly requested
       if (reloaddata) {
+        // Normalize contents to ensure each question has a valid page set
+        const normalizedContents = (result.contents ?? []).map((q) => ({
+          ...q,
+          page: q.page ?? page, // default to current page if missing
+        }));
+        console.log("Set new data");
+
+        // Set form content - preserve existing totalscore when updating
+        dispatch(
+          setformstate({
+            ...result,
+            contents: undefined, // Remove contents to avoid duplication
+            totalscore: result.totalscore ?? formstate.totalscore, // Preserve existing totalscore if not in server data
+          })
+        );
+        dispatch(setallquestion(normalizedContents));
+        dispatch(setprevallquestion(normalizedContents));
+
+        // Reset reload flag and clear loading after successful write
         dispatch(setreloaddata(false));
+        dispatch(setfetchloading(false));
       }
+
+      // Skip any additional refetch-triggered side-effects
     }
 
     // Handle errors
@@ -185,12 +203,19 @@ function FormPage() {
       }
 
       navigate("/dashboard", { replace: true });
-
-      if (reloaddata) {
-        dispatch(setreloaddata(false));
-      }
     }
-  }, [data, error, isLoading, param.id, reloaddata, dispatch, navigate]);
+  }, [
+    data,
+    isLoading,
+    isFetching,
+    param.id,
+    reloaddata,
+    error,
+    navigate,
+    page,
+    formstate.totalscore,
+    dispatch,
+  ]);
 
   const continueTabSwitching = useCallback(
     async (val: alltabs, proceedFunc: () => void) => {
@@ -222,6 +247,7 @@ function FormPage() {
       const proceedFunc = () => {
         setParams({ tab: val, page: "1" });
         setTab(val);
+        dispatch(setfetchloading(true));
         dispatch(setpage(1));
         dispatch(setreloaddata(true));
       };
@@ -249,6 +275,7 @@ function FormPage() {
                 onAgree: () => {
                   // If user confirms, proceed with navigation
                   setParams({ page: val.toString() });
+                  dispatch(setfetchloading(true));
                   dispatch(setpage(val));
                   dispatch(setreloaddata(true));
                   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -257,12 +284,16 @@ function FormPage() {
             },
           })
         );
+
         return;
       }
 
       // If no unsaved questions, proceed normally
       setParams({ page: val.toString() });
+      dispatch(setfetchloading(true));
+      // Set the page first so the next fetch runs with the latest page
       dispatch(setpage(val));
+      // Then enable reload to trigger the fetch for the new page
       dispatch(setreloaddata(true));
       window.scrollTo({ top: 0, behavior: "smooth" });
     },

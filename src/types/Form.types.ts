@@ -96,6 +96,7 @@ export interface AnswerKey {
     | number
     | Date
     | RangeType<Date>
+    | RangeType<DateValue>
     | RangeType<number>
     | Array<number>;
   isCorrect?: boolean;
@@ -120,6 +121,7 @@ export interface ParentContentType {
 export interface ContentType<t = unknown> {
   _id?: string;
   title?: JSONContent | Content;
+  qIdx: number;
   type: QuestionType;
   formId: string;
   text?: string;

@@ -45,6 +45,11 @@ import NotificationSystem from "../Notification/NotificationSystem";
 import useImprovedAutoSave from "../../hooks/useImprovedAutoSave";
 import { DefaultFormState } from "../../types/Form.types";
 import { AutoSaveQuestion } from "../../pages/FormPage.action";
+import {
+  validateRangeQuestions,
+  getRangeValidationSummary,
+} from "../../utils/rangeValidation";
+import type { ContentType } from "../../types/Form.types";
 // Memoized components for better performance
 const MemoizedProfileIcon = React.memo(ProfileIcon);
 const MemoizedAutoSaveForm = React.memo(AutoSaveForm);
@@ -78,7 +83,6 @@ export default function Navigationbar() {
   const formtitleRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const [searchParam] = useSearchParams();
-
   const openmodal = useSelector((root: RootState) => root.openmodal.setting);
 
   // Add improved autosave hook (we only need it for the component, not for manual save)
@@ -130,13 +134,42 @@ export default function Navigationbar() {
   );
 
   // Memoized effect for form change detection
+  const { allquestion, prevAllQuestion } = formData;
   useEffect(() => {
-    const isChange = hasArrayChange(
-      formData.allquestion,
-      formData.prevAllQuestion
-    );
-    setformHasChange(!isChange);
-  }, [formData.allquestion, formData.prevAllQuestion]);
+    const isChange = hasArrayChange(allquestion, prevAllQuestion);
+
+    // Fallback shallow check focused on score changes (by index)
+    const sameLength = allquestion.length === prevAllQuestion.length;
+    const scoreChanged = sameLength
+      ? allquestion.some((q, i) => {
+          const a = q?.score ?? null;
+          const b = prevAllQuestion[i]?.score ?? null;
+          return a !== b;
+        })
+      : true; // different lengths imply change anyway
+
+    const finalHasChange = isChange || scoreChanged;
+
+    // Debug trace to help verify enablement logic at runtime
+    try {
+      // Log a tiny summary only
+      const sample = (arr: typeof allquestion) =>
+        arr.slice(0, 3).map((x) => ({ id: x?._id, score: x?.score }));
+      console.log("🧭 Save enable check:", {
+        isChange,
+        scoreChanged,
+        finalHasChange,
+        lenA: allquestion.length,
+        lenB: prevAllQuestion.length,
+        sampleA: sample(allquestion),
+        sampleB: sample(prevAllQuestion),
+      });
+    } catch {
+      // noop
+    }
+
+    setformHasChange(finalHasChange);
+  }, [allquestion]);
 
   // Memoized callbacks
   const handleSignout = useCallback(async () => {
@@ -162,6 +195,18 @@ export default function Navigationbar() {
   const handleManuallySave = useCallback(async () => {
     if (!formData.formstate._id) return;
 
+    // Validate ranges before saving
+    const rangeErrors = validateRangeQuestions(formData.allquestion);
+    if (rangeErrors.length > 0) {
+      const errorMessage = getRangeValidationSummary(rangeErrors);
+      ErrorToast({
+        title: "Validation Error",
+        content: errorMessage,
+        toastid: "manual-save-validation",
+      });
+      return;
+    }
+
     setsaveloading(true);
     try {
       let response = null;
@@ -169,10 +214,6 @@ export default function Navigationbar() {
       // Prepare the data for saving, cleaning conditional properties
       const saveData = formData.allquestion.map((question) => ({
         ...question,
-        conditional: question.conditional?.map((cond) => ({
-          ...cond,
-          contentIdx: undefined, // Remove contentIdx as it's not needed for backend
-        })),
       }));
 
       // Handle different tab saving and get the full response
@@ -191,10 +232,37 @@ export default function Navigationbar() {
       }
 
       if (response && response.success) {
-        // Update questions with server-returned data that includes _id values
+        // Merge server-returned data safely into current state to avoid losing local fields (e.g., score)
         if (response.data && Array.isArray(response.data)) {
-          dispatch(setallquestion(response.data));
-          dispatch(setprevallquestion(response.data));
+          const serverItems = response.data as ContentType[];
+          const byId = new Map<string, ContentType>(
+            serverItems.filter((q) => !!q._id).map((q) => [String(q._id), q])
+          );
+
+          const merged: ContentType[] = formData.allquestion.map((local) => {
+            const id = local._id ? String(local._id) : undefined;
+            const srv = id ? byId.get(id) : undefined;
+            if (!srv) return local;
+            // Preserve local score/answer if server omits them; prefer server when explicitly provided
+            return {
+              ...local,
+              ...srv,
+              score: srv.score !== undefined ? srv.score : local.score,
+              answer: srv.answer !== undefined ? srv.answer : local.answer,
+            } as ContentType;
+          });
+
+          // Append any new server items not present locally
+          const localIds = new Set(
+            formData.allquestion.map((q) => (q._id ? String(q._id) : ""))
+          );
+          serverItems.forEach((srv) => {
+            const id = srv._id ? String(srv._id) : undefined;
+            if (id && !localIds.has(id)) merged.push(srv);
+          });
+
+          dispatch(setallquestion(merged));
+          dispatch(setprevallquestion(merged));
         } else {
           // Fallback to current state if no data returned
           dispatch(setprevallquestion(formData.allquestion));
@@ -290,7 +358,7 @@ export default function Navigationbar() {
   }, [dispatch, navigate]);
 
   return (
-    <nav className="navigationbar w-full h-[70px] bg-[#f5f5f5] flex flex-row justify-between items-center p-2 dark:bg-gray-800 mb-10">
+    <nav className="navigationbar sticky top-0 z-50 w-full h-[70px] bg-[#f5f5f5] flex flex-row justify-between items-center p-2 dark:bg-gray-800 mb-10 shadow-sm">
       <div className="w-fit h-full flex flex-row items-center gap-x-5">
         <Image
           src={Logo}

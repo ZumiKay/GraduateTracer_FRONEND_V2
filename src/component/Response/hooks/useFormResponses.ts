@@ -36,6 +36,17 @@ export const useFormResponses = (questions: ContentType[]) => {
         return true;
       }
 
+      if (import.meta.env.DEV) {
+        console.log("Checking conditional question:", {
+          questionId: question._id,
+          parentContent: question.parentcontent,
+          hasParentId: !!question.parentcontent?.qId,
+          hasParentIdx: question.parentcontent?.qIdx !== undefined,
+          hasExpectedOption: question.parentcontent?.optIdx !== undefined,
+        });
+      }
+
+      // Find parent question - try both qId and qIdx for backward compatibility
       const parentQuestion = questions.find(
         (q) =>
           q._id === question.parentcontent?.qId ||
@@ -48,6 +59,10 @@ export const useFormResponses = (questions: ContentType[]) => {
             questionId: question._id,
             parentId: question.parentcontent?.qId,
             parentIdx: question.parentcontent?.qIdx,
+            availableQuestions: questions.map((q) => ({
+              id: q._id,
+              type: q.type,
+            })),
           });
         }
         return false;
@@ -57,7 +72,20 @@ export const useFormResponses = (questions: ContentType[]) => {
         (r) => r.questionId === parentQuestion._id
       );
 
-      if (!parentResponse || !parentResponse.response) {
+      if (
+        !parentResponse ||
+        parentResponse.response === null ||
+        parentResponse.response === undefined ||
+        parentResponse.response === ""
+      ) {
+        if (import.meta.env.DEV) {
+          console.log("Parent question has no response:", {
+            parentQuestionId: parentQuestion._id,
+            hasParentResponse: !!parentResponse,
+            parentResponseValue: parentResponse?.response,
+            parentResponseType: typeof parentResponse?.response,
+          });
+        }
         return false;
       }
 
@@ -69,45 +97,143 @@ export const useFormResponses = (questions: ContentType[]) => {
           parentQuestionId: parentQuestion._id,
           parentQuestionType: parentQuestion.type,
           parentResponse: parentResponse.response,
+          parentResponseType: typeof parentResponse.response,
           expectedAnswer,
+          expectedAnswerType: typeof expectedAnswer,
           parentOptions: parentQuestion.multiple || parentQuestion.checkbox,
+          allQuestions: questions.map((q) => ({
+            id: q._id,
+            type: q.type,
+            hasParent: !!q.parentcontent,
+          })),
+          allResponses: responseList.map((r) => ({
+            questionId: r.questionId,
+            response: r.response,
+            responseType: typeof r.response,
+          })),
         });
       }
 
       if (parentQuestion.type === QuestionType.MultipleChoice) {
         const responseValue = parentResponse.response;
+
+        if (import.meta.env.DEV) {
+          console.log("Multiple choice conditional check details:", {
+            responseValue,
+            responseType: typeof responseValue,
+            expectedAnswer,
+            expectedAnswerType: typeof expectedAnswer,
+            parentOptions: parentQuestion.multiple?.map((opt) => ({
+              content: opt.content,
+              idx: opt.idx,
+              idxType: typeof opt.idx,
+            })),
+          });
+        }
+
         const selectedOption = parentQuestion.multiple?.find((option) => {
-          if (option.content === responseValue) return true;
+          // Check if the response matches the option's index
           if (option.idx === responseValue) return true;
           if (option.idx === Number(responseValue)) return true;
-          if (option.idx?.toString() === responseValue) return true;
+          if (option.idx?.toString() === String(responseValue)) return true;
+          // Also check content match for backwards compatibility
+          if (option.content === responseValue) return true;
           return false;
         });
 
-        const shouldShow = selectedOption?.idx === expectedAnswer;
+        const shouldShow =
+          selectedOption?.idx === expectedAnswer ||
+          selectedOption?.idx === Number(expectedAnswer) ||
+          Number(selectedOption?.idx) === Number(expectedAnswer);
+
         if (import.meta.env.DEV) {
           console.log("Multiple choice conditional result:", {
             shouldShow,
             selectedOptionIdx: selectedOption?.idx,
+            selectedOptionIdxType: typeof selectedOption?.idx,
             expectedAnswer,
+            expectedAnswerType: typeof expectedAnswer,
+            comparison1: selectedOption?.idx === expectedAnswer,
+            comparison2: selectedOption?.idx === Number(expectedAnswer),
+            comparison3: Number(selectedOption?.idx) === Number(expectedAnswer),
+            rawResponseValue: responseValue,
+            rawResponseType: typeof responseValue,
+            selectedOptionContent: selectedOption?.content,
           });
         }
         return shouldShow;
       }
 
       if (parentQuestion.type === QuestionType.CheckBox) {
-        const selectedIndices = Array.isArray(parentResponse.response)
-          ? (parentResponse.response as number[])
-          : typeof parentResponse.response === "number"
-          ? [parentResponse.response as number]
-          : [];
+        const responseValue = parentResponse.response;
+        let selectedIndices: number[] = [];
+        let selectedContents: string[] = [];
 
-        const shouldShow = selectedIndices.includes(expectedAnswer);
+        if (Array.isArray(responseValue)) {
+          // Mixed array support: numeric indices and/or content strings
+          const numeric = responseValue
+            .map((val) =>
+              typeof val === "number"
+                ? val
+                : typeof val === "string" && !isNaN(Number(val))
+                ? Number(val)
+                : NaN
+            )
+            .filter((val) => !isNaN(val));
+          selectedIndices = numeric as number[];
+
+          const strings = responseValue
+            .filter((val) => typeof val === "string" && isNaN(Number(val)))
+            .map((val) => String(val));
+          selectedContents = strings as string[];
+        } else if (typeof responseValue === "number") {
+          selectedIndices = [responseValue];
+        } else if (
+          typeof responseValue === "string" &&
+          !isNaN(Number(responseValue))
+        ) {
+          selectedIndices = [Number(responseValue)];
+        } else if (typeof responseValue === "string") {
+          selectedContents = [responseValue];
+        }
+
+        // Resolve expected answer: support numeric index or content string
+        const expectedAnswerNum = Number(expectedAnswer);
+        const expectedIsNumeric =
+          expectedAnswer !== undefined && !isNaN(expectedAnswerNum);
+        const expectedStr = String(expectedAnswer);
+
+        // If we have contents from parent options, build lookup for selected contents
+        if (selectedIndices.length > 0 && parentQuestion.checkbox) {
+          const idxToContent = new Map<number, string>();
+          parentQuestion.checkbox.forEach((opt, i) => {
+            const idx = (opt.idx ?? i) as number;
+            idxToContent.set(idx, String(opt.content));
+          });
+          // Add mapped contents for convenience (avoid duplicate comparisons)
+          selectedIndices.forEach((idx) => {
+            const content = idxToContent.get(idx);
+            if (content) selectedContents.push(content);
+          });
+        }
+
+        const shouldShow = expectedIsNumeric
+          ? selectedIndices.includes(expectedAnswerNum) ||
+            selectedIndices.some(
+              (idx) => String(idx) === String(expectedAnswerNum)
+            )
+          : selectedContents.includes(expectedStr);
+
         if (import.meta.env.DEV) {
           console.log("Checkbox conditional result:", {
             shouldShow,
             selectedIndices,
+            selectedContents,
             expectedAnswer,
+            expectedAnswerNum,
+            expectedIsNumeric,
+            responseValue,
+            responseType: typeof responseValue,
           });
         }
         return shouldShow;
@@ -130,10 +256,31 @@ export const useFormResponses = (questions: ContentType[]) => {
   // Update response and handle conditional logic
   const updateResponse = useCallback(
     (questionId: string, value: ResponseValue) => {
+      if (import.meta.env.DEV) {
+        console.log("Updating response:", {
+          questionId,
+          value,
+          valueType: typeof value,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       setResponses((prev) => {
         const updated = prev.map((r) =>
           r.questionId === questionId ? { ...r, response: value } : r
         );
+
+        if (import.meta.env.DEV) {
+          console.log("Response updated, checking conditional visibility:", {
+            questionId,
+            newValue: value,
+            allResponses: updated.map((r) => ({
+              questionId: r.questionId,
+              response: r.response,
+              hasValue: !!r.response,
+            })),
+          });
+        }
 
         // Handle conditional question visibility changes
         const handleConditionalUpdates = (responses: FormResponse[]) => {
@@ -149,8 +296,23 @@ export const useFormResponses = (questions: ContentType[]) => {
 
             const shouldShow = checkIfQuestionShouldShow(question, responses);
 
+            if (import.meta.env.DEV) {
+              console.log(`Conditional check for question ${question._id}:`, {
+                shouldShow,
+                questionId: question._id,
+                parentId: question.parentcontent?.qId,
+                expectedOption: question.parentcontent?.optIdx,
+                currentResponse: response.response,
+              });
+            }
+
             if (!shouldShow && response.response !== "") {
               hasChanges = true;
+              if (import.meta.env.DEV) {
+                console.log(
+                  `Clearing response for hidden question ${question._id}`
+                );
+              }
               return { ...response, response: "" };
             }
 

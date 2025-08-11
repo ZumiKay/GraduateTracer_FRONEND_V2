@@ -6,6 +6,10 @@ import { AutoSaveQuestion } from "../pages/FormPage.action";
 import { ErrorToast } from "../component/Modal/AlertModal";
 import SuccessToast from "../component/Modal/AlertModal";
 import { setpauseAutoSave } from "../redux/formstore";
+import {
+  validateRangeQuestions,
+  getRangeValidationSummary,
+} from "../utils/rangeValidation";
 
 interface AutoSaveStatus {
   status: "idle" | "saving" | "saved" | "error" | "offline";
@@ -72,13 +76,33 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     [generateDataHash, lastSavedHash]
   );
 
-  // Enhanced save function with retry logic
+  // Enhanced save function with retry logic and range validation
   const performSave = useCallback(
     async (
       dataToSave: ContentType[],
       attempt: number = 0
     ): Promise<boolean> => {
       if (!formstate._id || pauseAutoSave) return false;
+
+      // Validate ranges before saving
+      const rangeErrors = validateRangeQuestions(dataToSave);
+      if (rangeErrors.length > 0) {
+        const errorMessage = getRangeValidationSummary(rangeErrors);
+        setAutoSaveStatus({
+          status: "error",
+          lastSaved: autoSaveStatus.lastSaved,
+          error: "Range validation failed",
+          retryCount: 0,
+        });
+
+        ErrorToast({
+          title: "Validation Error",
+          content: errorMessage,
+          toastid: "range-validation-error",
+        });
+
+        return false;
+      }
 
       try {
         setAutoSaveStatus((prev) => ({
@@ -234,7 +258,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     ]
   );
 
-  // Manual save function
+  // Manual save function with range validation
   const manualSave = useCallback(async (): Promise<boolean> => {
     if (!formstate._id) {
       console.warn("Manual save failed: No form ID");
@@ -243,6 +267,27 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
     if (allquestion.length === 0) {
       console.warn("Manual save failed: No questions to save");
+      return false;
+    }
+
+    // Validate ranges before saving
+    const rangeErrors = validateRangeQuestions(allquestion);
+    if (rangeErrors.length > 0) {
+      const errorMessage = getRangeValidationSummary(rangeErrors);
+
+      setAutoSaveStatus((prev) => ({
+        ...prev,
+        status: "error",
+        error: "Range validation failed",
+        retryCount: 0,
+      }));
+
+      ErrorToast({
+        title: "Validation Error",
+        content: errorMessage,
+        toastid: "manual-save-validation-error",
+      });
+
       return false;
     }
 

@@ -122,9 +122,9 @@ const FormCard: React.FC<FormCardProps> = ({
       <CardBody className="pt-0">
         <div className="space-y-3">
           <div className="flex justify-between items-center text-xs text-gray-500">
-            <span>Created: {formattedDates.created}</span>
+            <span>Created: {`${data.createdAt}`}</span>
             {formattedDates.updated && (
-              <span>Updated: {formattedDates.updated}</span>
+              <span>Updated: {`${data.updatedAt}`}</span>
             )}
           </div>
           {data.totalpage && (

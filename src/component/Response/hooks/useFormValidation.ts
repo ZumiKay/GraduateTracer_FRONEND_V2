@@ -2,11 +2,24 @@ import { useCallback } from "react";
 import { ContentType, QuestionType } from "../../../types/Form.types";
 import { FormResponse } from "./useFormResponses";
 
-export const useFormValidation = () => {
+export const useFormValidation = (
+  checkIfQuestionShouldShow?: (
+    question: ContentType,
+    responses: FormResponse[]
+  ) => boolean
+) => {
   // Check if current page is complete
   const isPageComplete = useCallback(
     (questions: ContentType[], responses: FormResponse[]): boolean => {
       return questions.every((q) => {
+        // Skip validation for questions that should not be shown (conditional questions)
+        if (
+          checkIfQuestionShouldShow &&
+          !checkIfQuestionShouldShow(q, responses)
+        ) {
+          return true; // Hidden questions are considered "valid"
+        }
+
         const response = responses.find((r) => r.questionId === q._id);
         if (q.require) {
           if (!response || !response.response) return false;
@@ -65,14 +78,24 @@ export const useFormValidation = () => {
         return true;
       });
     },
-    []
+    [checkIfQuestionShouldShow]
   );
 
   // Validate form before submission
   const validateForm = useCallback(
     (questions: ContentType[], responses: FormResponse[]) => {
       // Only validate required questions that are actually visible
-      const requiredQuestions = questions.filter((q) => q.require);
+      const requiredQuestions = questions.filter((q) => {
+        // Skip questions that should not be shown (conditional questions)
+        if (
+          checkIfQuestionShouldShow &&
+          !checkIfQuestionShouldShow(q, responses)
+        ) {
+          return false; // Don't include hidden questions in validation
+        }
+        return q.require;
+      });
+
       const missingResponses = requiredQuestions.filter((q) => {
         const response = responses.find((r) => r.questionId === q._id);
         if (!response) return true;
@@ -141,7 +164,7 @@ export const useFormValidation = () => {
 
       return null;
     },
-    []
+    [checkIfQuestionShouldShow]
   );
 
   return {

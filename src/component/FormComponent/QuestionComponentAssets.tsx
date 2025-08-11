@@ -8,9 +8,10 @@ import {
 import { RootState } from "../../redux/store";
 import { ErrorToast } from "../Modal/AlertModal";
 import { CustomCheckBox, CustomRadio, RenderDropDownMenu } from "./Input";
-import { Button, Input } from "@heroui/react";
+import { Button, Input, NumberInput, RangeValue } from "@heroui/react";
 
 import { DeleteIcon } from "../svg/GeneralIcon";
+import { useCallback, useState, useEffect } from "react";
 
 interface ChoiceQuestionProps {
   condition?: ConditionalType;
@@ -223,6 +224,73 @@ export const SelectionQuestionEdit = ({
       >
         Add Option
       </Button>
+    </div>
+  );
+};
+
+type RangeNumberInputComponentType = {
+  onChange: (name: string, val: number) => void;
+  val?: RangeValue<number>;
+};
+export const RangeNumberInputComponent = ({
+  onChange,
+  val,
+}: RangeNumberInputComponentType) => {
+  const [value, setvalue] = useState<RangeValue<number>>(
+    val ?? {
+      start: 0,
+      end: 0,
+    }
+  );
+
+  // Update local state when val prop changes
+  useEffect(() => {
+    if (val) {
+      setvalue(val);
+    }
+  }, [val]);
+
+  const isEndSmallerThanStart = value.end < value.start;
+
+  const handleChange = useCallback(
+    (name: "start" | "end", val: number) => {
+      setvalue((prev) => ({ ...prev, [name]: val }));
+      onChange(name, val);
+    },
+    [onChange]
+  );
+
+  return (
+    <div className="RangeNumber w-full flex flex-col gap-y-2">
+      <div className="flex flex-row justify-between gap-x-3">
+        <NumberInput
+          name="start"
+          size="md"
+          label="Start"
+          min={0}
+          value={value?.start}
+          onValueChange={(val) => handleChange("start", val)}
+        />
+        <NumberInput
+          name="end"
+          size="md"
+          min={value.start ?? 0}
+          label="End"
+          value={value?.end}
+          onValueChange={(val) => handleChange("end", val)}
+          isInvalid={isEndSmallerThanStart}
+          errorMessage={
+            isEndSmallerThanStart
+              ? "End value must be greater than or equal to start value"
+              : ""
+          }
+        />
+      </div>
+      {isEndSmallerThanStart && (
+        <p className="text-tiny text-danger mt-1">
+          Invalid range: End value must be greater than or equal to start value
+        </p>
+      )}
     </div>
   );
 };

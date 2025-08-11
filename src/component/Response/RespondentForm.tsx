@@ -1,15 +1,10 @@
+import "./RespondentForm.css";
 import React, { useState, useEffect, useCallback } from "react";
 import { Alert, Spinner } from "@heroui/react";
 import ApiRequest, { ApiRequestReturnType } from "../../hooks/ApiHook";
-import {
-  FormTypeEnum,
-  QuestionType,
-  AnswerKey,
-  RangeType,
-} from "../../types/Form.types";
+import { FormTypeEnum, QuestionType, AnswerKey } from "../../types/Form.types";
 import { getGuestData } from "../../utils/publicFormUtils";
 import Respondant_Question_Card from "../Card/Respondant.card";
-import "./RespondentForm.css";
 
 // Components
 import { FormHeader } from "./components/FormHeader";
@@ -21,7 +16,7 @@ import { Navigation } from "./components/Navigation";
 import { FormStateCard } from "./components/FormStateCard";
 
 // Hooks
-import { useFormData } from "./hooks/useFormData";
+import { usePaginatedFormData } from "./hooks/usePaginatedFormData";
 import { useFormResponses, ResponseValue } from "./hooks/useFormResponses";
 import { useFormValidation } from "./hooks/useFormValidation";
 
@@ -45,7 +40,21 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
   isGuest = false,
   guestData,
 }) => {
-  const { form, questions, loading, error: formError } = useFormData();
+  const {
+    form,
+    allQuestions: questions,
+    currentPageQuestions,
+    loading,
+    error: formError,
+    totalPages: totalPagesFromHook,
+    currentPage: paginatedCurrentPage,
+    setCurrentPage: setPaginatedCurrentPage,
+    isPageLoaded,
+    retryPage,
+    failedPages,
+    isPageLoading,
+  } = usePaginatedFormData();
+
   const {
     responses,
     updateResponse,
@@ -53,8 +62,10 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
     initializeResponses,
     checkIfQuestionShouldShow,
   } = useFormResponses(questions);
-  const { isPageComplete, validateForm } = useFormValidation();
-  const [currentPage, setCurrentPage] = useState(1);
+  const { isPageComplete, validateForm } = useFormValidation(
+    checkIfQuestionShouldShow
+  );
+  const [currentPage, setCurrentPage] = useState(paginatedCurrentPage);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -63,6 +74,11 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
     name: guestData?.name || "",
     email: guestData?.email || "",
   });
+
+  // Sync local currentPage with paginated currentPage
+  useEffect(() => {
+    setCurrentPage(paginatedCurrentPage);
+  }, [paginatedCurrentPage]);
 
   const isGuestMode = Boolean(isGuest && guestData);
 
@@ -80,7 +96,15 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
 
   // Save progress to localStorage
   const saveProgressToStorage = useCallback(() => {
-    if (!form?._id) return;
+    if (!form?._id || !progressLoaded) {
+      if (import.meta.env.DEV) {
+        console.log("Skipping save - form not ready:", {
+          hasFormId: !!form?._id,
+          progressLoaded,
+        });
+      }
+      return;
+    }
 
     try {
       // Only save responses that have actual values
@@ -108,40 +132,35 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
         version: "1.0", // Add version for future compatibility
       };
 
-      localStorage.setItem(
-        getStorageKey("progress"),
-        JSON.stringify(progressData)
-      );
-
-      // Debug logging
-      if (import.meta.env.DEV) {
-        console.log("Progress saved to localStorage:", {
-          formId: form._id,
-          currentPage,
-          responseCount: meaningfulResponses.length,
-          timestamp: progressData.timestamp,
-        });
-      }
+      const storageKey = getStorageKey("progress");
+      localStorage.setItem(storageKey, JSON.stringify(progressData));
     } catch (error) {
       console.error("Failed to save progress to localStorage:", error);
     }
-  }, [form?._id, currentPage, responses, respondentInfo, getStorageKey]);
+  }, [
+    form?._id,
+    currentPage,
+    responses,
+    respondentInfo,
+    getStorageKey,
+    progressLoaded,
+  ]);
 
   // Load progress from localStorage
   const loadProgressFromStorage = useCallback(() => {
-    if (!form?._id) return;
+    if (!form?._id) {
+      return false;
+    }
 
     try {
-      const savedProgress = localStorage.getItem(getStorageKey("progress"));
+      const storageKey = getStorageKey("progress");
+      const savedProgress = localStorage.getItem(storageKey);
+
       if (savedProgress) {
         const progressData = JSON.parse(savedProgress);
 
-        // Verify this is for the same form
-        if (progressData.formId === form._id) {
-          if (import.meta.env.DEV) {
-            console.log("Loading progress from localStorage:", progressData);
-          }
-
+        // Verify this is for the same form and has required structure
+        if (progressData.formId === form._id && progressData.version) {
           // Restore respondent info first
           if (progressData.respondentInfo) {
             setRespondentInfo(progressData.respondentInfo);
@@ -150,30 +169,43 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
           // Restore responses using batch update to properly trigger conditional logic
           if (progressData.responses && Array.isArray(progressData.responses)) {
             const restoredResponses = progressData.responses;
-            if (import.meta.env.DEV) {
-              console.log("Restoring responses:", restoredResponses);
-            }
 
             // Use batch update for better performance and proper conditional handling
             batchUpdateResponses(restoredResponses);
           }
 
           // Restore page after responses are loaded
-          if (progressData.currentPage) {
+          if (progressData.currentPage && progressData.currentPage > 0) {
             // Small delay to ensure responses are processed
             setTimeout(() => {
               setCurrentPage(progressData.currentPage);
               setProgressLoaded(true);
+              if (import.meta.env.DEV) {
+                console.log("Restored current page:", progressData.currentPage);
+              }
             }, 100);
           } else {
             setProgressLoaded(true);
           }
 
           return true;
+        } else {
+          // Clear invalid/outdated progress data
+          localStorage.removeItem(storageKey);
+        }
+      } else {
+        if (import.meta.env.DEV) {
+          console.log("No saved progress found for key:", storageKey);
         }
       }
     } catch (error) {
       console.error("Failed to load progress from localStorage:", error);
+      // Clear corrupted data
+      try {
+        localStorage.removeItem(getStorageKey("progress"));
+      } catch (clearError) {
+        console.error("Failed to clear corrupted progress data:", clearError);
+      }
     }
     return false;
   }, [form?._id, batchUpdateResponses, getStorageKey]);
@@ -183,47 +215,110 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
     if (!form?._id) return;
 
     try {
-      localStorage.removeItem(getStorageKey("progress"));
+      const storageKey = getStorageKey("progress");
+      localStorage.removeItem(storageKey);
       if (import.meta.env.DEV) {
-        console.log("Progress cleared from localStorage");
+        console.log("Progress cleared from localStorage:", storageKey);
       }
     } catch (error) {
       console.error("Failed to clear progress from localStorage:", error);
     }
   }, [form?._id, getStorageKey]);
 
+  // Verification function for localStorage (development only)
+  const verifyLocalStorage = useCallback(() => {
+    if (!import.meta.env.DEV || !form?._id) return;
+
+    const storageKey = getStorageKey("progress");
+    const savedData = localStorage.getItem(storageKey);
+
+    console.log("=== LocalStorage Verification ===");
+    console.log("Storage Key:", storageKey);
+    console.log("Has Saved Data:", !!savedData);
+
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        console.log("Parsed Data:", {
+          formId: parsed.formId,
+          version: parsed.version,
+          currentPage: parsed.currentPage,
+          responseCount: parsed.responses?.length || 0,
+          hasRespondentInfo: !!parsed.respondentInfo,
+          timestamp: parsed.timestamp,
+        });
+        console.log("Full Data:", parsed);
+      } catch (error) {
+        console.error("Error parsing saved data:", error);
+      }
+    }
+  }, [form?._id, getStorageKey]);
+
+  // Expose verification function to window for debugging (development only)
+  useEffect(() => {
+    if (import.meta.env.DEV && form?._id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).verifyFormProgress = verifyLocalStorage;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).clearFormProgress = clearProgressFromStorage;
+    }
+  }, [form?._id, verifyLocalStorage, clearProgressFromStorage]);
+
   // Initialize responses when questions are loaded
   useEffect(() => {
-    if (questions.length > 0) {
+    if (questions.length > 0 && form?._id) {
       if (import.meta.env.DEV) {
         console.log(
           "Initializing responses for",
           questions.length,
-          "questions"
+          "questions for form:",
+          form._id
         );
       }
+
       initializeResponses();
 
       // Load saved progress after a short delay to ensure responses are initialized
       const timer = setTimeout(() => {
         const progressLoaded = loadProgressFromStorage();
         if (progressLoaded && import.meta.env.DEV) {
-          console.log("Progress restored from localStorage");
+          console.log("Progress successfully restored from localStorage");
         } else {
           setProgressLoaded(true); // No progress to load, mark as ready
+          if (import.meta.env.DEV) {
+            console.log("No progress to restore, form ready for new responses");
+          }
         }
       }, 50);
 
       return () => clearTimeout(timer);
+    } else if (import.meta.env.DEV) {
+      console.log("Cannot initialize - missing questions or form ID:", {
+        questionsLength: questions.length,
+        formId: form?._id,
+      });
     }
-  }, [questions, initializeResponses, loadProgressFromStorage]);
+  }, [questions, form?._id, initializeResponses, loadProgressFromStorage]);
 
-  // Save progress when responses or currentPage changes
+  // Save progress when responses or currentPage changes (with debouncing)
   useEffect(() => {
-    if (form?._id && questions.length > 0) {
-      saveProgressToStorage();
+    if (form?._id && questions.length > 0 && progressLoaded) {
+      // Add a small delay to prevent excessive saves during rapid changes
+      const saveTimer = setTimeout(() => {
+        saveProgressToStorage();
+      }, 500); // 500ms debounce
+
+      return () => clearTimeout(saveTimer);
     }
-  }, [saveProgressToStorage, form?._id, questions.length]);
+  }, [
+    form?._id,
+    questions.length,
+    responses,
+    currentPage,
+    respondentInfo,
+    progressLoaded,
+    saveProgressToStorage,
+  ]);
 
   // Clear progress on successful submission
   useEffect(() => {
@@ -285,93 +380,91 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
     };
   }, [form?.setting]);
 
-  // Custom page navigation that saves progress
+  // Custom page navigation that saves progress and uses paginated fetching
   const handlePageChange = useCallback(
     (newPage: number) => {
       // Save progress before changing page
       saveProgressToStorage();
       setCurrentPage(newPage);
+      setPaginatedCurrentPage(newPage);
     },
-    [saveProgressToStorage]
+    [saveProgressToStorage, setPaginatedCurrentPage]
   );
 
   // Get current page questions with conditional logic
   const getCurrentPageQuestions = () => {
-    const pageQuestions = questions.filter((q) => q.page === currentPage);
+    // Use currentPageQuestions from the paginated hook for better performance
+    const pageQuestions = currentPageQuestions;
+
+    if (import.meta.env.DEV) {
+      console.log("Getting current page questions (paginated):", {
+        currentPage,
+        totalQuestions: questions.length,
+        pageQuestions: pageQuestions.length,
+        isPageLoaded: isPageLoaded(currentPage),
+        pageQuestionsData: pageQuestions.map((q) => ({
+          id: q._id,
+          type: q.type,
+          hasParent: !!q.parentcontent,
+          parentContent: q.parentcontent,
+        })),
+      });
+    }
+
     const visibleQuestions = pageQuestions.filter((question) => {
       const isVisible = checkIfQuestionShouldShow(question, responses);
-
-      // Debug logging for conditional questions
-      if (question.parentcontent && import.meta.env.DEV) {
-        console.log(`Question ${question._id} visibility:`, {
-          isVisible,
-          questionTitle: question.title,
-          parentContent: question.parentcontent,
-          currentResponses: responses.filter((r) => r.response !== "").length,
-        });
-      }
 
       return isVisible;
     });
 
-    if (import.meta.env.DEV) {
-      console.log(`Page ${currentPage} questions:`, {
-        total: pageQuestions.length,
-        visible: visibleQuestions.length,
-        conditional: pageQuestions.filter((q) => q.parentcontent).length,
-      });
-    }
-
     return visibleQuestions;
   };
 
-  // Handle question answer with type processing
-  const handleQuestionAnswer = (
-    questionId: string,
-    answer: Pick<AnswerKey, "answer">
-  ) => {
-    const question = questions.find((q) => q._id === questionId);
-    if (!question) return;
+  const handleQuestionAnswer = useCallback(
+    (questionId: string, answer: Pick<AnswerKey, "answer">) => {
+      const question = questions.find((q) => q._id === questionId);
+      if (!question) return;
 
-    let processedValue: ResponseValue = answer.answer as ResponseValue;
+      let processedValue: ResponseValue = answer.answer as ResponseValue;
 
-    // Special processing for different question types
-    switch (question.type) {
-      case QuestionType.Date:
-        if (answer.answer instanceof Date) {
-          processedValue = answer.answer;
-        }
-        break;
-      case QuestionType.RangeNumber:
-      case QuestionType.RangeDate:
-        if (
-          typeof answer.answer === "object" &&
-          answer.answer !== null &&
-          "start" in answer.answer
-        ) {
-          processedValue = answer.answer;
-        }
-        break;
-      case QuestionType.Number:
-        if (
-          typeof answer.answer === "string" &&
-          !isNaN(Number(answer.answer))
-        ) {
-          processedValue = Number(answer.answer);
-        }
-        break;
-      case QuestionType.ShortAnswer:
-      case QuestionType.Paragraph:
-        processedValue = String(answer.answer);
-        break;
-      default:
-        processedValue = answer.answer as ResponseValue;
-        break;
-    }
+      // Special processing for different question types
+      switch (question.type) {
+        case QuestionType.Date:
+          if (answer.answer instanceof Date) {
+            processedValue = answer.answer;
+          }
+          break;
+        case QuestionType.RangeNumber:
+        case QuestionType.RangeDate:
+          if (
+            typeof answer.answer === "object" &&
+            answer.answer !== null &&
+            "start" in answer.answer
+          ) {
+            processedValue = answer.answer;
+          }
+          break;
+        case QuestionType.Number:
+          if (
+            typeof answer.answer === "string" &&
+            !isNaN(Number(answer.answer))
+          ) {
+            processedValue = Number(answer.answer);
+          }
+          break;
+        case QuestionType.ShortAnswer:
+        case QuestionType.Paragraph:
+          processedValue = String(answer.answer);
+          break;
+        default:
+          processedValue = answer.answer as ResponseValue;
+          break;
+      }
 
-    updateResponse(questionId, processedValue);
-    // Progress is automatically saved via useEffect when responses change
-  };
+      updateResponse(questionId, processedValue);
+    },
+    [questions, updateResponse]
+  );
 
   // Submit form
   const handleSubmit = async () => {
@@ -390,8 +483,34 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
     );
     logValidationSummary(validationSummary);
 
-    const validationError = validateForm(allVisibleQuestions, responses);
+    // Validate form - use all questions and let validateForm handle visibility
+    const validationError = validateForm(questions, responses);
+
     if (validationError) {
+      // Add debug info to error message in development
+      if (import.meta.env.DEV) {
+        console.log("=== VALIDATION FAILED ===");
+        const problematicQuestions = questions.filter((q) => {
+          const isVisible = checkIfQuestionShouldShow(q, responses);
+          const response = responses.find((r) => r.questionId === q._id);
+          const hasValidResponse =
+            response &&
+            response.response !== "" &&
+            response.response !== null &&
+            response.response !== undefined;
+          return q.require && isVisible && !hasValidResponse;
+        });
+        console.log(
+          "Questions failing validation:",
+          problematicQuestions.map((q) => ({
+            id: q._id,
+            title: typeof q.title === "string" ? q.title : String(q.title),
+            type: q.type,
+            hasParent: !!q.parentcontent,
+            response: responses.find((r) => r.questionId === q._id)?.response,
+          }))
+        );
+      }
       setError(validationError);
       return;
     }
@@ -534,7 +653,7 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
   if (!form) return null;
 
   const currentQuestions = getCurrentPageQuestions();
-  const totalPages = Math.max(...questions.map((q) => q.page || 1));
+  const totalPages = totalPagesFromHook;
   const currentPageComplete = isPageComplete(currentQuestions, responses);
 
   return (
@@ -571,60 +690,154 @@ const RespondentForm: React.FC<RespondentFormProps> = ({
 
       {/* Questions */}
       <div className="space-y-6">
-        {currentQuestions.map((question, index) => {
-          const currentResponse = responses.find(
-            (r) => r.questionId === question._id
-          );
+        {/* Debug info for conditional questions in development */}
+        {import.meta.env.DEV && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+            <h3 className="text-sm font-medium text-blue-800 mb-2">
+              Debug: Paginated Form Status
+            </h3>
+            <div className="text-xs text-blue-600 space-y-1">
+              <p>
+                Total questions: {questions.length} | Current page:{" "}
+                {currentPage}/{totalPages} | Page loaded:{" "}
+                {isPageLoaded(currentPage) ? "✓" : "Loading..."} | Page loading:{" "}
+                {isPageLoading ? "✓" : "✗"} | Failed pages:{" "}
+                {Array.from(failedPages).join(", ") || "None"} | Responses with
+                values:{" "}
+                {
+                  responses.filter(
+                    (r) =>
+                      r.response !== "" &&
+                      r.response !== null &&
+                      r.response !== undefined
+                  ).length
+                }
+              </p>
+              {questions
+                .filter((q) => q.require)
+                .map((q) => {
+                  const isVisible = checkIfQuestionShouldShow(q, responses);
+                  const response = responses.find(
+                    (r) => r.questionId === q._id
+                  );
+                  const hasValidResponse =
+                    response &&
+                    response.response !== "" &&
+                    response.response !== null &&
+                    response.response !== undefined;
+                  const title =
+                    typeof q.title === "string" ? q.title : String(q.title);
 
-          return (
-            <div key={question._id} className="question-wrapper">
-              <ConditionalIndicator question={question} questions={questions} />
-
-              {question.type === QuestionType.CheckBox ? (
-                <CheckboxQuestion
-                  question={question}
-                  currentResponse={currentResponse?.response}
-                  updateResponse={updateResponse}
-                />
-              ) : question.type === QuestionType.MultipleChoice ? (
-                <MultipleChoiceQuestion
-                  question={question}
-                  currentResponse={currentResponse?.response}
-                  updateResponse={updateResponse}
-                />
-              ) : (
-                // Use Respondant_Question_Card for other question types
-                <div className="p-6 bg-white rounded-lg border shadow-sm">
-                  <Respondant_Question_Card
-                    content={{
-                      ...question,
-                      idx: index,
-                      answer: currentResponse?.response
-                        ? {
-                            answer:
-                              currentResponse.response as AnswerKey["answer"],
-                          }
-                        : undefined,
-                      // For RangeNumber questions, ensure the value is properly set
-                      numrange:
-                        question.type === QuestionType.RangeNumber &&
-                        currentResponse?.response
-                          ? (currentResponse.response as RangeType<number>)
-                          : question.numrange,
-                    }}
-                    color={form?.setting?.qcolor}
-                    ty="form"
-                    idx={(currentPage - 1) * 10 + index}
-                    onSelectAnswer={(answer) =>
-                      handleQuestionAnswer(question._id || "", answer)
-                    }
-                    isDisable={false}
-                  />
-                </div>
-              )}
+                  return (
+                    <div
+                      key={q._id}
+                      className={`p-1 rounded ${
+                        isVisible && q.require && !hasValidResponse
+                          ? "bg-red-100"
+                          : "bg-green-100"
+                      }`}
+                    >
+                      <strong>{title.substring(0, 30)}...</strong> | Visible:{" "}
+                      {isVisible ? "✓" : "✗"} | Required:{" "}
+                      {q.require ? "✓" : "✗"} | Has Response:{" "}
+                      {hasValidResponse ? "✓" : "✗"} | Value:{" "}
+                    </div>
+                  );
+                })}
             </div>
-          );
-        })}
+          </div>
+        )}
+
+        {/* Page loading indicator and error handling */}
+        {!isPageLoaded(currentPage) && !failedPages.has(currentPage) && (
+          <div className="flex justify-center items-center py-8">
+            <Spinner size="lg" aria-label="Loading page questions" />
+            <span className="ml-3 text-gray-600">
+              Loading page {currentPage}...
+            </span>
+          </div>
+        )}
+
+        {/* Failed page retry option */}
+        {failedPages.has(currentPage) && (
+          <div className="flex flex-col justify-center items-center py-8">
+            <Alert color="warning" title="Page Load Failed" className="mb-4">
+              Failed to load page {currentPage}. Please try again.
+            </Alert>
+            <button
+              onClick={() => retryPage(currentPage)}
+              disabled={isPageLoading}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+            >
+              {isPageLoading ? (
+                <>
+                  <Spinner size="sm" className="mr-2" />
+                  Retrying...
+                </>
+              ) : (
+                "Retry Loading Page"
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Only render questions if page is loaded */}
+        {isPageLoaded(currentPage) &&
+          currentQuestions.map((question, index) => {
+            const currentResponse = responses.find(
+              (r) => r.questionId === question._id
+            );
+
+            return (
+              <div key={question._id} className="question-wrapper">
+                <ConditionalIndicator
+                  question={question}
+                  questions={questions}
+                />
+
+                {question.type === QuestionType.CheckBox ? (
+                  <CheckboxQuestion
+                    idx={index}
+                    question={question}
+                    currentResponse={currentResponse?.response}
+                    updateResponse={updateResponse}
+                  />
+                ) : question.type === QuestionType.MultipleChoice ? (
+                  <MultipleChoiceQuestion
+                    idx={index}
+                    question={question}
+                    currentResponse={currentResponse?.response}
+                    updateResponse={updateResponse}
+                  />
+                ) : (
+                  // Use Respondant_Question_Card for other question types
+                  <div className="p-6 bg-white rounded-lg border shadow-sm">
+                    <Respondant_Question_Card
+                      content={{
+                        ...question,
+                        idx: index,
+                        answer: currentResponse?.response
+                          ? {
+                              answer:
+                                currentResponse.response as AnswerKey["answer"],
+                            }
+                          : undefined,
+                        // For RangeNumber questions, ensure the value is properly set
+                        rangenumber: question.rangenumber,
+                      }}
+                      color={form?.setting?.qcolor}
+                      ty="form"
+                      idx={index}
+                      onSelectAnswer={(answer) =>
+                        handleQuestionAnswer(question._id || "", answer)
+                      }
+                      isDisable={false}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
       </div>
 
       {/* Error Display */}
