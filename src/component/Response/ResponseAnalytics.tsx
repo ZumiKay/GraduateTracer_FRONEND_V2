@@ -245,7 +245,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => exportMutation.mutate("pdf")}
+            onPress={() => exportMutation.mutate("pdf")}
             startContent={<FiDownload />}
             isLoading={exportMutation.isPending}
             disabled={exportMutation.isPending}
@@ -255,7 +255,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => exportMutation.mutate("csv")}
+            onPress={() => exportMutation.mutate("csv")}
             startContent={<FiDownload />}
             isLoading={exportMutation.isPending}
             disabled={exportMutation.isPending}

@@ -60,6 +60,7 @@ describe("Range Validation Tests", () => {
       const questions: ContentType[] = [
         {
           _id: "q1",
+          qIdx: 1,
           type: QuestionType.RangeNumber,
           formId: "form-1",
           title: "Valid range number",
@@ -76,6 +77,7 @@ describe("Range Validation Tests", () => {
       const questions: ContentType[] = [
         {
           _id: "q1",
+          qIdx: 1,
           type: QuestionType.RangeNumber,
           formId: "form-1",
           title: "Invalid range number",
@@ -100,6 +102,7 @@ describe("Range Validation Tests", () => {
       const questions: ContentType[] = [
         {
           _id: "q1",
+          qIdx: 1,
           type: QuestionType.RangeDate,
           formId: "form-1",
           title: "Valid range date",
@@ -119,6 +122,7 @@ describe("Range Validation Tests", () => {
       const questions: ContentType[] = [
         {
           _id: "q1",
+          qIdx: 1,
           type: QuestionType.RangeDate,
           formId: "form-1",
           title: "Invalid range date",
@@ -140,6 +144,7 @@ describe("Range Validation Tests", () => {
       const questions: ContentType[] = [
         {
           _id: "q1",
+          qIdx: 1,
           type: QuestionType.ShortAnswer,
           formId: "form-1",
           title: "Short answer question",
@@ -156,6 +161,7 @@ describe("Range Validation Tests", () => {
         {
           _id: "q1",
           type: QuestionType.RangeNumber,
+          qIdx: 1,
           formId: "form-1",
           title: "Valid range",
           rangenumber: { start: 1, end: 10 },
@@ -163,6 +169,7 @@ describe("Range Validation Tests", () => {
         },
         {
           _id: "q2",
+          qIdx: 1,
           type: QuestionType.RangeNumber,
           formId: "form-1",
           title: "Invalid range",

@@ -1,243 +1,123 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams } from "react-router-dom";
-import ApiRequest, { ApiRequestReturnType } from "../../../hooks/ApiHook";
-import { FormDataType, ContentType } from "../../../types/Form.types";
+//use Form pagination fetch
 
-interface PaginatedFormData {
-  form: FormDataType | null;
-  allQuestions: ContentType[];
-  currentPageQuestions: ContentType[];
-  loading: boolean;
-  error: string | null;
+import { useCallback, useEffect, useMemo } from "react";
+import { FormDataType } from "../../../types/Form.types";
+import { useQuery } from "@tanstack/react-query";
+import ApiRequest from "../../../hooks/ApiHook";
+import { useNavigate } from "react-router";
+
+type useRespondentFormPaginationProps = {
+  formId?: string;
+  token?: string;
+  currentPage?: number;
+  setcurrentPage?: React.Dispatch<React.SetStateAction<number>>;
+};
+
+export type UseRespondentFormPaginationReturn = {
+  isLoading: boolean;
+  handlePage: (direction: "prev" | "next") => void;
+  formState: FormDataType | undefined;
+  currentPage: number | undefined;
+  goToPage: (page: number) => void;
+  canGoNext: boolean | undefined;
+  canGoPrev: boolean | undefined;
+  error: Error | null;
   totalPages: number;
-  currentPage: number;
-  setCurrentPage: (page: number) => void;
-  fetchPage: (page: number) => Promise<void>;
-  retryPage: (page: number) => Promise<void>;
-  isPageLoaded: (page: number) => boolean;
-  loadedPages: Set<number>;
-  failedPages: Set<number>;
-  isPageLoading: boolean;
-}
+};
 
-export const usePaginatedFormData = (): PaginatedFormData => {
-  const { formId, token } = useParams<{ formId: string; token?: string }>();
-  const [form, setForm] = useState<FormDataType | null>(null);
-  const [allQuestions, setAllQuestions] = useState<ContentType[]>([]);
-  const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set());
-  const [failedPages, setFailedPages] = useState<Set<number>>(new Set());
-  const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [fetchingPage, setFetchingPage] = useState<Set<number>>(new Set());
+const useRespondentFormPaginaition = ({
+  formId,
+  token,
+  currentPage,
+  setcurrentPage,
+}: useRespondentFormPaginationProps): UseRespondentFormPaginationReturn => {
+  const navigate = useNavigate();
 
-  // Calculate total pages from all loaded questions
-  const totalPages = useMemo(() => {
-    if (allQuestions.length === 0) return 1;
-    return Math.max(...allQuestions.map((q) => q.page || 1));
-  }, [allQuestions]);
-
-  // Get questions for current page
-  const currentPageQuestions = useMemo(() => {
-    return allQuestions.filter((q) => q.page === currentPage);
-  }, [allQuestions, currentPage]);
-
-  // Fetch form metadata (without all questions)
-  const fetchForm = useCallback(async () => {
-    if (!formId) return;
-
-    try {
-      setLoading(true);
-      const url = token
-        ? `response/form/${formId}?token=${token}`
-        : `response/form/${formId}`;
-
-      const result = (await ApiRequest({
-        url,
-        method: "GET",
-      })) as ApiRequestReturnType;
-
-      if (result.success && result.data) {
-        const formData = result.data as FormDataType & {
-          contentIds: ContentType[];
-        };
-
-        // Set form data without questions initially
-        setForm({
-          ...formData,
-          contentIds: [], // We'll load questions separately
-        });
-
-        if (import.meta.env.DEV) {
-          console.log("Form metadata loaded:", {
-            formId: formData._id,
-            title: formData.title,
-            type: formData.type,
-          });
-        }
-      } else {
-        setError("Form not found or access denied");
-      }
-    } catch (error) {
-      console.error("Error fetching form:", error);
-      setError("Failed to load form");
-    } finally {
-      setLoading(false);
-    }
+  const isValidAccess = useMemo(() => {
+    return !!(formId && token);
   }, [formId, token]);
 
-  // Fetch questions for a specific page
-  const fetchPage = useCallback(
+  // Validate access - only navigate when access becomes invalid
+  useEffect(() => {
+    if (!isValidAccess) {
+      navigate("/notfound");
+    }
+  }, [navigate, isValidAccess]);
+
+  const fetchContent = useCallback(
     async (page: number) => {
-      if (!formId || fetchingPage.has(page) || loadedPages.has(page)) {
-        return;
-      }
+      if (!formId || !token) return null;
 
-      try {
-        setFetchingPage((prev) => new Set(prev).add(page));
-        setFailedPages((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(page); // Remove from failed if retrying
-          return newSet;
-        });
+      const getData = await ApiRequest({
+        url: `/response/form/${formId}?token=${token}&p=${page}`,
+        method: "GET",
+      });
 
-        const url = `question/getAllQuestion?formid=${formId}&page=${page}`;
-        const result = (await ApiRequest({
-          url,
-          method: "GET",
-        })) as ApiRequestReturnType;
-
-        if (result.success && result.data) {
-          const pageQuestions = result.data as ContentType[];
-
-          setAllQuestions((prevQuestions) => {
-            // Remove any existing questions from this page to avoid duplicates
-            const filteredQuestions = prevQuestions.filter(
-              (q) => q.page !== page
-            );
-            // Add new page questions
-            const updatedQuestions = [...filteredQuestions, ...pageQuestions];
-
-            if (import.meta.env.DEV) {
-              console.log(`Page ${page} questions loaded:`, {
-                pageQuestions: pageQuestions.length,
-                totalQuestions: updatedQuestions.length,
-                questionsWithParents: pageQuestions.filter(
-                  (q) => q.parentcontent
-                ).length,
-                questionsWithConditionals: pageQuestions.filter(
-                  (q) => q.conditional && q.conditional.length > 0
-                ).length,
-                pageQuestionsData: pageQuestions.map((q) => ({
-                  id: q._id,
-                  type: q.type,
-                  hasParent: !!q.parentcontent,
-                  parentContent: q.parentcontent,
-                  hasConditionals: !!(
-                    q.conditional && q.conditional.length > 0
-                  ),
-                  page: q.page,
-                })),
-              });
-            }
-
-            return updatedQuestions;
-          });
-
-          setLoadedPages((prev) => new Set(prev).add(page));
-        } else {
-          console.error(`Failed to load page ${page}:`, result.error);
-          setFailedPages((prev) => new Set(prev).add(page));
-        }
-      } catch (error) {
-        console.error(`Error fetching page ${page}:`, error);
-        setFailedPages((prev) => new Set(prev).add(page));
-      } finally {
-        setFetchingPage((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(page);
-          return newSet;
-        });
-      }
+      return getData;
     },
-    [formId, fetchingPage, loadedPages]
+    [formId, token]
   );
 
-  // Check if a page is loaded
-  const isPageLoaded = useCallback(
-    (page: number) => loadedPages.has(page),
-    [loadedPages]
-  );
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["respondent-form", formId, token, currentPage],
+    queryFn: () => fetchContent(currentPage ?? 1),
+    staleTime: 5 * 60 * 1000, // 5 minutes - better caching
+    gcTime: 10 * 60 * 1000, // 10 minutes - retain cached data longer
+    enabled: isValidAccess,
+    refetchOnWindowFocus: false,
+    retry: 2,
+  });
 
-  // Retry loading a failed page
-  const retryPage = useCallback(
-    async (page: number) => {
-      if (!failedPages.has(page)) return;
-      await fetchPage(page);
+  const formState = useMemo(() => {
+    return data?.data as FormDataType | undefined;
+  }, [data?.data]);
+
+  const handlePage = useCallback(
+    (direction: "prev" | "next") => {
+      const totalPages = formState?.totalpage ?? 1;
+
+      if (setcurrentPage)
+        setcurrentPage((prevPage) => {
+          if (direction === "prev") {
+            return prevPage > 1 ? prevPage - 1 : prevPage;
+          } else {
+            return prevPage < totalPages ? prevPage + 1 : prevPage;
+          }
+        });
     },
-    [fetchPage, failedPages]
+    [formState?.totalpage, setcurrentPage]
   );
 
-  // Handle page changes
-  const handleSetCurrentPage = useCallback(
+  const goToPage = useCallback(
     (page: number) => {
-      setCurrentPage(page);
-      // Automatically fetch the page if not loaded
-      if (!loadedPages.has(page) && !fetchingPage.has(page)) {
-        fetchPage(page);
+      if (!setcurrentPage) return;
+      const totalPages = formState?.totalpage ?? 1;
+      if (page >= 1 && page <= totalPages) {
+        setcurrentPage(page);
       }
     },
-    [loadedPages, fetchingPage, fetchPage]
+    [formState?.totalpage, setcurrentPage]
   );
 
-  // Initial load
-  useEffect(() => {
-    fetchForm();
-  }, [fetchForm]);
+  const canGoNext = useMemo(() => {
+    return !!(currentPage && currentPage < (formState?.totalpage ?? 1));
+  }, [currentPage, formState?.totalpage]);
 
-  // Load first page after form is loaded
-  useEffect(() => {
-    if (form && !loadedPages.has(1)) {
-      fetchPage(1);
-    }
-  }, [form, loadedPages, fetchPage]);
-
-  // Preload adjacent pages for better UX
-  useEffect(() => {
-    if (loadedPages.has(currentPage)) {
-      // Preload next page (higher priority)
-      if (
-        currentPage < totalPages &&
-        !loadedPages.has(currentPage + 1) &&
-        !fetchingPage.has(currentPage + 1)
-      ) {
-        setTimeout(() => fetchPage(currentPage + 1), 100);
-      }
-      // Preload previous page (lower priority)
-      if (
-        currentPage > 1 &&
-        !loadedPages.has(currentPage - 1) &&
-        !fetchingPage.has(currentPage - 1)
-      ) {
-        setTimeout(() => fetchPage(currentPage - 1), 300);
-      }
-    }
-  }, [currentPage, totalPages, loadedPages, fetchingPage, fetchPage]);
+  const canGoPrev = useMemo(() => {
+    return !!(currentPage && currentPage > 1);
+  }, [currentPage]);
 
   return {
-    form,
-    allQuestions,
-    currentPageQuestions,
-    loading: loading || fetchingPage.has(currentPage),
-    error,
-    totalPages,
+    isLoading,
+    handlePage,
+    formState,
     currentPage,
-    setCurrentPage: handleSetCurrentPage,
-    fetchPage,
-    retryPage,
-    isPageLoaded,
-    loadedPages,
-    failedPages,
-    isPageLoading: fetchingPage.size > 0,
+    goToPage,
+    canGoNext,
+    canGoPrev,
+    error,
+    totalPages: formState?.totalpage ?? 1,
   };
 };
+
+export default useRespondentFormPaginaition;

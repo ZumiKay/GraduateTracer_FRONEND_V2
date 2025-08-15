@@ -16,9 +16,8 @@ export const useFormData = () => {
 
       try {
         setLoading(true);
-        const url = token
-          ? `response/form/${formId}?token=${token}`
-          : `response/form/${formId}`;
+        setError(null); // Clear any previous errors
+        const url = token ? `form/${formId}?token=${token}` : `form/${formId}`;
 
         const result = (await ApiRequest({
           url,
@@ -57,7 +56,7 @@ export const useFormData = () => {
 
           setQuestions(questions);
         } else {
-          setError("Form not found or access denied");
+          setError(result.error || "Form not found or access denied");
         }
       } catch (error) {
         console.error("Error fetching form:", error);

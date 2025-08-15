@@ -7,6 +7,7 @@ describe("useFormValidation with conditional questions", () => {
   const parentQuestion: ContentType = {
     _id: "parent1",
     formId: "f1",
+    qIdx: 1,
     type: QuestionType.MultipleChoice,
     require: true,
     title: "Parent Question",
@@ -18,6 +19,7 @@ describe("useFormValidation with conditional questions", () => {
 
   const conditionalQuestion: ContentType = {
     _id: "child1",
+    qIdx: 1,
     formId: "f1",
     type: QuestionType.Text,
     require: true,
@@ -27,6 +29,7 @@ describe("useFormValidation with conditional questions", () => {
 
   const alwaysVisibleQuestion: ContentType = {
     _id: "always1",
+    qIdx: 1,
     formId: "f1",
     type: QuestionType.Text,
     require: true,

@@ -345,7 +345,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     },
   });
 
-  // Generate form link using React Query mutation
   const generateLinkMutation = useMutation({
     mutationFn: async () => {
       const result = await ApiRequest({
@@ -374,7 +373,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     },
   });
 
-  // Copy link to clipboard
   const copyLink = useCallback(() => {
     navigator.clipboard.writeText(generatedLink);
     SuccessToast({ title: "Success", content: "Link copied to clipboard!" });

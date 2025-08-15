@@ -261,11 +261,106 @@ export default function Navigationbar() {
             if (id && !localIds.has(id)) merged.push(srv);
           });
 
-          dispatch(setallquestion(merged));
-          dispatch(setprevallquestion(merged));
+          // Deduplicate the merged array to prevent duplicates
+          const deduplicatedMerged = merged.filter((question, index, array) => {
+            if (!question._id) return false; // Remove items without ID
+            // Keep only the first occurrence of each ID
+            return array.findIndex((q) => q._id === question._id) === index;
+          });
+
+          // Normalize qIdx for questions with parentContent (should always be 0)
+          // This ensures sub-questions (conditional questions) have consistent qIdx=0
+          const normalizedMerged = deduplicatedMerged.map((question) => {
+            if (question.parentcontent) {
+              return {
+                ...question,
+                qIdx: 0, // Force qIdx to 0 for sub-questions
+              };
+            }
+            return question;
+          });
+
+          // Add array index to each question for sorting purposes
+          const indexedMerged = normalizedMerged.map((question, index) => ({
+            ...question,
+            arrayIndex: index, // Add temporary index for sorting
+          }));
+
+          // Sort by page and array position (idx) to maintain proper order
+          // Use array index instead of qIdx (which is for labeling only)
+          const sortedMerged = indexedMerged.sort((a, b) => {
+            if (a.page !== b.page) {
+              return (a.page || 0) - (b.page || 0);
+            }
+
+            // Sort by array index to maintain original order within page
+            return a.arrayIndex - b.arrayIndex;
+          });
+
+          // Remove the temporary arrayIndex property
+          const finalMerged = sortedMerged.map((item) => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { arrayIndex, ...question } = item;
+            return question as ContentType;
+          });
+
+          // Debug logging in development
+          if (import.meta.env.DEV) {
+            const duplicatesRemoved = merged.length - deduplicatedMerged.length;
+            const parentContentQuestions = normalizedMerged.filter(
+              (q) => q.parentcontent
+            ).length;
+
+            if (duplicatesRemoved > 0) {
+              console.warn(
+                `🔧 Manual Save: Removed ${duplicatesRemoved} duplicate questions after server merge`
+              );
+            }
+            if (parentContentQuestions > 0) {
+              console.log(
+                `🔧 Manual Save: Normalized ${parentContentQuestions} sub-questions (parentContent) to qIdx=0`
+              );
+            }
+            console.log(
+              `Manual Save Merge: ${formData.allquestion.length} local + ${serverItems.length} server → ${finalMerged.length} final`
+            );
+          }
+
+          dispatch(setallquestion(finalMerged));
+          dispatch(setprevallquestion(finalMerged));
         } else {
-          // Fallback to current state if no data returned
-          dispatch(setprevallquestion(formData.allquestion));
+          // Fallback to current state if no data returned - deduplicate as safety measure
+          const deduplicatedFallback = formData.allquestion.filter(
+            (question, index, array) => {
+              if (!question._id) return false;
+              return array.findIndex((q) => q._id === question._id) === index;
+            }
+          );
+
+          // Normalize qIdx for questions with parentContent in fallback too
+          // This ensures sub-questions (conditional questions) have consistent qIdx=0
+          const normalizedFallback = deduplicatedFallback.map((question) => {
+            if (question.parentcontent) {
+              return {
+                ...question,
+                qIdx: 0, // Force qIdx to 0 for sub-questions
+              };
+            }
+            return question;
+          });
+
+          if (
+            import.meta.env.DEV &&
+            deduplicatedFallback.length !== formData.allquestion.length
+          ) {
+            console.warn(
+              `🔧 Manual Save Fallback: Removed ${
+                formData.allquestion.length - deduplicatedFallback.length
+              } duplicates`
+            );
+          }
+
+          dispatch(setprevallquestion(normalizedFallback));
         }
         setformHasChange(false); // Reset change state after successful save
       } else {

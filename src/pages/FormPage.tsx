@@ -153,9 +153,8 @@ function FormPage() {
         // Normalize contents to ensure each question has a valid page set
         const normalizedContents = (result.contents ?? []).map((q) => ({
           ...q,
-          page: q.page ?? page, // default to current page if missing
+          page: q.page ?? page,
         }));
-        console.log("Set new data");
 
         // Set form content - preserve existing totalscore when updating
         dispatch(
@@ -288,12 +287,9 @@ function FormPage() {
         return;
       }
 
-      // If no unsaved questions, proceed normally
       setParams({ page: val.toString() });
       dispatch(setfetchloading(true));
-      // Set the page first so the next fetch runs with the latest page
       dispatch(setpage(val));
-      // Then enable reload to trigger the fetch for the new page
       dispatch(setreloaddata(true));
       window.scrollTo({ top: 0, behavior: "smooth" });
     },

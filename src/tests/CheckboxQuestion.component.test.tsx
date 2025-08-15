@@ -14,6 +14,7 @@ describe("CheckboxQuestion component", () => {
   const question: ContentType = {
     _id: "qcb",
     formId: "f1",
+    qIdx: 1,
     type: QuestionType.CheckBox,
     checkbox: [
       { idx: 0, content: "A" },
@@ -30,6 +31,7 @@ describe("CheckboxQuestion component", () => {
     const onUpdate = jest.fn();
     render(
       <CheckboxQuestion
+        idx={0}
         question={question}
         currentResponse={["2"]}
         updateResponse={onUpdate}

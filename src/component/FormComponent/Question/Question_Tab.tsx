@@ -82,17 +82,13 @@ const QuestionTab = () => {
     [dispatch]
   );
 
-  const filteredQuestions = useMemo(() => {
-    // Guard against undefined page fields by treating them as page 1
-    return allQuestion.filter((i) => (i.page ?? 1) === page);
-  }, [allQuestion, page]);
-
   const handleAddQuestion = useCallback(async () => {
+    const qIdx = allQuestion.length + 1;
     const updatedQuestions: Array<ContentType> = [
-      ...allQuestion,
+      ...(allQuestion ?? []),
       {
         ...DefaultContentType,
-        qIdx: allQuestion.length,
+        qIdx,
         page,
       },
     ];
@@ -117,6 +113,7 @@ const QuestionTab = () => {
             ...DefaultContentType,
             _id: savedData[0],
             page,
+            qIdx,
           },
         ])
       );
@@ -216,7 +213,6 @@ const QuestionTab = () => {
         return;
       }
 
-      // Check if the question has a valid ID (is saved to database)
       if (!toUpdateQuestion._id) {
         console.error("Cannot add condition to unsaved question");
         ErrorToast({
@@ -225,18 +221,13 @@ const QuestionTab = () => {
         });
         return;
       }
-
-      // Check if this is a nested conditional question (has parentcontent)
       if (toUpdateQuestion.parentcontent) {
         console.warn(
           "Adding condition to a question that already has a parent"
         );
-        // You might want to add a confirmation dialog here:
-        // const confirmNesting = window.confirm("This question is already a conditional question. Adding another condition will create nested conditions. Are you sure you want to continue?");
-        // if (!confirmNesting) return;
       }
 
-      // Enhanced logging for debugging
+      //Debug
       if (import.meta.env.DEV) {
         console.log("Adding condition:", {
           questionIdx,
@@ -275,10 +266,8 @@ const QuestionTab = () => {
           return;
         }
 
-        // Server has handled the condition creation, so reload the data to get the updated state
         dispatch(setreloaddata(true));
       } else {
-        // For non-autosave mode, handle locally
         const newContentId: number | string = questionIdx + 1;
 
         dispatch(
@@ -702,7 +691,7 @@ const QuestionTab = () => {
         {fetchLoading || isPageLoading ? (
           <QuestionLoading count={3} />
         ) : (
-          filteredQuestions.map((question, idx) => {
+          allQuestion.map((question, idx) => {
             const questionKey = `${question.type}${question._id ?? idx}`;
             const isChildCondition = question.parentcontent
               ? shouldShowConditionedQuestion(question.parentcontent.qId)
@@ -717,7 +706,7 @@ const QuestionTab = () => {
                   }}
                 >
                   <QuestionComponent
-                    idx={question.qIdx ?? idx}
+                    idx={idx}
                     id={question._id}
                     isLinked={(ansidx) =>
                       checkIsLinkedForQuestionOption(ansidx, idx)

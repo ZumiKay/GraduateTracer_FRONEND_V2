@@ -28,7 +28,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       <Button
         variant="light"
         startContent={<FiChevronLeft />}
-        onClick={onPrevious}
+        onPress={onPrevious}
         isDisabled={currentPage === 1}
         aria-label="Go to previous page"
       >

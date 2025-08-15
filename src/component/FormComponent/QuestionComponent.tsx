@@ -261,12 +261,12 @@ const QuestionComponent = memo(
         className="w-full h-fit flex flex-col rounded-md bg-white border-[15px] items-center gap-y-5 py-5 relative"
         style={{ borderColor: color }}
       >
-        {idx && !value.parentcontent && (
+        {!value.parentcontent && (
           <div
             style={{ backgroundColor: color }}
             className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px] text-center "
           >
-            {`Question ${idx + 1}`}
+            {`Question ${value.qIdx}`}
           </div>
         )}
 

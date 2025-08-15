@@ -4,6 +4,7 @@ import { ContentType, QuestionType } from "../types/Form.types";
 
 const mkMultiple = (formId = "f1"): ContentType => ({
   _id: "q1",
+  qIdx: 1,
   formId,
   type: QuestionType.MultipleChoice,
   multiple: [
@@ -15,6 +16,7 @@ const mkMultiple = (formId = "f1"): ContentType => ({
 
 const mkCheckbox = (formId = "f1"): ContentType => ({
   _id: "q2",
+  qIdx: 1,
   formId,
   type: QuestionType.CheckBox,
   checkbox: [
@@ -30,6 +32,7 @@ describe("useFormResponses checkbox/multiple conditional logic", () => {
     const child: ContentType = {
       _id: "child1",
       formId: "f1",
+      qIdx: 1,
       type: QuestionType.Text,
       parentcontent: { qId: parent._id!, optIdx: 1 },
     };
@@ -60,12 +63,14 @@ describe("useFormResponses checkbox/multiple conditional logic", () => {
     const parent = mkCheckbox();
     const childIdx1: ContentType = {
       _id: "child2",
+      qIdx: 1,
       formId: "f1",
       type: QuestionType.Text,
       parentcontent: { qId: parent._id!, optIdx: 0 },
     };
     const childIdx2: ContentType = {
       _id: "child3",
+      qIdx: 1,
       formId: "f1",
       type: QuestionType.Text,
       parentcontent: { qId: parent._id!, optIdx: 2 },

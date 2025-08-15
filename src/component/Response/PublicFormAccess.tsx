@@ -13,8 +13,7 @@ import {
 import { FiUser, FiMail, FiLock, FiUserCheck } from "react-icons/fi";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import ApiRequest, { ApiRequestReturnType } from "../../hooks/ApiHook";
-import { FormDataType } from "../../types/Form.types";
+import ApiRequest from "../../hooks/ApiHook";
 import { PasswordInput } from "../FormComponent/Input";
 import { ErrorToast } from "../Modal/AlertModal";
 import SuccessToast from "../Modal/AlertModal";
@@ -25,6 +24,7 @@ import {
   clearGuestData,
   validateGuestEmail,
 } from "../../utils/publicFormUtils";
+import useRespondentFormPaginaition from "./hooks/usePaginatedFormData";
 
 interface PublicFormAccessProps {
   token?: string;
@@ -42,12 +42,12 @@ interface GuestData {
 }
 
 // Custom hooks for React Query
-const useUserProfile = () => {
+const useUserProfile = (enabled: boolean = true, email: string) => {
   return useQuery({
     queryKey: ["userProfile"],
     queryFn: async () => {
       const result = await ApiRequest({
-        url: "user/profile",
+        url: "user/profile?email=" + email,
         method: "GET",
         cookie: true,
       });
@@ -55,32 +55,7 @@ const useUserProfile = () => {
     },
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-};
-
-const useFormData = (formId: string, token?: string) => {
-  return useQuery({
-    queryKey: ["formData", formId, token],
-    queryFn: async () => {
-      const url = token
-        ? `response/form/${formId}?token=${token}`
-        : `response/form/${formId}`;
-
-      const result = (await ApiRequest({
-        url,
-        method: "GET",
-      })) as ApiRequestReturnType;
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || "Form not found or access denied");
-      }
-      console.log({ result });
-
-      return result.data as FormDataType;
-    },
-    enabled: !!formId,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    retry: 1,
+    enabled, // Only run when enabled
   });
 };
 
@@ -104,40 +79,43 @@ const useLogin = () => {
 };
 
 const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
-  const { formId, token } = useParams<{ formId: string; token?: string }>();
-
-  // React Query hooks
-  const {
-    data: userProfileData,
-    isLoading: isLoadingProfile,
-    error: profileError,
-  } = useUserProfile();
-
-  const {
-    data: form,
-    isLoading: isLoadingForm,
-    error: formError,
-  } = useFormData(formId || "", token);
+  const { formId, token } = useParams<{ formId: string; token: string }>();
 
   const loginMutation = useLogin();
 
-  // Local state
-  const [accessMode, setAccessMode] = useState<
-    "login" | "guest" | "authenticated"
-  >("login");
-  const [showGuestForm, setShowGuestForm] = useState(false);
-
-  // Form states
   const [loginData, setLoginData] = useState<LoginData>({
     email: "",
     password: "",
     rememberMe: false,
   });
-
   const [guestData, setGuestData] = useState<GuestData>({
     name: "",
     email: "",
   });
+
+  //Fetch Content
+  const formReqData = useRespondentFormPaginaition({
+    formId,
+    token,
+  });
+  const [accessMode, setAccessMode] = useState<
+    "login" | "guest" | "authenticated"
+  >("login");
+
+  const {
+    data: userProfileData,
+    isLoading: isLoadingProfile,
+    error: profileError,
+  } = useUserProfile(
+    !!formReqData.formState &&
+      !formReqData.isLoading &&
+      !guestData &&
+      loginData &&
+      accessMode === "authenticated",
+    loginData.email
+  );
+
+  const [showGuestForm, setShowGuestForm] = useState(false);
 
   // Check authentication status based on React Query data
   useEffect(() => {
@@ -157,21 +135,18 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }
   }, [userProfileData, isLoadingProfile, profileError]);
 
-  // Helper function to clear guest session
   const clearGuestSession = () => {
     clearGuestData();
     setAccessMode("login");
     setGuestData({ name: "", email: "" });
   };
 
-  // Helper function to set guest session
   const setGuestSession = (data: GuestData) => {
     storeGuestData(data);
     setGuestData(data);
     setAccessMode("guest");
   };
 
-  // Handle login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -204,7 +179,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }
   };
 
-  // Handle guest access
   const handleGuestAccess = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -226,7 +200,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }
 
     try {
-      // Store guest data in session/localStorage for the form component
       setGuestSession(guestData);
       SuccessToast({
         title: "Success",
@@ -240,7 +213,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }
   };
 
-  // Handle input changes
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setLoginData((prev) => ({
@@ -257,8 +229,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }));
   };
 
-  // Loading state
-  if (isLoadingProfile || isLoadingForm) {
+  if (isLoadingProfile || formReqData.isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <Spinner size="lg" />
@@ -266,10 +237,11 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     );
   }
 
-  // Error state
-  if (formError && !form) {
+  if (formReqData.error && !formReqData.formState) {
     const errorMessage =
-      formError instanceof Error ? formError.message : "Failed to load form";
+      formReqData.error instanceof Error
+        ? formReqData.error.message
+        : "Failed to load form";
     return (
       <div className="flex justify-center items-center min-h-screen">
         <Alert color="danger" title="Error">
@@ -279,7 +251,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     );
   }
 
-  // If authenticated or guest access granted, show the form
   if (accessMode === "authenticated" || accessMode === "guest") {
     return (
       <div className="w-full min-h-screen">
@@ -298,6 +269,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         )}
 
         <RespondentForm
+          data={formReqData}
           isGuest={accessMode === "guest"}
           guestData={accessMode === "guest" ? guestData : undefined}
         />
@@ -305,7 +277,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     );
   }
 
-  // Show login page with optional guest access
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -315,7 +286,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
               <FiUser className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-gray-800">
-              {form?.title || "Form Access"}
+              {formReqData.formState?.title || "Form Access"}
             </h1>
           </div>
         </CardHeader>
@@ -429,7 +400,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
                   type="submit"
                   color="secondary"
                   className="flex-1"
-                  isLoading={false} // Guest access doesn't require async operation
+                  isLoading={false}
                   startContent={<FiUserCheck />}
                 >
                   Continue as Guest
