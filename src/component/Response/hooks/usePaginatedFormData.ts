@@ -1,6 +1,4 @@
-//use Form pagination fetch
-
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormDataType } from "../../../types/Form.types";
 import { useQuery } from "@tanstack/react-query";
 import ApiRequest from "../../../hooks/ApiHook";
@@ -9,8 +7,6 @@ import { useNavigate } from "react-router";
 type useRespondentFormPaginationProps = {
   formId?: string;
   token?: string;
-  currentPage?: number;
-  setcurrentPage?: React.Dispatch<React.SetStateAction<number>>;
 };
 
 export type UseRespondentFormPaginationReturn = {
@@ -28,16 +24,14 @@ export type UseRespondentFormPaginationReturn = {
 const useRespondentFormPaginaition = ({
   formId,
   token,
-  currentPage,
-  setcurrentPage,
 }: useRespondentFormPaginationProps): UseRespondentFormPaginationReturn => {
   const navigate = useNavigate();
+  const [currentPage, setcurrentPage] = useState(1);
 
   const isValidAccess = useMemo(() => {
     return !!(formId && token);
   }, [formId, token]);
 
-  // Validate access - only navigate when access becomes invalid
   useEffect(() => {
     if (!isValidAccess) {
       navigate("/notfound");

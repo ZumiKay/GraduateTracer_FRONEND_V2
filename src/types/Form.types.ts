@@ -1,5 +1,6 @@
 import { DateValue, RangeValue } from "@heroui/react";
 import { Content, JSONContent } from "@tiptap/react";
+import { AnswerKeyPairValueType } from "../component/Response/Response.type";
 
 // Form Enums
 export enum FormTypeEnum {
@@ -12,6 +13,11 @@ export enum Tiptapcontent_Enum {
   paragraph = "paragraph",
   heading = "heading",
   bulletlist = "bulletPointj",
+}
+
+export enum CollaborateActionType {
+  add = "add",
+  remove = "remove",
 }
 
 export type FormType = `${FormTypeEnum}`;
@@ -32,9 +38,9 @@ export interface FormSettingType {
   navbar?: string;
   text?: string;
   email?: boolean;
-  returnscore?: returnscore; // Only available for quiz type forms
+  returnscore?: returnscore;
   autosave?: boolean;
-  acceptResponses?: boolean; // New field to control if form accepts responses
+  acceptResponses?: boolean;
 }
 
 interface User {
@@ -52,14 +58,17 @@ export interface FormDataType {
   contents?: Array<ContentType>;
   setting?: FormSettingType;
   user?: User;
-  owners?: Array<string>; // Additional owners/collaborators
+  owners?: Array<string>;
+  editors?: Array<string>;
   totalpage: number;
   totalscore?: number;
   createdAt?: Date;
   updatedAt?: Date;
   responses?: Array<FormResponseType>;
-  isOwner?: boolean; // True if current user is the primary owner
-  isCollaborator?: boolean; // True if current user is a collaborator
+  isOwner?: boolean;
+  isCreator?: boolean;
+  isEditor?: boolean;
+  lastqIdx?: number;
 }
 
 // Question Types
@@ -82,8 +91,8 @@ export interface RangeType<t> {
   end: t;
 }
 
-// Checkbox Question Type
-export interface CheckboxQuestionType {
+// Choice Question Type
+export interface ChoiceQuestionType {
   idx: number;
   content: string;
 }
@@ -112,7 +121,7 @@ export interface ConditionalType {
 
 export interface ParentContentType {
   _id?: string;
-  qId: string;
+  qId?: string;
   qIdx?: number;
   optIdx: number;
 }
@@ -125,15 +134,15 @@ export interface ContentType<t = unknown> {
   type: QuestionType;
   formId: string;
   text?: string;
-  checkbox?: Array<CheckboxQuestionType>;
-  multiple?: Array<CheckboxQuestionType>;
+  checkbox?: Array<ChoiceQuestionType>;
+  multiple?: Array<ChoiceQuestionType>;
   rangedate?: RangeValue<DateValue>;
   rangenumber?: RangeType<number>;
-  selection?: Array<string>;
+  selection?: Array<ChoiceQuestionType>;
   parentcontent?: ParentContentType;
   date?: Date;
   score?: number;
-  answer?: AnswerKey;
+  answer?: AnswerKey | AnswerKeyPairValueType[] | AnswerKeyPairValueType;
   conditional?: Array<ConditionalType>;
   require?: boolean;
   page?: number;
@@ -146,9 +155,9 @@ export const DefaultContentType: ContentType = {
   type: QuestionType.Text,
   formId: "",
   page: 1,
+  qIdx: 0,
   title: {
     type: "doc",
-
     content: [
       {
         type: "heading",
@@ -194,8 +203,11 @@ export interface ResponseSetType {
     | boolean
     | RangeType<number>
     | RangeType<Date>
-    | Date;
+    | Date
+    | AnswerKeyPairValueType;
   score?: number;
+  isManuallyScored?: boolean;
+  question: ContentType;
 }
 
 export interface FormResponseType {
@@ -235,9 +247,8 @@ export const DefaultFormSetting: FormSettingType = {
 export const getDefaultFormSetting = (formType: FormType): FormSettingType => {
   const baseSettings = { ...DefaultFormSetting };
 
-  // Only add returnscore setting for quiz types
   if (formType === FormTypeEnum.Quiz) {
-    baseSettings.returnscore = returnscore.manual; // Default to manual for quizzes
+    baseSettings.returnscore = returnscore.manual;
   }
 
   return baseSettings;
@@ -272,5 +283,3 @@ export interface FormValidationSummary {
   canSubmit?: boolean;
   action?: string;
 }
-
-// Default Form State

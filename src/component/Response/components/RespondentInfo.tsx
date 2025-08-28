@@ -1,17 +1,10 @@
 import React from "react";
 import { Card, CardHeader, CardBody, Input } from "@heroui/react";
+import { RespondentInfoType } from "../Response.type";
 
 interface RespondentInfoProps {
-  respondentInfo: {
-    name: string;
-    email: string;
-  };
-  setRespondentInfo: React.Dispatch<
-    React.SetStateAction<{
-      name: string;
-      email: string;
-    }>
-  >;
+  respondentInfo: RespondentInfoType;
+  setRespondentInfo: React.Dispatch<React.SetStateAction<RespondentInfoType>>;
   isGuestMode: boolean;
 }
 
@@ -32,7 +25,7 @@ export const RespondentInfo: React.FC<RespondentInfoProps> = ({
           <Input
             label="Name"
             placeholder="Enter your name"
-            value={respondentInfo.name}
+            value={respondentInfo?.name}
             onChange={(e) =>
               setRespondentInfo((prev) => ({
                 ...prev,
@@ -53,7 +46,7 @@ export const RespondentInfo: React.FC<RespondentInfoProps> = ({
               }))
             }
             isDisabled={isGuestMode}
-            isRequired
+            readOnly={true}
           />
         </div>
       </CardBody>

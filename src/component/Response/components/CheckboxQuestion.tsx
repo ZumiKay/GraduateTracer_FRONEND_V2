@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { ContentType } from "../../../types/Form.types";
 import { ResponseValue } from "../hooks/useFormResponses";
-import Tiptap from "../../FormComponent/TipTabEditor";
+import StyledTiptap from "./StyledTiptap";
 
 interface CheckboxQuestionProps {
   question: ContentType;
@@ -29,9 +29,11 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
       </div>
       <div className="flex items-start gap-3">
         <div className="flex-1">
-          <div className="prose prose-sm max-w-none">
-            <Tiptap value={question.title as never} readonly />
-          </div>
+          <StyledTiptap
+            value={question.title as never}
+            readonly
+            variant="question"
+          />
           {question.require && (
             <span className="text-red-500 text-sm ml-2">*Required</span>
           )}
@@ -75,7 +77,6 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
                 type="checkbox"
                 checked={isChecked}
                 onChange={(e) => {
-                  // Normalize current selections to numeric indices
                   const currentSelections = Array.isArray(currentResponse)
                     ? (currentResponse as (number | string)[])
                         .map((v) =>
@@ -97,7 +98,8 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
                   }
 
                   const newSelections = Array.from(next).sort((a, b) => a - b);
-                  updateResponse(question._id || "", newSelections);
+
+                  updateResponse(question._id ?? "", newSelections);
                 }}
                 className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                 disabled={false}

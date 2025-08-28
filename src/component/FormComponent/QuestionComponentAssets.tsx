@@ -1,6 +1,6 @@
 import { useSelector } from "react-redux";
 import {
-  CheckboxQuestionType,
+  ChoiceQuestionType,
   ConditionalType,
   ContentType,
   QuestionType,
@@ -39,8 +39,7 @@ export const ChoiceQuestionEdit = ({
 
   const isMultipleChoice = type === QuestionType.MultipleChoice;
   const optionKey = isMultipleChoice ? "multiple" : "checkbox";
-  const options =
-    (questionstate[optionKey] as Array<CheckboxQuestionType>) || [];
+  const options = (questionstate[optionKey] as Array<ChoiceQuestionType>) || [];
 
   const handleAddOption = () => {
     setquestionsate({
@@ -99,7 +98,7 @@ export const ChoiceQuestionEdit = ({
     }
   };
 
-  const renderOption = (option: CheckboxQuestionType, idx: number) => {
+  const renderOption = (option: ChoiceQuestionType, idx: number) => {
     const commonProps = {
       key: `Question${allquestion.indexOf(questionstate)}${optionKey}${idx}`,
       idx,
@@ -149,8 +148,6 @@ export const SelectionQuestionEdit = ({
     (root: RootState) => root.allform.allquestion
   );
   const handleConditionQuestion = (ansidx: number) => {
-    //Refracter below code
-
     if (isLinked && isLinked(ansidx)) {
       if (removeCondition) removeCondition(ansidx, "unlink");
     } else {
@@ -158,14 +155,17 @@ export const SelectionQuestionEdit = ({
     }
   };
   const handleAddOption = () => {
-    setstate({ selection: [...(state.selection ?? []), ""] });
+    setstate({
+      selection: [
+        ...(state.selection ?? []),
+        { idx: state.selection?.length ?? 0, content: "" },
+      ],
+    });
   };
 
   const handleDeleteOption = (didx: number) => {
-    //delete Selection Option
     setstate({ selection: state.selection?.filter((_, idx) => idx !== didx) });
 
-    //remove condition from question
     removeCondition?.(didx, "delete");
   };
 
@@ -182,7 +182,7 @@ export const SelectionQuestionEdit = ({
               type="text"
               variant="bordered"
               placeholder="option"
-              value={option}
+              value={option.content}
               endContent={
                 <DeleteIcon
                   onClick={() => {
@@ -197,7 +197,7 @@ export const SelectionQuestionEdit = ({
                 setstate({
                   selection: state.selection?.map((item, i) => {
                     if (i === idx) {
-                      return (item = target.value);
+                      return { idx: i, content: target.value };
                     }
                     return item;
                   }),
@@ -243,7 +243,6 @@ export const RangeNumberInputComponent = ({
     }
   );
 
-  // Update local state when val prop changes
   useEffect(() => {
     if (val) {
       setvalue(val);

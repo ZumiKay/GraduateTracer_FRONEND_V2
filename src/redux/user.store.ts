@@ -6,6 +6,7 @@ import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 interface Usersessiontype {
   _id: string;
   name: string;
+  email: string;
   role: ROLE;
 }
 
@@ -77,8 +78,9 @@ const userstore = createSlice({
         state.isAuthenticated = true;
       })
       .addCase(AsyncGetUser.fulfilled, (state, action) => {
+        const val = action.payload as unknown as SessionState;
         state.loading = false;
-        state.user = action.payload as unknown as Usersessiontype;
+        state.user = val.user;
         state.isAuthenticated = true;
       })
       .addCase(AsyncGetUser.rejected, (state, action) => {

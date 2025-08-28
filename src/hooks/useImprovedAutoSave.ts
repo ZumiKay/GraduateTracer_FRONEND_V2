@@ -5,11 +5,7 @@ import { ContentType } from "../types/Form.types";
 import { AutoSaveQuestion } from "../pages/FormPage.action";
 import { ErrorToast } from "../component/Modal/AlertModal";
 import SuccessToast from "../component/Modal/AlertModal";
-import { setpauseAutoSave } from "../redux/formstore";
-import {
-  validateRangeQuestions,
-  getRangeValidationSummary,
-} from "../utils/rangeValidation";
+import { setallquestion, setpauseAutoSave } from "../redux/formstore";
 
 interface AutoSaveStatus {
   status: "idle" | "saving" | "saved" | "error" | "offline";
@@ -52,8 +48,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const retryTimeoutRef = useRef<number | null>(null);
   const lastSaveAttemptRef = useRef<Date | null>(null);
 
-  // Generate hash for data to detect actual changes
-  const generateDataHash = useCallback((data: ContentType[]) => {
+  const generateDataString = useCallback((data: ContentType[]) => {
     return JSON.stringify(
       data.map((q) => ({
         _id: q._id,
@@ -67,13 +62,23 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     );
   }, []);
 
-  // Check if data has actually changed
+  //Update Allquestion State
+
+  const updateQuestionState = useCallback(
+    (saved: Array<ContentType>) => {
+      const savedDataOnly = [...saved.filter((i) => i._id)];
+      dispatch(setallquestion(savedDataOnly));
+    },
+
+    [dispatch]
+  );
+
   const hasDataChanged = useCallback(
     (newData: ContentType[]) => {
-      const newHash = generateDataHash(newData);
+      const newHash = generateDataString(newData);
       return newHash !== lastSavedHash;
     },
-    [generateDataHash, lastSavedHash]
+    [generateDataString, lastSavedHash]
   );
 
   // Enhanced save function with retry logic and range validation
@@ -84,26 +89,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     ): Promise<boolean> => {
       if (!formstate._id || pauseAutoSave) return false;
 
-      // Validate ranges before saving
-      const rangeErrors = validateRangeQuestions(dataToSave);
-      if (rangeErrors.length > 0) {
-        const errorMessage = getRangeValidationSummary(rangeErrors);
-        setAutoSaveStatus({
-          status: "error",
-          lastSaved: autoSaveStatus.lastSaved,
-          error: "Range validation failed",
-          retryCount: 0,
-        });
-
-        ErrorToast({
-          title: "Validation Error",
-          content: errorMessage,
-          toastid: "range-validation-error",
-        });
-
-        return false;
-      }
-
       try {
         setAutoSaveStatus((prev) => ({
           ...prev,
@@ -112,23 +97,15 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           retryCount: attempt,
         }));
 
-        const saveData = dataToSave.map((question) => ({
-          ...question,
-          conditional: question.conditional?.map((cond) => ({
-            ...cond,
-            contentIdx: undefined,
-          })),
-        }));
-
         const response = await AutoSaveQuestion({
-          data: saveData,
+          data: dataToSave,
           page,
           formId: formstate._id,
           type: "save",
         });
 
         if (response.success) {
-          const newHash = generateDataHash(dataToSave);
+          const newHash = generateDataString(dataToSave);
           setLastSavedHash(newHash);
           setAutoSaveStatus({
             status: "saved",
@@ -137,6 +114,9 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
             retryCount: 0,
           });
           lastSaveAttemptRef.current = new Date();
+
+          //Instant Update State
+          updateQuestionState(response.data as Array<ContentType>);
           return true;
         } else {
           throw new Error(response.message || "Save failed");
@@ -178,11 +158,12 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     },
     [
       formstate._id,
+      pauseAutoSave,
       page,
+      generateDataString,
+      updateQuestionState,
       retryAttempts,
       retryDelayMs,
-      pauseAutoSave,
-      generateDataHash,
       autoSaveStatus.lastSaved,
     ]
   );
@@ -234,7 +215,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
       debounceTimeoutRef.current = setTimeout(() => {
         if (!isOnline) {
-          // Queue for offline processing
           setOfflineQueue((prev) => {
             const newQueue = [...prev, data];
             return newQueue.slice(-offlineQueueSize); // Keep only latest items
@@ -258,7 +238,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     ]
   );
 
-  // Manual save function with range validation
   const manualSave = useCallback(async (): Promise<boolean> => {
     if (!formstate._id) {
       console.warn("Manual save failed: No form ID");
@@ -267,27 +246,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
     if (allquestion.length === 0) {
       console.warn("Manual save failed: No questions to save");
-      return false;
-    }
-
-    // Validate ranges before saving
-    const rangeErrors = validateRangeQuestions(allquestion);
-    if (rangeErrors.length > 0) {
-      const errorMessage = getRangeValidationSummary(rangeErrors);
-
-      setAutoSaveStatus((prev) => ({
-        ...prev,
-        status: "error",
-        error: "Range validation failed",
-        retryCount: 0,
-      }));
-
-      ErrorToast({
-        title: "Validation Error",
-        content: errorMessage,
-        toastid: "manual-save-validation-error",
-      });
-
       return false;
     }
 
@@ -311,8 +269,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           toastid: "manual-save",
         });
 
-        // Update last saved hash
-        const newHash = generateDataHash(allquestion);
+        const newHash = generateDataString(allquestion);
         setLastSavedHash(newHash);
       }
 
@@ -338,7 +295,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     } finally {
       dispatch(setpauseAutoSave(false));
     }
-  }, [formstate._id, allquestion, performSave, dispatch, generateDataHash]);
+  }, [formstate._id, allquestion, dispatch, performSave, generateDataString]);
 
   // Main autosave effect
   useEffect(() => {
@@ -375,9 +332,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (autoSaveStatus.status === "saving" || hasDataChanged(allquestion)) {
         e.preventDefault();
-        e.returnValue =
-          "You have unsaved changes. Are you sure you want to leave?";
-        return e.returnValue;
       }
     };
 

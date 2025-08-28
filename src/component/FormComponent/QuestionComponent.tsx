@@ -57,7 +57,6 @@ const selectShowLinkedQuestions = (state: RootState) =>
 
 const QuestionComponent = memo(
   ({
-    id,
     idx,
     value,
     color,
@@ -75,13 +74,12 @@ const QuestionComponent = memo(
     const autosave = useSelector(selectAutosave);
     const allshowLinkedQuestions = useSelector(selectShowLinkedQuestions);
 
-    const questionId = useMemo(() => id ?? idx, [id, idx]);
+    const questionId = useMemo(() => value._id ?? idx, [idx, value._id]);
 
     const conditionInfo = useMemo(() => isConditioned(), [isConditioned]);
     const isNotConditioned = conditionInfo.qIdx === -1;
     const isNotTextType = value.type !== QuestionType.Text;
 
-    // Memoized current show state - show by default if no explicit setting exists
     const currentShowState = useMemo(() => {
       const linkedQuestion = allshowLinkedQuestions?.find(
         (item) => item.question === questionId
@@ -92,7 +90,7 @@ const QuestionComponent = memo(
     const onUpdateState = useCallback(
       async (newVal: Partial<ContentType>) => {
         const updatedQuestions = allquestion.map((question, qidx) => {
-          if ((question._id && question._id === id) || qidx === idx) {
+          if ((question._id && question._id === value._id) || qidx === idx) {
             const updatedQuestion = { ...question, ...newVal };
 
             if (autosave) {
@@ -107,7 +105,7 @@ const QuestionComponent = memo(
 
         dispatch(setallquestion(updatedQuestions as Array<ContentType>));
       },
-      [allquestion, dispatch, id, idx, autosave]
+      [allquestion, dispatch, value._id, idx, autosave]
     );
 
     const renderContentBaseOnQuestionType = useCallback(() => {
@@ -255,20 +253,22 @@ const QuestionComponent = memo(
 
       dispatch(setshowLinkedQuestion(newState as never));
     }, [allshowLinkedQuestions, dispatch, questionId, currentShowState]);
+    const childContentIdx = useMemo(
+      () => (value.parentcontent?.qIdx ?? 0) + idx,
+      [idx, value.parentcontent?.qIdx]
+    );
 
     return (
       <div
         className="w-full h-fit flex flex-col rounded-md bg-white border-[15px] items-center gap-y-5 py-5 relative"
         style={{ borderColor: color }}
       >
-        {!value.parentcontent && (
-          <div
-            style={{ backgroundColor: color }}
-            className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px] text-center "
-          >
-            {`Question ${value.qIdx}`}
-          </div>
-        )}
+        <div
+          style={{ backgroundColor: color }}
+          className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px] text-center "
+        >
+          {`Question ${value.parentcontent ? childContentIdx : value.qIdx}`}
+        </div>
 
         <div className="text_editor w-[97%] bg-white p-3 rounded-b-md flex flex-row items-start justify-start gap-x-3">
           <Tiptap

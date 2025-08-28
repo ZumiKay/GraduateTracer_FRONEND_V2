@@ -87,18 +87,14 @@ function FormPage() {
   }, [param.id, formstate._id]);
 
   const { data, error, isLoading, isFetching } = useQuery({
-    // Remove reloaddata from the key to avoid accidental refetches on local state changes
     queryKey: ["FormInfo", formId, page, tab],
     queryFn: () => fetchFormTab({ tab, page, formId }),
-    // Do not use placeholder data to ensure we only apply fresh server data when reloading
 
-    // Keep data fresh for a bit while editing; increase if needed
     staleTime: 30000,
-    // Only fetch when explicitly requested via reloaddata and allowed tabs
     enabled:
       !!formId && reloaddata && tab !== "analytics" && tab !== "response",
-    refetchOnWindowFocus: false, // Prevent window refetches
-    refetchOnReconnect: false, // Prevent reconnect refetches
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     refetchOnMount: false,
     retry: (failureCount, error: Error) => {
       // Don't retry on 403/404 errors
@@ -110,25 +106,24 @@ function FormPage() {
     },
   });
 
-  // Handle success and error in a single optimized useEffect
   useEffect(() => {
-    // Handle loading state (treat background fetch as loading to reflect UI intent)
     dispatch(setfetchloading(isLoading || isFetching));
 
-    // Handle initial navigation check
     if (!param.id) {
       navigate("/dashboard", { replace: true });
       return;
     }
 
-    // Handle success for any fresh data
     if (data && !error) {
       const result = data as FormDataType;
 
-      // Double-check access on frontend
-      const hasAccess = result.isOwner || result.isCollaborator;
+      const hasAccess = result.isOwner || result.isCreator || result.isEditor;
 
-      if (result.isOwner === undefined && result.isCollaborator === undefined) {
+      if (
+        result.isOwner === undefined &&
+        result.isCreator === undefined &&
+        result.isEditor === undefined
+      ) {
         ErrorToast({
           toastid: "FormAccess",
           title: "Access Denied",
@@ -148,31 +143,24 @@ function FormPage() {
         return;
       }
 
-      // Only write new data when reload was explicitly requested
       if (reloaddata) {
-        // Normalize contents to ensure each question has a valid page set
         const normalizedContents = (result.contents ?? []).map((q) => ({
           ...q,
           page: q.page ?? page,
         }));
 
-        // Set form content - preserve existing totalscore when updating
         dispatch(
           setformstate({
             ...result,
-            contents: undefined, // Remove contents to avoid duplication
-            totalscore: result.totalscore ?? formstate.totalscore, // Preserve existing totalscore if not in server data
+            contents: undefined,
+            totalscore: result.totalscore ?? formstate.totalscore,
           })
         );
         dispatch(setallquestion(normalizedContents));
         dispatch(setprevallquestion(normalizedContents));
-
-        // Reset reload flag and clear loading after successful write
         dispatch(setreloaddata(false));
         dispatch(setfetchloading(false));
       }
-
-      // Skip any additional refetch-triggered side-effects
     }
 
     // Handle errors
@@ -251,9 +239,6 @@ function FormPage() {
         dispatch(setreloaddata(true));
       };
 
-      // Note: Removed unsaved questions check when switching tabs
-      // The Question Tab component handles its own navigation protection
-      // Tab switching should not be blocked by unsaved questions
       continueTabSwitching(val, proceedFunc);
     },
     [continueTabSwitching, setParams, dispatch]
@@ -349,7 +334,7 @@ function FormPage() {
 
       {/* Pagination */}
 
-      {tab !== "analytics" && tab !== "setting" ? (
+      {tab === "question" || tab === "solution" ? (
         <div className="w-full h-fit grid place-content-center">
           <Pagination
             loop

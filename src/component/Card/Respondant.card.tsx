@@ -12,8 +12,8 @@ import {
   QuestionType,
   RangeType,
 } from "../../types/Form.types";
-import Tiptap from "../FormComponent/TipTabEditor";
-import { useCallback, useMemo, memo } from "react";
+import StyledTiptap from "../Response/components/StyledTiptap";
+import { useCallback, useMemo, memo, useEffect } from "react";
 import {
   ChoiceAnswer,
   DateQuestionType,
@@ -22,6 +22,7 @@ import {
 } from "../FormComponent/Solution/Answer_Component";
 import DateRangeSelector from "../FormComponent/DateRanageSelector";
 import { CalendarDate } from "@internationalized/date";
+import Selection from "../FormComponent/Selection";
 
 interface TextCardProps {
   content: ContentType;
@@ -43,7 +44,15 @@ const Respondant_Question_Card = memo(
       [onSelectAnswer, isDisable]
     );
 
-    // Memoize expensive computations
+    useEffect(() => {
+      if (
+        content.type === QuestionType.CheckBox ||
+        content.type === QuestionType.MultipleChoice
+      ) {
+        console.log({ content });
+      }
+    }, [content]);
+
     const contentTitle = useMemo(() => {
       if (content.parentcontent) {
         return `(Sub-Q of Q${(content.parentcontent.qIdx ?? 0) + 1}.${
@@ -80,7 +89,6 @@ const Respondant_Question_Card = memo(
       }
     }, [content.type]);
 
-    // Memoize style objects to prevent recreation on every render
     const colorAccentStyle = useMemo(
       () => ({
         backgroundColor: color,
@@ -98,7 +106,6 @@ const Respondant_Question_Card = memo(
       [color]
     );
 
-    // Memoized components for different question types
     const MultipleChoiceComponent = useMemo(() => {
       if (content.type !== QuestionType.MultipleChoice) return null;
 
@@ -111,7 +118,7 @@ const Respondant_Question_Card = memo(
             Select one option:
           </p>
           <RadioGroup
-            value={String(content.answer?.answer ?? "")}
+            value={String(content.answer)}
             onValueChange={(val) => handleAnswer(Number(val))}
             className="w-full space-y-2"
             isDisabled={isDisable}
@@ -122,7 +129,7 @@ const Respondant_Question_Card = memo(
                 key={`choice-${content.idx}-${cIdx}`}
                 className="w-full h-fit p-3 mb-3 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors duration-200"
                 value={String(choice.idx ?? cIdx)}
-                aria-label={`Option ${cIdx + 1}`}
+                aria-label={`Option ${cIdx}`}
               >
                 <p className="text-base font-medium text-gray-800 w-full h-full leading-relaxed">
                   {choice.content}
@@ -140,6 +147,8 @@ const Respondant_Question_Card = memo(
       const options = content[content.type];
       if (!options || options.length === 0) return null;
 
+      const answerkey = content.answer as AnswerKey;
+
       return (
         <div className="space-y-3">
           <p className="text-sm font-medium text-gray-700">
@@ -152,11 +161,13 @@ const Respondant_Question_Card = memo(
                 name={`choicename${cIdx}`}
                 choicety={content.type as never}
                 value={
-                  Array.isArray(content.answer?.answer)
-                    ? (content.answer.answer as number[]).includes(
-                        choice.idx ?? cIdx
-                      )
-                      ? choice.idx ?? cIdx
+                  answerkey?.answer
+                    ? Array.isArray(answerkey.answer)
+                      ? (answerkey.answer as number[]).includes(
+                          choice.idx ?? cIdx
+                        )
+                        ? choice.idx ?? cIdx
+                        : -1
                       : -1
                     : -1
                 }
@@ -165,19 +176,17 @@ const Respondant_Question_Card = memo(
                   value: choice.idx ?? cIdx,
                 }}
                 onChange={(val) => {
-                  const currentAnswers = Array.isArray(content.answer?.answer)
-                    ? (content.answer.answer as number[])
+                  const currentAnswers = Array.isArray(answerkey.answer)
+                    ? answerkey.answer
                     : [];
                   const choiceValue = choice.idx ?? cIdx;
 
                   if (val === -1) {
-                    // Remove from array
                     const newAnswers = currentAnswers.filter(
                       (a) => a !== choiceValue
                     );
                     handleAnswer(newAnswers);
                   } else {
-                    // Add to array if not already there
                     if (!currentAnswers.includes(choiceValue)) {
                       handleAnswer([...currentAnswers, choiceValue]);
                     }
@@ -210,23 +219,23 @@ const Respondant_Question_Card = memo(
           }
         : undefined;
 
+      const answerKey = content.answer as AnswerKey;
+
       return (
         rangeData && (
           <DateRangeSelector
             rangvalue={rangeData as RangeValue<DateValue>}
             idx={idx}
-            value={
-              content.answer?.answer as RangeValue<DateValue> | null | undefined
-            }
+            value={answerKey.answer as RangeValue<DateValue> | null | undefined}
             onSelectionChange={handleAnswer}
           />
         )
       );
     }, [content, handleAnswer, idx]);
 
-    // Optimized RenderAnswers with memoized components
     const RenderAnswers = useCallback(() => {
       if (!content.type) return null;
+      const answerKey = content.answer as AnswerKey;
 
       switch (content.type) {
         case QuestionType.MultipleChoice:
@@ -238,17 +247,18 @@ const Respondant_Question_Card = memo(
         case QuestionType.RangeDate:
           return RangeDateComponent;
 
-        case QuestionType.Paragraph:
+        case QuestionType.Paragraph: {
           return (
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-700">Your answer:</p>
               <ParagraphAnswer
-                value={String(content.answer?.answer || "")}
+                value={String(answerKey?.answer || "")}
                 onChange={handleAnswer}
                 readonly={!ty || isDisable}
               />
             </div>
           );
+        }
 
         case QuestionType.RangeNumber:
           return (
@@ -257,7 +267,7 @@ const Respondant_Question_Card = memo(
               <RangeNumberAnswer
                 onChange={handleAnswer}
                 value={content.rangenumber}
-                previousAnswer={content.answer?.answer as RangeType<number>}
+                previousAnswer={answerKey?.answer as RangeType<number>}
                 readonly={isDisable}
               />
             </div>
@@ -268,7 +278,7 @@ const Respondant_Question_Card = memo(
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-700">Select date:</p>
               <DateQuestionType
-                value={content.answer?.answer as Date}
+                value={answerKey?.answer as Date}
                 placeholder="Select Date"
                 onChange={handleAnswer}
                 readonly={isDisable}
@@ -285,7 +295,7 @@ const Respondant_Question_Card = memo(
                 radius="sm"
                 type="number"
                 placeholder="Enter your answer"
-                value={String(content.answer?.answer || "")}
+                value={String(answerKey?.answer || "")}
                 errorMessage="Please enter a valid number"
                 onChange={(e) => handleAnswer(e.target.value)}
                 className="w-full"
@@ -306,7 +316,7 @@ const Respondant_Question_Card = memo(
                 radius="sm"
                 type="text"
                 placeholder="Enter your answer"
-                value={String(content.answer?.answer || "")}
+                value={String(answerKey?.answer || "")}
                 onChange={(e) => handleAnswer(e.target.value)}
                 readOnly={!ty || isDisable}
                 className="w-full"
@@ -316,19 +326,30 @@ const Respondant_Question_Card = memo(
             </div>
           );
 
+        case QuestionType.Selection: {
+          return (
+            <Selection
+              items={content.selection as never}
+              selectedKeys={[String(answerKey.answer)]}
+              onSelectionChange={(val) => handleAnswer(val)}
+            />
+          );
+        }
+
         default:
           return null;
       }
     }, [
       content.type,
-      content.answer?.answer,
+      content.answer,
       content.rangenumber,
+      content.selection,
       MultipleChoiceComponent,
       CheckboxComponent,
       RangeDateComponent,
       handleAnswer,
-      ty,
       isDisable,
+      ty,
     ]);
 
     return (
@@ -339,12 +360,10 @@ const Respondant_Question_Card = memo(
             : "hover:shadow-xl hover:border-gray-200 hover:-translate-y-1"
         }`}
       >
-        {/* Color accent bar with gradient */}
         <div style={colorAccentStyle} className="h-3 w-full relative">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
         </div>
 
-        {/* Question number badge - improved styling */}
         <div
           style={questionBadgeStyle}
           className="absolute top-5 right-5 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg border-2 border-white/20 backdrop-blur-sm"
@@ -352,7 +371,6 @@ const Respondant_Question_Card = memo(
           {contentTitle}
         </div>
 
-        {/* Question type badge */}
         <div className="absolute top-5 left-5">
           <Chip
             color="primary"
@@ -365,14 +383,12 @@ const Respondant_Question_Card = memo(
           </Chip>
         </div>
 
-        {/* Disabled overlay */}
         {isDisable && (
           <div className="absolute inset-0 bg-gray-900/10 z-10 pointer-events-none" />
         )}
 
         {/* Main content */}
         <div className="p-6 pt-16 space-y-6">
-          {/* Question title */}
           <div className="pr-4">
             <div
               className={`tiptab_container w-full ${
@@ -381,7 +397,11 @@ const Respondant_Question_Card = memo(
                   : ""
               }`}
             >
-              <Tiptap value={content.title as never} readonly />
+              <StyledTiptap
+                value={content.title as never}
+                readonly
+                variant="question"
+              />
             </div>
           </div>
 
@@ -442,7 +462,6 @@ const Respondant_Question_Card = memo(
   }
 );
 
-// Add display name for debugging
 Respondant_Question_Card.displayName = "Respondant_Question_Card";
 
 export default Respondant_Question_Card;

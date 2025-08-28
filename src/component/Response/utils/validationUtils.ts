@@ -19,17 +19,12 @@ export const createValidationSummary = (
   const requiredQuestions = visibleQuestions.filter((q) => q.require);
   const completedRequired = requiredQuestions.filter((q) => {
     const response = responses.find((r) => r.questionId === q._id);
-    if (!response || !response.response) return false;
+    if (!response) return false;
 
     switch (q.type) {
       case QuestionType.CheckBox:
         return Array.isArray(response.response) && response.response.length > 0;
-      case QuestionType.MultipleChoice:
-        return (
-          response.response !== "" &&
-          response.response !== null &&
-          response.response !== undefined
-        );
+
       case QuestionType.ShortAnswer:
       case QuestionType.Paragraph:
         return (
@@ -67,9 +62,6 @@ export const createValidationSummary = (
   const missingRequired = requiredQuestions
     .filter((q) => !completedRequired.includes(q))
     .map((q) => {
-      if (typeof q.title === "string" && q.title.trim()) {
-        return q.title.replace(/<[^>]*>/g, "").trim();
-      }
       const index = questions.findIndex((originalQ) => originalQ._id === q._id);
       return `Question ${index + 1}`;
     });

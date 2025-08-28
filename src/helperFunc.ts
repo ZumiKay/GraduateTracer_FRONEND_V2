@@ -1,3 +1,5 @@
+import { ContentType } from "./types/Form.types";
+
 export function hasObjectChanged<T>(oldObject: T, newValue: T): boolean {
   if (oldObject === newValue) return false;
 
@@ -83,3 +85,308 @@ export const CalculateNewIdx = (
   delIndexes: number,
   currentIdx: number
 ): number => Math.abs(currentIdx - delIndexes);
+
+//Copy content with condition with nested child question
+
+//Get Last QIdx
+const getLastQIdx = (
+  allQuestions: Array<ContentType>,
+  targetContent: ContentType
+): number => {
+  const findMaxQIdxInConditionals = (
+    content: ContentType,
+    visited: Set<string> = new Set()
+  ): number => {
+    let localMaxQIdx = content.qIdx || 0;
+
+    const contentKey = content._id?.toString() || `qIdx_${content.qIdx}`;
+    if (visited.has(contentKey)) {
+      return localMaxQIdx;
+    }
+    visited.add(contentKey);
+
+    if (content.conditional && content.conditional.length > 0) {
+      content.conditional.forEach((condition) => {
+        let childContent: ContentType | undefined;
+
+        if (condition.contentId) {
+          childContent = allQuestions.find(
+            (q) =>
+              q._id &&
+              condition.contentId &&
+              q._id.toString() === condition.contentId.toString()
+          );
+        } else if (condition.contentIdx !== undefined) {
+          childContent = allQuestions[condition.contentIdx];
+        }
+
+        if (childContent) {
+          // Get the max qIdx from this child and its nested conditionals
+          const childMaxQIdx = findMaxQIdxInConditionals(
+            childContent,
+            new Set(visited)
+          );
+          localMaxQIdx = Math.max(localMaxQIdx, childMaxQIdx);
+        }
+      });
+    }
+
+    visited.delete(contentKey);
+    return localMaxQIdx;
+  };
+
+  let maxQIdx = Math.max(targetContent.qIdx || 0);
+
+  // Find the maximum qIdx starting from the target content's conditionals
+  if (targetContent.conditional && targetContent.conditional.length > 0) {
+    const nestedMaxQIdx = findMaxQIdxInConditionals(targetContent);
+    maxQIdx = Math.max(maxQIdx, nestedMaxQIdx);
+  }
+
+  return maxQIdx;
+};
+
+export const ConditionContentCopy = ({
+  org,
+  allquestion,
+}: {
+  org: ContentType;
+  allquestion: Array<ContentType>;
+}): Array<ContentType> | [] => {
+  if (!org.conditional || org.conditional.length === 0) {
+    return [];
+  }
+
+  const duplicatedContent: Array<ContentType> = [];
+  const processedIds = new Set<string>();
+
+  let lastQuestionIdx = getLastQIdx(allquestion, org);
+
+  let lastMapIdx = allquestion.findIndex((i) => i.qIdx === lastQuestionIdx);
+
+  const processConditionalContent = (
+    parentContent: ContentType,
+    parentChain: string[] = []
+  ): Array<ContentType> => {
+    const results: Array<ContentType> = [];
+
+    if (!parentContent.conditional || parentContent.conditional.length === 0) {
+      return results;
+    }
+
+    lastQuestionIdx++;
+    // Create a copy of the parent with updated conditional references
+
+    const parentCopy: ContentType = {
+      ...parentContent,
+      _id: undefined,
+      qIdx: lastQuestionIdx,
+      conditional: parentContent.conditional.map((cond, idx) => ({
+        ...cond,
+        _id: undefined,
+        contentId: undefined,
+        contentIdx: idx + 2 + (lastMapIdx || 0), //Assign new Idx
+      })),
+    };
+
+    results.push(parentCopy);
+
+    // Process each conditional child
+    parentContent.conditional.forEach((condition, conditionIndex) => {
+      let childContent: ContentType | undefined;
+
+      if (condition.contentId) {
+        childContent = allquestion.find(
+          (q) =>
+            q._id &&
+            condition.contentId &&
+            q._id.toString() === condition.contentId.toString()
+        );
+      } else if (condition.contentIdx !== undefined) {
+        childContent = allquestion[condition.contentIdx];
+      }
+
+      if (!childContent) {
+        console.warn(`Child content not found for condition:`, condition);
+        return;
+      }
+
+      const contentKey =
+        childContent._id?.toString() || `idx_${condition.contentIdx}`;
+      const chainKey = [...parentChain, contentKey].join("->");
+
+      if (processedIds.has(chainKey)) {
+        console.warn(`Circular dependency detected, skipping:`, chainKey);
+        return;
+      }
+
+      processedIds.add(chainKey);
+
+      // Create child copy with parent reference
+      if (childContent.conditional && childContent.conditional.length > 0) {
+        lastMapIdx++;
+        const nestedResults = processConditionalContent(childContent, [
+          ...parentChain,
+          contentKey,
+        ]);
+
+        results.push(...nestedResults);
+      } else {
+        const childCopy: ContentType = {
+          ...childContent,
+          _id: undefined,
+          qIdx: lastQuestionIdx + conditionIndex + 1,
+          parentcontent: {
+            qId: parentCopy._id,
+            qIdx: org.conditional?.length ?? 0 + 1,
+            optIdx: childContent.parentcontent?.optIdx ?? 0,
+          },
+        };
+
+        results.push(childCopy);
+      }
+
+      // Process nested conditions (Recursively)
+
+      //Remove processed question
+      processedIds.delete(chainKey);
+    });
+
+    return results;
+  };
+
+  // Process conditions
+  const processedContent = processConditionalContent(org);
+
+  duplicatedContent.push(...processedContent);
+
+  return duplicatedContent;
+};
+
+/**
+ * Utility function to validate conditional content structure
+ */
+export const validateConditionalStructure = (
+  content: Array<ContentType>
+): {
+  isValid: boolean;
+  errors: string[];
+} => {
+  const errors: string[] = [];
+  const contentMap = new Map<string, ContentType>();
+
+  // Build content map
+  content.forEach((item) => {
+    if (item._id) {
+      contentMap.set(item._id.toString(), item);
+    }
+  });
+
+  // Validate each item's conditional references
+  content.forEach((item, index) => {
+    if (item.conditional) {
+      item.conditional.forEach((cond, condIndex) => {
+        // Check if referenced content exists
+        if (cond.contentId && !contentMap.has(cond.contentId.toString())) {
+          errors.push(
+            `Item ${index}: Conditional ${condIndex} references non-existent content ID ${cond.contentId}`
+          );
+        }
+
+        if (cond.contentIdx !== undefined && !content[cond.contentIdx]) {
+          errors.push(
+            `Item ${index}: Conditional ${condIndex} references invalid content index ${cond.contentIdx}`
+          );
+        }
+      });
+    }
+
+    // Validate parent content references
+    if (item.parentcontent) {
+      if (item.parentcontent.qId && !contentMap.has(item.parentcontent.qId)) {
+        errors.push(
+          `Item ${index}: Parent content references non-existent ID ${item.parentcontent.qId}`
+        );
+      }
+    }
+  });
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+};
+
+/**
+ * Utility function to flatten nested conditional content structure
+ */
+export const flattenConditionalContent = (
+  content: Array<ContentType>
+): Array<ContentType> => {
+  const flattened: Array<ContentType> = [];
+  const processed = new Set<string>();
+
+  const processItem = (item: ContentType, depth: number = 0) => {
+    if (depth > 10) return; // Prevent infinite recursion
+
+    const itemKey = item._id?.toString() || `temp_${flattened.length}`;
+    if (processed.has(itemKey)) return;
+
+    processed.add(itemKey);
+    flattened.push(item);
+
+    // Process conditional children
+    if (item.conditional) {
+      item.conditional.forEach((cond) => {
+        const childContent = content.find(
+          (c) =>
+            (cond.contentId &&
+              c._id?.toString() === cond.contentId.toString()) ||
+            (cond.contentIdx !== undefined && content[cond.contentIdx] === c)
+        );
+
+        if (childContent) {
+          processItem(childContent, depth + 1);
+        }
+      });
+    }
+  };
+
+  // Process all top-level items (items without parent content)
+  content
+    .filter((item) => !item.parentcontent)
+    .forEach((item) => processItem(item));
+
+  return flattened;
+};
+
+export const getConditionalDepth = (
+  content: ContentType,
+  allContent: Array<ContentType>
+): number => {
+  const calculateDepth = (
+    item: ContentType,
+    currentDepth: number = 0
+  ): number => {
+    if (!item.conditional || currentDepth > 10) return currentDepth;
+
+    let deepestChild = currentDepth;
+
+    item.conditional.forEach((cond) => {
+      const childContent = allContent.find(
+        (c) =>
+          (cond.contentId && c._id?.toString() === cond.contentId.toString()) ||
+          (cond.contentIdx !== undefined && allContent[cond.contentIdx] === c)
+      );
+
+      if (childContent) {
+        const childDepth = calculateDepth(childContent, currentDepth + 1);
+        deepestChild = Math.max(deepestChild, childDepth);
+      }
+    });
+
+    return deepestChild;
+  };
+
+  return calculateDepth(content);
+};

@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { ContentType } from "../../../types/Form.types";
 import { ResponseValue } from "../hooks/useFormResponses";
-import Tiptap from "../../FormComponent/TipTabEditor";
+import StyledTiptap from "./StyledTiptap";
 
 interface MultipleChoiceQuestionProps {
   question: ContentType;
@@ -31,9 +31,11 @@ export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
       </div>
       <div className="flex items-start gap-3">
         <div className="flex-1">
-          <div className="prose prose-sm max-w-none">
-            <Tiptap value={question.title as never} readonly />
-          </div>
+          <StyledTiptap
+            value={question.title as never}
+            readonly
+            variant="question"
+          />
           {question.require && (
             <span className="text-red-500 text-sm ml-2">*Required</span>
           )}
@@ -45,7 +47,7 @@ export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
         {currentResponse !== "" ? (
           <button
             type="button"
-            onClick={() => updateResponse(question._id || "", "")}
+            onClick={() => updateResponse(question._id ?? "", "")}
             className="clear-button"
           >
             Clear Selection
@@ -68,8 +70,7 @@ export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
                 name={`radio-${question._id}`}
                 checked={isSelected}
                 onChange={() => {
-                  // Always store the idx value for consistent conditional logic
-                  updateResponse(question._id || "", choice.idx);
+                  updateResponse(question._id ?? "", choice.idx ?? choiceIdx);
                 }}
                 className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2"
                 disabled={false}

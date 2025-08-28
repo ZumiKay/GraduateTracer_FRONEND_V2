@@ -95,37 +95,11 @@ const formstore = createSlice({
 
       if (typeof action.payload === "function") {
         const newQuestions = action.payload(state.allquestion as ContentType[]);
-        console.log("🔄 FUNCTIONAL UPDATE:", {
-          oldLength: state.allquestion.length,
-          newLength: newQuestions.length,
-          firstQuestionOldScore: state.allquestion[0]?.score,
-          firstQuestionNewScore: newQuestions[0]?.score,
-        });
+
         state.allquestion = newQuestions;
       } else {
-        console.log("🔄 DIRECT UPDATE:", {
-          oldLength: state.allquestion.length,
-          newLength: action.payload.length,
-          firstQuestionOldScore: state.allquestion[0]?.score,
-          firstQuestionNewScore: action.payload[0]?.score,
-          sampleUpdates: action.payload.slice(0, 3).map((q, idx) => ({
-            idx,
-            id: q._id,
-            score: q.score,
-            hasAnswer: q.hasAnswer,
-          })),
-        });
         state.allquestion = action.payload;
       }
-
-      console.log("✅ ALLQUESTION UPDATED:", {
-        finalLength: state.allquestion.length,
-        firstQuestion: {
-          id: state.allquestion[0]?._id,
-          score: state.allquestion[0]?.score,
-          hasAnswer: state.allquestion[0]?.hasAnswer,
-        },
-      });
     },
     setprevallquestion: (state, action: PayloadAction<Array<ContentType>>) => {
       state.prevAllQuestion = action.payload;

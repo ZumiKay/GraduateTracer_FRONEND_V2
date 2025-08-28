@@ -25,6 +25,8 @@ import {
   validateGuestEmail,
 } from "../../utils/publicFormUtils";
 import useRespondentFormPaginaition from "./hooks/usePaginatedFormData";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
 
 interface PublicFormAccessProps {
   token?: string;
@@ -80,11 +82,12 @@ const useLogin = () => {
 
 const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   const { formId, token } = useParams<{ formId: string; token: string }>();
+  const user = useSelector((root: RootState) => root.usersession);
 
   const loginMutation = useLogin();
 
   const [loginData, setLoginData] = useState<LoginData>({
-    email: "",
+    email: user.user?.email ?? "",
     password: "",
     rememberMe: false,
   });
@@ -117,15 +120,13 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
 
   const [showGuestForm, setShowGuestForm] = useState(false);
 
-  // Check authentication status based on React Query data
   useEffect(() => {
-    if (userProfileData?.success) {
+    if (userProfileData?.success || user.isAuthenticated) {
       setAccessMode("authenticated");
     } else if (
       !isLoadingProfile &&
       (profileError || !userProfileData?.success)
     ) {
-      // User not authenticated, check for guest data
       const guestData = getGuestData();
       if (guestData) {
         setGuestSession(guestData);
@@ -133,7 +134,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         setAccessMode("login");
       }
     }
-  }, [userProfileData, isLoadingProfile, profileError]);
+  }, [userProfileData, isLoadingProfile, profileError, user.isAuthenticated]);
 
   const clearGuestSession = () => {
     clearGuestData();
@@ -271,7 +272,17 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         <RespondentForm
           data={formReqData}
           isGuest={accessMode === "guest"}
-          guestData={accessMode === "guest" ? guestData : undefined}
+          RespondentData={
+            accessMode === "guest"
+              ? guestData
+              : user.user
+              ? {
+                  email: user.user?.email as string,
+                  name: user.user?.name as string,
+                }
+              : undefined
+          }
+          userId={user.user?._id}
         />
       </div>
     );

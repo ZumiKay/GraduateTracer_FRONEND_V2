@@ -1,4 +1,5 @@
 import ApiRequest from "../hooks/ApiHook";
+import { CollaborateActionType } from "../types/Form.types";
 
 export interface FormOwner {
   _id: string;
@@ -15,13 +16,10 @@ export interface FormAccessResponse {
 }
 
 export interface FormOwnersResponse {
-  message: string;
-  status: boolean;
-  data: {
-    primaryOwner: FormOwner;
-    additionalOwners: FormOwner[];
-    totalOwners: number;
-  };
+  primaryOwner: FormOwner;
+  allOwners?: FormOwner[];
+  allEditors?: FormOwner[];
+  totalCollaborators: number;
 }
 
 export interface AddOwnerResponse {
@@ -64,7 +62,7 @@ export const formOwnerService = {
   },
 
   // Get all owners of a form
-  getFormOwners: async (formId: string): Promise<FormOwnersResponse | null> => {
+  getFormOwners: async (formId: string) => {
     const response = await ApiRequest({
       url: `/getformowners/${formId}`,
       method: "GET",
@@ -72,9 +70,7 @@ export const formOwnerService = {
       refreshtoken: true,
     });
 
-    if (!response.success) throw response.error;
-
-    return response as never;
+    return response;
   },
 
   // Add a new owner to a form
@@ -85,7 +81,7 @@ export const formOwnerService = {
     const response = await ApiRequest({
       url: `/addformowner`,
       method: "POST",
-      data: { formId, userEmail: email },
+      data: { formId, userEmail: email, action: CollaborateActionType.add },
       cookie: true,
       refreshtoken: true,
     });
@@ -103,7 +99,7 @@ export const formOwnerService = {
     const response = await ApiRequest({
       url: `/removeformowner`,
       method: "DELETE",
-      data: { formId, userId },
+      data: { formId, userId, action: CollaborateActionType.remove },
       cookie: true,
       refreshtoken: true,
     });

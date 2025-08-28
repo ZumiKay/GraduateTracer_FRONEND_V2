@@ -21,6 +21,7 @@ const ReturnScoreOption: Array<SelectionType<string>> = [
   { label: "Partial", value: returnscore.partial },
   { label: "Manual", value: returnscore.manual },
 ];
+
 type SettingOptionType = Array<
   | {
       label: string;

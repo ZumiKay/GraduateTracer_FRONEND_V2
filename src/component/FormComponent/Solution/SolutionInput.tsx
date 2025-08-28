@@ -17,6 +17,7 @@ import {
 } from "@heroui/react";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  AnswerKey,
   ContentType,
   QuestionType,
   RangeType,
@@ -29,17 +30,20 @@ import {
   getLocalTimeZone,
 } from "@internationalized/date";
 import { RootState } from "../../../redux/store";
+import { ErrorToast } from "../../Modal/AlertModal";
 
 interface SolutionInputProps {
   content: ContentType;
   onUpdateContent: (updates: Partial<ContentType>) => void;
   isValidated?: boolean;
+  parentScore?: number;
 }
 
 const SolutionInput: React.FC<SolutionInputProps> = ({
   content,
   onUpdateContent,
   isValidated = false,
+  parentScore,
 }) => {
   const formstate = useSelector((root: RootState) => root.allform.formstate);
   const dispatch = useDispatch();
@@ -56,7 +60,9 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
 
   const [localAnswer, setLocalAnswer] = useState<
     string | number | number[] | RangeType<DateValue> | RangeType<number>
-  >((content.answer?.answer as string | number | number[]) || "");
+  >(
+    ((content.answer as AnswerKey)?.answer as string | number | number[]) ?? ""
+  );
 
   const [localScore, setLocalScore] = useState<number>(content.score || 0);
   const [scoreInputValue, setScoreInputValue] = useState<string>(
@@ -65,12 +71,13 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
   const [scoreBeforeEdit, setScoreBeforeEdit] = useState<number>(
     content.score || 0
   );
+  const [errorMess, seterrorMess] = useState<string>();
+  const isConditionalQuestion = !!content.parentcontent;
 
-  // Keep local state in sync with props
+  //Insert new answer
   useEffect(() => {
-    const newAnswer = content.answer?.answer;
+    const newAnswer = (content.answer as AnswerKey)?.answer;
 
-    // Skip if the answer hasn't actually changed
     if (newAnswer === previousAnswerRef.current) {
       return;
     }
@@ -105,7 +112,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
           | RangeType<number>
       );
     }
-  }, [content.answer?.answer, content.type]);
+  }, [content.answer, content.type]);
 
   const handleAnswerChange = useCallback(
     (
@@ -127,52 +134,27 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     [content, onUpdateContent, dispatch]
   );
 
-  const handleScoreChange = useCallback(
-    (score: number) => {
-      console.log("🚀 HANDLE LOCAL SCORE CHANGE:", {
-        questionId: content._id,
-        newScore: score,
-        currentScore: content.score,
-        localScore: localScore,
-        isConditional: !!content.parentcontent,
-      });
+  const handleScoreChange = useCallback((score: number) => {
+    setLocalScore(score);
+  }, []);
 
-      // Only update local state, don't update content.score yet
-      setLocalScore(score);
-    },
-    [content._id, content.score, content.parentcontent, localScore]
-  );
-
-  // New function to handle saving score to content (used on blur)
   const handleScoreSave = useCallback(
     (finalScore: number) => {
-      console.log("💾 SAVE SCORE TO CONTENT:", {
-        questionId: content._id,
-        finalScore,
-        currentContentScore: content.score,
-        isConditional: !!content.parentcontent,
-      });
+      //Verify Child Score
+      if (isConditionalQuestion && parentScore && parentScore > finalScore) {
+        ErrorToast({ title: "Validation", content: "Wrong Score" });
+        return;
+      }
 
-      // Only update content.score if it actually changed
       if (finalScore !== content.score) {
-        // Pass only the score update to trigger redux allquestion update
         onUpdateContent({ score: finalScore });
       }
     },
-    [content, onUpdateContent]
+    [content.score, isConditionalQuestion, onUpdateContent, parentScore]
   );
 
-  // Function to handle total score updates (used on blur)
   const handleTotalScoreUpdate = useCallback(
     (newScore: number) => {
-      console.log("💰 UPDATE TOTAL SCORE:", {
-        questionId: content._id,
-        scoreBeforeEdit,
-        newScore,
-        scoreDiff: newScore - scoreBeforeEdit,
-        isConditional: !!content.parentcontent,
-      });
-
       const scoreDiff = newScore - scoreBeforeEdit;
       if (scoreDiff !== 0) {
         dispatch(
@@ -184,7 +166,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         setScoreBeforeEdit(newScore);
       }
     },
-    [content._id, content.parentcontent, scoreBeforeEdit, dispatch, formstate]
+    [scoreBeforeEdit, dispatch, formstate]
   );
 
   const renderAnswerInput = useMemo(() => {
@@ -297,7 +279,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
                   handleAnswerChange(newAnswers);
                 }}
               >
-                {option}
+                {option.content}
               </Checkbox>
             ))}
           </div>
@@ -313,10 +295,9 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
             value.start.day
           ),
           end: new CalendarDate(value.end.year, value.end.month, value.end.day),
-        }; // The range defined in question settings (RangeValue<DateValue>)
+        };
         const rawRange = localAnswer as RangeType<DateValue>;
 
-        // Ensure we have proper CalendarDate objects
         const currentRange = {
           start:
             rawRange?.start instanceof CalendarDate
@@ -328,15 +309,12 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
               : new CalendarDate(2024, 12, 31),
         };
 
-        // Validation checks
         const isInvalidRange = currentRange.end.compare(currentRange.start) < 0;
 
-        // Check if solution range is within question range bounds
         let isOutsideQuestionRange = false;
         let rangeValidationMessage = "";
 
         if (questionRange?.start && questionRange?.end) {
-          // Get DateValue objects for comparison
           const questionStart = questionRange.start;
           const questionEnd = questionRange.end;
 
@@ -426,10 +404,8 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
           end: 0,
         };
 
-        // Validation checks
         const isInvalidRange = currentRange.end < currentRange.start;
 
-        // Check if solution range is within question range bounds
         let isOutsideQuestionRange = false;
         let rangeValidationMessage = "";
 
@@ -529,12 +505,10 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
   }, [content, localAnswer, handleAnswerChange]);
 
   const validationStatus = useMemo(() => {
-    // Text type questions don't need answers or scores since they're just for display
     if (content.type === QuestionType.Text) {
       return { color: "success" as const, text: "Display text" };
     }
 
-    // Compute hasAnswer locally based on current state
     const currentHasAnswer = (() => {
       if (
         localAnswer === "" ||
@@ -574,25 +548,21 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
       ) {
         const rawRange = localAnswer as RangeType<DateValue>;
 
-        // Ensure we have proper CalendarDate objects for validation
         if (
           !(rawRange.start instanceof CalendarDate) ||
           !(rawRange.end instanceof CalendarDate)
         ) {
-          return false; // Invalid if not proper CalendarDate objects
+          return false;
         }
 
         const range = rawRange as RangeType<CalendarDate>;
 
-        // Check basic range validity using DateValue compare method
         if (range.end.compare(range.start) < 0) return false;
 
-        // Check against question range bounds
         if (content.rangedate?.start && content.rangedate?.end) {
           const questionStart = content.rangedate.start;
           const questionEnd = content.rangedate.end;
 
-          // Check if solution range is within question range
           if (
             range.start.compare(questionStart) < 0 ||
             range.end.compare(questionEnd) > 0
@@ -613,10 +583,8 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
       ) {
         const range = localAnswer as RangeType<number>;
 
-        // Check basic range validity
         if (range.end < range.start) return false;
 
-        // Check against question range bounds
         if (
           content.rangenumber &&
           typeof content.rangenumber.start === "number" &&
@@ -659,9 +627,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     isValidated,
     localAnswer,
   ]);
-
-  // Check if this is a conditional (child) question
-  const isConditionalQuestion = !!content.parentcontent;
 
   return (
     <div className="w-full space-y-4 p-4 bg-white rounded-lg border">
@@ -713,47 +678,34 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
               placeholder="Enter score points"
               value={scoreInputValue}
               onFocus={() => {
-                console.log(
-                  "🎯 SCORE INPUT FOCUS - Capturing score before edit:",
-                  localScore
-                );
+                if (errorMess) seterrorMess(undefined);
                 setScoreBeforeEdit(localScore);
               }}
               onChange={(e) => {
-                console.log("🔥 SCORE INPUT DEBUG:", {
-                  value: e.target.value,
-                  questionId: content._id,
-                  isConditional: !!content.parentcontent,
-                  currentLocalScore: localScore,
-                });
-
                 const inputValue = e.target.value;
                 setScoreInputValue(inputValue);
 
-                // Only update local score (not content.score) during typing
                 if (inputValue === "" || inputValue === "0") {
                   handleScoreChange(0);
-                } else {
-                  const numValue = parseFloat(inputValue);
-                  if (!isNaN(numValue) && numValue >= 0) {
-                    const newScore = Math.floor(numValue);
-                    handleScoreChange(newScore);
-                  }
-                  // If invalid input, don't update anything
+                  return;
+                }
+
+                const numValue = parseFloat(inputValue);
+                if (!isNaN(numValue) && numValue >= 0) {
+                  const newScore = Math.floor(numValue);
+                  handleScoreChange(newScore);
                 }
               }}
               onBlur={() => {
-                console.log(
-                  "🎯 SCORE INPUT BLUR - Saving score and updating total"
-                );
-                // Save the score to content and update the form total score when user finishes editing
                 handleScoreSave(localScore);
                 handleTotalScoreUpdate(localScore);
               }}
               variant="bordered"
               min="0"
+              max={parentScore}
               startContent={<span className="text-sm">pts</span>}
             />
+            {errorMess && <p className="text-sm text-red-400">{errorMess}</p>}
             {isConditionalQuestion && (
               <p className="text-xs text-blue-600">
                 ✓ Score input enabled for conditional questions
@@ -784,14 +736,11 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
                     return false;
                   }
 
-                  // For arrays (checkbox, selection)
                   if (Array.isArray(localAnswer)) {
                     return localAnswer.length > 0;
                   }
 
-                  // For range types
                   if (typeof localAnswer === "object" && localAnswer !== null) {
-                    // Range objects should have start and end properties
                     if ("start" in localAnswer && "end" in localAnswer) {
                       return (
                         localAnswer.start !== undefined &&

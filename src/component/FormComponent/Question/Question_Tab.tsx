@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState, memo } from "react";
 import { RootState } from "../../../redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  CheckboxQuestionType,
+  ChoiceQuestionType,
   ContentType,
   DefaultContentType,
   ParentContentType,
@@ -29,6 +29,7 @@ import { QuestionLoading } from "../../Loading/ContainerLoading";
 import { useSetSearchParam } from "../../../hooks/CustomHook";
 import QuestionStructure from "./QuestionStructure";
 import { checkUnsavedQuestions } from "../../../utils/formValidation";
+import { ConditionContentCopy } from "../../../helperFunc";
 
 const QuestionTab = () => {
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -36,7 +37,6 @@ const QuestionTab = () => {
   const [showStructure, setShowStructure] = useState(true);
   const [isPageLoading, setIsPageLoading] = useState(false);
 
-  // Memoize selectors to prevent unnecessary re-renders
   const formState = useSelector((root: RootState) => root.allform.formstate);
   const page = useSelector((root: RootState) => root.allform.page);
   const fetchLoading = useSelector(
@@ -83,7 +83,7 @@ const QuestionTab = () => {
   );
 
   const handleAddQuestion = useCallback(async () => {
-    const qIdx = allQuestion.length + 1;
+    const qIdx = formState.lastqIdx ?? 0 + (allQuestion.length + 1);
     const updatedQuestions: Array<ContentType> = [
       ...(allQuestion ?? []),
       {
@@ -120,7 +120,14 @@ const QuestionTab = () => {
     } else {
       dispatch(setallquestion(updatedQuestions));
     }
-  }, [allQuestion, page, formState.setting?.autosave, formState._id, dispatch]);
+  }, [
+    formState.lastqIdx,
+    formState.setting?.autosave,
+    formState._id,
+    allQuestion,
+    page,
+    dispatch,
+  ]);
 
   const handleDeleteQuestion = useCallback(
     async (qidx: number) => {
@@ -140,7 +147,10 @@ const QuestionTab = () => {
                   method: "DELETE",
                   cookie: true,
                   refreshtoken: true,
-                  data: { id: questionToDelete._id, formId: formState._id },
+                  data: {
+                    id: questionToDelete._id,
+                    formId: formState._id,
+                  },
                 }),
               },
               { pending: "Deleting Question", error: "Can't Delete" }
@@ -149,21 +159,26 @@ const QuestionTab = () => {
             if (!request.success) return;
           }
 
+          //Delete conditions
+          const idxToBeDelete = questionToDelete.conditional?.map(
+            (i) => i.contentIdx
+          );
+
           dispatch(
             setallquestion((prev) =>
               prev
-                .filter((_, idx) => idx !== qidx)
+                .filter(
+                  (_, idx) => idx !== qidx || !idxToBeDelete?.includes(idx)
+                )
                 .map((question) => {
-                  const hasRelevantCondition = question.conditional?.some(
-                    (cond) =>
-                      cond.contentIdx === qidx ||
-                      cond.contentId === questionToDelete._id
-                  );
-
-                  if (!hasRelevantCondition) return question;
+                  const updatedqIdx =
+                    question.qIdx > questionToDelete.qIdx
+                      ? question.qIdx - (idxToBeDelete?.length ?? 0 + 1)
+                      : question.qIdx;
 
                   return {
                     ...question,
+                    qIdx: updatedqIdx,
                     conditional: question?.conditional
                       ?.filter((condition) =>
                         questionToDelete._id
@@ -183,7 +198,6 @@ const QuestionTab = () => {
             )
           );
         } finally {
-          // Resume autosave after delete operation
           dispatch(setpauseAutoSave(false));
         }
       };
@@ -213,112 +227,68 @@ const QuestionTab = () => {
         return;
       }
 
-      if (!toUpdateQuestion._id) {
-        console.error("Cannot add condition to unsaved question");
-        ErrorToast({
-          title: "Save Required",
-          content: "Please save the question before adding conditions to it.",
-        });
-        return;
-      }
-      if (toUpdateQuestion.parentcontent) {
-        console.warn(
-          "Adding condition to a question that already has a parent"
-        );
-      }
+      const newContentId: number | string = questionIdx + 1;
 
-      //Debug
-      if (import.meta.env.DEV) {
-        console.log("Adding condition:", {
-          questionIdx,
-          anskey,
-          questionId: toUpdateQuestion._id,
-          hasParentContent: !!toUpdateQuestion.parentcontent,
-          parentContent: toUpdateQuestion.parentcontent,
-          allQuestionsCount: allQuestion.length,
-        });
-      }
+      dispatch(
+        setallquestion((prev) => {
+          const newConditional = {
+            contentIdx: newContentId,
+            key: anskey,
+          };
 
-      if (
-        formState.setting?.autosave !== undefined &&
-        formState.setting.autosave
-      ) {
-        const request = await PromiseToast(
-          {
-            promise: ApiRequest({
-              url: "/handlecondition",
-              method: "POST",
-              cookie: true,
-              refreshtoken: true,
-              data: {
-                content: { id: toUpdateQuestion._id, idx: questionIdx },
-                key: anskey,
-                newContent: { ...DefaultContentType, page },
-                formId: formState._id,
-              },
-            }),
-          },
-          { pending: "Adding", success: "Condition Added", error: "Can't Add" }
-        );
+          const updatedQuestion = {
+            ...toUpdateQuestion,
+            conditional: [
+              ...(toUpdateQuestion.conditional?.map((prevCond) => ({
+                ...prevCond,
+                contentIdx:
+                  prevCond.contentIdx !== undefined && prevCond.contentIdx + 1,
+              })) ?? []),
+              newConditional,
+            ],
+          };
 
-        if (!request.success || !request.data) {
-          console.error("Failed to add condition:", request.error);
-          return;
-        }
+          const newChildQidx = toUpdateQuestion.conditional
+            ? Math.max(
+                ...allQuestion
+                  .map(
+                    (i, idx) =>
+                      toUpdateQuestion.conditional?.find(
+                        (cond) => cond.contentIdx === idx
+                      ) && i.qIdx
+                  )
+                  .filter((qIdx): qIdx is number => qIdx !== undefined)
+              )
+            : 0;
 
-        dispatch(setreloaddata(true));
-      } else {
-        const newContentId: number | string = questionIdx + 1;
+          const newContent = {
+            ...DefaultContentType,
+            qIdx: newChildQidx + 1,
+            parentcontent: {
+              optIdx: anskey,
+              qIdx: questionIdx,
+              qId: toUpdateQuestion._id,
+            },
+            page,
+          } as ContentType;
 
-        dispatch(
-          setallquestion((prev) => {
-            const newConditional = {
-              contentIdx: newContentId,
-              key: anskey,
-            };
+          const updatedList = [
+            ...prev.slice(0, questionIdx + 1),
+            newContent,
+            ...prev.slice(questionIdx + 1),
+          ];
 
-            const updatedQuestion = {
-              ...toUpdateQuestion,
-              conditional: [
-                ...(toUpdateQuestion.conditional?.map((prevCond) => ({
-                  ...prevCond,
-                  contentIdx:
-                    prevCond.contentIdx !== undefined &&
-                    prevCond.contentIdx + 1,
-                })) ?? []),
-                newConditional,
-              ],
-            };
+          const finalList = updatedList.map((item, idx) =>
+            item._id === toUpdateQuestion._id || idx === questionIdx
+              ? updatedQuestion
+              : item
+          ) as Array<ContentType>;
 
-            const newContent = {
-              ...DefaultContentType,
-              qIdx: 0,
-              parentcontent: {
-                optIdx: anskey,
-                qIdx: questionIdx,
-                qId: toUpdateQuestion._id,
-              },
-              page,
-            } as ContentType;
-
-            const updatedList = [
-              ...prev.slice(0, questionIdx + 1),
-              newContent,
-              ...prev.slice(questionIdx + 1),
-            ];
-
-            const finalList = updatedList.map((item, idx) =>
-              item._id === toUpdateQuestion._id || idx === questionIdx
-                ? updatedQuestion
-                : item
-            ) as Array<ContentType>;
-
-            return finalList;
-          })
-        );
-      }
+          return finalList;
+        })
+      );
     },
-    [allQuestion, formState.setting?.autosave, formState._id, page, dispatch]
+    [allQuestion, page, dispatch]
   );
 
   const removeConditionedQuestion = useCallback(
@@ -353,14 +323,14 @@ const QuestionTab = () => {
                   : cond.contentIdx,
             };
           }),
-      } as ContentType<Array<CheckboxQuestionType>>;
+      } as ContentType<Array<ChoiceQuestionType>>;
 
       if (
         ty === "delete" &&
         Array.isArray(updatedQuestion[updatedQuestion.type as never])
       ) {
         updatedQuestion[updatedQuestion.type] = (
-          updatedQuestion[updatedQuestion.type] as Array<CheckboxQuestionType>
+          updatedQuestion[updatedQuestion.type] as Array<ChoiceQuestionType>
         ).filter((i, idx) =>
           i.idx ? i.idx !== ansidx : idx !== ansidx
         ) as never;
@@ -378,77 +348,184 @@ const QuestionTab = () => {
           : q
       );
 
-      if (formState.setting?.autosave && formState._id) {
-        const isSaved = await PromiseToast({
-          promise: AutoSaveQuestion({
-            data: finalQuestionList,
-            formId: formState._id,
-            type: "save",
-            page,
-          }),
-        });
-
-        if (!isSaved) {
-          ErrorToast({ title: "Failed", content: "Error occurred" });
-          return;
-        }
-      }
-
       dispatch(setallquestion(finalQuestionList));
     },
-    [allQuestion, formState.setting?.autosave, formState._id, page, dispatch]
+    [allQuestion, dispatch]
+  );
+
+  // Helper function to validate question structure
+  const validateQuestionStructure = useCallback(
+    (questions: Array<ContentType>) => {
+      const errors: string[] = [];
+      const qIdxSet = new Set<number>();
+
+      questions.forEach((question, index) => {
+        // Check for duplicate qIdx values
+        if (qIdxSet.has(question.qIdx)) {
+          errors.push(
+            `Duplicate qIdx ${question.qIdx} found at position ${index}`
+          );
+        }
+        qIdxSet.add(question.qIdx);
+
+        if (question.conditional) {
+          question.conditional.forEach((cond, condIndex) => {
+            if (cond.contentIdx !== undefined) {
+              const referencedQuestion = questions.find(
+                (q) => q.qIdx === cond.contentIdx
+              );
+              if (!referencedQuestion) {
+                errors.push(
+                  `Question ${index}: Conditional ${condIndex} references non-existent qIdx ${cond.contentIdx}`
+                );
+              }
+            }
+          });
+        }
+
+        if (
+          question.parentcontent &&
+          question.parentcontent.qIdx !== undefined
+        ) {
+          const parentQuestion = questions.find(
+            (q) => q.qIdx === question.parentcontent!.qIdx
+          );
+          if (!parentQuestion) {
+            errors.push(
+              `Question ${index}: Parent content references non-existent qIdx ${question.parentcontent.qIdx}`
+            );
+          }
+        }
+      });
+
+      return {
+        isValid: errors.length === 0,
+        errors,
+      };
+    },
+    []
   );
 
   const handleDuplication = useCallback(
     async (idx: number) => {
-      const questionToBeDuplicate = allQuestion[idx];
-      const contentToBeAdd = questionToBeDuplicate.conditional
-        ? [
-            questionToBeDuplicate,
-            ...allQuestion
-              .filter((fil, idx) =>
-                questionToBeDuplicate.conditional?.some(
-                  (cond) =>
-                    cond.contentId === fil._id || cond.contentIdx === idx
-                )
-              )
-              .map((question) => ({
-                ...question,
-                conditional: question.conditional?.map((cond) => ({
-                  ...cond,
-                  contentIdx: idx + 1,
-                })),
-              })),
-          ].map((question) => ({ ...question, _id: undefined }))
-        : { ...questionToBeDuplicate, _id: undefined };
+      // Validate input
+      if (idx < 0 || idx >= allQuestion.length) {
+        ErrorToast({
+          title: "Error",
+          content: "Invalid question index for duplication",
+        });
+        return;
+      }
 
-      const updatequestions = [
-        ...allQuestion.slice(0, idx + 1),
-        ...(Array.isArray(contentToBeAdd) ? contentToBeAdd : [contentToBeAdd]),
-        ...allQuestion.slice(idx + 1),
-      ];
+      const questionToDuplicate = allQuestion[idx];
+      if (!questionToDuplicate) {
+        ErrorToast({
+          title: "Error",
+          content: "Question to duplicate not found",
+        });
+        return;
+      }
 
-      if (formState.setting?.autosave && formState._id) {
-        const isSaved = await PromiseToast(
-          {
-            promise: AutoSaveQuestion({
-              data: updatequestions,
-              formId: formState._id,
-              type: "save",
-              page,
-            }),
-          },
-          { pending: "Copying" }
-        );
+      try {
+        let duplicatedContent: Array<ContentType> = [];
 
-        if (!isSaved) {
-          ErrorToast({ title: "Failed", content: "Can't Save" });
+        // Handle conditional questions
+        if (
+          questionToDuplicate.conditional &&
+          questionToDuplicate.conditional.length > 0
+        ) {
+          const conditionalContent = ConditionContentCopy({
+            org: questionToDuplicate,
+            allquestion: allQuestion,
+          });
+
+          if (conditionalContent.length > 0) {
+            duplicatedContent = conditionalContent;
+          } else {
+            duplicatedContent = [
+              {
+                ...questionToDuplicate,
+                _id: undefined,
+                qIdx: questionToDuplicate.qIdx + 1,
+              },
+            ];
+          }
+        } else {
+          duplicatedContent = [
+            {
+              ...questionToDuplicate,
+              _id: undefined,
+              qIdx: questionToDuplicate.qIdx + 1,
+              parentcontent: questionToDuplicate.parentcontent
+                ? {
+                    ...questionToDuplicate.parentcontent,
+                    qId: undefined,
+                  }
+                : undefined,
+            },
+          ];
+        }
+
+        // Calculate the offset needed for subsequent questions
+        const duplicatedCount = duplicatedContent.length;
+
+        // Update subsequent questions' indices and references
+        const updateQuestionIndices = (
+          question: ContentType,
+          offset: number
+        ): ContentType => ({
+          ...question,
+          qIdx: question.qIdx + offset,
+          conditional: question.conditional?.map((cond, condIdx) => ({
+            ...cond,
+            contentIdx: condIdx + offset + 1, //Assign New MapIdx
+          })),
+        });
+
+        // Build the new questions array
+        const updatedQuestions: Array<ContentType> = [
+          // Questions before the duplicated question (unchanged)
+          ...allQuestion.slice(0, idx + 1),
+          // The duplicated content
+          ...duplicatedContent,
+          // Questions after the duplicated question (with updated indices)
+          ...allQuestion
+            .slice(idx + 1)
+            .map((question) =>
+              updateQuestionIndices(question, duplicatedCount)
+            ),
+        ];
+
+        // Validate the new structure before applying
+        const validation = validateQuestionStructure(updatedQuestions);
+        if (!validation.isValid) {
+          console.warn(
+            "Question structure validation failed:",
+            validation.errors
+          );
+          ErrorToast({
+            title: "Duplication Failed",
+            content: "Invalid question structure detected",
+          });
           return;
         }
+
+        dispatch(setallquestion(updatedQuestions));
+
+        console.log(
+          `Successfully duplicated ${duplicatedCount} question${
+            duplicatedCount > 1 ? "s" : ""
+          }`
+        );
+      } catch (error) {
+        console.error("Error during duplication:", error);
+        ErrorToast({
+          title: "Duplication Failed",
+          content: "An error occurred while duplicating the question",
+        });
       }
-      dispatch(setallquestion(updatequestions));
     },
-    [allQuestion, formState.setting?.autosave, formState._id, page, dispatch]
+    [allQuestion, dispatch, validateQuestionStructure]
   );
 
   const checkIsLinkedForQuestionOption = useCallback(
@@ -513,7 +590,6 @@ const QuestionTab = () => {
       } else {
         newTotalPages = Math.max(1, formState.totalpage - 1);
         updatedPage = newTotalPages;
-        // If deleting current page or a page before current page, adjust current page
         if (deletepage && deletepage <= page) {
           updatedPage = Math.max(1, page - 1);
         } else {
@@ -548,21 +624,17 @@ const QuestionTab = () => {
         }
 
         if (type === "delete" && deletepage) {
-          // Immediately update the questions array to remove questions from deleted page
           const updatedQuestions = allQuestion
             .filter((q) => q.page !== deletepage)
             .map((q) => ({
               ...q,
-              // Shift page numbers down for pages after the deleted page
               page: q.page && q.page > deletepage ? q.page - 1 : q.page || 1,
             }));
 
-          // Update both current and previous question states
           dispatch(setallquestion(updatedQuestions));
           dispatch(setprevallquestion(updatedQuestions));
         }
 
-        // Update form state with correct total page count
         dispatch(setformstate({ ...formState, totalpage: newTotalPages }));
 
         // Update current page and URL
@@ -585,7 +657,6 @@ const QuestionTab = () => {
       // Check for unsaved questions before proceeding
       if (hasUnsavedQuestions()) {
         showSaveConfirmation(() => {
-          // If user confirms, proceed without the check
           handlePageInternal(type, deletepage);
         });
         return;
@@ -613,13 +684,14 @@ const QuestionTab = () => {
         return false;
       }
 
-      // Check if this question is a child of another question
       const questionData = allQuestion.find(
         (q) => q._id === question || q._id === question?.toString()
       );
       if (questionData?.parentcontent) {
         // Recursively check parent question visibility
-        return shouldShowConditionedQuestion(questionData.parentcontent.qId);
+        return shouldShowConditionedQuestion(
+          questionData.parentcontent.qId ?? questionData.qIdx
+        );
       }
 
       return currentVisibility;
@@ -627,7 +699,6 @@ const QuestionTab = () => {
     [showLinkedQuestion, allQuestion]
   );
 
-  // Handle question click from structure
   const handleQuestionClick = useCallback((questionKey: string) => {
     const element = componentRefs.current[questionKey];
     if (element) {
@@ -635,7 +706,6 @@ const QuestionTab = () => {
     }
   }, []);
 
-  // Handle visibility toggle from structure
   const handleToggleVisibility = useCallback(
     (questionId: string | number) => {
       const currentState = showLinkedQuestion ?? [];
@@ -694,7 +764,9 @@ const QuestionTab = () => {
           allQuestion.map((question, idx) => {
             const questionKey = `${question.type}${question._id ?? idx}`;
             const isChildCondition = question.parentcontent
-              ? shouldShowConditionedQuestion(question.parentcontent.qId)
+              ? shouldShowConditionedQuestion(
+                  question.parentcontent.qId ?? question.qIdx
+                )
               : true;
             return (
               isChildCondition && (
@@ -707,7 +779,6 @@ const QuestionTab = () => {
                 >
                   <QuestionComponent
                     idx={idx}
-                    id={question._id}
                     isLinked={(ansidx) =>
                       checkIsLinkedForQuestionOption(ansidx, idx)
                     }

@@ -12,7 +12,6 @@ export const useFormValidation = (
   const isPageComplete = useCallback(
     (questions: ContentType[], responses: FormResponse[]): boolean => {
       return questions.every((q) => {
-        // Skip validation for questions that should not be shown (conditional questions)
         if (
           checkIfQuestionShouldShow &&
           !checkIfQuestionShouldShow(q, responses)
@@ -22,7 +21,7 @@ export const useFormValidation = (
 
         const response = responses.find((r) => r.questionId === q._id);
         if (q.require) {
-          if (!response || !response.response) return false;
+          if (!response || response.response === "") return false;
 
           // Enhanced validation for different question types
           switch (q.type) {
@@ -84,7 +83,6 @@ export const useFormValidation = (
   // Validate form before submission
   const validateForm = useCallback(
     (questions: ContentType[], responses: FormResponse[]) => {
-      // Only validate required questions that are actually visible
       const requiredQuestions = questions.filter((q) => {
         // Skip questions that should not be shown (conditional questions)
         if (
@@ -108,7 +106,7 @@ export const useFormValidation = (
             );
 
           case QuestionType.MultipleChoice:
-            return !response.response || response.response === "";
+            return response.response === undefined || response.response === "";
 
           case QuestionType.ShortAnswer:
           case QuestionType.Paragraph:
@@ -148,11 +146,10 @@ export const useFormValidation = (
       if (missingResponses.length > 0) {
         const questionTitles = missingResponses
           .map((q) => {
-            // Try to get a meaningful title for the question
             if (typeof q.title === "string" && q.title.trim()) {
-              return q.title.replace(/<[^>]*>/g, "").trim(); // Strip HTML tags if any
+              return q.title.replace(/<[^>]*>/g, "").trim();
             }
-            // Find the question index in the original questions array for better numbering
+
             const originalIndex = questions.findIndex(
               (originalQ) => originalQ._id === q._id
             );

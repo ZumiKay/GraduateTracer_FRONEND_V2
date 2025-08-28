@@ -32,7 +32,6 @@ import { createSelector } from "@reduxjs/toolkit";
 import { hasArrayChange } from "../../helperFunc";
 import { useLocation, useSearchParams, useNavigate } from "react-router";
 import AutoSaveForm from "../../hooks/AutoSaveHook";
-import { ErrorToast } from "../Modal/AlertModal";
 import {
   setformstate,
   setprevallquestion,
@@ -44,12 +43,6 @@ import {
 import NotificationSystem from "../Notification/NotificationSystem";
 import useImprovedAutoSave from "../../hooks/useImprovedAutoSave";
 import { DefaultFormState } from "../../types/Form.types";
-import { AutoSaveQuestion } from "../../pages/FormPage.action";
-import {
-  validateRangeQuestions,
-  getRangeValidationSummary,
-} from "../../utils/rangeValidation";
-import type { ContentType } from "../../types/Form.types";
 // Memoized components for better performance
 const MemoizedProfileIcon = React.memo(ProfileIcon);
 const MemoizedAutoSaveForm = React.memo(AutoSaveForm);
@@ -72,7 +65,6 @@ const selectFormData = createSelector(
 );
 
 export default function Navigationbar() {
-  // Memoized selectors to prevent unnecessary re-renders
   const formData = useSelector(selectFormData);
   const userSession = useSelector((root: RootState) => root.usersession);
   const dispatch = useDispatch();
@@ -85,12 +77,12 @@ export default function Navigationbar() {
   const [searchParam] = useSearchParams();
   const openmodal = useSelector((root: RootState) => root.openmodal.setting);
 
-  // Add improved autosave hook (we only need it for the component, not for manual save)
-  useImprovedAutoSave({
-    debounceMs: 500,
-    retryAttempts: 3,
-    retryDelayMs: 2000,
-  });
+  const { manualSave, autoSaveStatus, isOnline, offlineQueueSize } =
+    useImprovedAutoSave({
+      debounceMs: 500,
+      retryAttempts: 3,
+      retryDelayMs: 2000,
+    });
 
   // Memoized values
   const currentTab = useMemo(
@@ -107,12 +99,12 @@ export default function Navigationbar() {
     [formData.formstate.setting?.autosave]
   );
 
-  // Only show save button for tabs that have saveable content and when autosave is disabled
   const canSaveTabs = useMemo(
     () => ["question", "solution", "response"].includes(currentTab),
     [currentTab]
   );
 
+  // Only show save button for tabs that have saveable content and when autosave is disabled
   const shouldShowSaveButton = useMemo(
     () =>
       canSaveTabs &&
@@ -121,6 +113,69 @@ export default function Navigationbar() {
       !isDashboard,
     [canSaveTabs, formData.fetchloading, isAutosaveDisabled, isDashboard]
   );
+
+  // Enhanced save button status based on autosave status
+  const saveButtonState = useMemo(() => {
+    if (autoSaveStatus.status === "saving") {
+      return {
+        disabled: true,
+        loading: true,
+        text: "Saving...",
+        color: "default" as const,
+      };
+    }
+    if (autoSaveStatus.status === "error") {
+      return {
+        disabled: false,
+        loading: false,
+        text: "Retry Save",
+        color: "danger" as const,
+      };
+    }
+    if (!isOnline) {
+      return {
+        disabled: true,
+        loading: false,
+        text: "Offline",
+        color: "warning" as const,
+      };
+    }
+    return {
+      disabled: !formHasChange || !formData.formstate._id,
+      loading: saveloading,
+      text: "Save",
+      color: "success" as const,
+    };
+  }, [
+    autoSaveStatus.status,
+    isOnline,
+    formHasChange,
+    formData.formstate._id,
+    saveloading,
+  ]);
+
+  // Show autosave status indicator
+  const autoSaveStatusText = useMemo(() => {
+    if (!isOnline) return "Offline";
+    if (offlineQueueSize > 0) return `${offlineQueueSize} pending`;
+
+    switch (autoSaveStatus.status) {
+      case "saving":
+        return autoSaveStatus.retryCount > 0
+          ? `Retrying... (${autoSaveStatus.retryCount})`
+          : "Saving...";
+      case "saved":
+        return autoSaveStatus.lastSaved
+          ? `Saved ${new Date(autoSaveStatus.lastSaved).toLocaleTimeString()}`
+          : "Saved";
+      case "error":
+        return autoSaveStatus.error || "Save failed";
+      case "offline":
+        return "Offline";
+      default:
+        return "";
+    }
+  }, [autoSaveStatus, isOnline, offlineQueueSize]);
 
   const displayTitle = useMemo(() => {
     if (formData.formstate.title) return formData.formstate.title;
@@ -133,12 +188,10 @@ export default function Navigationbar() {
     [openmodal]
   );
 
-  // Memoized effect for form change detection
   const { allquestion, prevAllQuestion } = formData;
   useEffect(() => {
     const isChange = hasArrayChange(allquestion, prevAllQuestion);
 
-    // Fallback shallow check focused on score changes (by index)
     const sameLength = allquestion.length === prevAllQuestion.length;
     const scoreChanged = sameLength
       ? allquestion.some((q, i) => {
@@ -146,30 +199,12 @@ export default function Navigationbar() {
           const b = prevAllQuestion[i]?.score ?? null;
           return a !== b;
         })
-      : true; // different lengths imply change anyway
+      : true;
 
     const finalHasChange = isChange || scoreChanged;
 
-    // Debug trace to help verify enablement logic at runtime
-    try {
-      // Log a tiny summary only
-      const sample = (arr: typeof allquestion) =>
-        arr.slice(0, 3).map((x) => ({ id: x?._id, score: x?.score }));
-      console.log("🧭 Save enable check:", {
-        isChange,
-        scoreChanged,
-        finalHasChange,
-        lenA: allquestion.length,
-        lenB: prevAllQuestion.length,
-        sampleA: sample(allquestion),
-        sampleB: sample(prevAllQuestion),
-      });
-    } catch {
-      // noop
-    }
-
     setformHasChange(finalHasChange);
-  }, [allquestion]);
+  }, [allquestion, prevAllQuestion]);
 
   // Memoized callbacks
   const handleSignout = useCallback(async () => {
@@ -195,190 +230,18 @@ export default function Navigationbar() {
   const handleManuallySave = useCallback(async () => {
     if (!formData.formstate._id) return;
 
-    // Validate ranges before saving
-    const rangeErrors = validateRangeQuestions(formData.allquestion);
-    if (rangeErrors.length > 0) {
-      const errorMessage = getRangeValidationSummary(rangeErrors);
-      ErrorToast({
-        title: "Validation Error",
-        content: errorMessage,
-        toastid: "manual-save-validation",
-      });
-      return;
-    }
-
     setsaveloading(true);
     try {
-      let response = null;
-
-      // Prepare the data for saving, cleaning conditional properties
-      const saveData = formData.allquestion.map((question) => ({
-        ...question,
-      }));
-
-      // Handle different tab saving and get the full response
-      switch (currentTab) {
-        case "question":
-        case "solution":
-        case "response":
-        default:
-          response = await AutoSaveQuestion({
-            data: saveData,
-            page: formData.page,
-            formId: formData.formstate._id,
-            type: "save",
-          });
-          break;
-      }
-
-      if (response && response.success) {
-        // Merge server-returned data safely into current state to avoid losing local fields (e.g., score)
-        if (response.data && Array.isArray(response.data)) {
-          const serverItems = response.data as ContentType[];
-          const byId = new Map<string, ContentType>(
-            serverItems.filter((q) => !!q._id).map((q) => [String(q._id), q])
-          );
-
-          const merged: ContentType[] = formData.allquestion.map((local) => {
-            const id = local._id ? String(local._id) : undefined;
-            const srv = id ? byId.get(id) : undefined;
-            if (!srv) return local;
-            // Preserve local score/answer if server omits them; prefer server when explicitly provided
-            return {
-              ...local,
-              ...srv,
-              score: srv.score !== undefined ? srv.score : local.score,
-              answer: srv.answer !== undefined ? srv.answer : local.answer,
-            } as ContentType;
-          });
-
-          // Append any new server items not present locally
-          const localIds = new Set(
-            formData.allquestion.map((q) => (q._id ? String(q._id) : ""))
-          );
-          serverItems.forEach((srv) => {
-            const id = srv._id ? String(srv._id) : undefined;
-            if (id && !localIds.has(id)) merged.push(srv);
-          });
-
-          // Deduplicate the merged array to prevent duplicates
-          const deduplicatedMerged = merged.filter((question, index, array) => {
-            if (!question._id) return false; // Remove items without ID
-            // Keep only the first occurrence of each ID
-            return array.findIndex((q) => q._id === question._id) === index;
-          });
-
-          // Normalize qIdx for questions with parentContent (should always be 0)
-          // This ensures sub-questions (conditional questions) have consistent qIdx=0
-          const normalizedMerged = deduplicatedMerged.map((question) => {
-            if (question.parentcontent) {
-              return {
-                ...question,
-                qIdx: 0, // Force qIdx to 0 for sub-questions
-              };
-            }
-            return question;
-          });
-
-          // Add array index to each question for sorting purposes
-          const indexedMerged = normalizedMerged.map((question, index) => ({
-            ...question,
-            arrayIndex: index, // Add temporary index for sorting
-          }));
-
-          // Sort by page and array position (idx) to maintain proper order
-          // Use array index instead of qIdx (which is for labeling only)
-          const sortedMerged = indexedMerged.sort((a, b) => {
-            if (a.page !== b.page) {
-              return (a.page || 0) - (b.page || 0);
-            }
-
-            // Sort by array index to maintain original order within page
-            return a.arrayIndex - b.arrayIndex;
-          });
-
-          // Remove the temporary arrayIndex property
-          const finalMerged = sortedMerged.map((item) => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { arrayIndex, ...question } = item;
-            return question as ContentType;
-          });
-
-          // Debug logging in development
-          if (import.meta.env.DEV) {
-            const duplicatesRemoved = merged.length - deduplicatedMerged.length;
-            const parentContentQuestions = normalizedMerged.filter(
-              (q) => q.parentcontent
-            ).length;
-
-            if (duplicatesRemoved > 0) {
-              console.warn(
-                `🔧 Manual Save: Removed ${duplicatesRemoved} duplicate questions after server merge`
-              );
-            }
-            if (parentContentQuestions > 0) {
-              console.log(
-                `🔧 Manual Save: Normalized ${parentContentQuestions} sub-questions (parentContent) to qIdx=0`
-              );
-            }
-            console.log(
-              `Manual Save Merge: ${formData.allquestion.length} local + ${serverItems.length} server → ${finalMerged.length} final`
-            );
-          }
-
-          dispatch(setallquestion(finalMerged));
-          dispatch(setprevallquestion(finalMerged));
-        } else {
-          // Fallback to current state if no data returned - deduplicate as safety measure
-          const deduplicatedFallback = formData.allquestion.filter(
-            (question, index, array) => {
-              if (!question._id) return false;
-              return array.findIndex((q) => q._id === question._id) === index;
-            }
-          );
-
-          // Normalize qIdx for questions with parentContent in fallback too
-          // This ensures sub-questions (conditional questions) have consistent qIdx=0
-          const normalizedFallback = deduplicatedFallback.map((question) => {
-            if (question.parentcontent) {
-              return {
-                ...question,
-                qIdx: 0, // Force qIdx to 0 for sub-questions
-              };
-            }
-            return question;
-          });
-
-          if (
-            import.meta.env.DEV &&
-            deduplicatedFallback.length !== formData.allquestion.length
-          ) {
-            console.warn(
-              `🔧 Manual Save Fallback: Removed ${
-                formData.allquestion.length - deduplicatedFallback.length
-              } duplicates`
-            );
-          }
-
-          dispatch(setprevallquestion(normalizedFallback));
-        }
+      const success = await manualSave();
+      if (success) {
         setformHasChange(false); // Reset change state after successful save
-      } else {
-        throw new Error(response?.message || "Save failed");
       }
     } catch (error) {
       console.error("Manual save failed:", error);
-      ErrorToast({ title: "Failed", content: "Can't Save" });
     } finally {
       setsaveloading(false);
     }
-  }, [
-    formData.allquestion,
-    formData.formstate._id,
-    formData.page,
-    dispatch,
-    currentTab,
-  ]);
+  }, [formData.formstate._id, manualSave]);
 
   // Keyboard shortcut for manual save (Ctrl+S / Cmd+S)
   useEffect(() => {
@@ -387,9 +250,8 @@ export default function Navigationbar() {
         event.preventDefault();
         if (
           formData.formstate._id &&
-          !saveloading &&
           shouldShowSaveButton &&
-          formHasChange
+          !saveButtonState.disabled
         ) {
           handleManuallySave();
         }
@@ -402,9 +264,8 @@ export default function Navigationbar() {
     };
   }, [
     formData.formstate._id,
-    saveloading,
     shouldShowSaveButton,
-    formHasChange,
+    saveButtonState.disabled,
     handleManuallySave,
   ]);
 
@@ -443,7 +304,7 @@ export default function Navigationbar() {
     // Navigate to dashboard
     navigate("/dashboard");
 
-    // Reset all form-related state
+    // Reset state
     dispatch(setformstate(DefaultFormState));
     dispatch(setallquestion([]));
     dispatch(setprevallquestion([]));
@@ -478,21 +339,60 @@ export default function Navigationbar() {
       <div className="profile">
         <div className="w-fit h-full flex flex-row items-center gap-x-3">
           {shouldShowSaveButton && (
-            <Button
-              className="max-w-xs text-white font-bold"
-              variant="solid"
-              color="success"
-              isDisabled={!formHasChange || !formData.formstate._id}
-              isLoading={saveloading}
-              onPress={handleSavePress}
-              aria-label="Save form changes"
-            >
-              Save
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                className="text-white font-bold"
+                variant="solid"
+                color={saveButtonState.color}
+                isDisabled={saveButtonState.disabled}
+                isLoading={saveButtonState.loading}
+                onPress={handleSavePress}
+                aria-label="Save form changes"
+                size="sm"
+              >
+                {saveButtonState.text}
+              </Button>
+              {autoSaveStatusText && (
+                <span
+                  className={`text-xs ${
+                    autoSaveStatus.status === "error"
+                      ? "text-red-500"
+                      : autoSaveStatus.status === "saving"
+                      ? "text-blue-500"
+                      : autoSaveStatus.status === "saved"
+                      ? "text-green-500"
+                      : !isOnline
+                      ? "text-orange-500"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {autoSaveStatusText}
+                </span>
+              )}
+            </div>
           )}
 
           {!isSettingTab && !formData.fetchloading && !isAutosaveDisabled && (
-            <MemoizedAutoSaveForm />
+            <div className="flex flex-col items-end gap-1">
+              <MemoizedAutoSaveForm />
+              {autoSaveStatusText && (
+                <span
+                  className={`text-xs ${
+                    autoSaveStatus.status === "error"
+                      ? "text-red-500"
+                      : autoSaveStatus.status === "saving"
+                      ? "text-blue-500"
+                      : autoSaveStatus.status === "saved"
+                      ? "text-green-500"
+                      : !isOnline
+                      ? "text-orange-500"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {autoSaveStatusText}
+                </span>
+              )}
+            </div>
           )}
 
           <MemoizedNotificationSystem

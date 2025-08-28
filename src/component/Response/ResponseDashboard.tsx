@@ -1,4 +1,4 @@
-import React, { useState, useMemo, memo, useCallback } from "react";
+import React, { useState, useMemo, memo, useCallback, useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -7,13 +7,6 @@ import {
   Input,
   Select,
   SelectItem,
-  Table,
-  TableHeader,
-  TableBody,
-  TableColumn,
-  TableRow,
-  TableCell,
-  Chip,
   Pagination,
   Modal,
   ModalContent,
@@ -21,57 +14,28 @@ import {
   ModalBody,
   ModalFooter,
   useDisclosure,
-  Tooltip,
   Spinner,
+  SharedSelection,
 } from "@heroui/react";
-import {
-  FiMail,
-  FiLink,
-  FiDownload,
-  FiEye,
-  FiEdit3,
-  FiBarChart,
-} from "react-icons/fi";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import ApiRequest from "../../hooks/ApiHook";
+import { FiMail, FiLink, FiBarChart } from "react-icons/fi";
+import { useQuery } from "@tanstack/react-query";
 import { FormDataType, FormTypeEnum } from "../../types/Form.types";
-import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
-
-interface ResponseSetType {
-  questionId: string;
-  response: string | number | boolean | string[] | number[];
-  score?: number;
-  isManuallyScored?: boolean;
-}
-
-interface ResponseData {
-  _id: string;
-  formId: string;
-  userId?: string;
-  guest?: {
-    email: string;
-    name?: string;
-  };
-  respondentEmail?: string;
-  respondentName?: string;
-  totalScore?: number;
-  completionStatus?: "completed" | "partial" | "abandoned";
-  submittedAt?: Date;
-  isManuallyScored?: boolean;
-  responseset: ResponseSetType[];
-  isCompleted?: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+import { ErrorToast } from "../Modal/AlertModal";
+import { useResponseMutations } from "./hooks/useResponseMutations";
+import ResponseTable from "./components/ResponseTable";
+import ManualScoringView from "./components/ManualScoringView";
+import ViewResponseModal from "./components/ViewResponseModal";
+import { ScoreEditModal } from "./components/SimpleModal";
+import { ResponseDataType, statusColor } from "./Response.type";
+import {
+  fetchResponseList,
+  fetchResponseDetails,
+  ResponseListItem,
+} from "../../services/responseService";
 
 interface ResponseDashboardProps {
   formId: string;
   form: FormDataType;
-}
-
-interface FormLinkResponse {
-  link?: string;
-  url?: string;
 }
 
 const errorToastId = "uniqueResponseErrorId";
@@ -80,20 +44,22 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   formId,
   form,
 }) => {
-  const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState<"all" | "manual-score">("all");
   const [filters, setFilters] = useState({
     status: "",
     dateRange: "",
     searchTerm: "",
   });
-  const [selectedResponse, setSelectedResponse] = useState<ResponseData | null>(
-    null
-  );
+  const [selectedResponse, setSelectedResponse] =
+    useState<ResponseListItem | null>(null);
+  const [selectedResponseDetails, setSelectedResponseDetails] =
+    useState<ResponseDataType | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailList, setEmailList] = useState("");
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [generatedLink, setGeneratedLink] = useState("");
+  const [manualScores, setManualScores] = useState<Record<string, number>>({});
 
   const {
     isOpen: isViewOpen,
@@ -106,9 +72,28 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     onClose: onScoreClose,
   } = useDisclosure();
 
-  // Fetch responses using React Query
+  // Custom hooks
   const {
-    data: responses = [],
+    updateScoreMutation,
+    updateQuestionScoreMutation,
+    sendLinksMutation,
+    generateLinkMutation,
+    deleteResponseMutation,
+    bulkDeleteResponsesMutation,
+  } = useResponseMutations(formId);
+
+  useEffect(() => {
+    if (generateLinkMutation.isSuccess && generateLinkMutation.data) {
+      const link =
+        generateLinkMutation.data.link || generateLinkMutation.data.url || "";
+      setGeneratedLink(link);
+      setLinkModalOpen(true);
+    }
+  }, [generateLinkMutation.isSuccess, generateLinkMutation.data]);
+
+  // Fetch response list (without responseset for performance)
+  const {
+    data: responseListData,
     error,
     isLoading,
   } = useQuery({
@@ -118,41 +103,70 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         throw new Error("No formId provided");
       }
 
-      const params = new URLSearchParams({
-        id: formId,
-        p: currentPage.toString(),
-        lt: "10",
-      });
-
-      const result = await ApiRequest({
-        url: `/getresponsebyform?${params}`,
-        method: "GET",
-        cookie: true,
-        refreshtoken: true,
-        reactQuery: true,
-      });
-
-      return result.data as ResponseData[];
+      return await fetchResponseList(formId, currentPage, 10);
     },
     enabled: !!formId,
-    staleTime: 30000, // 30 seconds
-    retry: (failureCount) => {
-      // Don't retry on certain errors
-      if (failureCount >= 3) return false;
-      return true;
-    },
+    staleTime: 30000,
+    retry: (failureCount) => failureCount < 3,
   });
 
-  // Calculate total pages based on response count
-  const totalPages = useMemo(() => {
-    return responses.length < 10 ? currentPage : currentPage + 1;
-  }, [responses.length, currentPage]);
+  const responses = useMemo(
+    () => responseListData?.responses || [],
+    [responseListData?.responses]
+  );
+  const totalPages = responseListData?.pagination?.totalPages || 1;
 
-  // Apply filters to responses using useMemo instead of useEffect
+  const { data: responseDetails, isLoading: isLoadingUserResponse } = useQuery({
+    queryKey: ["responseDetails", selectedResponse?._id, formId],
+    queryFn: async () => {
+      if (!selectedResponse?._id || !formId) {
+        throw new Error("Response ID and Form ID are required");
+      }
+      return await fetchResponseDetails(selectedResponse._id, formId);
+    },
+    enabled: !!selectedResponse?._id && !!formId && isViewOpen,
+    staleTime: 30000,
+    gcTime: 300000,
+  });
+
+  // Separate query for manual scoring mode which needs detailed response data
+  const { data: manualScoringResponses, isLoading: isLoadingManualData } =
+    useQuery({
+      queryKey: ["manualScoringResponses", formId],
+      queryFn: async () => {
+        if (!formId) {
+          throw new Error("Form ID is required");
+        }
+
+        // For manual scoring, we need to fetch detailed response data
+        // This is a temporary solution - ideally we'd have a dedicated endpoint
+        const responseList = await fetchResponseList(formId, 1, 1000); // Get all responses
+
+        // Fetch detailed data for each response (limit to first few for performance)
+        const detailedResponses = await Promise.all(
+          responseList.responses
+            .slice(0, 50)
+            .map((response) => fetchResponseDetails(response._id, formId))
+        );
+
+        return detailedResponses.filter(Boolean); // Remove any null responses
+      },
+      enabled: !!formId && viewMode === "manual-score",
+      staleTime: 30000,
+      gcTime: 300000,
+    });
+
+  // Update selected response details when data is fetched
+  useEffect(() => {
+    if (responseDetails) {
+      setSelectedResponseDetails(responseDetails);
+    }
+  }, [responseDetails]);
+
+  // Apply filters to responses
   const filteredResponses = useMemo(() => {
     let filtered = responses;
 
-    // Filter by search term
     if (filters.searchTerm) {
       filtered = filtered.filter(
         (response) =>
@@ -175,17 +189,14 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       );
     }
 
-    // Filter by completion status
     if (filters.status) {
       filtered = filtered.filter(
         (response) => response.completionStatus === filters.status
       );
     }
 
-    // Filter by date range
     if (filters.dateRange) {
       const now = new Date();
-
       switch (filters.dateRange) {
         case "today": {
           filtered = filtered.filter((response) => {
@@ -217,7 +228,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     return filtered;
   }, [responses, filters]);
 
-  // Handle query errors using React Query's error handling
   if (error) {
     ErrorToast({
       toastid: errorToastId,
@@ -226,7 +236,66 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     });
   }
 
-  // Send form links via email
+  const formatDate = useCallback((date: Date) => {
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, []);
+
+  const getStatusColor = useCallback((status: string): statusColor => {
+    switch (status) {
+      case "completed":
+        return "success";
+      case "partial":
+        return "warning";
+      case "abandoned":
+        return "danger";
+      default:
+        return "default";
+    }
+  }, []);
+
+  const isQuizForm = useMemo(() => {
+    return form.type === FormTypeEnum.Quiz;
+  }, [form.type]);
+
+  const handleManualScoreUpdate = useCallback(
+    (responseId: string, questionId: string, score: number) => {
+      setManualScores((prev) => ({
+        ...prev,
+        [`${responseId}-${questionId}`]: score,
+      }));
+
+      updateQuestionScoreMutation.mutate({
+        responseId,
+        questionId,
+        score,
+      });
+    },
+    [updateQuestionScoreMutation]
+  );
+
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFilters((prev) => ({ ...prev, searchTerm: e.target.value }));
+    },
+    []
+  );
+
+  const handleStatusChange = useCallback((keys: SharedSelection) => {
+    const selected = Array.from(keys)[0] as string;
+    setFilters((prev) => ({ ...prev, status: selected || "" }));
+  }, []);
+
+  const handleDateRangeChange = useCallback((keys: SharedSelection) => {
+    const selected = Array.from(keys)[0] as string;
+    setFilters((prev) => ({ ...prev, dateRange: selected || "" }));
+  }, []);
+
   const sendFormLinks = () => {
     if (!emailList.trim()) return;
 
@@ -253,9 +322,10 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
 
     const message = `You have been invited to complete the survey: ${form.title}`;
     sendLinksMutation.mutate({ emails, message });
+    setEmailModalOpen(false);
+    setEmailList("");
   };
 
-  // Generate form link
   const generateFormLink = () => {
     if (!formId) {
       ErrorToast({
@@ -268,188 +338,34 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     generateLinkMutation.mutate();
   };
 
-  // Update response score using React Query mutation
-  const updateScoreMutation = useMutation({
-    mutationFn: async ({
-      responseId,
-      newScore,
-    }: {
-      responseId: string;
-      newScore: number;
-    }) => {
-      const result = await ApiRequest({
-        method: "PUT",
-        url: `/response/update-score`,
-        data: {
-          responseId,
-          score: newScore,
-        },
-        cookie: true,
-        reactQuery: true,
-      });
-      return result.data;
-    },
-    onSuccess: () => {
-      // Invalidate and refetch responses
-      queryClient.invalidateQueries({ queryKey: ["responses", formId] });
-      onScoreClose();
-      SuccessToast({
-        title: "Success",
-        content: "Response score updated successfully!",
-      });
-    },
-    onError: (error: Error) => {
-      ErrorToast({
-        title: "Error",
-        content: error.message || "Failed to update response score",
-        toastid: errorToastId,
-      });
-    },
-  });
-
-  // Send form links using React Query mutation
-  const sendLinksMutation = useMutation({
-    mutationFn: async ({
-      emails,
-      message,
-    }: {
-      emails: string[];
-      message: string;
-    }) => {
-      const result = await ApiRequest({
-        url: "/response/send-links",
-        method: "POST",
-        cookie: true,
-        data: {
-          formId,
-          emails,
-          message,
-        },
-        reactQuery: true,
-      });
-      return result.data;
-    },
-    onSuccess: () => {
-      setEmailModalOpen(false);
-      setEmailList("");
-      SuccessToast({
-        title: "Success",
-        content: "Form links sent successfully!",
-      });
-    },
-    onError: (error: Error) => {
-      ErrorToast({
-        title: "Error",
-        content: error.message || "Failed to send form links",
-      });
-    },
-  });
-
-  const generateLinkMutation = useMutation({
-    mutationFn: async () => {
-      const result = await ApiRequest({
-        url: "/response/generate-link",
-        method: "POST",
-        cookie: true,
-        data: { formId, secure: true },
-        reactQuery: true,
-      });
-      return result.data as FormLinkResponse;
-    },
-    onSuccess: (data) => {
-      const link = data.link || data.url || (data as unknown as string);
-      setGeneratedLink(link);
-      setLinkModalOpen(true);
-      SuccessToast({
-        title: "Success",
-        content: "Form link generated successfully!",
-      });
-    },
-    onError: (error: Error) => {
-      ErrorToast({
-        title: "Error",
-        content: error.message || "Failed to generate form link",
-      });
-    },
-  });
-
   const copyLink = useCallback(() => {
     navigator.clipboard.writeText(generatedLink);
-    SuccessToast({ title: "Success", content: "Link copied to clipboard!" });
   }, [generatedLink]);
-
-  // Format date
-  const formatDate = useCallback((date: Date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }, []);
-
-  // Get status color
-  const getStatusColor = useCallback(
-    (status: string): "success" | "warning" | "danger" | "default" => {
-      switch (status) {
-        case "completed":
-          return "success";
-        case "partial":
-          return "warning";
-        case "abandoned":
-          return "danger";
-        default:
-          return "default";
-      }
-    },
-    []
-  );
-
-  // Filter handlers
-  const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFilters((prev) => ({ ...prev, searchTerm: e.target.value }));
-    },
-    []
-  );
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleStatusChange = useCallback((keys: any) => {
-    const selected = Array.from(keys)[0] as string;
-    setFilters((prev) => ({ ...prev, status: selected || "" }));
-  }, []);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleDateRangeChange = useCallback((keys: any) => {
-    const selected = Array.from(keys)[0] as string;
-    setFilters((prev) => ({ ...prev, dateRange: selected || "" }));
-  }, []);
-
-  // Check if form is quiz type
-  const isQuizForm = useMemo(() => {
-    return form.type === FormTypeEnum.Quiz;
-  }, [form.type]);
-
-  // Modal handlers
-  const handleOpenEmailModal = useCallback(() => setEmailModalOpen(true), []);
-  const handleCloseEmailModal = useCallback(() => setEmailModalOpen(false), []);
-  const handleCloseLinkModal = useCallback(() => setLinkModalOpen(false), []);
-  const handleOpenAnalytics = useCallback(
-    () => window.open(`/analytics/${formId}`, "_blank"),
-    [formId]
-  );
 
   return (
     <div className="space-y-6">
-      {/* Header with Actions */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Response Management</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold">Response Management</h2>
+          <Select
+            label="View Mode"
+            placeholder="Select view mode"
+            selectedKeys={[viewMode]}
+            onSelectionChange={(keys) => {
+              const selected = Array.from(keys)[0] as "all" | "manual-score";
+              setViewMode(selected);
+            }}
+            className="w-48"
+          >
+            <SelectItem key="all">All Responses</SelectItem>
+            <SelectItem key="manual-score">Manually Score</SelectItem>
+          </Select>
+        </div>
         <div className="flex gap-2">
           <Button
             color="primary"
             startContent={<FiMail />}
-            onPress={handleOpenEmailModal}
+            onPress={() => setEmailModalOpen(true)}
           >
             Send Links
           </Button>
@@ -471,7 +387,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
           <Button
             color="success"
             startContent={<FiBarChart />}
-            onPress={handleOpenAnalytics}
+            onPress={() => window.open(`/analytics/${formId}`, "_blank")}
           >
             Analytics
           </Button>
@@ -513,122 +429,51 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         </CardBody>
       </Card>
 
-      {/* Responses Table */}
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">
-            Responses ({responses.length})
+            {viewMode === "all"
+              ? `Responses (${responses.length})`
+              : "Manual Scoring"}
           </h3>
         </CardHeader>
         <CardBody>
-          <Table aria-label="Responses table">
-            <TableHeader>
-              <TableColumn>RESPONDENT</TableColumn>
-              <TableColumn>EMAIL</TableColumn>
-              <TableColumn className={isQuizForm ? "" : "hidden"}>
-                SCORE
-              </TableColumn>
-              <TableColumn>STATUS</TableColumn>
-              <TableColumn>SUBMITTED</TableColumn>
-              <TableColumn>ACTIONS</TableColumn>
-            </TableHeader>
-            <TableBody
-              items={filteredResponses}
-              loadingContent={<Spinner size="lg" />}
+          {viewMode === "all" ? (
+            <ResponseTable
+              responses={filteredResponses}
               isLoading={isLoading}
-              emptyContent={
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No responses found</p>
-                </div>
+              isQuizForm={isQuizForm}
+              onViewResponse={(response) => {
+                setSelectedResponse(response);
+                onViewOpen();
+              }}
+              onEditScore={(response) => {
+                setSelectedResponse(response);
+                onScoreOpen();
+              }}
+              onDeleteResponse={(id: string) =>
+                deleteResponseMutation.mutate(id)
               }
-            >
-              {(response: ResponseData) => (
-                <TableRow key={response._id}>
-                  <TableCell>
-                    {response.respondentName ||
-                      response.guest?.name ||
-                      "Anonymous"}
-                  </TableCell>
-                  <TableCell>
-                    {response.respondentEmail || response.guest?.email || "N/A"}
-                  </TableCell>
-                  <TableCell className={isQuizForm ? "" : "hidden"}>
-                    <div className="flex items-center gap-2">
-                      <span>{response.totalScore || 0}</span>
-                      {response.isManuallyScored && (
-                        <Chip size="sm" color="warning">
-                          Manual
-                        </Chip>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="sm"
-                      color={getStatusColor(
-                        response.completionStatus || "default"
-                      )}
-                      variant="flat"
-                    >
-                      {response.completionStatus || "Unknown"}
-                    </Chip>
-                  </TableCell>
-                  <TableCell>
-                    {response.submittedAt
-                      ? formatDate(response.submittedAt)
-                      : "N/A"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Tooltip content="View Response">
-                        <Button
-                          size="sm"
-                          variant="light"
-                          isIconOnly
-                          onClick={() => {
-                            setSelectedResponse(response);
-                            onViewOpen();
-                          }}
-                        >
-                          <FiEye />
-                        </Button>
-                      </Tooltip>
-                      {isQuizForm && (
-                        <Tooltip content="Edit Score">
-                          <Button
-                            size="sm"
-                            variant="light"
-                            isIconOnly
-                            onClick={() => {
-                              setSelectedResponse(response);
-                              onScoreOpen();
-                            }}
-                          >
-                            <FiEdit3 />
-                          </Button>
-                        </Tooltip>
-                      )}
-                      <Tooltip content="Export PDF">
-                        <Button
-                          size="sm"
-                          variant="light"
-                          isIconOnly
-                          onClick={() => {
-                            // TODO: Implement PDF export
-                            alert("PDF export coming soon!");
-                          }}
-                        >
-                          <FiDownload />
-                        </Button>
-                      </Tooltip>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              onBulkDelete={(ids: string[]) =>
+                bulkDeleteResponsesMutation.mutate(ids)
+              }
+              formatDate={formatDate}
+              getStatusColor={getStatusColor}
+            />
+          ) : isLoadingManualData ? (
+            <div className="flex justify-center items-center py-8">
+              <Spinner size="lg" />
+            </div>
+          ) : (
+            <ManualScoringView
+              responses={manualScoringResponses || []}
+              form={form}
+              manualScores={manualScores}
+              onScoreUpdate={handleManualScoreUpdate}
+            />
+          )}
 
-          {totalPages > 1 && (
+          {viewMode === "all" && totalPages > 1 && (
             <div className="flex justify-center mt-4">
               <Pagination
                 total={totalPages}
@@ -642,7 +487,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       </Card>
 
       {/* Email Modal */}
-      <Modal isOpen={emailModalOpen} onClose={handleCloseEmailModal}>
+      <Modal isOpen={emailModalOpen} onClose={() => setEmailModalOpen(false)}>
         <ModalContent>
           <ModalHeader>Send Form Links</ModalHeader>
           <ModalBody>
@@ -662,12 +507,12 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onClick={handleCloseEmailModal}>
+            <Button variant="light" onClick={() => setEmailModalOpen(false)}>
               Cancel
             </Button>
             <Button
               color="primary"
-              onClick={sendFormLinks}
+              onPress={sendFormLinks}
               isLoading={sendLinksMutation.isPending}
               disabled={sendLinksMutation.isPending}
             >
@@ -682,7 +527,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       </Modal>
 
       {/* Link Generation Modal */}
-      <Modal isOpen={linkModalOpen} onClose={handleCloseLinkModal}>
+      <Modal isOpen={linkModalOpen} onClose={() => setLinkModalOpen(false)}>
         <ModalContent>
           <ModalHeader>Generated Form Link</ModalHeader>
           <ModalBody>
@@ -702,141 +547,34 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button onClick={handleCloseLinkModal}>Close</Button>
+            <Button onPress={() => setLinkModalOpen(false)}>Close</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
-      {/* View Response Modal */}
-      <Modal isOpen={isViewOpen} onClose={onViewClose} size="2xl">
-        <ModalContent>
-          <ModalHeader>Response Details</ModalHeader>
-          <ModalBody>
-            {selectedResponse && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <strong>Respondent:</strong>{" "}
-                    {selectedResponse.respondentName || "Anonymous"}
-                  </div>
-                  <div>
-                    <strong>Email:</strong>{" "}
-                    {selectedResponse.respondentEmail || "N/A"}
-                  </div>
-                  {isQuizForm && (
-                    <div>
-                      <strong>Score:</strong> {selectedResponse.totalScore || 0}
-                    </div>
-                  )}
-                  <div>
-                    <strong>Status:</strong>{" "}
-                    {selectedResponse.completionStatus || "Unknown"}
-                  </div>
-                </div>
-                <div>
-                  <strong>Submitted:</strong>{" "}
-                  {selectedResponse.submittedAt
-                    ? formatDate(selectedResponse.submittedAt)
-                    : "N/A"}
-                </div>
-                <div>
-                  <strong>Responses:</strong>
-                  <div className="mt-2 space-y-2">
-                    {selectedResponse.responseset.map(
-                      (resp: ResponseSetType, index: number) => (
-                        <div key={index} className="p-2 bg-gray-50 rounded">
-                          <div className="font-medium">
-                            Question {index + 1}
-                          </div>
-                          <div>{String(resp.response)}</div>
-                          {isQuizForm && resp.score && (
-                            <div className="text-sm text-gray-600">
-                              Score: {resp.score}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button onClick={onViewClose}>Close</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ViewResponseModal
+        isOpen={isViewOpen}
+        onClose={onViewClose}
+        selectedResponse={selectedResponseDetails}
+        form={form}
+        onEditScore={() => {
+          onViewClose();
+          onScoreOpen();
+        }}
+        formatDate={formatDate}
+        getStatusColor={getStatusColor}
+        isLoading={isLoadingUserResponse}
+      />
 
-      {/* Score Edit Modal */}
-      <Modal isOpen={isScoreOpen} onClose={onScoreClose}>
-        <ModalContent>
-          <ModalHeader>Edit Score</ModalHeader>
-          <ModalBody>
-            {selectedResponse && (
-              <div className="space-y-4">
-                <div>
-                  <strong>Respondent:</strong>{" "}
-                  {selectedResponse.respondentName || "Anonymous"}
-                </div>
-                <div>
-                  <strong>Current Score:</strong>{" "}
-                  {selectedResponse.totalScore || 0}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    New Score
-                  </label>
-                  <Input
-                    type="number"
-                    placeholder="Enter new score"
-                    defaultValue={(selectedResponse.totalScore || 0).toString()}
-                    onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (e.key === "Enter") {
-                        const newScore = parseInt(
-                          (e.target as HTMLInputElement).value
-                        );
-                        updateScoreMutation.mutate({
-                          responseId: selectedResponse._id,
-                          newScore,
-                        });
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="light" onClick={onScoreClose}>
-              Cancel
-            </Button>
-            <Button
-              color="primary"
-              isLoading={updateScoreMutation.isPending}
-              disabled={updateScoreMutation.isPending}
-              onClick={() => {
-                const input = document.querySelector(
-                  'input[type="number"]'
-                ) as HTMLInputElement;
-                if (input && selectedResponse) {
-                  const newScore = parseInt(input.value);
-                  updateScoreMutation.mutate({
-                    responseId: selectedResponse._id,
-                    newScore,
-                  });
-                }
-              }}
-            >
-              {updateScoreMutation.isPending ? (
-                <Spinner size="sm" />
-              ) : (
-                "Update Score"
-              )}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ScoreEditModal
+        isOpen={isScoreOpen}
+        onClose={onScoreClose}
+        selectedResponse={selectedResponseDetails}
+        onUpdateScore={(responseId, newScore) => {
+          updateScoreMutation.mutate({ responseId, newScore });
+        }}
+        isLoading={updateScoreMutation.isPending}
+      />
     </div>
   );
 };
