@@ -1,4 +1,6 @@
+import { DateValue } from "@heroui/react";
 import { ContentType } from "./types/Form.types";
+import { getLocalTimeZone } from "@internationalized/date";
 
 export function hasObjectChanged<T>(oldObject: T, newValue: T): boolean {
   if (oldObject === newValue) return false;
@@ -389,4 +391,16 @@ export const getConditionalDepth = (
   };
 
   return calculateDepth(content);
+};
+
+export const convertDateValueToString = (val: DateValue) => {
+  return val.toDate(getLocalTimeZone()).toISOString();
+};
+
+export const isMoreThanDay = (val: Date): boolean => {
+  const now = new Date();
+  const diffMs = now.getTime() - val.getTime();
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  return diffMs > oneDayMs;
 };

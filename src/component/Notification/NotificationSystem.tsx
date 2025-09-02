@@ -73,12 +73,12 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
     }
   }, [users.user?._id]);
 
-  useEffect(() => {
-    fetchNotifications();
-    // Set up polling for real-time updates
-    const interval = setInterval(fetchNotifications, 30000); // Poll every 30 seconds
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
+  // useEffect(() => {
+  //   fetchNotifications();
+  //   // Set up polling for real-time updates
+  //   const interval = setInterval(fetchNotifications, 30000); // Poll every 30 seconds
+  //   return () => clearInterval(interval);
+  // }, [fetchNotifications]);
 
   const markAsRead = async (notificationId: string) => {
     try {

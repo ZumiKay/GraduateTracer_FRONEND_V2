@@ -14,8 +14,12 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import {
   CalendarDate,
   CalendarDateTime,
+  getLocalTimeZone,
+  now,
   parseDate,
+  today,
 } from "@internationalized/date";
+import { FormatDate } from "../../../helperFunc";
 
 interface AnswerComponent_Props<t> {
   onChange?: (val: t) => void;
@@ -172,90 +176,19 @@ export const RangeNumberAnswer = (
   );
 };
 
-export const DateQuestionType = (props: AnswerComponent_Props<Date>) => {
+export const DateQuestionType = (props: AnswerComponent_Props<string>) => {
   const [value, setvalue] = useState<DateValue | null>(() => {
     if (props.value) {
-      try {
-        // Parse the date value more robustly
-        if (props.value instanceof CalendarDate) {
-          return new CalendarDate(
-            props.value.year,
-            props.value.month,
-            props.value.day
-          );
-        } else {
-          // Try parsing as string - cast to any to avoid type issues
-          return parseDate(String(props.value));
-        }
-      } catch (error) {
-        console.warn("Error parsing initial date value:", error);
-        return null;
-      }
+      return parseDate(props.value);
     }
     return null;
   });
 
-  // Update local state when props.value changes
-  useEffect(() => {
-    if (props.value) {
-      try {
-        if (props.value instanceof CalendarDate) {
-          setvalue(
-            new CalendarDate(
-              props.value.year,
-              props.value.month,
-              props.value.day
-            )
-          );
-        } else {
-          setvalue(parseDate(String(props.value)));
-        }
-      } catch (error) {
-        console.warn("Error updating date value from props:", error);
-      }
-    }
-  }, [props.value]);
-
   useEffect(() => {
     if (props.onChange && value) {
-      try {
-        // Handle different DateValue types properly
-        let dateToReturn: Date;
-
-        if (value instanceof CalendarDate) {
-          // For CalendarDate, create a Date object from year/month/day
-          dateToReturn = new Date(value.year, value.month - 1, value.day);
-        } else if (value instanceof CalendarDateTime) {
-          // For CalendarDateTime, create Date object from components
-          dateToReturn = new Date(
-            value.year,
-            value.month - 1,
-            value.day,
-            value.hour,
-            value.minute,
-            value.second
-          );
-        } else if (typeof value.toString === "function") {
-          // Fallback: try string conversion
-          const dateString = value.toString();
-          dateToReturn = new Date(dateString);
-        } else {
-          // Last resort: create current date
-          console.warn("Unable to convert DateValue to Date:", value);
-          dateToReturn = new Date();
-        }
-
-        // Validate the resulting date
-        if (!isNaN(dateToReturn.getTime())) {
-          props.onChange(dateToReturn);
-        } else {
-          console.warn("Invalid date created from DateValue:", value);
-        }
-      } catch (error) {
-        console.error("Error converting DateValue to Date:", error, value);
-      }
+      props.onChange(value.toDate(getLocalTimeZone()).toISOString());
     }
-  }, [value]);
+  }, [props, value]);
 
   return (
     <div className="flex w-full flex-wrap md:flex-nowrap gap-4">
@@ -276,77 +209,39 @@ export const DateRangePickerQuestionType = ({
   questionstate,
   setquestionstate,
 }: {
-  questionstate?: RangeValue<DateValue>;
-  setquestionstate: (name: string, val: DateValue) => void;
+  questionstate?: RangeValue<string>;
+  setquestionstate: (name: string, val: string) => void;
 }) => {
-  const [value, setValue] = useState<RangeValue<DateValue> | null>();
+  const [value, setValue] = useState<RangeValue<DateValue> | null>({
+    start: today(getLocalTimeZone()),
+    end: today(getLocalTimeZone()),
+  });
 
+  // Initialize State
   useEffect(() => {
-    if (questionstate) {
-      try {
-        const convertedRange: RangeValue<DateValue> = {
-          start:
-            questionstate.start instanceof CalendarDate
-              ? questionstate.start
-              : new CalendarDate(
-                  questionstate.start.year,
-                  questionstate.start.month,
-                  questionstate.start.day
-                ),
-          end:
-            questionstate.end instanceof CalendarDate
-              ? questionstate.end
-              : new CalendarDate(
-                  questionstate.end.year,
-                  questionstate.end.month,
-                  questionstate.end.day
-                ),
-        };
-        setValue(convertedRange);
-      } catch (error) {
-        console.warn("Error converting questionstate to CalendarDate:", error);
-        setValue(questionstate);
-      }
+    if (questionstate?.start && questionstate?.end) {
+      const convertedRange: RangeValue<DateValue> = {
+        start: parseDate(questionstate.start),
+        end: parseDate(questionstate.end),
+      };
+      setValue(convertedRange);
     }
   }, [questionstate]);
 
   const isEndBeforeStart = useMemo(() => {
     if (!value?.start || !value?.end) return false;
-
-    try {
-      const startDate =
-        value.start instanceof CalendarDate
-          ? value.start
-          : new CalendarDate(
-              value.start.year,
-              value.start.month,
-              value.start.day
-            );
-
-      const endDate =
-        value.end instanceof CalendarDate
-          ? value.end
-          : new CalendarDate(value.end.year, value.end.month, value.end.day);
-
-      return endDate.compare(startDate) < 0;
-    } catch (error) {
-      console.warn("Date comparison error:", error);
-      // Fallback: try to compare as Date objects
-      try {
-        const startDate = new Date(value.start.toString());
-        const endDate = new Date(value.end.toString());
-        return endDate < startDate;
-      } catch (fallbackError) {
-        console.warn("Fallback date comparison error:", fallbackError);
-        return false;
-      }
-    }
-  }, [value?.start, value?.end]);
+    return value.end.compare(value.start) < 0;
+  }, [value]);
 
   const handleChangeDate = useCallback(
-    (name: string, val: CalendarDate | CalendarDateTime | null) => {
-      if (val) setquestionstate(name, val);
-      setValue((prev) => ({ ...prev, [name]: val } as never));
+    (name: "start" | "end", val: CalendarDate | CalendarDateTime | null) => {
+      if (val) {
+        const convertedVal = FormatDate(val.toDate(getLocalTimeZone()));
+        setquestionstate(name, convertedVal);
+      }
+      setValue(
+        (prev) => ({ ...(prev ?? {}), [name]: val } as RangeValue<DateValue>)
+      );
     },
     [setquestionstate]
   );
@@ -357,15 +252,19 @@ export const DateRangePickerQuestionType = ({
         <div className="flex gap-4">
           <DatePicker
             value={value?.start}
-            label={"Start Date"}
+            label="Start Date"
+            showMonthAndYearPickers
+            hideTimeZone
             labelPlacement="outside"
             onChange={(val) => handleChangeDate("start", val as never)}
             visibleMonths={2}
           />
           <DatePicker
             value={value?.end}
-            label={"End Date"}
+            label="End Date"
             labelPlacement="outside"
+            showMonthAndYearPickers
+            hideTimeZone
             onChange={(val) => handleChangeDate("end", val as never)}
             visibleMonths={2}
             isInvalid={isEndBeforeStart}
@@ -376,6 +275,7 @@ export const DateRangePickerQuestionType = ({
             }
           />
         </div>
+
         {isEndBeforeStart && (
           <p className="text-tiny text-danger mt-1">
             Invalid date range: End date must be after or equal to start date
@@ -385,7 +285,6 @@ export const DateRangePickerQuestionType = ({
     </div>
   );
 };
-
 export const ShortAnswer = (props: AnswerComponent_Props<string>) => {
   return (
     <Input

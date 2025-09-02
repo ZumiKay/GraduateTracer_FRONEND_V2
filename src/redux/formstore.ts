@@ -84,15 +84,6 @@ const formstore = createSlice({
         Array<ContentType> | ((prev: Array<ContentType>) => Array<ContentType>)
       >
     ) => {
-      console.log("🔄 SETALLQUESTION REDUCER:", {
-        type: typeof action.payload,
-        isFunction: typeof action.payload === "function",
-        currentLength: state.allquestion.length,
-        payloadLength: Array.isArray(action.payload)
-          ? action.payload.length
-          : "function",
-      });
-
       if (typeof action.payload === "function") {
         const newQuestions = action.payload(state.allquestion as ContentType[]);
 

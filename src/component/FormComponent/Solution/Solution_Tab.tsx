@@ -250,6 +250,11 @@ const Solution_Tab = memo(() => {
               const parentScore = question.parentcontent?.qId
                 ? parentScoreMap.get(question.parentcontent.qId)
                 : undefined;
+              const parentQIdx = allquestion.find(
+                (i, idx) =>
+                  i._id === question.parentcontent?.qId ||
+                  idx === question.parentcontent?.qIdx
+              )?.qIdx;
 
               return (
                 <QuestionItem
@@ -260,6 +265,7 @@ const Solution_Tab = memo(() => {
                   onUpdateContent={updateQuestion}
                   onSelectAnswer={handleSelectAnswer(idx)}
                   parentScore={parentScore}
+                  parentQIdx={parentQIdx}
                 />
               );
             })}

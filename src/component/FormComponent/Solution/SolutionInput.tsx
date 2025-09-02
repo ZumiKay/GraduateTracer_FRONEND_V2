@@ -19,6 +19,7 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   AnswerKey,
   ContentType,
+  formDatePattern,
   QuestionType,
   RangeType,
 } from "../../../types/Form.types";
@@ -28,9 +29,11 @@ import {
   CalendarDate,
   now,
   getLocalTimeZone,
+  parseDate,
 } from "@internationalized/date";
 import { RootState } from "../../../redux/store";
 import { ErrorToast } from "../../Modal/AlertModal";
+import { formatDate } from "date-fns";
 
 interface SolutionInputProps {
   content: ContentType;
@@ -92,15 +95,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         });
       } else {
         const val = newAnswer as unknown as RangeValue<DateValue>;
-
-        setLocalAnswer({
-          start: new CalendarDate(
-            val.start.year,
-            val.start.month,
-            val.start.day
-          ),
-          end: new CalendarDate(val.end.year, val.end.month, val.end.day),
-        });
       }
     } else if (newAnswer !== undefined) {
       setLocalAnswer(
@@ -188,6 +182,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
             <RadioGroup
               value={String(localAnswer)}
               onValueChange={(value) => handleAnswerChange(Number(value))}
+              className="flex flex-col gap-x-5"
             >
               {content.multiple?.map((option, index) => (
                 <Radio key={index} value={String(index)}>
@@ -263,25 +258,16 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         return (
           <div className="space-y-2">
             <p className="text-sm font-medium">Select correct options:</p>
-            {content.selection?.map((option, index) => (
-              <Checkbox
-                key={index}
-                isSelected={
-                  Array.isArray(localAnswer) && localAnswer.includes(index)
-                }
-                onValueChange={(checked) => {
-                  const currentAnswers = Array.isArray(localAnswer)
-                    ? localAnswer
-                    : [];
-                  const newAnswers = checked
-                    ? [...currentAnswers, index]
-                    : currentAnswers.filter((idx) => idx !== index);
-                  handleAnswerChange(newAnswers);
-                }}
-              >
-                {option.content}
-              </Checkbox>
-            ))}
+            <RadioGroup
+              value={String(localAnswer)}
+              onValueChange={(value) => handleAnswerChange(Number(value))}
+            >
+              {content.selection?.map((option, index) => (
+                <Radio key={index} value={String(index)}>
+                  {option.content}
+                </Radio>
+              ))}
+            </RadioGroup>
           </div>
         );
 
@@ -289,24 +275,16 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         const value = content.rangedate;
         if (!value) return null;
         const questionRange: RangeValue<DateValue> = {
-          start: new CalendarDate(
-            value.start.year,
-            value.start.month,
-            value.start.day
-          ),
-          end: new CalendarDate(value.end.year, value.end.month, value.end.day),
+          start: value.start
+            ? parseDate(formatDate(value.start, formDatePattern))
+            : now(getLocalTimeZone()),
+          end: value.end
+            ? parseDate(formatDate(value.end, formDatePattern))
+            : now(getLocalTimeZone()),
         };
-        const rawRange = localAnswer as RangeType<DateValue>;
 
-        const currentRange = {
-          start:
-            rawRange?.start instanceof CalendarDate
-              ? rawRange.start
-              : new CalendarDate(2024, 1, 1),
-          end:
-            rawRange?.end instanceof CalendarDate
-              ? rawRange.end
-              : new CalendarDate(2024, 12, 31),
+        const currentRange: RangeValue<DateValue> = {
+          ...(localAnswer as RangeValue<DateValue>),
         };
 
         const isInvalidRange = currentRange.end.compare(currentRange.start) < 0;
@@ -328,77 +306,66 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         }
 
         return (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Set correct date range:</p>
-            {questionRange && (
-              <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                Question allows range: {questionRange.start.toString()} to{" "}
-                {questionRange.end.toString()}
+          <>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Set correct date range:</p>
+              {questionRange && (
+                <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                  Question allows range: {questionRange.start.toString()} to{" "}
+                  {questionRange.end.toString()}
+                </div>
+              )}
+              <div className="flex gap-2 items-center">
+                <DatePicker
+                  label="Start Date"
+                  value={currentRange.start}
+                  onChange={(dateValue) => {
+                    if (dateValue) {
+                      console.log(dateValue.toString());
+                      const newRange: RangeType<DateValue> = {
+                        start: dateValue,
+                        end: currentRange.end,
+                      };
+                      handleAnswerChange(newRange);
+                    }
+                  }}
+                  variant="bordered"
+                  size="sm"
+                  isInvalid={isOutsideQuestionRange}
+                  errorMessage={rangeValidationMessage}
+                />
+                <span className="text-gray-400">to</span>
+                <DatePicker
+                  label="End Date"
+                  value={currentRange.end}
+                  onChange={(dateValue) => {
+                    if (dateValue) {
+                      const newRange: RangeType<DateValue> = {
+                        start: currentRange.start,
+                        end: dateValue,
+                      };
+                      handleAnswerChange(newRange);
+                    }
+                  }}
+                  variant="bordered"
+                  size="sm"
+                  isInvalid={isInvalidRange || isOutsideQuestionRange}
+                  errorMessage={
+                    isInvalidRange
+                      ? "End date must be after or equal to start date"
+                      : isOutsideQuestionRange
+                      ? rangeValidationMessage
+                      : ""
+                  }
+                />
               </div>
-            )}
-            <div className="flex gap-2 items-center">
-              <DatePicker
-                label="Start Date"
-                value={currentRange.start}
-                onChange={(dateValue) => {
-                  if (dateValue) {
-                    const newRange: RangeType<DateValue> = {
-                      start: dateValue,
-                      end: currentRange.end,
-                    };
-                    handleAnswerChange(newRange);
-                  }
-                }}
-                variant="bordered"
-                size="sm"
-                isInvalid={isOutsideQuestionRange}
-              />
-              <span className="text-gray-400">to</span>
-              <DatePicker
-                label="End Date"
-                value={currentRange.end}
-                onChange={(dateValue) => {
-                  if (dateValue) {
-                    const newRange: RangeType<DateValue> = {
-                      start: currentRange.start,
-                      end: dateValue,
-                    };
-                    handleAnswerChange(newRange);
-                  }
-                }}
-                variant="bordered"
-                size="sm"
-                isInvalid={isInvalidRange || isOutsideQuestionRange}
-                errorMessage={
-                  isInvalidRange
-                    ? "End date must be after or equal to start date"
-                    : isOutsideQuestionRange
-                    ? rangeValidationMessage
-                    : ""
-                }
-              />
             </div>
-            {(isInvalidRange || isOutsideQuestionRange) && (
-              <div className="space-y-1">
-                {isInvalidRange && (
-                  <p className="text-tiny text-danger">
-                    Invalid date range: End date must be after or equal to start
-                    date
-                  </p>
-                )}
-                {isOutsideQuestionRange && (
-                  <p className="text-tiny text-danger">
-                    {rangeValidationMessage}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+          </>
         );
       }
 
       case QuestionType.RangeNumber: {
-        const questionRange = content.rangenumber; // The range defined in question settings
+        const questionRange = content.rangenumber;
         const currentRange = (localAnswer as RangeType<number>) || {
           start: 0,
           end: 0,
@@ -432,7 +399,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
                 {questionRange.end}
               </div>
             )}
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-start">
               <NumberInput
                 label="Min Value"
                 placeholder="Minimum"
@@ -560,8 +527,10 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         if (range.end.compare(range.start) < 0) return false;
 
         if (content.rangedate?.start && content.rangedate?.end) {
-          const questionStart = content.rangedate.start;
-          const questionEnd = content.rangedate.end;
+          const questionStart = parseDate(
+            content.rangedate.start.toISOString()
+          );
+          const questionEnd = parseDate(content.rangedate.end.toISOString());
 
           if (
             range.start.compare(questionStart) < 0 ||

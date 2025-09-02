@@ -106,6 +106,14 @@ function FormPage() {
     },
   });
 
+  //Initiallize Page
+  useEffect(() => {
+    const currentPage = searchParam.get("page");
+    if (currentPage) {
+      dispatch(setpage(Number(currentPage)));
+    }
+  }, [dispatch, searchParam]);
+
   useEffect(() => {
     dispatch(setfetchloading(isLoading || isFetching));
 
@@ -341,7 +349,6 @@ function FormPage() {
             showControls
             className="bg-white rounded-xl"
             color="default"
-            initialPage={1}
             total={formstate.totalpage ?? 0}
             page={page}
             onChange={handlePage}

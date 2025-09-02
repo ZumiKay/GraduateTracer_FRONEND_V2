@@ -15,12 +15,27 @@ import {
   ModalContent,
   ModalHeader,
 } from "@heroui/react";
+import Selection from "./FormComponent/Selection";
+import { SelectionType } from "../types/Global.types";
+import { CollaboratorType } from "../types/Form.types";
 
 interface FormOwnerManagerProps {
   onClose: () => void;
   isOpen: boolean;
 }
 
+const collaboratorTypeSelection = (
+  isCreator?: boolean
+): Array<SelectionType<CollaboratorType>> => {
+  const options: Array<SelectionType<CollaboratorType>> = [
+    { label: "Owner", value: CollaboratorType.owner },
+    { label: "Editor", value: CollaboratorType.editor },
+  ];
+
+  return isCreator
+    ? options.filter((opt) => opt.value === CollaboratorType.editor)
+    : options;
+};
 enum ActionType {
   add = "Add",
   remove = "Remove",
@@ -49,6 +64,9 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
   const [isChanging, setisChanging] = useState<boolean>();
   const [toBeAdd, settoBeAdd] = useState<string>();
   const [isAdd, setisAdd] = useState<boolean>(false);
+  const [selectedRole, setselectedRole] = useState<CollaboratorType | null>(
+    null
+  );
 
   const fetchOwners = useCallback(async () => {
     setIsInitialLoading(true);
@@ -109,8 +127,8 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
   const handleAddOwner = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formId || !newOwnerEmail.trim()) {
-      setError("Form ID and email are required");
+    if (!formId || !newOwnerEmail.trim() || !selectedRole) {
+      setError("Form ID, email and role are required");
       return;
     }
 
@@ -133,7 +151,8 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
     try {
       const response = await formOwnerService.addFormOwner(
         formId,
-        newOwnerEmail.trim()
+        newOwnerEmail.trim(),
+        selectedRole
       );
 
       if (response) {
@@ -360,6 +379,10 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
     [handleRemoveOwner]
   );
 
+  const handleSelectRole = useCallback((val: CollaboratorType) => {
+    setselectedRole(val);
+  }, []);
+
   if (isInitialLoading) {
     return (
       <Modal size="xl" isOpen={isOpen} onOpenChange={() => onClose()}>
@@ -435,6 +458,15 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
                       required
                       disabled={isLoading}
                     />
+                    <Selection
+                      items={collaboratorTypeSelection(isCreator)}
+                      selectedKeys={selectedRole ? [selectedRole] : undefined}
+                      onSelectionChange={(val) =>
+                        handleSelectRole(val as never)
+                      }
+                      aria-label="Select Collaborator Role"
+                      className="w-full"
+                    />
                   </div>
 
                   <div className="flex gap-3">
@@ -493,6 +525,16 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
                           </Button>
                         )
                     )}
+                  {isChanging && (
+                    <Button
+                      color="danger"
+                      className="font-bold text-white"
+                      size="sm"
+                      onPress={() => setisChanging(false)}
+                    >
+                      Cancel
+                    </Button>
+                  )}
                 </div>
 
                 {/* Instructions */}
@@ -507,7 +549,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
 
                 {/* Collaborators Sections */}
                 <div className="space-y-6">
-                  {owners.length > 0 && (
+                  {owners.length > 0 && !isChanging && (
                     <CollarboratorItem
                       title={`Owners (${owners.length})`}
                       data={owners}
@@ -521,7 +563,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
                     />
                   )}
 
-                  {editors.length > 0 && (
+                  {editors.length > 0 && !isChanging && (
                     <CollarboratorItem
                       title={`Editors (${editors.length})`}
                       data={editors}

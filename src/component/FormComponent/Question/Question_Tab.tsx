@@ -18,7 +18,7 @@ import {
   setshowLinkedQuestion,
   setpauseAutoSave,
 } from "../../../redux/formstore";
-import ApiRequest, { ApiRequestReturnType } from "../../../hooks/ApiHook";
+import ApiRequest from "../../../hooks/ApiHook";
 import QuestionComponent from "../QuestionComponent";
 import { Button, Image } from "@heroui/react";
 import { PlusIcon } from "../../svg/GeneralIcon";
@@ -83,7 +83,7 @@ const QuestionTab = () => {
   );
 
   const handleAddQuestion = useCallback(async () => {
-    const qIdx = formState.lastqIdx ?? 0 + (allQuestion.length + 1);
+    const qIdx = (formState?.lastqIdx ?? 0) + (allQuestion.length + 1);
     const updatedQuestions: Array<ContentType> = [
       ...(allQuestion ?? []),
       {
@@ -168,12 +168,12 @@ const QuestionTab = () => {
             setallquestion((prev) =>
               prev
                 .filter(
-                  (_, idx) => idx !== qidx || !idxToBeDelete?.includes(idx)
+                  (_, idx) => idx !== qidx && !idxToBeDelete?.includes(idx)
                 )
                 .map((question) => {
                   const updatedqIdx =
                     question.qIdx > questionToDelete.qIdx
-                      ? question.qIdx - (idxToBeDelete?.length ?? 0 + 1)
+                      ? question.qIdx - 1 - (idxToBeDelete?.length ?? 0)
                       : question.qIdx;
 
                   return {
@@ -222,71 +222,133 @@ const QuestionTab = () => {
 
   const handleAddCondition = useCallback(
     async (questionIdx: number, anskey: number): Promise<void> => {
-      const toUpdateQuestion = allQuestion[questionIdx];
-      if (!toUpdateQuestion) {
+      if (questionIdx < 0 || questionIdx >= allQuestion.length) {
+        console.warn("Invalid question index for condition:", questionIdx);
         return;
       }
 
-      const newContentId: number | string = questionIdx + 1;
+      const targetQuestion = allQuestion[questionIdx];
+      if (!targetQuestion) {
+        console.warn("Question not found at index:", questionIdx);
+        return;
+      }
 
-      dispatch(
-        setallquestion((prev) => {
-          const newConditional = {
-            contentIdx: newContentId,
-            key: anskey,
-          };
+      dispatch(setpauseAutoSave(true));
 
-          const updatedQuestion = {
-            ...toUpdateQuestion,
-            conditional: [
-              ...(toUpdateQuestion.conditional?.map((prevCond) => ({
-                ...prevCond,
-                contentIdx:
-                  prevCond.contentIdx !== undefined && prevCond.contentIdx + 1,
-              })) ?? []),
-              newConditional,
-            ],
-          };
+      try {
+        dispatch(
+          setallquestion((prevQuestions) => {
+            const existingConditionals = targetQuestion.conditional || [];
+            const nextAvailableIdx = targetQuestion.qIdx + 1;
 
-          const newChildQidx = toUpdateQuestion.conditional
-            ? Math.max(
-                ...allQuestion
-                  .map(
-                    (i, idx) =>
-                      toUpdateQuestion.conditional?.find(
-                        (cond) => cond.contentIdx === idx
-                      ) && i.qIdx
+            const maxExistingConditionIdx =
+              existingConditionals.length > 0
+                ? Math.max(
+                    ...(existingConditionals
+                      .map(
+                        (condQues) =>
+                          condQues.contentIdx &&
+                          prevQuestions[condQues.contentIdx].qIdx
+                      )
+                      .filter(Boolean) as number[])
                   )
-                  .filter((qIdx): qIdx is number => qIdx !== undefined)
-              )
-            : 0;
+                : targetQuestion.qIdx;
 
-          const newContent = {
-            ...DefaultContentType,
-            qIdx: newChildQidx + 1,
-            parentcontent: {
-              optIdx: anskey,
-              qIdx: questionIdx,
-              qId: toUpdateQuestion._id,
-            },
-            page,
-          } as ContentType;
+            const newChildQIdx = Math.max(
+              maxExistingConditionIdx,
+              nextAvailableIdx
+            );
 
-          const updatedList = [
-            ...prev.slice(0, questionIdx + 1),
-            newContent,
-            ...prev.slice(questionIdx + 1),
-          ];
+            const newConditional = {
+              contentIdx: questionIdx + 1,
+              key: anskey,
+            };
 
-          const finalList = updatedList.map((item, idx) =>
-            item._id === toUpdateQuestion._id || idx === questionIdx
-              ? updatedQuestion
-              : item
-          ) as Array<ContentType>;
+            const newChildQuestion: ContentType = {
+              ...DefaultContentType,
+              qIdx: newChildQIdx,
+              parentcontent: {
+                optIdx: anskey,
+                qIdx: questionIdx,
+                qId: targetQuestion._id,
+              },
+              page,
+            };
 
-          return finalList;
-        })
-      );
+            const result: ContentType[] = [];
+            let insertionDone = false;
+
+            for (let i = 0; i < prevQuestions.length; i++) {
+              const currentQuestion = prevQuestions[i];
+
+              if (i === questionIdx) {
+                // Update target question with new conditional
+                result.push({
+                  ...currentQuestion,
+                  conditional: [
+                    ...existingConditionals.map((cond) => ({
+                      ...cond,
+                      contentIdx:
+                        cond.contentIdx !== undefined &&
+                        cond.contentIdx >= newChildQIdx
+                          ? cond.contentIdx + 1
+                          : cond.contentIdx,
+                    })),
+                    newConditional,
+                  ],
+                });
+
+                result.push(newChildQuestion);
+                insertionDone = true;
+              } else {
+                const needsUpdate = currentQuestion.qIdx >= newChildQIdx;
+
+                if (needsUpdate) {
+                  result.push({
+                    ...currentQuestion,
+                    qIdx: currentQuestion.qIdx + 1,
+                    conditional: currentQuestion.conditional?.map((cond) => ({
+                      ...cond,
+                      contentIdx:
+                        cond.contentIdx !== undefined &&
+                        cond.contentIdx >= newChildQIdx
+                          ? cond.contentIdx + 1
+                          : cond.contentIdx,
+                    })),
+                    parentcontent:
+                      currentQuestion.parentcontent &&
+                      currentQuestion.parentcontent.qIdx !== undefined
+                        ? {
+                            ...currentQuestion.parentcontent,
+                            qIdx:
+                              currentQuestion.parentcontent.qIdx >= questionIdx
+                                ? currentQuestion.parentcontent.qIdx + 1
+                                : currentQuestion.parentcontent.qIdx,
+                          }
+                        : currentQuestion.parentcontent,
+                  });
+                } else {
+                  result.push(currentQuestion);
+                }
+              }
+            }
+
+            if (!insertionDone) {
+              result.push(newChildQuestion);
+            }
+
+            return result;
+          })
+        );
+      } catch (error) {
+        console.error("Error in handleAddCondition:", error);
+        ErrorToast({
+          title: "Failed to Add Condition",
+          content: "An error occurred while adding the condition",
+        });
+      } finally {
+        dispatch(setpauseAutoSave(false));
+      }
     },
     [allQuestion, page, dispatch]
   );
@@ -342,11 +404,17 @@ const QuestionTab = () => {
           : idx !== questionConditionContent?.contentIdx
       );
 
-      const finalQuestionList = updatedAllQuestion.map((q, idx) =>
-        (q._id ? q._id === questionToUpdate._id : idx === qidx)
-          ? updatedQuestion
-          : q
-      );
+      const finalQuestionList = updatedAllQuestion.map((q, idx) => {
+        if (q._id ? q._id === questionToUpdate._id : idx === qidx)
+          return updatedQuestion;
+        if (
+          questionConditionContent?.contentIdx &&
+          idx > questionConditionContent?.contentIdx
+        ) {
+          return { ...q, qIdx: q.qIdx - 1 };
+        }
+        return q;
+      });
 
       dispatch(setallquestion(finalQuestionList));
     },
@@ -543,6 +611,8 @@ const QuestionTab = () => {
           key: id,
           qIdx: parentcontent.qIdx as number,
           ansIdx: parentcontent.optIdx as number,
+          parentQIdx:
+            parentcontent.qIdx && allQuestion[parentcontent.qIdx].qIdx,
         };
       }
 
@@ -598,28 +668,25 @@ const QuestionTab = () => {
       }
 
       try {
-        const request = (await PromiseToast(
-          {
-            promise: ApiRequest({
-              url: "/modifypage",
-              method: "PUT",
-              cookie: true,
-              refreshtoken: true,
-              data: {
-                formId: formState._id,
-                ty: type,
-                deletepage,
-              },
-            }),
+        setIsPageLoading(true);
+        const request = await ApiRequest({
+          url: "/modifypage",
+          method: "PUT",
+          cookie: true,
+          refreshtoken: true,
+          data: {
+            formId: formState._id,
+            ty: type,
+            deletepage,
           },
-          {
-            pending: type === "add" ? "Adding Page" : "Deleting Page",
-            success: type === "add" ? "Added" : "Deleted",
-          }
-        )) as ApiRequestReturnType;
+        });
+        setIsPageLoading(false);
 
         if (!request.success) {
-          ErrorToast({ title: "Failed", content: "Can't Save" });
+          ErrorToast({
+            title: "Failed",
+            content: request.error ?? "Error Occured",
+          });
           return;
         }
 
@@ -673,26 +740,44 @@ const QuestionTab = () => {
   );
 
   const shouldShowConditionedQuestion = useCallback(
-    (question: number | string): boolean => {
+    (questionData: ContentType): boolean => {
+      // First check if this question has a parent
+      if (questionData.parentcontent) {
+        const parentQuestionIndex = questionData.parentcontent.qIdx;
+        if (
+          parentQuestionIndex !== undefined &&
+          allQuestion[parentQuestionIndex]
+        ) {
+          const parentQuestion = allQuestion[parentQuestionIndex];
+
+          // Check if parent is visible
+          const parentLinkedQuestion = showLinkedQuestion?.find(
+            (i) =>
+              i.question ===
+              (parentQuestion._id ?? `temp-question-${parentQuestionIndex}`)
+          );
+          const parentVisibility =
+            parentLinkedQuestion?.show !== undefined
+              ? parentLinkedQuestion.show
+              : true;
+
+          if (!parentVisibility) {
+            return false;
+          }
+
+          return shouldShowConditionedQuestion(parentQuestion);
+        }
+      }
+
+      // If no parent  is visible, check this question's own visibility
+      const questionId =
+        questionData._id ??
+        `temp-question-${allQuestion.indexOf(questionData)}`;
       const linkedQuestion = showLinkedQuestion?.find(
-        (i) => i.question === question
+        (i) => i.question === questionId
       );
       const currentVisibility =
         linkedQuestion?.show !== undefined ? linkedQuestion.show : true;
-
-      if (!currentVisibility) {
-        return false;
-      }
-
-      const questionData = allQuestion.find(
-        (q) => q._id === question || q._id === question?.toString()
-      );
-      if (questionData?.parentcontent) {
-        // Recursively check parent question visibility
-        return shouldShowConditionedQuestion(
-          questionData.parentcontent.qId ?? questionData.qIdx
-        );
-      }
 
       return currentVisibility;
     },
@@ -764,10 +849,9 @@ const QuestionTab = () => {
           allQuestion.map((question, idx) => {
             const questionKey = `${question.type}${question._id ?? idx}`;
             const isChildCondition = question.parentcontent
-              ? shouldShowConditionedQuestion(
-                  question.parentcontent.qId ?? question.qIdx
-                )
+              ? shouldShowConditionedQuestion(question)
               : true;
+
             return (
               isChildCondition && (
                 <div

@@ -1,5 +1,5 @@
 import ApiRequest from "../hooks/ApiHook";
-import { CollaborateActionType } from "../types/Form.types";
+import { CollaborateActionType, CollaboratorType } from "../types/Form.types";
 
 export interface FormOwner {
   _id: string;
@@ -76,12 +76,18 @@ export const formOwnerService = {
   // Add a new owner to a form
   addFormOwner: async (
     formId: string,
-    email: string
+    email: string,
+    role: CollaboratorType
   ): Promise<AddOwnerResponse | null> => {
     const response = await ApiRequest({
       url: `/addformowner`,
       method: "POST",
-      data: { formId, userEmail: email, action: CollaborateActionType.add },
+      data: {
+        formId,
+        email,
+        action: CollaborateActionType.add,
+        role,
+      },
       cookie: true,
       refreshtoken: true,
     });
@@ -94,12 +100,12 @@ export const formOwnerService = {
   // Remove an owner from a form (only primary owner can do this)
   removeFormOwner: async (
     formId: string,
-    userId: string
+    email: string
   ): Promise<{ message: string } | null> => {
     const response = await ApiRequest({
       url: `/removeformowner`,
       method: "DELETE",
-      data: { formId, userId, action: CollaborateActionType.remove },
+      data: { formId, email, action: CollaborateActionType.remove },
       cookie: true,
       refreshtoken: true,
     });

@@ -263,11 +263,11 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       const success = await performSave(allquestion);
 
       if (success) {
-        SuccessToast({
-          title: "Saved",
-          content: "Form saved successfully",
-          toastid: "manual-save",
-        });
+        // SuccessToast({
+        //   title: "Saved",
+        //   content: "Form saved successfully",
+        //   toastid: "manual-save",
+        // });
 
         const newHash = generateDataString(allquestion);
         setLastSavedHash(newHash);

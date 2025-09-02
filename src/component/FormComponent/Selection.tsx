@@ -11,9 +11,9 @@ import {
   SelectItem,
   SelectProps,
 } from "@heroui/react";
-import { SelectionType } from "../../types/Global.types";
 import { ChromePicker, Color } from "react-color";
 import { Key } from "react";
+import { SelectionType } from "../../types/Global.types";
 
 interface SelectionProps extends Omit<SelectProps, "children" | "aria-hidden"> {
   items: Array<SelectionType<string>>;
@@ -22,7 +22,7 @@ interface SelectionProps extends Omit<SelectProps, "children" | "aria-hidden"> {
 export default function Selection(props: SelectionProps) {
   return (
     <Select {...props} items={props.items}>
-      {(item) => <SelectItem key={item.value}>{item.label}</SelectItem>}
+      {(item) => <SelectItem key={item?.value}>{item.label}</SelectItem>}
     </Select>
   );
 }

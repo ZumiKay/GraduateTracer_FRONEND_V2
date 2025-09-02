@@ -25,13 +25,13 @@ const initialState: SessionState = {
 };
 export const AsyncGetUser = createAsyncThunk(
   "session/check",
-  async (_, { rejectWithValue }) => {
+  async (disableSession?: boolean, { rejectWithValue }) => {
     try {
       const response = await ApiRequest({
         method: "GET",
         cookie: true,
         url: "/checksession",
-        refreshtoken: true,
+        refreshtoken: disableSession ?? true,
       });
       if (!response.success) {
         throw response.error;

@@ -1,12 +1,12 @@
 import React, { useCallback, useMemo } from "react";
 import { DateRangePicker, DateValue, RangeValue } from "@heroui/react";
-import { CalendarDate } from "@internationalized/date";
-import { ConvertObjectToCalenderDate } from "../../utils/DateMutation";
+import { parseDate } from "@internationalized/date";
+import { convertDateValueToString } from "../../helperFunc";
 type DateRanageSelector = {
   idx: number;
-  value: RangeValue<DateValue> | null | undefined;
+  value: RangeValue<string> | null | undefined;
   rangvalue: RangeValue<DateValue>;
-  onSelectionChange: (val: RangeValue<DateValue>) => void;
+  onSelectionChange: (val: RangeValue<string>) => void;
 };
 export default function DateRangeSelector({
   value,
@@ -14,10 +14,10 @@ export default function DateRangeSelector({
   onSelectionChange,
 }: DateRanageSelector) {
   const defaultValue: RangeValue<DateValue> | null = useMemo(() => {
-    if (value && value instanceof CalendarDate) {
+    if (value) {
       return {
-        start: ConvertObjectToCalenderDate(value.start as never) as never,
-        end: ConvertObjectToCalenderDate(value.end as never) as never,
+        start: parseDate(value.start),
+        end: parseDate(value.end),
       };
     }
     return null;
@@ -29,7 +29,11 @@ export default function DateRangeSelector({
     (val: RangeValue<DateValue> | null) => {
       setDate(val);
       if (!val) return;
-      onSelectionChange(val);
+
+      onSelectionChange({
+        start: convertDateValueToString(val.start),
+        end: convertDateValueToString(val.end),
+      });
     },
     [onSelectionChange]
   );

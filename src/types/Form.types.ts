@@ -3,6 +3,9 @@ import { Content, JSONContent } from "@tiptap/react";
 import { AnswerKeyPairValueType } from "../component/Response/Response.type";
 
 // Form Enums
+
+export const formDatePattern = "yyyy-MM-dd";
+
 export enum FormTypeEnum {
   Normal = "NORMAL",
   Quiz = "QUIZ",
@@ -13,6 +16,12 @@ export enum Tiptapcontent_Enum {
   paragraph = "paragraph",
   heading = "heading",
   bulletlist = "bulletPointj",
+}
+
+export enum CollaboratorType {
+  owner = "OWNER",
+  editor = "EDITOR",
+  creator = "CREATOR",
 }
 
 export enum CollaborateActionType {
@@ -136,11 +145,11 @@ export interface ContentType<t = unknown> {
   text?: string;
   checkbox?: Array<ChoiceQuestionType>;
   multiple?: Array<ChoiceQuestionType>;
-  rangedate?: RangeValue<DateValue>;
+  rangedate?: RangeValue<string>;
   rangenumber?: RangeType<number>;
   selection?: Array<ChoiceQuestionType>;
   parentcontent?: ParentContentType;
-  date?: Date;
+  date?: string;
   score?: number;
   answer?: AnswerKey | AnswerKeyPairValueType[] | AnswerKeyPairValueType;
   conditional?: Array<ConditionalType>;

@@ -9,11 +9,12 @@ import {
 import {
   AnswerKey,
   ContentType,
+  formDatePattern,
   QuestionType,
   RangeType,
 } from "../../types/Form.types";
 import StyledTiptap from "../Response/components/StyledTiptap";
-import { useCallback, useMemo, memo, useEffect } from "react";
+import { useCallback, useMemo, memo } from "react";
 import {
   ChoiceAnswer,
   DateQuestionType,
@@ -21,8 +22,9 @@ import {
   RangeNumberAnswer,
 } from "../FormComponent/Solution/Answer_Component";
 import DateRangeSelector from "../FormComponent/DateRanageSelector";
-import { CalendarDate } from "@internationalized/date";
+import { getLocalTimeZone, now, parseDate } from "@internationalized/date";
 import Selection from "../FormComponent/Selection";
+import { formatDate } from "date-fns";
 
 interface TextCardProps {
   content: ContentType;
@@ -30,11 +32,20 @@ interface TextCardProps {
   onSelectAnswer?: (val: Pick<AnswerKey, "answer">) => void;
   ty?: "result" | "form";
   idx: number;
+  parentQIdx?: number;
   isDisable?: boolean;
 }
 
 const Respondant_Question_Card = memo(
-  ({ content, color, ty, onSelectAnswer, idx, isDisable }: TextCardProps) => {
+  ({
+    content,
+    color,
+    ty,
+    onSelectAnswer,
+    idx,
+    isDisable,
+    parentQIdx,
+  }: TextCardProps) => {
     const handleAnswer = useCallback(
       (ans: unknown) => {
         if (onSelectAnswer && !isDisable) {
@@ -44,23 +55,14 @@ const Respondant_Question_Card = memo(
       [onSelectAnswer, isDisable]
     );
 
-    useEffect(() => {
-      if (
-        content.type === QuestionType.CheckBox ||
-        content.type === QuestionType.MultipleChoice
-      ) {
-        console.log({ content });
-      }
-    }, [content]);
-
     const contentTitle = useMemo(() => {
       if (content.parentcontent) {
-        return `(Sub-Q of Q${(content.parentcontent.qIdx ?? 0) + 1}.${
-          content.parentcontent.optIdx
+        return `Question ${content.qIdx} (Sub of Q-${parentQIdx} option ${
+          content.parentcontent.optIdx + 1
         })`;
       }
       return `Question ${content.qIdx ?? idx + 1}`;
-    }, [content.parentcontent, content.qIdx, idx]);
+    }, [content.parentcontent, content.qIdx, idx, parentQIdx]);
 
     const questionTypeLabel = useMemo(() => {
       switch (content.type) {
@@ -206,16 +208,10 @@ const Respondant_Question_Card = memo(
       const value = content.rangedate;
       const rangeData: RangeValue<DateValue> | undefined = value
         ? {
-            start: new CalendarDate(
-              value.start.year,
-              value?.start.month,
-              value?.start.day
-            ),
-            end: new CalendarDate(
-              value.end.year,
-              value.end.month,
-              value.end.day
-            ),
+            start: value.start
+              ? parseDate(value.start)
+              : now(getLocalTimeZone()),
+            end: value.end ? parseDate(value.end) : now(getLocalTimeZone()),
           }
         : undefined;
 
@@ -226,7 +222,7 @@ const Respondant_Question_Card = memo(
           <DateRangeSelector
             rangvalue={rangeData as RangeValue<DateValue>}
             idx={idx}
-            value={answerKey.answer as RangeValue<DateValue> | null | undefined}
+            value={answerKey?.answer as RangeValue<string> | null | undefined}
             onSelectionChange={handleAnswer}
           />
         )
@@ -278,7 +274,7 @@ const Respondant_Question_Card = memo(
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-700">Select date:</p>
               <DateQuestionType
-                value={answerKey?.answer as Date}
+                value={answerKey?.answer as string}
                 placeholder="Select Date"
                 onChange={handleAnswer}
                 readonly={isDisable}
@@ -329,9 +325,20 @@ const Respondant_Question_Card = memo(
         case QuestionType.Selection: {
           return (
             <Selection
-              items={content.selection as never}
-              selectedKeys={[String(answerKey.answer)]}
+              items={
+                content.selection?.map((i) => ({
+                  label: i.content,
+                  value: idx,
+                })) as never
+              }
+              selectedKeys={
+                answerKey?.answer ? [String(answerKey.answer)] : undefined
+              }
               onSelectionChange={(val) => handleAnswer(val)}
+              placeholder="Select"
+              isDisabled={!ty || isDisable}
+              isRequired={content.require}
+              aria-label={`selection${content._id ?? content.qIdx}`}
             />
           );
         }
@@ -344,12 +351,16 @@ const Respondant_Question_Card = memo(
       content.answer,
       content.rangenumber,
       content.selection,
+      content.require,
+      content._id,
+      content.qIdx,
       MultipleChoiceComponent,
       CheckboxComponent,
       RangeDateComponent,
       handleAnswer,
       isDisable,
       ty,
+      idx,
     ]);
 
     return (

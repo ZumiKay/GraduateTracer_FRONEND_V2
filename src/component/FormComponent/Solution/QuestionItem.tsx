@@ -10,6 +10,7 @@ interface QuestionItemProps {
   onUpdateContent: (updates: Partial<ContentType>, qIdx: number) => void;
   onSelectAnswer: (answer: { answer: unknown }) => void;
   parentScore?: number;
+  parentQIdx?: number;
 }
 
 const QuestionItem = memo(
@@ -20,6 +21,7 @@ const QuestionItem = memo(
     onUpdateContent,
     onSelectAnswer,
     parentScore,
+    parentQIdx,
   }: QuestionItemProps) => {
     const isConditional = !!question.parentcontent;
 
@@ -37,11 +39,12 @@ const QuestionItem = memo(
           </div>
         )}
         <Respondant_Question_Card
-          idx={question.qIdx ?? idx}
+          idx={idx}
           content={question}
           onSelectAnswer={onSelectAnswer}
           color={formColor}
           isDisable={true}
+          parentQIdx={parentQIdx}
         />
         <SolutionInput
           key={`solution-${question._id || idx}-${idx}`}

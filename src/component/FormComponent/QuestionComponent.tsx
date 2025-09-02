@@ -44,7 +44,12 @@ interface QuestionComponentProps {
   removeCondition?: (answeridx: number, ty: "delete" | "unlink") => void;
   onDuplication: () => void;
   scrollToCondition?: (key: string) => void;
-  isConditioned: () => { key: string; qIdx: number; ansIdx: number };
+  isConditioned: () => {
+    key: string;
+    qIdx: number;
+    ansIdx: number;
+    parentQIdx?: number;
+  };
   onShowLinkedQuestions?: (val: boolean) => void;
 }
 
@@ -74,7 +79,10 @@ const QuestionComponent = memo(
     const autosave = useSelector(selectAutosave);
     const allshowLinkedQuestions = useSelector(selectShowLinkedQuestions);
 
-    const questionId = useMemo(() => value._id ?? idx, [idx, value._id]);
+    const questionId = useMemo(
+      () => value._id ?? `temp-question-${idx}`,
+      [idx, value._id]
+    );
 
     const conditionInfo = useMemo(() => isConditioned(), [isConditioned]);
     const isNotConditioned = conditionInfo.qIdx === -1;
@@ -238,8 +246,6 @@ const QuestionComponent = memo(
       );
 
       const newState = [...currentState];
-      // Since we show by default, toggle means: if currently showing (default), hide it
-      // If currently hidden (explicitly set to false), show it
       const newShowState = !currentShowState;
 
       if (existingIndex !== -1) {
@@ -253,10 +259,6 @@ const QuestionComponent = memo(
 
       dispatch(setshowLinkedQuestion(newState as never));
     }, [allshowLinkedQuestions, dispatch, questionId, currentShowState]);
-    const childContentIdx = useMemo(
-      () => (value.parentcontent?.qIdx ?? 0) + idx,
-      [idx, value.parentcontent?.qIdx]
-    );
 
     return (
       <div
@@ -267,7 +269,7 @@ const QuestionComponent = memo(
           style={{ backgroundColor: color }}
           className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px] text-center "
         >
-          {`Question ${value.parentcontent ? childContentIdx : value.qIdx}`}
+          {`Question ${value.qIdx}`}
         </div>
 
         <div className="text_editor w-[97%] bg-white p-3 rounded-b-md flex flex-row items-start justify-start gap-x-3">
@@ -345,13 +347,15 @@ const QuestionComponent = memo(
         </div>
         {!isNotConditioned &&
           conditionInfo.qIdx !== -1 &&
-          !isNaN(conditionInfo.qIdx) && (
+          conditionInfo.parentQIdx &&
+          !isNaN(conditionInfo.qIdx) &&
+          !isNaN(conditionInfo.parentQIdx) && (
             <div
               onClick={handleConditionScroll}
               style={{ backgroundColor: color }}
               className="condition_indicator w-fit p-2 rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200"
             >
-              {`Condition for Q${conditionInfo.qIdx + 1} option ${
+              {`Condition for Q${conditionInfo.parentQIdx} option ${
                 conditionInfo.ansIdx + 1
               }`}
             </div>

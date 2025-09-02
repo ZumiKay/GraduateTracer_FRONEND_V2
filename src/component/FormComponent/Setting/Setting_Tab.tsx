@@ -349,7 +349,10 @@ const SettingTab = () => {
 
       {/* Owner Manager Modal */}
       {showOwnerManager && (
-        <FormOwnerManager onClose={() => setShowOwnerManager(false)} />
+        <FormOwnerManager
+          isOpen={showOwnerManager}
+          onClose={() => setShowOwnerManager(false)}
+        />
       )}
 
       <div className="btn_section w-full h-[40px] flex flex-row items-center gap-x-5">

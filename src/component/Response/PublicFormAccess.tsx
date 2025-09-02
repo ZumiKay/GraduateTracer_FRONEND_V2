@@ -25,8 +25,9 @@ import {
   validateGuestEmail,
 } from "../../utils/publicFormUtils";
 import useRespondentFormPaginaition from "./hooks/usePaginatedFormData";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
+import { AsyncLoggout, logout } from "../../redux/user.store";
 
 interface PublicFormAccessProps {
   token?: string;
@@ -80,11 +81,20 @@ const useLogin = () => {
   });
 };
 
+const getStorageKey = (id: string, formId: string) => `usr${id}f${formId}`;
+
+const savedUserRespondentToLocalStorage = (id: string, formId: string) => {
+  const oneHoursTimeStamp = new Date(
+    new Date().getTime() + 60 * 60 * 1000
+  ).toISOString();
+};
+
 const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   const { formId, token } = useParams<{ formId: string; token: string }>();
   const user = useSelector((root: RootState) => root.usersession);
 
   const loginMutation = useLogin();
+  const dispatch = useDispatch();
 
   const [loginData, setLoginData] = useState<LoginData>({
     email: user.user?.email ?? "",
@@ -95,6 +105,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     name: "",
     email: "",
   });
+  const [loading, setloading] = useState(false);
 
   //Fetch Content
   const formReqData = useRespondentFormPaginaition({
@@ -136,10 +147,24 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }
   }, [userProfileData, isLoadingProfile, profileError, user.isAuthenticated]);
 
-  const clearGuestSession = () => {
-    clearGuestData();
-    setAccessMode("login");
-    setGuestData({ name: "", email: "" });
+  const handleSwitchUser = async (isGuest?: boolean) => {
+    if (isGuest) {
+      clearGuestData();
+      setAccessMode("login");
+      setGuestData({ name: "", email: "" });
+    } else {
+      //logout
+      setloading(true);
+      const isSignOut = await AsyncLoggout();
+      setloading(false);
+      if (!isSignOut) {
+        ErrorToast({ title: "Error", content: "Error Occured" });
+        return;
+      }
+      dispatch(logout());
+      setAccessMode("login");
+      setLoginData({ email: "", password: "", rememberMe: false });
+    }
   };
 
   const setGuestSession = (data: GuestData) => {
@@ -255,20 +280,18 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   if (accessMode === "authenticated" || accessMode === "guest") {
     return (
       <div className="w-full min-h-screen">
-        {/* Guest logout option */}
-        {accessMode === "guest" && (
-          <div className="fixed top-4 right-4 z-10">
-            <Button
-              variant="light"
-              size="sm"
-              onPress={clearGuestSession}
-              className="bg-white shadow-md"
-            >
-              Switch User
-            </Button>
-          </div>
-        )}
-
+        {/* Guest logout option */}x
+        <div className="fixed top-4 right-4 z-10">
+          <Button
+            variant="light"
+            size="sm"
+            onPress={() => handleSwitchUser(accessMode === "guest")}
+            className="bg-white shadow-md"
+            isLoading={loading}
+          >
+            Switch User
+          </Button>
+        </div>
         <RespondentForm
           data={formReqData}
           isGuest={accessMode === "guest"}
