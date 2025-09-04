@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   Table,
   TableHeader,
@@ -24,9 +24,15 @@ import {
   FiDownload,
   FiTrash2,
   FiAlertTriangle,
+  FiCornerUpLeft,
 } from "react-icons/fi";
 import { getResponseDisplayName } from "../../../utils/respondentUtils";
 import { ResponseListItem } from "../../../services/responseService";
+import { useMutation } from "@tanstack/react-query";
+import ApiRequest from "../../../hooks/ApiHook";
+import SuccessToast, { ErrorToast } from "../../Modal/AlertModal";
+
+const uniqueToastId = "ResponseTableUniqueErrorToastId";
 
 interface ResponseTableProps {
   responses: ResponseListItem[];
@@ -42,6 +48,23 @@ interface ResponseTableProps {
   ) => "success" | "warning" | "danger" | "default";
 }
 
+const useReturnResponse = () => {
+  return useMutation({
+    mutationFn: async (responseId: string) => {
+      const res = await ApiRequest({
+        url: "/response/return",
+        method: "POST",
+        data: { responseId },
+      });
+
+      if (!res.success) {
+        throw new Error(res.message || "Failed to return response");
+      }
+      return res;
+    },
+  });
+};
+
 const ResponseTable: React.FC<ResponseTableProps> = ({
   responses,
   isLoading,
@@ -55,6 +78,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
 }) => {
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set([]));
   const [deleteItem, setDeleteItem] = useState<ResponseListItem | null>(null);
+  const returnMutation = useReturnResponse();
 
   const {
     isOpen: isDeleteOpen,
@@ -67,35 +91,79 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     onClose: onBulkDeleteClose,
   } = useDisclosure();
 
-  const exportToPDF = () => {
+  // Memoized functions for loop rendering
+  const handleViewResponse = useCallback(
+    (response: ResponseListItem) => {
+      onViewResponse(response);
+    },
+    [onViewResponse]
+  );
+
+  const handleEditScore = useCallback(
+    (response: ResponseListItem) => {
+      onEditScore(response);
+    },
+    [onEditScore]
+  );
+
+  const exportToPDF = useCallback(() => {
     // Note: Export functionality is currently disabled for table view
     // as it requires detailed response data with responseset
     // This would need to be handled by fetching detailed data first
     console.warn("Export functionality requires detailed response data");
     return;
-  };
+  }, []);
 
-  const handleSingleDelete = (response: ResponseListItem) => {
-    setDeleteItem(response);
-    onDeleteOpen();
-  };
+  const handleSingleDelete = useCallback(
+    (response: ResponseListItem) => {
+      setDeleteItem(response);
+      onDeleteOpen();
+    },
+    [onDeleteOpen]
+  );
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = useCallback(() => {
     if (deleteItem) {
       onDeleteResponse(deleteItem._id);
       setDeleteItem(null);
       onDeleteClose();
     }
-  };
+  }, [deleteItem, onDeleteResponse, onDeleteClose]);
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = useCallback(() => {
     const selectedIds = Array.from(selectedKeys) as string[];
     if (selectedIds.length > 0) {
       onBulkDelete(selectedIds);
       setSelectedKeys(new Set([]));
       onBulkDeleteClose();
     }
-  };
+  }, [selectedKeys, onBulkDelete, onBulkDeleteClose]);
+
+  const handleBulkDeleteOpen = useCallback(() => {
+    onBulkDeleteOpen();
+  }, [onBulkDeleteOpen]);
+
+  const handleReturnResponse = useCallback(
+    async (response: ResponseListItem) => {
+      try {
+        await returnMutation.mutateAsync(response._id);
+
+        SuccessToast({
+          toastid: "SuccessToast",
+          title: "Response Returned",
+          content:
+            "The response has been successfully returned to the respondent.",
+        });
+      } catch (error) {
+        ErrorToast({
+          toastid: uniqueToastId,
+          title: "Error Returning Response",
+          content: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    },
+    [returnMutation]
+  );
 
   const selectedCount = Array.from(selectedKeys).length;
 
@@ -118,7 +186,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
             color="danger"
             variant="flat"
             size="sm"
-            onPress={onBulkDeleteOpen}
+            onPress={handleBulkDeleteOpen}
             startContent={<FiTrash2 />}
           >
             Delete Selected
@@ -167,29 +235,42 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
                       size="sm"
                       variant="light"
                       isIconOnly
-                      onPress={() => onViewResponse(response)}
+                      onPress={() => handleViewResponse(response)}
                     >
                       <FiEye />
                     </Button>
                   </Tooltip>
                   {isQuizForm && (
-                    <Tooltip content="Edit Score">
-                      <Button
-                        size="sm"
-                        variant="light"
-                        isIconOnly
-                        onPress={() => onEditScore(response)}
-                      >
-                        <FiEdit3 />
-                      </Button>
-                    </Tooltip>
+                    <>
+                      <Tooltip content="Edit Score">
+                        <Button
+                          size="sm"
+                          variant="light"
+                          isIconOnly
+                          onPress={() => handleEditScore(response)}
+                        >
+                          <FiEdit3 />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content="Return">
+                        <Button
+                          size="sm"
+                          variant="light"
+                          isIconOnly
+                          isLoading={returnMutation.isPending}
+                          onPress={() => handleReturnResponse(response)}
+                        >
+                          <FiCornerUpLeft />
+                        </Button>
+                      </Tooltip>
+                    </>
                   )}
                   <Tooltip content="Export PDF">
                     <Button
                       size="sm"
                       variant="light"
                       isIconOnly
-                      onPress={() => exportToPDF()}
+                      onPress={exportToPDF}
                     >
                       <FiDownload />
                     </Button>

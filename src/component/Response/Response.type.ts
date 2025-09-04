@@ -25,7 +25,7 @@ export interface RespondentInfoType {
 export interface SaveProgressType {
   currentPage: number;
   responses: FormResponse[];
-  respondentInfo: RespondentInfoType;
+  respondentInfo?: RespondentInfoType;
   timestamp: string;
   formId: string;
   version: string;
@@ -64,4 +64,13 @@ export interface ResponseDataType {
   isCompleted?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+
+export interface RespondentSessionType  {
+  isActive: boolean , 
+  isSwitchedUser: boolean
+  session_id?: string 
+  alert?: boolean
+  respondentinfo?: RespondentInfoType
 }

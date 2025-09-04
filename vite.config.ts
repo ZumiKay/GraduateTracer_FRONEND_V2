@@ -52,7 +52,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/v0": {
-        target: "http://localhost:4000",
+        target: "http://localhost:8000",
         changeOrigin: true,
         secure: false,
       },

@@ -91,7 +91,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     }
   }, [generateLinkMutation.isSuccess, generateLinkMutation.data]);
 
-  // Fetch response list (without responseset for performance)
   const {
     data: responseListData,
     error,
@@ -538,7 +537,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                 </label>
                 <div className="flex gap-2">
                   <Input value={generatedLink} readOnly className="flex-1" />
-                  <Button onClick={copyLink}>Copy</Button>
+                  <Button onPress={copyLink}>Copy</Button>
                 </div>
               </div>
               <div className="text-sm text-gray-600">

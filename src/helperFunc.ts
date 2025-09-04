@@ -404,3 +404,11 @@ export const isMoreThanDay = (val: Date): boolean => {
 
   return diffMs > oneDayMs;
 };
+
+
+export const generateStorageKey = ({suffix , formId , userKey}:{suffix: string , formId: string , userKey?: string}) => {
+    return `form_progress_${formId}${userKey ? `_${userKey}` : ""}_${suffix}`
+
+} 
+
+

@@ -1,20 +1,21 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import ApiRequest from "../../../hooks/ApiHook";
 import SuccessToast, { ErrorToast } from "../../Modal/AlertModal";
+import queryClient from "../../../hooks/ReactQueryClient";
 
 const errorToastId = "uniqueResponseErrorId";
 
 export const useResponseMutations = (formId: string) => {
-  const queryClient = useQueryClient();
-
   // Update response score mutation
   const updateScoreMutation = useMutation({
     mutationFn: async ({
       responseId,
       newScore,
+      sendEmail,
     }: {
       responseId: string;
       newScore: number;
+      sendEmail: string;
     }) => {
       const result = await ApiRequest({
         method: "PUT",
@@ -22,6 +23,7 @@ export const useResponseMutations = (formId: string) => {
         data: {
           responseId,
           score: newScore,
+          sendEmail,
         },
         cookie: true,
         reactQuery: true,

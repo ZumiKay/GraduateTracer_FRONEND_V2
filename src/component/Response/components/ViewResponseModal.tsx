@@ -165,26 +165,13 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
   }) => {
     const isQuizForm = form.type === FormTypeEnum.Quiz;
 
-    // Memoize auto-scoreable types for performance
-    const autoScoreableTypes = useMemo(
-      () =>
-        new Set([
-          "multiplechoice",
-          "checkbox",
-          "truefalse",
-          "dropdown",
-          "rating",
-          "scale",
-          "yesno",
-        ]),
-      []
-    );
-
-    const isAutoScoreable = useCallback(
-      (questionType: string) =>
-        autoScoreableTypes.has(questionType.toLowerCase()),
-      [autoScoreableTypes]
-    );
+    const isAutoScoreable = useCallback((questionType: QuestionType) => {
+      return ![
+        QuestionType.ShortAnswer,
+        QuestionType.Paragraph,
+        QuestionType.Text,
+      ].includes(questionType as never);
+    }, []);
 
     const computedData = useMemo(() => {
       if (!selectedResponse) return null;

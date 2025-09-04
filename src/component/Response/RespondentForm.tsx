@@ -73,6 +73,13 @@ interface RespondentFormProps {
   RespondentData?: RespondentInfoType;
   userId?: string;
   data: UseRespondentFormPaginationReturn;
+  respondentInfo?: RespondentInfoType;
+  setrespondentInfo?: React.Dispatch<
+    React.SetStateAction<RespondentInfoType | undefined>
+  >;
+  // New props to better integrate with PublicFormAccess
+  accessMode?: "login" | "guest" | "authenticated";
+  isUserActive?: boolean;
 }
 
 const LoadingFallback = memo(() => (
@@ -83,7 +90,16 @@ const LoadingFallback = memo(() => (
 LoadingFallback.displayName = "LoadingFallback";
 
 const RespondentForm: React.FC<RespondentFormProps> = memo(
-  ({ isGuest = false, RespondentData, data, userId }) => {
+  ({
+    isGuest = false,
+    RespondentData,
+    data,
+    userId,
+    respondentInfo,
+    setrespondentInfo,
+    accessMode = "authenticated",
+    isUserActive = true,
+  }) => {
     const {
       formState,
       isLoading,
@@ -120,9 +136,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     const [submissionResult, setSubmissionResult] =
       useState<SubmissionResultData | null>(null);
     const [progressLoaded, setProgressLoaded] = useState(false);
-    const [respondentInfo, setRespondentInfo] = useState<RespondentInfoType>({
-      email: "",
-    });
 
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -149,10 +162,13 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           return;
         }
 
+        if (accessMode === "authenticated" && !isUserActive) {
+          return;
+        }
+
         try {
           const storageKey = getStorageKey("progress");
 
-          // Get previously stored data first
           let previousStoredData: SaveProgressType | null = null;
           try {
             const savedProgress = localStorage.getItem(storageKey);
@@ -220,7 +236,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             currentPage: currentPage ?? 1,
             responses: responsesSetUp,
             respondentInfo: {
-              ...(previousStoredData?.respondentInfo ?? respondentInfo),
+              ...((previousStoredData?.respondentInfo ??
+                respondentInfo) as RespondentInfoType),
             },
             timestamp: new Date().toISOString(),
             formId: formState._id,
@@ -236,10 +253,12 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       [
         formState?._id,
         progressLoaded,
+        accessMode,
+        isUserActive,
+        getStorageKey,
         responses,
         currentPage,
         respondentInfo,
-        getStorageKey,
       ]
     );
 
@@ -266,8 +285,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           const progressData = JSON.parse(savedProgress) as SaveProgressType;
 
           if (progressData.formId === formState._id && progressData.version) {
-            if (progressData.respondentInfo.email !== "") {
-              setRespondentInfo(progressData.respondentInfo);
+            if (progressData.respondentInfo?.email && setrespondentInfo) {
+              setrespondentInfo(progressData.respondentInfo);
             }
 
             if (progressData.responses) {
@@ -275,6 +294,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             }
 
             if (progressData.currentPage && progressData.currentPage > 0) {
+              //Restore saved page with time 1ms
               setTimeout(() => {
                 goToPage(progressData.currentPage);
                 data.goToPage(progressData.currentPage);
@@ -307,7 +327,14 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         }
       }
       return false;
-    }, [formState?._id, getStorageKey, batchUpdateResponses, goToPage, data]);
+    }, [
+      formState?._id,
+      getStorageKey,
+      setrespondentInfo,
+      batchUpdateResponses,
+      goToPage,
+      data,
+    ]);
 
     const clearProgressFromStorage = useCallback(() => {
       try {
@@ -364,7 +391,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         formState?._id &&
         questions.length > 0 &&
         progressLoaded &&
-        !clearStorage
+        !clearStorage &&
+        (accessMode === "guest" || isUserActive) // Only auto-save for guests or active users
       ) {
         debouncedSaveProgress();
       }
@@ -372,12 +400,13 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       questions.length,
       responses,
       currentPage,
-      respondentInfo,
       progressLoaded,
       formState?._id,
       submitting,
       clearStorage,
       debouncedSaveProgress,
+      accessMode,
+      isUserActive,
     ]);
 
     // Cleanup timeout on unmount
@@ -415,22 +444,27 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       };
     }, [clearStorage, saveProgressToStorage]);
 
-    // Restore guest data from session storage
     useEffect(() => {
-      if (isGuest && !RespondentData) {
-        const storedGuestData = getGuestData();
-        if (storedGuestData) {
-          setRespondentInfo({
-            name: storedGuestData.name || "",
-            email: storedGuestData.email || "",
+      if (setrespondentInfo) {
+        if (isGuest && !RespondentData) {
+          const storedGuestData = getGuestData();
+          if (storedGuestData) {
+            setrespondentInfo({
+              name: storedGuestData.name || "",
+              email: storedGuestData.email || "",
+            });
+          }
+        } else {
+          setrespondentInfo({
+            name: "",
+            email: RespondentData?.email as string,
           });
         }
-      } else {
-        setRespondentInfo({ name: "", email: RespondentData?.email as string });
       }
-    }, [isGuest, RespondentData]);
+    }, [isGuest, RespondentData, setrespondentInfo]);
 
-    // Apply form styling to document root
+    //Apply the style setting to the form
+
     useEffect(() => {
       if (formState?.setting) {
         const root = document.documentElement;
@@ -570,6 +604,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     const handleSubmit = async () => {
       if (!formState) return;
+      //Ensure all page is question is loaded
       const savedData = localStorage.getItem(getStorageKey("progress"));
       const prevQuestion =
         savedData && (JSON.parse(savedData) as SaveProgressType);
@@ -587,6 +622,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         ToSubmitQuestion = responses;
       }
 
+      //Ensure all question is valid
       const allVisibleQuestions = questions.filter((question) => {
         if (!question._id) {
           console.error(
@@ -608,6 +644,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         }
       });
 
+      //Final Validation Question // Wrong format // Missing Required etc.
       const validationSummary = createValidationSummary(
         questions,
         allVisibleQuestions,
@@ -622,7 +659,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         return;
       }
 
-      if (formState?.type === FormTypeEnum.Quiz && !respondentInfo.email) {
+      if (formState?.type === FormTypeEnum.Quiz && !respondentInfo?.email) {
         setError("Email is required for quiz forms");
         return;
       }
@@ -792,7 +829,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
                   {submissionResult.hasSubjectiveQuestions && (
                     <div className="flex items-center text-amber-600 text-sm mt-1">
                       <span className="mr-1">📝</span>
-                      <span>Manual scoring pending</span>
+                      <span>This Score is partial only not a final score</span>
                     </div>
                   )}
                 </div>
@@ -810,10 +847,27 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     return (
       <div className="max-w-4xl mx-auto p-6 min-h-screen respondent-form">
+        {/* User Activity Status Indicator */}
+        {accessMode === "authenticated" && !isUserActive && (
+          <div className="mb-4 p-3 bg-amber-100 border border-amber-400 rounded-lg text-amber-800">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">⚠️ Session Inactive</span>
+              <span className="text-sm">
+                Your progress is not being saved. Please reactivate your session
+                to continue.
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="mb-4 text-center">
           <small className="text-gray-500 italic">
             {progressLoaded ? (
-              "✓ Your progress is automatically saved as you fill out the form"
+              accessMode === "guest" || isUserActive ? (
+                "✓ Your progress is automatically saved as you fill out the form"
+              ) : (
+                "⚠️ Progress saving is paused due to inactive session"
+              )
             ) : (
               <span className="flex items-center justify-center gap-2">
                 <Spinner size="sm" />
@@ -831,13 +885,16 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           />
         )}
 
-        {formState && currentPage === 1 && (
-          <RespondentInfo
-            respondentInfo={respondentInfo}
-            setRespondentInfo={setRespondentInfo}
-            isGuestMode={isGuestMode}
-          />
-        )}
+        {formState &&
+          currentPage === 1 &&
+          respondentInfo &&
+          setrespondentInfo && (
+            <RespondentInfo
+              respondentInfo={respondentInfo}
+              setRespondentInfo={setrespondentInfo as never}
+              isGuestMode={isGuestMode}
+            />
+          )}
 
         <div className="space-y-6">
           {/* Debug info for conditional questions in development */}
