@@ -8,10 +8,15 @@ import React, {
   memo,
   lazy,
 } from "react";
-import { Alert, Spinner } from "@heroui/react";
+import { Alert, Button, Spinner } from "@heroui/react";
 import ApiRequest, { ApiRequestReturnType } from "../../hooks/ApiHook";
-import { FormTypeEnum, QuestionType, AnswerKey } from "../../types/Form.types";
-import { getGuestData } from "../../utils/publicFormUtils";
+import {
+  FormTypeEnum,
+  QuestionType,
+  AnswerKey,
+  FormResponseType,
+} from "../../types/Form.types";
+import { getGuestData, GuestData } from "../../utils/publicFormUtils";
 
 const Respondant_Question_Card = lazy(() => import("../Card/Respondant.card"));
 const FormHeader = lazy(() =>
@@ -52,25 +57,20 @@ import {
   FormResponse,
 } from "./hooks/useFormResponses";
 import { useFormValidation } from "./hooks/useFormValidation";
-
-interface SubmissionResultData {
-  totalScore?: number;
-  maxScore?: number;
-  emailSent?: boolean;
-  hasSubjectiveQuestions?: boolean;
-  responseId?: string;
-}
-
-import {
-  createValidationSummary,
-  logValidationSummary,
-} from "./utils/validationUtils";
 import { UseRespondentFormPaginationReturn } from "./hooks/usePaginatedFormData";
-import { RespondentInfoType, SaveProgressType } from "./Response.type";
+import {
+  RespondentInfoType,
+  SaveProgressType,
+  SubmittionProcessionReturnType,
+} from "./Response.type";
+import { useMutation } from "@tanstack/react-query";
+import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
+
+const uniqueToastId = "respondentFormUniqueToastId";
 
 interface RespondentFormProps {
   isGuest?: boolean;
-  RespondentData?: RespondentInfoType;
+  RespondentData?: Partial<GuestData>;
   userId?: string;
   data: UseRespondentFormPaginationReturn;
   respondentInfo?: RespondentInfoType;
@@ -80,6 +80,7 @@ interface RespondentFormProps {
   // New props to better integrate with PublicFormAccess
   accessMode?: "login" | "guest" | "authenticated";
   isUserActive?: boolean;
+  response?: Partial<FormResponseType>;
 }
 
 const LoadingFallback = memo(() => (
@@ -87,14 +88,30 @@ const LoadingFallback = memo(() => (
     <Spinner size="md" />
   </div>
 ));
+
 LoadingFallback.displayName = "LoadingFallback";
+
+const useSendResponseCopy = (responseId?: string, recipitentEmail?: string) =>
+  useMutation({
+    mutationFn: async () => {
+      const req = await ApiRequest({
+        method: "POST",
+        url: "/response/send-card-email",
+        data: {
+          responseId,
+          recipitentEmail,
+        },
+      });
+
+      return req;
+    },
+  });
 
 const RespondentForm: React.FC<RespondentFormProps> = memo(
   ({
     isGuest = false,
     RespondentData,
     data,
-    userId,
     respondentInfo,
     setrespondentInfo,
     accessMode = "authenticated",
@@ -134,7 +151,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [submissionResult, setSubmissionResult] =
-      useState<SubmissionResultData | null>(null);
+      useState<SubmittionProcessionReturnType | null>(null);
     const [progressLoaded, setProgressLoaded] = useState(false);
 
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -143,6 +160,18 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       () => Boolean(isGuest && RespondentData),
       [RespondentData, isGuest]
     );
+
+    const sendResponse = useSendResponseCopy(
+      submissionResult?.responseId,
+      submissionResult?.respondentEmail
+    );
+
+    //Check if the user already response
+    useEffect(() => {
+      if (formState?.setting?.submitonce && formState.responses) {
+        setSuccess(true);
+      }
+    }, [formState?.responses, formState?.setting?.submitonce]);
 
     // Generate unique storage key
     const getStorageKey = useCallback(
@@ -209,7 +238,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
             meaningfulResponses.forEach((meaningfulRes) => {
               const existingIndex = mergedResponses.findIndex(
-                (prevRes) => prevRes.questionId === meaningfulRes.questionId
+                (prevRes) => prevRes.question === meaningfulRes.question
               );
 
               if (existingIndex !== -1) {
@@ -378,13 +407,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           formId: formState?._id,
         });
       }
-    }, [
-      clearStorage,
-      formState?._id,
-      initializeResponses,
-      loadProgressFromStorage,
-      questions,
-    ]);
+    }, []);
 
     useEffect(() => {
       if (
@@ -461,7 +484,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           });
         }
       }
-    }, [isGuest, RespondentData, setrespondentInfo]);
+    }, []);
 
     //Apply the style setting to the form
 
@@ -645,13 +668,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       });
 
       //Final Validation Question // Wrong format // Missing Required etc.
-      const validationSummary = createValidationSummary(
-        questions,
-        allVisibleQuestions,
-        responses
-      );
-      logValidationSummary(validationSummary);
-
       const validationError = validateForm(questions, ToSubmitQuestion);
 
       if (validationError) {
@@ -666,8 +682,9 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
       const visibleQuestionIds = new Set(allVisibleQuestions.map((q) => q._id));
 
+      //Check for required conditioned question
       const filteredResponses = responses.filter((r) => {
-        const isVisible = visibleQuestionIds.has(r.questionId);
+        const isVisible = visibleQuestionIds.has(r.question);
         const hasValue =
           r.response !== null && r.response !== undefined && r.response !== "";
 
@@ -698,12 +715,14 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           url: `response/submit-response`,
           method: "POST",
           data: {
-            formId: formState?._id,
-            responseset: ToSubmitQuestion.map((r) => ({
-              questionId: r.questionId,
+            formInfo: {
+              _id: formState._id,
+              type: formState.type,
+            },
+            responseSet: ToSubmitQuestion.map((r) => ({
+              question: r.question,
               response: r.response,
             })),
-            userId,
             respondentEmail: RespondentData?.email,
             respondentName: RespondentData?.name,
           },
@@ -712,14 +731,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         if (result.success) {
           // Store submission result data for display
           if (result.data && typeof result.data === "object") {
-            const data = result.data as SubmissionResultData;
-            setSubmissionResult({
-              totalScore: data.totalScore,
-              maxScore: data.maxScore,
-              emailSent: data.emailSent,
-              hasSubjectiveQuestions: data.hasSubjectiveQuestions,
-              responseId: data.responseId,
-            });
+            const data = result.data as SubmittionProcessionReturnType;
+            setSubmissionResult(data);
           }
 
           setclearStorage(true);
@@ -732,6 +745,31 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         setError("Failed to submit form");
       } finally {
         setSubmitting(false);
+      }
+    };
+
+    const handleSendACopy = async () => {
+      if (!submissionResult?.responseId || !submissionResult.respondentEmail) {
+        ErrorToast({
+          toastid: uniqueToastId,
+          title: "Invalid",
+          content: "Please submit response first",
+        });
+        return;
+      }
+
+      try {
+        const req = await sendResponse.mutateAsync();
+
+        if (!req.success) {
+          ErrorToast({ title: "Error", content: req.error ?? "Error Occured" });
+          return;
+        }
+
+        SuccessToast({ title: "Success", content: "Email Sent" });
+      } catch (error) {
+        console.log("Error", error);
+        ErrorToast({ title: "Send Copy", content: "Error Occured" });
       }
     };
 
@@ -768,12 +806,15 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     }
 
     if (success) {
+      const submissionData = formState?.submittedResult ?? submissionResult;
       const hasScore =
-        submissionResult && typeof submissionResult.totalScore === "number";
+        submissionData &&
+        submissionResult &&
+        typeof submissionResult.totalScore === "number";
       const scorePercentage =
-        hasScore && submissionResult.maxScore
+        hasScore && submissionData.maxScore
           ? Math.round(
-              (submissionResult.totalScore! / submissionResult.maxScore) * 100
+              (submissionData.totalScore! / submissionData.maxScore) * 100
             )
           : null;
 
@@ -783,12 +824,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           subMessage = `Your score: ${submissionResult.totalScore}/${submissionResult.maxScore}`;
           if (scorePercentage !== null) {
             subMessage += ` (${scorePercentage}%)`;
-          }
-          if (submissionResult.emailSent) {
-            subMessage += "\n✉️ Results have been sent to your email address.";
-          } else if (submissionResult.hasSubjectiveQuestions) {
-            subMessage +=
-              "\n📝 Your response includes questions that require manual scoring.";
           }
         } else {
           subMessage =
@@ -819,19 +854,24 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
                     </p>
                   )}
                 </div>
-                <div className="text-right">
-                  {submissionResult.emailSent && (
-                    <div className="flex items-center text-green-600 text-sm">
-                      <span className="mr-1">✉️</span>
-                      <span>Sent to email</span>
-                    </div>
-                  )}
-                  {submissionResult.hasSubjectiveQuestions && (
+                <div className="w-full h-fit flex flex-col justify-center">
+                  {submissionResult.message && (
                     <div className="flex items-center text-amber-600 text-sm mt-1">
                       <span className="mr-1">📝</span>
-                      <span>This Score is partial only not a final score</span>
+                      <span>{submissionResult.message}</span>
                     </div>
                   )}
+                  {submissionResult.responseId &&
+                    submissionResult.respondentEmail && (
+                      <Button
+                        className="responseCopy font-bold text-white"
+                        variant="bordered"
+                        color="default"
+                        onPress={() => handleSendACopy()}
+                      >
+                        {`Send a copy of the response`}
+                      </Button>
+                    )}
                 </div>
               </div>
             </div>
@@ -935,7 +975,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
                   .map((q) => {
                     const isVisible = checkIfQuestionShouldShow(q, responses);
                     const response = responses.find(
-                      (r) => r.questionId === q._id
+                      (r) => r.question === q._id
                     );
                     const hasValidResponse =
                       response &&
@@ -983,7 +1023,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
                 }
 
                 const currentResponse = responses.find(
-                  (r) => r.questionId === question._id
+                  (r) => r.question === question._id
                 );
 
                 return (

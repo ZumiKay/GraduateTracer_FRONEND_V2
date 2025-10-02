@@ -1,18 +1,8 @@
-/**
- * Dashboard Component - Converted to React Query
- *
- * Features:
- * - Uses React Query for data fetching with automatic caching and refetching
- * - Optimistic updates for delete operations
- * - Proper loading states and error handling
- * - Automatic query invalidation after mutations
- * - Stale-while-revalidate pattern for better UX
- */
-
-import { Button } from "@heroui/react";
+import { Button, Tab, Tabs } from "@heroui/react";
+import { FiCheckCircle, FiUser, FiUsers, FiGrid } from "react-icons/fi";
 import FilterSection from "../component/Filter/FilterSection";
 import FormPagination from "../component/FormComponent/Pagination";
-import { useEffect, useState, useCallback, memo } from "react";
+import React, { useEffect, useState, useCallback, memo, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../redux/openmodal";
 import { RootState } from "../redux/store";
@@ -26,8 +16,8 @@ import { useNavigate, useSearchParams } from "react-router";
 import FormCard from "../component/Card/FormCard";
 import CreateCardBtn from "../component/Card/CreateCardBtn";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { DashboardFilterType, DashboardTabType } from "../types/Global.types";
 
-// Memoized header section component
 const HeaderSection = memo(
   ({
     isManage,
@@ -35,15 +25,22 @@ const HeaderSection = memo(
     onManageToggle,
     onDeletePress,
     isDeleting,
+    filterState,
+    setfilterState,
   }: {
     isManage: boolean;
     selectedCard: Set<string>;
     onManageToggle: () => void;
     onDeletePress: () => void;
     isDeleting?: boolean;
+    filterState: DashboardFilterType;
+    setfilterState: React.Dispatch<React.SetStateAction<DashboardFilterType>>;
   }) => (
     <div className="header_section h-fit flex flex-row justify-between items-center gap-x-4 bg-white p-4 rounded-lg shadow-sm border">
-      <FilterSection />
+      <FilterSection
+        Filterstate={filterState}
+        setFilterstate={setfilterState}
+      />
       <div className="flex gap-x-3">
         <Button
           variant="flat"
@@ -73,7 +70,6 @@ const HeaderSection = memo(
   )
 );
 
-// Memoized form grid component
 const FormGrid = memo(
   ({
     loading,
@@ -82,6 +78,7 @@ const FormGrid = memo(
     selectedCard,
     onCardClick,
     onCreateClick,
+    tab,
   }: {
     loading: boolean;
     allformstate: FormDataType[];
@@ -89,14 +86,17 @@ const FormGrid = memo(
     selectedCard: Set<string>;
     onCardClick: (id: string) => void;
     onCreateClick: () => void;
+    tab: DashboardTabType;
   }) => (
     <div className="formcontainer w-full h-fit grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
-      <CreateCardBtn onClick={onCreateClick} />
+      {tab !== DashboardTabType.filledform && (
+        <CreateCardBtn onClick={onCreateClick} />
+      )}
       {loading
         ? Array.from({ length: 3 }).map((_, idx) => (
             <CardLoading key={`loading-${idx}`} />
           ))
-        : allformstate.map(
+        : allformstate?.map(
             (form) =>
               form._id && (
                 <FormCard
@@ -113,15 +113,78 @@ const FormGrid = memo(
   )
 );
 
+const FormTypeSelect = ({
+  tab,
+  settab,
+}: {
+  tab: DashboardTabType;
+  settab: React.Dispatch<React.SetStateAction<DashboardTabType>>;
+}) => {
+  return (
+    <div className="w-full h-fit flex flex-wrap gap-4">
+      <Tabs
+        aria-label="Tabs variants"
+        variant="solid"
+        size="lg"
+        selectedKey={tab}
+        onSelectionChange={settab as never}
+      >
+        <Tab
+          key={DashboardTabType.all}
+          title={
+            <div className="flex items-center gap-2">
+              <FiGrid />
+              <span>All Forms</span>
+            </div>
+          }
+        />
+        <Tab
+          key={DashboardTabType.filledform}
+          title={
+            <div className="flex items-center gap-2">
+              <FiCheckCircle />
+              <span>Filled Form</span>
+            </div>
+          }
+        />
+        <Tab
+          key={DashboardTabType.myform}
+          title={
+            <div className="flex items-center gap-2">
+              <FiUser />
+              <span>My Form</span>
+            </div>
+          }
+        />
+        <Tab
+          key={DashboardTabType.otherform}
+          title={
+            <div className="flex items-center gap-2">
+              <FiUsers />
+              <span>Other Form</span>
+            </div>
+          }
+        />
+      </Tabs>
+    </div>
+  );
+};
+
 function Dashboard() {
   const [isManage, setisManage] = useState(false);
   const [selectedcard, setselectedcard] = useState<Set<string>>(new Set());
+  const [tab, setTab] = useState<DashboardTabType>(DashboardTabType.all);
   const dispatch = useDispatch();
   const selector = useSelector((state: RootState) => state.openmodal);
   const { allformstate } = useSelector((state: RootState) => state.allform);
-  const [searchParam] = useSearchParams();
+  const [searchParam, setSearchParam] = useSearchParams();
   const [page, setpage] = useState(Number(searchParam.get("page")) || 1);
   const [limit, setlimit] = useState(Number(searchParam.get("show")) || 5);
+  const [Filterstate, setFilterstate] = useState<DashboardFilterType>({
+    q: searchParam.get("q") ?? undefined,
+    created: searchParam.get("created") ?? undefined,
+    updated: searchParam.get("updated") ?? undefined,
+  });
   const [paginationData, setPaginationData] = useState({
     totalPages: 1,
     totalCount: 0,
@@ -131,15 +194,28 @@ function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Fetch forms using React Query
+  const queryParam = useMemo(
+    () =>
+      new URLSearchParams({
+        ty: "user",
+        page: page.toString() ?? "1",
+        limit: limit.toString() ?? "5",
+        tab: tab,
+        ...(Filterstate.q && { q: Filterstate.q.trim().toLowerCase() }),
+        ...(Filterstate.created && { created: Filterstate.created }),
+        ...(Filterstate.updated && { updated: Filterstate.updated }),
+      }),
+    [Filterstate.created, Filterstate.q, Filterstate.updated, limit, page, tab]
+  );
+
   const {
     data: formsResponse,
     isLoading,
     error: fetchError,
   } = useQuery({
-    queryKey: ["forms", page, limit],
+    queryKey: ["forms", tab, page, limit, Filterstate],
     queryFn: createQueryFn({
-      url: `/filteredform?ty=user&page=${page}&limit=${limit}`,
+      url: `/filteredform?${queryParam}`,
       method: "GET",
       cookie: true,
       refreshtoken: true,
@@ -148,7 +224,6 @@ function Dashboard() {
     retry: 2,
   });
 
-  // Delete forms mutation
   const deleteFormsMutation = useMutation({
     mutationFn: createMutationFn({
       url: "/deleteform",
@@ -163,8 +238,6 @@ function Dashboard() {
         toastid: "delete-forms",
       });
 
-      // Update local state immediately for optimistic UI
-
       dispatch(
         setallformstate(
           allformstate.filter((form) => !selectedcard.has(form._id ?? ""))
@@ -173,7 +246,6 @@ function Dashboard() {
       setselectedcard(new Set());
       setisManage(false);
 
-      // Invalidate and refetch forms
       queryClient.invalidateQueries({ queryKey: ["forms"] });
     },
     onError: (error: Error) => {
@@ -185,7 +257,6 @@ function Dashboard() {
     },
   });
 
-  // Memoized callback for card selection
   const handleManageCardSelection = useCallback(
     (id: string) => {
       if (isManage) {
@@ -199,13 +270,20 @@ function Dashboard() {
           return newset;
         });
       } else {
-        navigate(`/form/${id}`, { replace: true });
+        // Find the form data to check if it's filled
+        const form = allformstate.find((f) => f._id === id);
+        if (form?.isFilled) {
+          // Navigate to filled form view
+          navigate(`/filled-form/${id}`, { replace: true });
+        } else {
+          // Navigate to form editor
+          navigate(`/form/${id}`, { replace: true });
+        }
       }
     },
-    [isManage, navigate]
+    [isManage, navigate, allformstate]
   );
 
-  // Memoized callback for manage toggle
   const handleManageToggle = useCallback(() => {
     setisManage((prev) => {
       if (prev) {
@@ -215,7 +293,6 @@ function Dashboard() {
     });
   }, []);
 
-  // Memoized callback for create form
   const handleCreateFormClick = useCallback(() => {
     dispatch(
       OpenModal.actions.setopenmodal({
@@ -225,7 +302,6 @@ function Dashboard() {
     );
   }, [dispatch]);
 
-  // Sync URL parameters with state
   useEffect(() => {
     const urlPage = Number(searchParam.get("page")) || 1;
     const urlLimit = Number(searchParam.get("show")) || 5;
@@ -238,11 +314,12 @@ function Dashboard() {
     }
   }, [searchParam, page, limit]);
 
-  // Update Redux state and pagination when forms data changes
   useEffect(() => {
     if (formsResponse) {
       const responseData = formsResponse as {
-        data: Array<FormDataType>;
+        data: {
+          userForms: Array<FormDataType>;
+        };
         pagination?: {
           totalPages: number;
           totalCount: number;
@@ -251,9 +328,10 @@ function Dashboard() {
         };
       };
 
-      dispatch(setallformstate(responseData.data ?? []));
+      dispatch(
+        setallformstate(responseData.data.userForms ?? responseData.data ?? [])
+      );
 
-      // Update pagination data from response
       if (responseData.pagination) {
         setPaginationData({
           totalPages: responseData.pagination.totalPages,
@@ -265,7 +343,6 @@ function Dashboard() {
     }
   }, [formsResponse, dispatch]);
 
-  // Handle fetch error
   useEffect(() => {
     if (fetchError) {
       ErrorToast({
@@ -276,6 +353,86 @@ function Dashboard() {
     }
   }, [fetchError]);
 
+  // Verify search parameters - remove conflicting created and updated params
+  useEffect(() => {
+    const createdParam = searchParam.get("created");
+    const updatedParam = searchParam.get("updated");
+    const validValues = [1, -1];
+
+    let needsUpdate = false;
+    const newParams = new URLSearchParams(searchParam);
+    const filterUpdates: Partial<DashboardFilterType> = {};
+
+    // Check if both parameters exist (conflict resolution)
+    if (createdParam && updatedParam) {
+      newParams.delete("created");
+      newParams.delete("updated");
+      filterUpdates.created = undefined;
+      filterUpdates.updated = undefined;
+      needsUpdate = true;
+    } else {
+      // Validate individual parameters
+      if (createdParam && !validValues.includes(parseInt(createdParam))) {
+        newParams.delete("created");
+        filterUpdates.created = undefined;
+        needsUpdate = true;
+      }
+
+      if (updatedParam && !validValues.includes(parseInt(updatedParam))) {
+        newParams.delete("updated");
+        filterUpdates.updated = undefined;
+        needsUpdate = true;
+      }
+    }
+
+    if (needsUpdate) {
+      setSearchParam(newParams);
+      if (Object.keys(filterUpdates).length > 0) {
+        setFilterstate((prev) => ({ ...prev, ...filterUpdates }));
+      }
+    }
+  }, [searchParam, setSearchParam]);
+
+  // Verify page and show parameters - remove if wrong format
+  useEffect(() => {
+    const pageParam = searchParam.get("page");
+    const showParam = searchParam.get("show");
+    let needsUpdate = false;
+    const newParams = new URLSearchParams(searchParam);
+
+    // Check page parameter
+    if (pageParam !== null) {
+      const pageNumber = Number(pageParam);
+      if (
+        isNaN(pageNumber) ||
+        pageNumber < 1 ||
+        !Number.isInteger(pageNumber)
+      ) {
+        newParams.delete("page");
+        needsUpdate = true;
+        setpage(1); // Reset to default
+      }
+    }
+
+    // Check show parameter
+    if (showParam !== null) {
+      const showNumber = Number(showParam);
+      if (
+        isNaN(showNumber) ||
+        showNumber < 1 ||
+        !Number.isInteger(showNumber)
+      ) {
+        newParams.delete("show");
+        needsUpdate = true;
+        setlimit(5); // Reset to default
+      }
+    }
+
+    if (needsUpdate) {
+      setSearchParam(newParams);
+    }
+  }, [searchParam, setSearchParam]);
+
   const handleDeleteForm = useCallback(async () => {
     if (selectedcard.size === 0) return;
 
@@ -284,12 +441,10 @@ function Dashboard() {
         ids: Array.from(selectedcard),
       });
     } catch (error) {
-      // Error handling is done in the mutation's onError callback
       console.error("Delete forms error:", error);
     }
   }, [selectedcard, deleteFormsMutation]);
 
-  // Memoized delete press handler
   const handleDeletePress = useCallback(() => {
     dispatch(
       OpenModal.actions.setopenmodal({
@@ -304,7 +459,6 @@ function Dashboard() {
     );
   }, [dispatch, handleDeleteForm]);
 
-  // Memoized create form modal handler
   const handleCreateFormModalClose = useCallback(() => {
     dispatch(
       OpenModal.actions.setopenmodal({
@@ -326,11 +480,15 @@ function Dashboard() {
       <div className="w-full p-6 h-full flex flex-col gap-y-8 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
         <HeaderSection
           isManage={isManage}
+          filterState={Filterstate}
+          setfilterState={setFilterstate}
           selectedCard={selectedcard}
           onManageToggle={handleManageToggle}
           onDeletePress={handleDeletePress}
           isDeleting={deleteFormsMutation.isPending}
         />
+
+        <FormTypeSelect tab={tab} settab={setTab} />
 
         <FormGrid
           loading={isLoading || deleteFormsMutation.isPending}
@@ -339,6 +497,7 @@ function Dashboard() {
           selectedCard={selectedcard}
           onCardClick={handleManageCardSelection}
           onCreateClick={handleCreateFormClick}
+          tab={tab}
         />
 
         <div className="mt-auto flex justify-center">

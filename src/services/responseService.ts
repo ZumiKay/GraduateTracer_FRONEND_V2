@@ -1,58 +1,135 @@
 import ApiRequest from "../hooks/ApiHook";
 import { ResponseDataType } from "../component/Response/Response.type";
 
+export enum responseCompletionStatus {
+  completed = "completed",
+  partial = "partial",
+  abandoned = "abandoned",
+}
+
+export enum respondentType {
+  guest = "GUEST",
+  user = "USER",
+}
+
 export interface ResponseListItem {
   _id: string;
   formId: string;
   userId?: string;
-  guest?: {
-    email: string;
-    name?: string;
-  };
   respondentEmail?: string;
   respondentName?: string;
+  respondentType?: respondentType;
   totalScore?: number;
-  completionStatus?: "completed" | "partial" | "abandoned";
+  completionStatus?: responseCompletionStatus;
   submittedAt?: Date;
   isManuallyScored?: boolean;
   isCompleted?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
+export interface PaginationType {
+  page: number;
+  limit: number;
+  totalCount: number;
+  totalPages: number;
+}
 
 export interface ResponseListResponse {
   responses: ResponseListItem[];
-  pagination: {
-    page: number;
-    limit: number;
-    totalCount: number;
-    totalPages: number;
-  };
+  pagination: PaginationType;
 }
 
 /**
  * Fetch response list without responseset data for table display
  */
-export const fetchResponseList = async (
-  formId: string,
-  page: number = 1,
-  limit: number = 10
-): Promise<ResponseListResponse> => {
+interface fetchResponseListParamType {
+  formId: string;
+  page: number;
+  limit: number;
+  startDate?: string;
+  endDate?: string;
+  minScore?: string;
+  maxScore?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  search?: string;
+  completionStatus?: string;
+}
+export const fetchResponseList = async ({
+  formId,
+  page,
+  limit,
+  search,
+  startDate,
+  endDate,
+  minScore,
+  maxScore,
+  sortBy,
+  sortOrder,
+  completionStatus,
+  ...rest
+}: fetchResponseListParamType): Promise<ResponseListResponse> => {
   const params = new URLSearchParams({
-    id: formId,
+    formId,
     p: page.toString(),
     lt: limit.toString(),
   });
 
+  // Add filter parameters using the backend's expected parameter names
+  if (search) params.set("q", search);
+  if (completionStatus) params.set("status", completionStatus);
+  if (startDate) params.set("startD", startDate);
+  if (endDate) params.set("endD", endDate);
+  if (minScore) params.set("startS", minScore);
+  if (maxScore) params.set("endS", maxScore);
+  if (sortBy) params.set("sortBy", sortBy);
+  if (sortOrder) params.set("sortOrder", sortOrder);
+
+  // Add any remaining parameters
+  Object.entries(rest).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      params.set(key, String(value));
+    }
+  });
+
   const result = await ApiRequest({
-    url: `/getresponsebyform?${params}`,
+    url: `/response/getresponselist?${params}`,
     method: "GET",
     cookie: true,
     refreshtoken: true,
     reactQuery: true,
   });
 
+  if (!result.success) {
+    throw new Error(result.error ?? "Error occured");
+  }
+
   return result.data as ResponseListResponse;
+};
+
+export const fetchUserResponse = async (data: {
+  uid: string;
+  formId: string;
+  page: string;
+  limit?: string;
+}) => {
+  const searchParam = new URLSearchParams();
+
+  //Create search param
+  Object.entries(data).map(([key, val]) => searchParam.set(key, val));
+
+  const makeReq = await ApiRequest({
+    url: "/response/getuserresponses" + `?${searchParam}`,
+    method: "GET",
+    cookie: true,
+    refreshtoken: true,
+    reactQuery: true,
+  });
+
+  if (!makeReq.success) {
+    throw new Error(makeReq.error ?? "Error occured");
+  }
+  return makeReq.data;
 };
 
 export const fetchResponseDetails = async (

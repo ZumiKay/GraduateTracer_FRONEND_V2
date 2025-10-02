@@ -22,6 +22,7 @@ export const FormHeader: React.FC<FormHeaderProps> = ({
           <Progress
             value={progress}
             className="mb-4"
+            aria-label="Progress"
             color="primary"
             size="sm"
           />

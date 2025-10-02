@@ -58,6 +58,7 @@ export default function CreateForm({
   const [selectedReturnScore, setSelectedReturnScore] = useState<string>(
     returnscore.manual
   );
+  const [requireEmail, setRequireEmail] = useState<boolean>(false);
   const formRef = useRef<HTMLFormElement>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -83,6 +84,7 @@ export default function CreateForm({
   const resetFormState = useCallback(() => {
     setformtype(FormTypeEnum.Normal);
     setSelectedReturnScore(returnscore.manual);
+    setRequireEmail(false);
     formRef.current?.reset();
   }, []);
 
@@ -101,25 +103,20 @@ export default function CreateForm({
         content: id ? "Form Updated Successfully" : "Form Created Successfully",
       });
 
-      // Reset form and close modal
       resetFormState();
       setclose();
 
-      // Navigate to the form page
-      // For new forms, get ID from response data; for updates, use existing ID
       const responseData = response as CreateFormResponse;
       const formId = id || responseData?.data?._id;
       if (formId) {
         navigate(`/form/${formId}`, { replace: true });
       }
 
-      // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ["forms"] });
       if (id) {
         queryClient.invalidateQueries({ queryKey: ["form", id] });
         queryClient.invalidateQueries({ queryKey: ["FormInfo", id] });
       } else {
-        // For new forms, invalidate the specific form query that will be fetched
         const newFormId = responseData?.data?._id;
         if (newFormId) {
           queryClient.invalidateQueries({ queryKey: ["form", newFormId] });
@@ -136,7 +133,6 @@ export default function CreateForm({
     },
   });
 
-  // Handle form type change
   const handleFormTypeChange = useCallback((value: string) => {
     const newFormType = value as FormTypeEnum;
     setformtype(newFormType);
@@ -147,19 +143,16 @@ export default function CreateForm({
     }
   }, []);
 
-  // Populate form when editing
   useEffect(() => {
     if (formData && formRef.current && id) {
       try {
         const typedFormData = formData.data as FormDataType;
         const formElements = formRef.current.elements;
 
-        // Set form type first
         if (typedFormData.type) {
           setformtype(typedFormData.type as FormTypeEnum);
         }
 
-        // Set return score if it exists and form is quiz type
         if (typedFormData.setting && typedFormData.type === FormTypeEnum.Quiz) {
           const settings = typedFormData.setting as Record<string, unknown>;
           if (settings.returnscore) {
@@ -167,7 +160,6 @@ export default function CreateForm({
           }
         }
 
-        // Populate form fields
         for (const [key, value] of Object.entries(typedFormData)) {
           const element = formElements.namedItem(key);
           if (!element) continue;
@@ -186,9 +178,14 @@ export default function CreateForm({
           }
         }
 
-        // Handle settings if they exist
         if (typedFormData.setting) {
           const settings = typedFormData.setting as Record<string, unknown>;
+
+          // Set email state if it exists
+          if (settings.email !== undefined) {
+            setRequireEmail(Boolean(settings.email));
+          }
+
           for (const [key, value] of Object.entries(settings)) {
             if (key === "returnscore") continue; // Already handled above
             const element = formElements.namedItem(key);
@@ -230,16 +227,13 @@ export default function CreateForm({
     const formData = new FormData(e.currentTarget);
     const jsonFormState = Object.fromEntries(formData) as Partial<FormDataType>;
 
-    // Handle checkboxes to capture their checked state
     const formElements = e.currentTarget.elements;
     const setting: { [key: string]: boolean | string } = {};
 
-    // Set default return score for quiz type
     if (formtype === FormTypeEnum.Quiz) {
       setting.returnscore = selectedReturnScore;
     }
 
-    // Process checkboxes
     for (const element of formElements) {
       if (element instanceof HTMLInputElement && element.type === "checkbox") {
         const name = element.name;
@@ -247,7 +241,6 @@ export default function CreateForm({
       }
     }
 
-    // Prepare the final form data
     const finalFormData = {
       ...jsonFormState,
       type: formtype,
@@ -478,6 +471,8 @@ export default function CreateForm({
                     <Checkbox
                       name="email"
                       color="secondary"
+                      isSelected={requireEmail}
+                      onValueChange={setRequireEmail}
                       className="transition-all duration-200 group-hover:scale-105"
                       classNames={{
                         wrapper:
@@ -516,6 +511,31 @@ export default function CreateForm({
                     </p>
                   </div>
                 </div>
+
+                {requireEmail && (
+                  <div className="animate-fadeIn pt-2 border-t border-gray-200">
+                    <div className="group">
+                      <Checkbox
+                        name="acceptGuest"
+                        color="secondary"
+                        className="transition-all duration-200 group-hover:scale-105"
+                        classNames={{
+                          wrapper:
+                            "before:border-2 before:border-gray-300 hover:before:border-green-400 before:transition-colors before:duration-300",
+                          icon: "text-white",
+                          label: "text-gray-700 font-medium text-sm",
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>👤 Accept Guest Responses</span>
+                        </div>
+                      </Checkbox>
+                      <p className="text-xs text-gray-500 mt-1 ml-6 opacity-75 group-hover:opacity-100 transition-opacity duration-200">
+                        Allow anonymous users to respond without providing email
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Submit Button */}

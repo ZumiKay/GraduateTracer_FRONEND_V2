@@ -40,6 +40,7 @@ import {
   FormTypeEnum,
   ContentType,
   QuestionType,
+  AnswerKey,
 } from "../../types/Form.types";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
 
@@ -1041,7 +1042,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                                 {question?.answer && isQuizForm && (
                                   <div className="text-sm text-green-600 mt-2">
                                     <strong>Correct:</strong>{" "}
-                                    {String(question.answer.answer)}
+                                    {String(question.answer as AnswerKey)}
                                   </div>
                                 )}
                               </div>
@@ -1235,7 +1236,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                                 {question?.answer && (
                                   <div className="text-sm text-green-600 mt-1">
                                     <strong>Correct Answer:</strong>{" "}
-                                    {String(question.answer.answer)}
+                                    {String(question.answer as AnswerKey)}
                                   </div>
                                 )}
                               </div>

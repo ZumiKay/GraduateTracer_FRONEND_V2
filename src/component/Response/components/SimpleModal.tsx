@@ -118,7 +118,7 @@ export const ScoreEditModal: React.FC<ScoreEditModalProps> = ({
               placeholder="Enter new score"
               value={newScore}
               onChange={(e) => setNewScore(e.target.value)}
-              onKeyPress={(e) => {
+              onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   handleConfirm();
                 }

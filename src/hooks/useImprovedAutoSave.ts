@@ -4,7 +4,6 @@ import { RootState } from "../redux/store";
 import { ContentType } from "../types/Form.types";
 import { AutoSaveQuestion } from "../pages/FormPage.action";
 import { ErrorToast } from "../component/Modal/AlertModal";
-import SuccessToast from "../component/Modal/AlertModal";
 import { setallquestion, setpauseAutoSave } from "../redux/formstore";
 
 interface AutoSaveStatus {
@@ -47,6 +46,12 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const debounceTimeoutRef = useRef<number | null>(null);
   const retryTimeoutRef = useRef<number | null>(null);
   const lastSaveAttemptRef = useRef<Date | null>(null);
+  const allQuestionRef = useRef<ContentType[]>(allquestion);
+
+  // Keep ref in sync with current questions
+  useEffect(() => {
+    allQuestionRef.current = allquestion;
+  }, [allquestion]);
 
   const generateDataString = useCallback((data: ContentType[]) => {
     return JSON.stringify(
@@ -204,7 +209,10 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
       processOfflineQueue();
     }
-  }, [isOnline, offlineQueue, performSave]);
+    // Removed performSave from dependencies to prevent infinite loops
+    // performSave is stable within the component lifecycle
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, offlineQueue.length]); // Use length instead of array reference
 
   // Debounced save function
   const debouncedSave = useCallback(
@@ -222,20 +230,14 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           return;
         }
 
-        // Only save if data has actually changed
-        if (hasDataChanged(allquestion)) {
-          performSave(allquestion);
+        // Use ref to get current questions and avoid dependency issue
+        const currentQuestions = allQuestionRef.current;
+        if (hasDataChanged(currentQuestions)) {
+          performSave(currentQuestions);
         }
       }, debounceMs);
     },
-    [
-      isOnline,
-      offlineQueueSize,
-      hasDataChanged,
-      allquestion,
-      performSave,
-      debounceMs,
-    ]
+    [isOnline, offlineQueueSize, hasDataChanged, performSave, debounceMs]
   );
 
   const manualSave = useCallback(async (): Promise<boolean> => {

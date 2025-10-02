@@ -38,6 +38,7 @@ interface ResponseTableProps {
   responses: ResponseListItem[];
   isLoading: boolean;
   isQuizForm: boolean;
+  formId: string;
   onViewResponse: (response: ResponseListItem) => void;
   onEditScore: (response: ResponseListItem) => void;
   onDeleteResponse: (id: string) => void;
@@ -69,6 +70,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
   responses,
   isLoading,
   isQuizForm,
+  formId,
   onViewResponse,
   onEditScore,
   onDeleteResponse,
@@ -91,7 +93,6 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     onClose: onBulkDeleteClose,
   } = useDisclosure();
 
-  // Memoized functions for loop rendering
   const handleViewResponse = useCallback(
     (response: ResponseListItem) => {
       onViewResponse(response);
@@ -106,13 +107,62 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     [onEditScore]
   );
 
-  const exportToPDF = useCallback(() => {
-    // Note: Export functionality is currently disabled for table view
-    // as it requires detailed response data with responseset
-    // This would need to be handled by fetching detailed data first
-    console.warn("Export functionality requires detailed response data");
-    return;
-  }, []);
+  const exportPDFMutation = useMutation({
+    mutationFn: async (response: ResponseListItem) => {
+      const token = localStorage.getItem("accessToken");
+      const fetchResponse = await fetch(
+        `${import.meta.env.VITE_API_URL}/response/${formId}/${
+          response._id
+        }/export/pdf`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!fetchResponse.ok) {
+        throw new Error(`Failed to export PDF: ${fetchResponse.statusText}`);
+      }
+
+      const blob = await fetchResponse.blob();
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${getResponseDisplayName(response)}_Response.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      return blob;
+    },
+    onSuccess: () => {
+      SuccessToast({
+        title: "Success",
+        content: "PDF exported successfully!",
+      });
+    },
+    onError: (error: Error) => {
+      console.error("PDF export error:", error);
+      ErrorToast({
+        title: "Error",
+        content: error?.message || "Failed to export PDF",
+      });
+    },
+  });
+
+  const exportToPDF = useCallback(
+    (response: ResponseListItem) => {
+      exportPDFMutation.mutate(response);
+    },
+    [exportPDFMutation]
+  );
 
   const handleSingleDelete = useCallback(
     (response: ResponseListItem) => {
@@ -212,7 +262,8 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
             <TableRow key={response._id}>
               <TableCell>{getResponseDisplayName(response)}</TableCell>
               <TableCell>
-                {response.respondentEmail || response.guest?.email || "N/A"}
+                {response.respondentEmail || "N/A"}
+                {` (${response.respondentType})`}
               </TableCell>
               <TableCell>
                 <Chip
@@ -252,7 +303,10 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
                           <FiEdit3 />
                         </Button>
                       </Tooltip>
-                      <Tooltip content="Return">
+                      <Tooltip
+                        content={response.isCompleted ? "Returned" : "Return"}
+                        isDisabled={response.isCompleted}
+                      >
                         <Button
                           size="sm"
                           variant="light"
@@ -270,7 +324,8 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
                       size="sm"
                       variant="light"
                       isIconOnly
-                      onPress={exportToPDF}
+                      isLoading={exportPDFMutation.isPending}
+                      onPress={() => exportToPDF(response)}
                     >
                       <FiDownload />
                     </Button>
@@ -311,10 +366,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
                   {getResponseDisplayName(deleteItem)}
                 </p>
                 <p className="text-sm">
-                  <strong>Email:</strong>{" "}
-                  {deleteItem.respondentEmail ||
-                    deleteItem.guest?.email ||
-                    "N/A"}
+                  <strong>Email:</strong> {deleteItem.respondentEmail || "N/A"}
                 </p>
               </div>
             )}

@@ -165,22 +165,11 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
   }) => {
     const isQuizForm = form.type === FormTypeEnum.Quiz;
 
-    const isAutoScoreable = useCallback((questionType: QuestionType) => {
-      return ![
-        QuestionType.ShortAnswer,
-        QuestionType.Paragraph,
-        QuestionType.Text,
-      ].includes(questionType as never);
-    }, []);
-
     const computedData = useMemo(() => {
       if (!selectedResponse) return null;
 
       const displayName = getResponseDisplayName(selectedResponse);
-      const email =
-        selectedResponse.respondentEmail ||
-        selectedResponse.guest?.email ||
-        "No email provided";
+      const email = selectedResponse.respondentEmail || "No email provided";
       const totalScore = selectedResponse.totalScore || 0;
       const submittedDate = selectedResponse.submittedAt
         ? formatDate(selectedResponse.submittedAt)
@@ -238,14 +227,15 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
       []
     );
 
-    // Memoize response items for better performance
     const responseItems = useMemo(() => {
       if (!selectedResponse) return [];
 
       return selectedResponse.responseset?.map(
         (resp: ResponseSetType, index: number) => {
           const question = resp.question;
-          const isAutoScore = question ? isAutoScoreable(question.type) : false;
+          const isAutoScore = question
+            ? question.hasAnswer && question.score !== 0
+            : false;
 
           return {
             id: `${resp._id}-${index}`,
@@ -256,7 +246,7 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
           };
         }
       );
-    }, [selectedResponse, isAutoScoreable]);
+    }, [selectedResponse]);
 
     return (
       <Modal
@@ -351,7 +341,7 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
                               key={id}
                               response={resp}
                               question={question}
-                              isAutoScore={isAutoScore}
+                              isAutoScore={isAutoScore ?? false}
                               isQuizForm={isQuizForm}
                               allQuestions={selectedResponse.responseset.map(
                                 (i) => i.question
@@ -371,11 +361,11 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
                     `${responseItems.length} questions answered`}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="light" onClick={onClose}>
+                  <Button variant="light" onPress={onClose}>
                     Close
                   </Button>
                   {isQuizForm && selectedResponse && (
-                    <Button color="primary" onClick={onEditScore}>
+                    <Button color="primary" onPress={onEditScore}>
                       Edit Scores
                     </Button>
                   )}

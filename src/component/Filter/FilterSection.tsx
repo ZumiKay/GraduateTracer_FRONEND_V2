@@ -1,26 +1,65 @@
 import { Input } from "@heroui/react";
-import { SelectionType } from "../../types/Global.types";
+import { DashboardFilterType, SelectionType } from "../../types/Global.types";
 import Selection from "../FormComponent/Selection";
 import { SearchIcon } from "../svg/GeneralIcon";
-import { useState } from "react";
 import { useSearchParams } from "react-router";
+import { useEffect } from "react";
 
-const FilterOption: Array<SelectionType<string>> = [
-  { label: "Owned", value: "owned" },
-  { label: "Not Owned", value: "notowned" },
-];
-const OrderOption: Array<SelectionType<string>> = [
-  { label: "Last Modified", value: "edited" },
-  { label: "Last Created", value: "created" },
+const orderOptions: Array<SelectionType<string>> = [
+  {
+    label: "Last Created",
+    value: "created:-1",
+  },
+  {
+    label: "First Created",
+    value: "created:1",
+  },
+  {
+    label: "Last Modified",
+    value: "updated:-1",
+  },
+  {
+    label: "First Modified",
+    value: "updated:1",
+  },
 ];
 
-export default function FilterSection() {
+export default function FilterSection({
+  Filterstate,
+  setFilterstate,
+}: {
+  Filterstate: DashboardFilterType;
+  setFilterstate: React.Dispatch<React.SetStateAction<DashboardFilterType>>;
+}) {
   const [param, setparam] = useSearchParams();
-  const [Filterstate, setFilterstate] = useState({
-    filter: param.get("filter") || "",
-    order: param.get("order") || "",
-    q: param.get("q") || "",
-  });
+
+  // Verify and clean up search parameters on mount and when params change
+  useEffect(() => {
+    const verifySearchParams = () => {
+      const hasCreated = param.has("created");
+      const hasUpdated = param.has("updated");
+
+      // If both created and updated parameters exist, remove them
+      if (hasCreated && hasUpdated) {
+        param.delete("created");
+        param.delete("updated");
+        setparam(param);
+
+        // Also reset the filter state
+        setFilterstate((prev) => ({
+          ...prev,
+          created: "",
+          updated: "",
+        }));
+
+        console.warn(
+          "Both created and updated parameters found. Removing both to avoid conflicts."
+        );
+      }
+    };
+
+    verifySearchParams();
+  }, [param, setparam, setFilterstate]);
 
   const handleParam = (name: string, value: string) => {
     if (value.length === 0) {
@@ -33,30 +72,50 @@ export default function FilterSection() {
     setparam(param);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFilterstate((prev) => ({ ...prev, [name]: value }));
-    handleParam(name, value);
+  const handleOrderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (!value) return;
+
+    const [orderType, orderValue] = value.split(":");
+
+    // Reset both order states first
+    setFilterstate((prev) => ({
+      ...prev,
+      created: orderType === "created" ? orderValue : "",
+      updated: orderType === "updated" ? orderValue : "",
+    }));
+
+    // Update URL parameters
+    if (orderType === "created") {
+      handleParam("created", orderValue);
+      param.delete("updated");
+    } else {
+      handleParam("updated", orderValue);
+      param.delete("created");
+    }
+    setparam(param);
+  };
+
+  // Get current selected order value for display
+  const getCurrentOrderValue = () => {
+    console.log({ Filterstate });
+    if (Filterstate.created) {
+      return `created:${Filterstate.created}`;
+    }
+    if (Filterstate.updated) {
+      return `updated:${Filterstate.updated}`;
+    }
+    return "";
   };
 
   return (
     <div className="filtersection w-full h-fit relative inline-flex items-center gap-x-5">
       <Selection
-        items={FilterOption}
-        placeholder="Filter By"
-        size="md"
-        name="filter"
-        aria-label="Filter By"
-        selectedKeys={[Filterstate.filter]}
-        className="w-[150px] h-full font-bold"
-        onChange={handleChange}
-      />
-      <Selection
-        items={OrderOption}
+        items={orderOptions}
         placeholder="Order By"
         name="order"
-        selectedKeys={[Filterstate.order]}
-        onChange={handleChange}
+        selectedKeys={[getCurrentOrderValue()]}
+        onChange={handleOrderChange}
         aria-label="Order By"
         size="md"
         className="w-[150px] h-full font-bold"
@@ -67,7 +126,7 @@ export default function FilterSection() {
         aria-label="Search"
         value={Filterstate.q}
         onChange={(e) => setFilterstate({ ...Filterstate, q: e.target.value })}
-        onBlur={() => handleParam("q", Filterstate.q)}
+        onBlur={() => Filterstate.q && handleParam("q", Filterstate.q)}
         className="max-w-md h-full"
         placeholder="Search Name"
         onClear={() => {

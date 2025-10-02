@@ -9,6 +9,7 @@ import PrivateRoute, { PublichRoute } from "./route/PrivateRoute";
 
 const AuthenticationPage = lazy(() => import("./pages/Authentication"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const FilledFormPage = lazy(() => import("./pages/FilledFormPage"));
 const NavigationBar = lazy(() => import("./component/nav/Navigationbar"));
 const SettingModal = lazy(() => import("./component/Modal/Setting.modal"));
 const FormPage = lazy(() => import("./pages/FormPage"));
@@ -112,10 +113,7 @@ const App = memo(() => {
             </Route>
 
             {/* Public Form Access Routes */}
-            <Route
-              path="/form-access/:formId/:token"
-              element={<PublicFormAccess />}
-            />
+            <Route path="/form-access/:formId" element={<PublicFormAccess />} />
 
             {/* Privacy Policy - Public Route */}
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
@@ -124,6 +122,11 @@ const App = memo(() => {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/form/:id" element={<FormPage />} />
               <Route path="/my-responses" element={<UserResponsesPage />} />
+              <Route path="/filled-form/:formId" element={<FilledFormPage />} />
+              <Route
+                path="/filled-form/:formId/:responseId"
+                element={<FilledFormPage />}
+              />
             </Route>
 
             {/* Not Found  */}

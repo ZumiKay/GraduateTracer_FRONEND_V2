@@ -10,7 +10,7 @@ interface Usersessiontype {
   role: ROLE;
 }
 
-interface SessionState {
+export interface SessionState {
   user: Usersessiontype | null;
   isAuthenticated: boolean;
   loading: boolean;
@@ -25,13 +25,13 @@ const initialState: SessionState = {
 };
 export const AsyncGetUser = createAsyncThunk(
   "session/check",
-  async (_  ,  { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
       const response = await ApiRequest({
         method: "GET",
         cookie: true,
         url: "/checksession",
-        refreshtoken:  true,
+        refreshtoken: true,
       });
       if (!response.success) {
         throw response.error;

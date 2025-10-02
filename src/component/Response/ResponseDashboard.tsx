@@ -15,9 +15,10 @@ import {
   ModalFooter,
   useDisclosure,
   Spinner,
-  SharedSelection,
+  DateRangePicker,
+  RangeValue,
 } from "@heroui/react";
-import { FiMail, FiLink, FiBarChart } from "react-icons/fi";
+import { FiMail, FiLink, FiBarChart, FiX } from "react-icons/fi";
 import { useQuery } from "@tanstack/react-query";
 import { FormDataType, FormTypeEnum } from "../../types/Form.types";
 import { ErrorToast } from "../Modal/AlertModal";
@@ -26,12 +27,19 @@ import ResponseTable from "./components/ResponseTable";
 import ManualScoringView from "./components/ManualScoringView";
 import ViewResponseModal from "./components/ViewResponseModal";
 import { ScoreEditModal } from "./components/SimpleModal";
-import { ResponseDataType, statusColor } from "./Response.type";
 import {
-  fetchResponseList,
+  ResponseDataType,
+  statusColor,
+  ResponseCompletionStatus,
+} from "./Response.type";
+import {
   fetchResponseDetails,
   ResponseListItem,
 } from "../../services/responseService";
+import { useFetchResponseDashbardData } from "./hooks/useResponseDashboardData";
+import { useResponseFilter } from "./hooks/useResponseFilter";
+import { useSearchParams } from "react-router-dom";
+import { getLocalTimeZone } from "@internationalized/date";
 
 interface ResponseDashboardProps {
   formId: string;
@@ -44,13 +52,26 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   formId,
   form,
 }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState<"all" | "manual-score">("all");
-  const [filters, setFilters] = useState({
-    status: "",
-    dateRange: "",
-    searchTerm: "",
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const viewMode =
+    (searchParams.get("viewMode") as "all" | "manual-score") || "all";
+
+  const setViewMode = useCallback(
+    (newViewMode: "all" | "manual-score") => {
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        if (newViewMode === "all") {
+          newParams.delete("viewMode");
+        } else {
+          newParams.set("viewMode", newViewMode);
+        }
+        return newParams;
+      });
+    },
+    [setSearchParams]
+  );
+
   const [selectedResponse, setSelectedResponse] =
     useState<ResponseListItem | null>(null);
   const [selectedResponseDetails, setSelectedResponseDetails] =
@@ -59,8 +80,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   const [emailList, setEmailList] = useState("");
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [generatedLink, setGeneratedLink] = useState("");
-  const [manualScores, setManualScores] = useState<Record<string, number>>({});
-
   const {
     isOpen: isViewOpen,
     onOpen: onViewOpen,
@@ -73,6 +92,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   } = useDisclosure();
 
   // Custom hooks
+
   const {
     updateScoreMutation,
     updateQuestionScoreMutation,
@@ -81,6 +101,14 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     deleteResponseMutation,
     bulkDeleteResponsesMutation,
   } = useResponseMutations(formId);
+
+  const {
+    filterValue,
+    handleChange,
+    clearFilters,
+    hasActiveFilters,
+    applyFilters,
+  } = useResponseFilter();
 
   useEffect(() => {
     if (generateLinkMutation.isSuccess && generateLinkMutation.data) {
@@ -92,28 +120,15 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   }, [generateLinkMutation.isSuccess, generateLinkMutation.data]);
 
   const {
-    data: responseListData,
-    error,
+    responseList,
+    currentPage,
+    limit,
     isLoading,
-  } = useQuery({
-    queryKey: ["responses", formId, currentPage],
-    queryFn: async () => {
-      if (!formId) {
-        throw new Error("No formId provided");
-      }
-
-      return await fetchResponseList(formId, currentPage, 10);
-    },
-    enabled: !!formId,
-    staleTime: 30000,
-    retry: (failureCount) => failureCount < 3,
-  });
-
-  const responses = useMemo(
-    () => responseListData?.responses || [],
-    [responseListData?.responses]
-  );
-  const totalPages = responseListData?.pagination?.totalPages || 1;
+    handleLimitChange,
+    handlePageChange,
+    pagination,
+    error,
+  } = useFetchResponseDashbardData({ formId, filterValue });
 
   const { data: responseDetails, isLoading: isLoadingUserResponse } = useQuery({
     queryKey: ["responseDetails", selectedResponse?._id, formId],
@@ -128,104 +143,12 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     gcTime: 300000,
   });
 
-  // Separate query for manual scoring mode which needs detailed response data
-  const { data: manualScoringResponses, isLoading: isLoadingManualData } =
-    useQuery({
-      queryKey: ["manualScoringResponses", formId],
-      queryFn: async () => {
-        if (!formId) {
-          throw new Error("Form ID is required");
-        }
-
-        // For manual scoring, we need to fetch detailed response data
-        // This is a temporary solution - ideally we'd have a dedicated endpoint
-        const responseList = await fetchResponseList(formId, 1, 1000); // Get all responses
-
-        // Fetch detailed data for each response (limit to first few for performance)
-        const detailedResponses = await Promise.all(
-          responseList.responses
-            .slice(0, 50)
-            .map((response) => fetchResponseDetails(response._id, formId))
-        );
-
-        return detailedResponses.filter(Boolean); // Remove any null responses
-      },
-      enabled: !!formId && viewMode === "manual-score",
-      staleTime: 30000,
-      gcTime: 300000,
-    });
-
   // Update selected response details when data is fetched
   useEffect(() => {
     if (responseDetails) {
       setSelectedResponseDetails(responseDetails);
     }
   }, [responseDetails]);
-
-  // Apply filters to responses
-  const filteredResponses = useMemo(() => {
-    let filtered = responses;
-
-    if (filters.searchTerm) {
-      filtered = filtered.filter(
-        (response) =>
-          (response.respondentName &&
-            response.respondentName
-              .toLowerCase()
-              .includes(filters.searchTerm.toLowerCase())) ||
-          (response.respondentEmail &&
-            response.respondentEmail
-              .toLowerCase()
-              .includes(filters.searchTerm.toLowerCase())) ||
-          (response.guest?.name &&
-            response.guest.name
-              .toLowerCase()
-              .includes(filters.searchTerm.toLowerCase())) ||
-          (response.guest?.email &&
-            response.guest.email
-              .toLowerCase()
-              .includes(filters.searchTerm.toLowerCase()))
-      );
-    }
-
-    if (filters.status) {
-      filtered = filtered.filter(
-        (response) => response.completionStatus === filters.status
-      );
-    }
-
-    if (filters.dateRange) {
-      const now = new Date();
-      switch (filters.dateRange) {
-        case "today": {
-          filtered = filtered.filter((response) => {
-            if (!response.submittedAt) return false;
-            const respDate = new Date(response.submittedAt);
-            return respDate.toDateString() === now.toDateString();
-          });
-          break;
-        }
-        case "week": {
-          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          filtered = filtered.filter((response) => {
-            if (!response.submittedAt) return false;
-            return new Date(response.submittedAt) >= weekAgo;
-          });
-          break;
-        }
-        case "month": {
-          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          filtered = filtered.filter((response) => {
-            if (!response.submittedAt) return false;
-            return new Date(response.submittedAt) >= monthAgo;
-          });
-          break;
-        }
-      }
-    }
-
-    return filtered;
-  }, [responses, filters]);
 
   if (error) {
     ErrorToast({
@@ -264,11 +187,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
 
   const handleManualScoreUpdate = useCallback(
     (responseId: string, questionId: string, score: number) => {
-      setManualScores((prev) => ({
-        ...prev,
-        [`${responseId}-${questionId}`]: score,
-      }));
-
       updateQuestionScoreMutation.mutate({
         responseId,
         questionId,
@@ -278,22 +196,26 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     [updateQuestionScoreMutation]
   );
 
-  const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFilters((prev) => ({ ...prev, searchTerm: e.target.value }));
-    },
-    []
-  );
+  // Individual filter removal functions
+  const removeSearchFilter = useCallback(() => {
+    handleChange({ name: "searchTerm", value: undefined });
+    applyFilters({ name: "q" });
+  }, [handleChange, applyFilters]);
 
-  const handleStatusChange = useCallback((keys: SharedSelection) => {
-    const selected = Array.from(keys)[0] as string;
-    setFilters((prev) => ({ ...prev, status: selected || "" }));
-  }, []);
+  const removeStatusFilter = useCallback(() => {
+    handleChange({ name: "completionStatus", value: undefined });
+    applyFilters({ name: "status" });
+  }, [handleChange, applyFilters]);
 
-  const handleDateRangeChange = useCallback((keys: SharedSelection) => {
-    const selected = Array.from(keys)[0] as string;
-    setFilters((prev) => ({ ...prev, dateRange: selected || "" }));
-  }, []);
+  const removeDateRangeFilter = useCallback(() => {
+    handleChange({ name: "dateRange", value: undefined });
+    applyFilters({ name: ["startD", "endD"] });
+  }, [handleChange, applyFilters]);
+
+  const removeScoreRangeFilter = useCallback(() => {
+    handleChange({ name: "scoreRange", value: undefined });
+    applyFilters({ name: ["startS", "endS"] });
+  }, [handleChange, applyFilters]);
 
   const sendFormLinks = () => {
     if (!emailList.trim()) return;
@@ -355,6 +277,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
               setViewMode(selected);
             }}
             className="w-48"
+            size="md"
           >
             <SelectItem key="all">All Responses</SelectItem>
             <SelectItem key="manual-score">Manually Score</SelectItem>
@@ -399,31 +322,299 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
           <h3 className="text-lg font-semibold">Filters</h3>
         </CardHeader>
         <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Input
               placeholder="Search by name or email..."
-              value={filters.searchTerm}
-              onChange={handleSearchChange}
+              label="Search"
+              value={filterValue?.searchTerm || ""}
+              onChange={(e) =>
+                handleChange({
+                  name: "searchTerm",
+                  value: e.target.value || undefined,
+                })
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  applyFilters({ name: "q", val: filterValue?.searchTerm });
+                }
+              }}
+              aria-label="search"
               isClearable
+              onClear={() => {
+                handleChange({ name: "searchTerm", value: undefined });
+                applyFilters({ name: "q" });
+              }}
+              size="lg"
+              className="h-20"
             />
+
             <Select
+              label="Status"
               placeholder="Completion Status"
-              selectedKeys={filters.status ? [filters.status] : []}
-              onSelectionChange={handleStatusChange}
+              size="lg"
+              className="h-14"
+              selectedKeys={
+                filterValue?.completionStatus
+                  ? [filterValue.completionStatus]
+                  : []
+              }
+              onSelectionChange={(keys) => {
+                const keysArray = Array.from(keys);
+                if (keysArray.length === 0) {
+                  handleChange({
+                    name: "completionStatus",
+                    value: undefined,
+                  });
+                  applyFilters({ name: "status" });
+                } else {
+                  const selected = keysArray[0] as ResponseCompletionStatus;
+                  handleChange({
+                    name: "completionStatus",
+                    value: selected,
+                  });
+                  applyFilters({ name: "status", val: selected });
+                }
+              }}
+              selectionMode="single"
+              disallowEmptySelection={false}
             >
               <SelectItem key="completed">Completed</SelectItem>
               <SelectItem key="partial">Partial</SelectItem>
               <SelectItem key="abandoned">Abandoned</SelectItem>
             </Select>
+
+            {/* Items per page */}
             <Select
-              placeholder="Date Range"
-              selectedKeys={filters.dateRange ? [filters.dateRange] : []}
-              onSelectionChange={handleDateRangeChange}
+              label="Items per page"
+              placeholder="Select limit"
+              selectedKeys={[limit.toString()]}
+              onSelectionChange={(keys) => {
+                const selected = Array.from(keys)[0];
+                if (selected) {
+                  handleLimitChange(Number(selected));
+                }
+              }}
+              size="lg"
+              className="h-14"
             >
-              <SelectItem key="today">Today</SelectItem>
-              <SelectItem key="week">This Week</SelectItem>
-              <SelectItem key="month">This Month</SelectItem>
+              <SelectItem key="5">5 per page</SelectItem>
+              <SelectItem key="10">10 per page</SelectItem>
+              <SelectItem key="20">20 per page</SelectItem>
+              <SelectItem key="50">50 per page</SelectItem>
+              <SelectItem key="100">100 per page</SelectItem>
             </Select>
+
+            {/* Date Range Filter */}
+            <DateRangePicker
+              label="Date Range"
+              value={
+                filterValue?.dateRange &&
+                filterValue.dateRange.start &&
+                filterValue.dateRange.end
+                  ? {
+                      start: filterValue.dateRange.start,
+                      end: filterValue.dateRange.end,
+                    }
+                  : null
+              }
+              onChange={(range) => {
+                handleChange({
+                  name: "dateRange",
+                  value: range || undefined,
+                });
+                if (range?.start && range?.end) {
+                  applyFilters({
+                    name: ["startD", "endD"],
+                    val: {
+                      start: range.start.toString(),
+                      end: range.end.toString(),
+                    },
+                  });
+                } else if (!range) {
+                  // Handle clearing the date range
+                  applyFilters({ name: ["startD", "endD"] });
+                }
+              }}
+              className="w-full h-full"
+              granularity="day"
+              size="lg"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 items-end">
+            {isQuizForm && (
+              <div className="flex gap-2 items-center h-10">
+                <Input
+                  type="number"
+                  placeholder="Min Score"
+                  value={filterValue?.scoreRange?.start?.toString() || ""}
+                  onChange={(e) => {
+                    const value = e.target.value
+                      ? Number(e.target.value)
+                      : undefined;
+                    const currentRange = filterValue?.scoreRange || {
+                      start: undefined,
+                      end: undefined,
+                    };
+                    handleChange({
+                      name: "scoreRange",
+                      value: {
+                        start: value,
+                        end: currentRange.end,
+                      } as RangeValue<number>,
+                    });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      applyFilters({
+                        name: "startS",
+                        val: filterValue?.scoreRange?.start?.toString(),
+                      });
+                    }
+                  }}
+                  onClear={() => {
+                    const currentRange = filterValue?.scoreRange || {
+                      start: undefined,
+                      end: undefined,
+                    };
+                    if (!currentRange.end) {
+                      // If no end value either, clear the entire range
+                      handleChange({
+                        name: "scoreRange",
+                        value: undefined,
+                      });
+                    } else {
+                      // Clear entire range when individual fields are cleared to avoid type issues
+                      handleChange({
+                        name: "scoreRange",
+                        value: undefined,
+                      });
+                    }
+                  }}
+                  className="w-24"
+                  size="md"
+                  isClearable
+                />
+                <span className="text-sm text-gray-500 px-1">to</span>
+                <Input
+                  type="number"
+                  placeholder="Max Score"
+                  value={filterValue?.scoreRange?.end?.toString() || ""}
+                  onChange={(e) => {
+                    const value = e.target.value
+                      ? Number(e.target.value)
+                      : undefined;
+                    const currentRange = filterValue?.scoreRange || {
+                      start: undefined,
+                      end: undefined,
+                    };
+                    handleChange({
+                      name: "scoreRange",
+                      value: {
+                        start: currentRange.start,
+                        end: value,
+                      } as RangeValue<number>,
+                    });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      applyFilters({
+                        name: "endS",
+                        val: filterValue?.scoreRange?.end?.toString(),
+                      });
+                    }
+                  }}
+                  onClear={() => {
+                    const currentRange = filterValue?.scoreRange || {
+                      start: undefined,
+                      end: undefined,
+                    };
+                    if (!currentRange.start) {
+                      // If no start value either, clear the entire range
+                      handleChange({
+                        name: "scoreRange",
+                        value: undefined,
+                      });
+                    } else {
+                      // Clear entire range when individual fields are cleared to avoid type issues
+                      handleChange({
+                        name: "scoreRange",
+                        value: undefined,
+                      });
+                    }
+                  }}
+                  className="w-24"
+                  size="md"
+                  isClearable
+                />
+              </div>
+            )}
+
+            <div className="flex gap-2 items-center h-10">
+              {hasActiveFilters && (
+                <Button
+                  color="default"
+                  variant="light"
+                  onPress={clearFilters}
+                  size="md"
+                >
+                  Clear All
+                </Button>
+              )}
+            </div>
+
+            {/* Filter Indicator */}
+            {hasActiveFilters && (
+              <div className="text-sm text-gray-600">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-medium">Active filters:</span>
+                  <span className="text-xs text-gray-500">
+                    Click any filter to remove it
+                  </span>
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {filterValue?.searchTerm && (
+                    <button
+                      onClick={removeSearchFilter}
+                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-blue-200 transition-colors"
+                    >
+                      Search: {filterValue.searchTerm}
+                      <FiX size={12} />
+                    </button>
+                  )}
+                  {filterValue?.completionStatus && (
+                    <button
+                      onClick={removeStatusFilter}
+                      className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-green-200 transition-colors"
+                    >
+                      Status: {filterValue.completionStatus}
+                      <FiX size={12} />
+                    </button>
+                  )}
+                  {filterValue?.dateRange && (
+                    <button
+                      onClick={removeDateRangeFilter}
+                      className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-purple-200 transition-colors"
+                    >
+                      Date Range
+                      <FiX size={12} />
+                    </button>
+                  )}
+                  {filterValue?.scoreRange &&
+                    (filterValue.scoreRange.start ||
+                      filterValue.scoreRange.end) && (
+                      <button
+                        onClick={removeScoreRangeFilter}
+                        className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-orange-200 transition-colors"
+                      >
+                        Score: {filterValue.scoreRange.start || 0}-
+                        {filterValue.scoreRange.end || "∞"}
+                        <FiX size={12} />
+                      </button>
+                    )}
+                </div>
+              </div>
+            )}
           </div>
         </CardBody>
       </Card>
@@ -432,16 +623,17 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         <CardHeader>
           <h3 className="text-lg font-semibold">
             {viewMode === "all"
-              ? `Responses (${responses.length})`
+              ? `Responses (${responseList?.length ?? 0})`
               : "Manual Scoring"}
           </h3>
         </CardHeader>
         <CardBody>
           {viewMode === "all" ? (
             <ResponseTable
-              responses={filteredResponses}
+              responses={responseList ?? []}
               isLoading={isLoading}
               isQuizForm={isQuizForm}
+              formId={formId}
               onViewResponse={(response) => {
                 setSelectedResponse(response);
                 onViewOpen();
@@ -459,27 +651,41 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
               formatDate={formatDate}
               getStatusColor={getStatusColor}
             />
-          ) : isLoadingManualData ? (
-            <div className="flex justify-center items-center py-8">
-              <Spinner size="lg" />
-            </div>
           ) : (
             <ManualScoringView
-              responses={manualScoringResponses || []}
+              formId={formId}
               form={form}
-              manualScores={manualScores}
               onScoreUpdate={handleManualScoreUpdate}
             />
           )}
 
-          {viewMode === "all" && totalPages > 1 && (
-            <div className="flex justify-center mt-4">
-              <Pagination
-                total={totalPages}
-                page={currentPage}
-                onChange={setCurrentPage}
-                showControls
-              />
+          {viewMode === "all" && pagination && (
+            <div className="mt-6 space-y-4">
+              {/* Pagination Info */}
+              <div className="flex justify-between items-center text-sm text-gray-600">
+                <div>
+                  Showing {(currentPage - 1) * limit + 1} to{" "}
+                  {Math.min(currentPage * limit, pagination.totalCount)} of{" "}
+                  {pagination.totalCount} responses
+                </div>
+                <div>
+                  Page {currentPage} of {pagination.totalPages}
+                </div>
+              </div>
+
+              {/* Pagination Controls */}
+              {pagination.totalPages > 1 && (
+                <div className="flex justify-center">
+                  <Pagination
+                    total={pagination.totalPages}
+                    page={currentPage}
+                    onChange={handlePageChange}
+                    showControls
+                    size="lg"
+                    className="gap-2"
+                  />
+                </div>
+              )}
             </div>
           )}
         </CardBody>
@@ -506,7 +712,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onClick={() => setEmailModalOpen(false)}>
+            <Button variant="light" onPress={() => setEmailModalOpen(false)}>
               Cancel
             </Button>
             <Button

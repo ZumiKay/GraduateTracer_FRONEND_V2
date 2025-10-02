@@ -9,7 +9,6 @@ import {
 import {
   AnswerKey,
   ContentType,
-  formDatePattern,
   QuestionType,
   RangeType,
 } from "../../types/Form.types";
@@ -24,7 +23,6 @@ import {
 import DateRangeSelector from "../FormComponent/DateRanageSelector";
 import { getLocalTimeZone, now, parseDate } from "@internationalized/date";
 import Selection from "../FormComponent/Selection";
-import { formatDate } from "date-fns";
 
 interface TextCardProps {
   content: ContentType;
@@ -222,7 +220,7 @@ const Respondant_Question_Card = memo(
           <DateRangeSelector
             rangvalue={rangeData as RangeValue<DateValue>}
             idx={idx}
-            value={answerKey?.answer as RangeValue<string> | null | undefined}
+            value={answerKey.answer as never}
             onSelectionChange={handleAnswer}
           />
         )

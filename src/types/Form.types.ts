@@ -1,6 +1,9 @@
 import { DateValue, RangeValue } from "@heroui/react";
 import { Content, JSONContent } from "@tiptap/react";
-import { AnswerKeyPairValueType } from "../component/Response/Response.type";
+import {
+  AnswerKeyPairValueType,
+  SubmittionProcessionReturnType,
+} from "../component/Response/Response.type";
 
 // Form Enums
 
@@ -50,6 +53,7 @@ export interface FormSettingType {
   returnscore?: returnscore;
   autosave?: boolean;
   acceptResponses?: boolean;
+  acceptGuest?: boolean;
 }
 
 interface User {
@@ -74,10 +78,18 @@ export interface FormDataType {
   createdAt?: Date;
   updatedAt?: Date;
   responses?: Array<FormResponseType>;
+  submittedResult?: SubmittionProcessionReturnType;
   isOwner?: boolean;
   isCreator?: boolean;
   isEditor?: boolean;
+  isCollaborator?: boolean;
+
+  formType?: string; // Represents which dashboard tab this form belongs to
   lastqIdx?: number;
+
+  //Helper types
+  isFilled?: boolean;
+  isAuthenticated?: boolean;
 }
 
 // Question Types
@@ -157,6 +169,8 @@ export interface ContentType<t = unknown> {
   page?: number;
   hasAnswer?: boolean;
   isValidated?: boolean;
+  //Helper Field
+  isFilled?: boolean;
   [key: string]: t | unknown;
 }
 

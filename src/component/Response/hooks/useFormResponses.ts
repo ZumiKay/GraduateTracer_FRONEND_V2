@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { ContentType, QuestionType } from "../../../types/Form.types";
 
 export interface FormResponse {
-  questionId: string;
+  question: string;
   response: ResponseValue | null;
 }
 
@@ -30,7 +30,7 @@ export const useFormResponses = (questions: ContentType[]) => {
       const initialResponses = questions
         .filter((i) => i.type !== QuestionType.Text)
         .map((q) => ({
-          questionId: q._id ?? "",
+          question: q._id ?? "",
           response: "",
         }));
       setResponses(initialResponses);
@@ -54,7 +54,7 @@ export const useFormResponses = (questions: ContentType[]) => {
       }
 
       const parentResponse = responseList.find(
-        (r) => r.questionId === parentQuestion._id
+        (r) => r.question === parentQuestion._id
       );
 
       if (
@@ -157,16 +157,14 @@ export const useFormResponses = (questions: ContentType[]) => {
     (questionId: string, value: ResponseValue) => {
       setResponses((prev) => {
         const updated = prev.map((r) =>
-          r.questionId === questionId ? { ...r, response: value } : r
+          r.question === questionId ? { ...r, response: value } : r
         );
 
         const handleConditionalUpdates = (responses: FormResponse[]) => {
           let hasChanges = false;
 
           const updatedResponses = responses.map((response) => {
-            const question = questions.find(
-              (q) => q._id === response.questionId
-            );
+            const question = questions.find((q) => q._id === response.question);
             if (!question || !question.parentcontent) {
               return response;
             }
@@ -199,9 +197,9 @@ export const useFormResponses = (questions: ContentType[]) => {
       setResponses((prev) => {
         let updated = [...prev];
 
-        responsesToUpdate.forEach(({ questionId, response }) => {
+        responsesToUpdate.forEach(({ question, response }) => {
           updated = updated.map((r) =>
-            r.questionId === questionId ? { ...r, response } : r
+            r.question === question ? { ...r, response } : r
           ) as never;
         });
 
@@ -209,9 +207,7 @@ export const useFormResponses = (questions: ContentType[]) => {
           let hasChanges = false;
 
           const updatedResponses = responses.map((response) => {
-            const question = questions.find(
-              (q) => q._id === response.questionId
-            );
+            const question = questions.find((q) => q._id === response.question);
             if (!question || !question.parentcontent) {
               return response;
             }

@@ -11,11 +11,9 @@ export const useResponseMutations = (formId: string) => {
     mutationFn: async ({
       responseId,
       newScore,
-      sendEmail,
     }: {
       responseId: string;
       newScore: number;
-      sendEmail: string;
     }) => {
       const result = await ApiRequest({
         method: "PUT",
@@ -23,7 +21,6 @@ export const useResponseMutations = (formId: string) => {
         data: {
           responseId,
           score: newScore,
-          sendEmail,
         },
         cookie: true,
         reactQuery: true,
@@ -129,7 +126,7 @@ export const useResponseMutations = (formId: string) => {
         url: "/response/generate-link",
         method: "POST",
         cookie: true,
-        data: { formId, secure: true },
+        data: { formId },
         reactQuery: true,
       });
       return result.data as { link?: string; url?: string };

@@ -50,7 +50,7 @@ describe("useFormValidation with conditional questions", () => {
     if (!question.parentcontent) return true;
 
     const parentResponse = responses.find(
-      (r) => r.questionId === question.parentcontent!.qId
+      (r) => r.question === question.parentcontent!.qId
     );
     if (!parentResponse) return false;
 
@@ -63,8 +63,8 @@ describe("useFormValidation with conditional questions", () => {
     );
 
     const responses: FormResponse[] = [
-      { questionId: "parent1", response: 0 }, // Makes child1 visible
-      { questionId: "always1", response: "filled" },
+      { question: "parent1", response: 0 }, // Makes child1 visible
+      { question: "always1", response: "filled" },
       // child1 is missing but should be required since it's visible
     ];
 
@@ -78,8 +78,8 @@ describe("useFormValidation with conditional questions", () => {
     );
 
     const responses: FormResponse[] = [
-      { questionId: "parent1", response: 1 }, // Makes child1 hidden
-      { questionId: "always1", response: "filled" },
+      { question: "parent1", response: 1 }, // Makes child1 hidden
+      { question: "always1", response: "filled" },
       // child1 is missing but should be ignored since it's hidden
     ];
 
@@ -93,8 +93,8 @@ describe("useFormValidation with conditional questions", () => {
     );
 
     const responses: FormResponse[] = [
-      { questionId: "parent1", response: 1 }, // Makes child1 hidden
-      { questionId: "always1", response: "filled" },
+      { question: "parent1", response: 1 }, // Makes child1 hidden
+      { question: "always1", response: "filled" },
       // child1 is missing but hidden
     ];
 
@@ -108,8 +108,8 @@ describe("useFormValidation with conditional questions", () => {
     );
 
     const responses: FormResponse[] = [
-      { questionId: "parent1", response: 0 }, // Makes child1 visible
-      { questionId: "always1", response: "filled" },
+      { question: "parent1", response: 0 }, // Makes child1 visible
+      { question: "always1", response: "filled" },
       // child1 is missing but visible and required
     ];
 
