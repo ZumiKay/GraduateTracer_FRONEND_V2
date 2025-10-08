@@ -1,6 +1,7 @@
 import { DateValue } from "@heroui/react";
 import { ContentType } from "./types/Form.types";
 import { getLocalTimeZone } from "@internationalized/date";
+import { GuestData } from "./types/PublicFormAccess.types";
 
 export function hasObjectChanged<T>(oldObject: T, newValue: T): boolean {
   if (oldObject === newValue) return false;
@@ -405,10 +406,99 @@ export const isMoreThanDay = (val: Date): boolean => {
   return diffMs > oneDayMs;
 };
 
+export const generateStorageKey = ({
+  suffix,
+  formId,
+  userKey,
+}: {
+  suffix: string;
+  formId: string;
+  userKey?: string;
+}) => {
+  return `form_progress_${formId}${userKey ? `_${userKey}` : ""}_${suffix}`;
+};
 
-export const generateStorageKey = ({suffix , formId , userKey}:{suffix: string , formId: string , userKey?: string}) => {
-    return `form_progress_${formId}${userKey ? `_${userKey}` : ""}_${suffix}`
+export const extractStorageKeyComponents = (
+  storageKey: string
+): {
+  formId: string | null;
+  userKey: string | null;
+  suffix: string | null;
+} => {
+  const prefix = "form_progress_";
 
-} 
+  if (!storageKey.startsWith(prefix)) {
+    return { formId: null, userKey: null, suffix: null };
+  }
 
+  const remaining = storageKey.slice(prefix.length);
 
+  const parts = remaining.split("_");
+
+  if (parts.length < 2) {
+    return { formId: null, userKey: null, suffix: null };
+  }
+
+  const suffix = parts[parts.length - 1];
+
+  const formId = parts[0];
+
+  const userKey = parts.length > 2 ? parts.slice(1, -1).join("_") : null;
+
+  return { formId, userKey, suffix };
+};
+
+/* --------------------- Respondent Form Session Helper --------------------- */
+
+export const saveGuestData = (
+  guestData: GuestData,
+  customKey?: string
+): void => {
+  try {
+    // Use sessionStorage instead of localStorage for guest data
+    sessionStorage.setItem(
+      customKey ?? "guest_session",
+      JSON.stringify({
+        ...guestData,
+        timestamp: Date.now(),
+        sessionId: crypto.randomUUID(), // Add unique session ID
+      })
+    );
+  } catch (error) {
+    console.error("Failed to save guest data:", error);
+  }
+};
+
+export const getGuestData = (): GuestData | null => {
+  try {
+    const data = sessionStorage.getItem("guest_session");
+    if (!data) return null;
+
+    const parsed = JSON.parse(data);
+
+    // If session exceed 1 days removed
+    const ADays = 24 * 60 * 60 * 1000;
+    if (Date.now() - parsed.timestamp > ADays) {
+      removeGuestData();
+      return null;
+    }
+
+    return {
+      name: parsed.name,
+      email: parsed.email,
+      rememberMe: parsed.rememberMe || false,
+      isActive: parsed.isActive || false,
+    };
+  } catch (error) {
+    console.error("Failed to get guest data:", error);
+    return null;
+  }
+};
+
+export const removeGuestData = (): void => {
+  try {
+    sessionStorage.removeItem("guest_session");
+  } catch (error) {
+    console.error("Failed to remove guest data:", error);
+  }
+};

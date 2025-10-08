@@ -10,13 +10,17 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ErrorToast } from "../Modal/AlertModal";
 import SuccessToast from "../Modal/AlertModal";
 import RespondentForm from "./RespondentForm";
-import { validateGuestEmail, getGuestData } from "../../utils/publicFormUtils";
+import { validateGuestEmail } from "../../utils/publicFormUtils";
 import useRespondentFormPaginaition, {
   accessModeType,
 } from "./hooks/usePaginatedFormData";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
-import { generateStorageKey } from "../../helperFunc";
+import {
+  generateStorageKey,
+  getGuestData,
+  saveGuestData,
+} from "../../helperFunc";
 import { RespondentInfoType, RespondentSessionType } from "./Response.type";
 import {
   PublicFormAccessProps,
@@ -28,7 +32,7 @@ import { AuthContainer } from "./AuthContainer";
 import { InactivityAlert } from "./InactivityAlert";
 import useFormsessionAPI from "../../hooks/useFormsessionAPI";
 
-// ===== STATE MANAGEMENT WITH REDUCER =====
+/* ------------------------------ State Reducer ----------------------------- */
 interface FormState {
   accessMode: accessModeType;
   showGuestForm: boolean;
@@ -56,7 +60,7 @@ const initialFormState: FormState = {
   accessMode: "login",
   showGuestForm: false,
   loginData: { email: "", password: "", rememberMe: false },
-  guestData: { name: "", email: "", rememberMe: false },
+  guestData: { name: "", email: "", rememberMe: false, isActive: false },
 };
 
 function formStateReducer(state: FormState, action: FormAction): FormState {
@@ -112,7 +116,7 @@ function formStateReducer(state: FormState, action: FormAction): FormState {
   }
 }
 
-// ===== HOOKS AND UTILITIES =====
+/* --------------------------- Hook and Utilities --------------------------- */
 const useFormInitialization = (
   formId: string | undefined,
   user: RootState["usersession"],
@@ -127,34 +131,32 @@ const useFormInitialization = (
       setIsInitialized(false);
 
       try {
-        if (!formId || !user.user?.email) {
-          if (!user.isAuthenticated) {
-            console.log("Starting guest session initialization");
-          }
-          // For guest users or when no formId, mark as initialized immediately
+        if (!formId) {
           setIsInitialized(true);
           return;
         }
 
-        const key = generateStorageKey({
-          suffix: "state",
-          userKey: user.user.email,
-          formId: formId,
-        });
+        if (user.isAuthenticated && user.user) {
+          const key = generateStorageKey({
+            suffix: "state",
+            userKey: user.user.email,
+            formId: formId,
+          });
 
-        const savedData = localStorage.getItem(key);
-        if (savedData) {
-          try {
-            const parsed = JSON.parse(
-              savedData
-            ) as Partial<RespondentSessionType>;
-            dispatch({
-              type: "SET_FORMSESSION",
-              payload: parsed,
-            });
-          } catch (error) {
-            console.error("Error parsing saved data:", error);
-            localStorage.removeItem(key);
+          const savedData = localStorage.getItem(key);
+          if (savedData) {
+            try {
+              const parsed = JSON.parse(
+                savedData
+              ) as Partial<RespondentSessionType>;
+              dispatch({
+                type: "SET_FORMSESSION",
+                payload: parsed,
+              });
+            } catch (error) {
+              console.error("Error parsing saved data:", error);
+              localStorage.removeItem(key);
+            }
           }
         }
         const guestData = getGuestData();
@@ -176,7 +178,7 @@ const useFormInitialization = (
     };
 
     initializeForm();
-  }, [formId, user.user?.email, user.isAuthenticated, dispatch]);
+  }, [formId, user.user?.email, user.isAuthenticated, dispatch, user.user]);
 
   return {
     isInitialized,
@@ -188,7 +190,9 @@ const MemoizedAuthContainer = React.memo(AuthContainer);
 const MemoizedRespondentForm = React.memo(RespondentForm);
 const MemoizedInactivityAlert = React.memo(InactivityAlert);
 
-// ===== MAIN COMPONENT =====
+/* -------------------------------------------------------------------------- */
+/*                               Main Component                               */
+/* -------------------------------------------------------------------------- */
 const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   const { formId } = useParams<{ formId: string; token: string }>();
   const user = useSelector((root: RootState) => root.usersession);
@@ -235,8 +239,9 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   useEffect(() => {
     if (!isInitialized) return; // Wait for initialization to complete
 
-    if (!formReqData.isPending && !getGuestData()) {
+    if (!formReqData.isLoading) {
       if (formReqData.formState) {
+        //If user have no access to the form
         if (!formReqData.formState.isAuthenticated) {
           dispatch({ type: "SET_ACCESS_MODE", payload: "login" });
           return;
@@ -248,14 +253,16 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
           payload: "login",
         };
         if (state.isAuthenticated || !state.setting?.email) {
-          dispatchState.payload = "authenticated";
+          dispatchState.payload = formState.guestData.isActive
+            ? "guest"
+            : "authenticated";
         }
         dispatch(dispatchState);
       } else {
         dispatch({ type: "SET_ACCESS_MODE", payload: "error" });
       }
     }
-  }, [formReqData, isInitialized]);
+  }, [formReqData, formState.guestData.isActive, isInitialized]);
 
   const isUserActive = useMemo(() => {
     if (formState.accessMode === "login") return false;
@@ -313,6 +320,8 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     []
   );
 
+  /* --------------------------- Session Mangagement -------------------------- */
+
   const sessionManager = useSessionManager({
     formId,
     userEmail: user.user?.email,
@@ -322,6 +331,8 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     setformsession: setFormsessionStable as never,
     onAutoSignOut: handleAutoSignOut,
   });
+
+  /* -------------------------------------------------------------------------- */
 
   const handleLoginChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -374,7 +385,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       sessionManager.saveLoginStateToStorage(sessionState);
       dispatch({ type: "SET_FORMSESSION", payload: sessionState });
       dispatch({ type: "SET_ACCESS_MODE", payload: "authenticated" });
-
       SuccessToast({ title: "Success", content: "Login successful!" });
     },
     [
@@ -433,6 +443,9 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         });
         return;
       }
+
+      //Save guest to session storage
+      saveGuestData({ email, name, isActive: true, rememberMe });
 
       dispatch({ type: "SET_ACCESS_MODE", payload: "guest" });
       SuccessToast({ title: "Success", content: "Guest access granted!" });

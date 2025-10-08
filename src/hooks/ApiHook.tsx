@@ -146,7 +146,6 @@ const ApiRequest = async ({
           reactQuery,
         };
       } catch (retryError) {
-        console.error("Retry request failed", retryError);
         const retryErrorMsg = (retryError as AxiosError).message;
 
         if (reactQuery) {

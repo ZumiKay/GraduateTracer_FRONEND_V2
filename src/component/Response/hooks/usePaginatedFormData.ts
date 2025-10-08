@@ -12,7 +12,6 @@ type fetchtype = "data" | "initial";
 
 export type UseRespondentFormPaginationReturn = {
   isLoading: boolean;
-
   handlePage: (direction: "prev" | "next") => void;
   formState: FormDataType | undefined;
   currentPage: number | undefined;
@@ -105,8 +104,8 @@ const useRespondentFormPaginaition = ({
       formsession?: RespondentSessionType;
     }): Promise<FetchContentReturnType | null> => {
       // Check the passed formsession parameter instead of closure
-      if (!formId || !formsession) {
-        return null;
+      if (!formId) {
+        return Promise.reject(new Error("FormId is missing"));
       }
 
       const paramObj: Record<string, string> = {
@@ -128,17 +127,19 @@ const useRespondentFormPaginaition = ({
         reactQuery: true,
       });
 
-      //handle session expired
-      if (getData.status === 401) {
-        return { ...getData, isAuthenicated: false };
+      if (!getData.success) {
+        if (getData.status === 401) {
+          return { ...getData, isAuthenicated: false };
+        }
+
+        return Promise.reject(new Error("Error Occured"));
       }
 
       return getData;
     },
-    [] // Remove localformsession dependency since we check the parameter
+    []
   );
 
-  // Create stable query params to prevent unnecessary refetches
   const stableQueryParams = useMemo(
     () => ({
       formId,
@@ -150,13 +151,11 @@ const useRespondentFormPaginaition = ({
     [formId, currentPage, fetchType, user, localformsession]
   );
 
-  // Stable query function that doesn't change unless params actually change
   const queryFn = useCallback(
     () => fetchContent(stableQueryParams),
     [fetchContent, stableQueryParams]
   );
 
-  // Create stable query key to prevent unnecessary cache invalidation
   const stableQueryKey = useMemo(() => {
     const baseKey = ["respondent-form", formId, currentPage, fetchType];
 
@@ -182,7 +181,7 @@ const useRespondentFormPaginaition = ({
     queryFn,
     staleTime: 5 * 60 * 1000, // 5 minutes - better caching
     gcTime: 10 * 60 * 1000, // 10 minutes - retain cached data longer
-    enabled: enabled && !!formId && !!localformsession,
+    enabled: enabled && !!formId,
     refetchOnWindowFocus: false,
     retry: 2,
     refetchOnMount: false, // Don't refetch on mount if data is fresh
@@ -191,23 +190,20 @@ const useRespondentFormPaginaition = ({
     networkMode: "online",
   });
 
-  // Manage stable loading state to prevent glitchy loading
   useEffect(() => {
-    if (isPending || isFetching) {
+    if (isFetching) {
       setIsStableLoading(true);
     } else {
-      // Add small delay before hiding loading to prevent flicker
       const timer = setTimeout(() => {
         setIsStableLoading(false);
-      }, 200);
+      }, 150); //Delay 150ms to avoid shuttering
       return () => clearTimeout(timer);
     }
-  }, [isPending, isFetching]);
+  }, [isFetching]);
 
-  const formState = useMemo(
-    () => data?.data as GetFormStateResponseType | undefined,
-    [data?.data]
-  );
+  const formState = useMemo(() => {
+    return data?.data as GetFormStateResponseType | undefined;
+  }, [data]);
 
   useEffect(() => {
     if (

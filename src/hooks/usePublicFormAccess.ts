@@ -92,17 +92,3 @@ export const useCheckRespondentSession = (
     },
   });
 };
-
-export const useRenewFormSession = () => {
-  return useMutation({
-    mutationFn: async () => {
-      const renewReq = await ApiRequest({
-        url: "/user/respondent/renew-session",
-        method: "GET",
-        cookie: true,
-      });
-
-      return renewReq;
-    },
-  });
-};

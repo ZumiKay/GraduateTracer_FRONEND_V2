@@ -128,7 +128,8 @@ export const useFormsessionAPI = () => {
 
   const useSessionVerification = (
     params?: SessionVerificationParams,
-    enabled: boolean = false
+    enabled: boolean = false,
+    formId: string = ""
   ) => {
     return useQuery({
       queryKey: ["sessionVerification", params],
@@ -137,7 +138,7 @@ export const useFormsessionAPI = () => {
 
         const response = await ApiRequest({
           method: "GET",
-          url: `/response/verifyformsession${queryParams}`,
+          url: `/response/verifyformsession/${formId}${queryParams}`,
           cookie: true,
         });
 
