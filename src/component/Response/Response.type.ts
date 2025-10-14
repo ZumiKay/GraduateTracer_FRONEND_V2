@@ -73,7 +73,7 @@ export interface ResponseDataType {
 
 export interface RespondentSessionType {
   isActive: boolean;
-  isSwitchedUser: boolean;
+  isSwitchedUser?: boolean;
   session_id?: string;
   alert?: boolean;
   respondentinfo?: RespondentInfoType;

@@ -90,6 +90,7 @@ export interface FormDataType {
   //Helper types
   isFilled?: boolean;
   isAuthenticated?: boolean;
+  isLoggedIn?: boolean;
 }
 
 // Question Types

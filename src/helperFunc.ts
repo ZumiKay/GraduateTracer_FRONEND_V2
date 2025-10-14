@@ -461,7 +461,6 @@ export const saveGuestData = (
       JSON.stringify({
         ...guestData,
         timestamp: Date.now(),
-        sessionId: crypto.randomUUID(), // Add unique session ID
       })
     );
   } catch (error) {
@@ -474,21 +473,16 @@ export const getGuestData = (): GuestData | null => {
     const data = sessionStorage.getItem("guest_session");
     if (!data) return null;
 
-    const parsed = JSON.parse(data);
+    const parsed = JSON.parse(data) as GuestData;
 
     // If session exceed 1 days removed
     const ADays = 24 * 60 * 60 * 1000;
-    if (Date.now() - parsed.timestamp > ADays) {
+    if (Date.now() - parsed.timeStamp > ADays) {
       removeGuestData();
       return null;
     }
 
-    return {
-      name: parsed.name,
-      email: parsed.email,
-      rememberMe: parsed.rememberMe || false,
-      isActive: parsed.isActive || false,
-    };
+    return parsed;
   } catch (error) {
     console.error("Failed to get guest data:", error);
     return null;
@@ -498,6 +492,8 @@ export const getGuestData = (): GuestData | null => {
 export const removeGuestData = (): void => {
   try {
     sessionStorage.removeItem("guest_session");
+
+    //Verify DB Session
   } catch (error) {
     console.error("Failed to remove guest data:", error);
   }

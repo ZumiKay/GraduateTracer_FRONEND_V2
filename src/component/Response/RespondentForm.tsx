@@ -627,14 +627,12 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     const handleSubmit = async () => {
       if (!formState) return;
-      //Ensure all page is question is loaded
       const savedData = localStorage.getItem(getStorageKey("progress"));
       const prevQuestion =
         savedData && (JSON.parse(savedData) as SaveProgressType);
 
       let ToSubmitQuestion: FormResponse[] = [];
 
-      //Get All Answered Question
       if (
         prevQuestion &&
         prevQuestion.responses &&

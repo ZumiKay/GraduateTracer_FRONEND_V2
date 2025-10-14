@@ -313,6 +313,24 @@ export default function Navigationbar() {
     dispatch(setfetchloading(false));
   }, [dispatch, navigate]);
 
+  // Check if user is authenticated
+  const isAuthenticated = userSession?.user?._id;
+
+  // If user is not authenticated, show only logo in center
+  if (!isAuthenticated) {
+    return (
+      <nav className="navigationbar sticky top-0 z-50 w-full h-[70px] bg-[#f5f5f5] flex flex-row justify-center items-center p-2 dark:bg-gray-800 mb-10 shadow-sm">
+        <Image
+          src={Logo}
+          alt="logo"
+          loading="eager"
+          onClick={handleToHome}
+          className="w-[50px] h-[50px] object-contain cursor-pointer hover:opacity-80 transition-opacity"
+        />
+      </nav>
+    );
+  }
+
   return (
     <nav className="navigationbar sticky top-0 z-50 w-full h-[70px] bg-[#f5f5f5] flex flex-row justify-between items-center p-2 dark:bg-gray-800 mb-10 shadow-sm">
       <div className="w-fit h-full flex flex-row items-center gap-x-5">

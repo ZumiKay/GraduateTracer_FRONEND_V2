@@ -12,6 +12,9 @@ interface ApiRequestProps {
 interface ErrorResponse {
   message: string;
   code?: number;
+  error?: string; // Added for enhanced error format from backend
+  success?: boolean; // Added for consistency with backend response format
+  status?: number; // Added for consistency with backend response format
   errors?: Array<{ message: string }>;
 }
 
@@ -45,7 +48,7 @@ export interface ApiRequestReturnType {
   success: boolean;
   data?: unknown;
   message?: string;
-  error?: string;
+  error?: string; // Enhanced error field for specific error codes/types
   status?: number;
   reactQuery?: boolean;
   pagination?: {
@@ -56,13 +59,16 @@ export interface ApiRequestReturnType {
     hasNextPage: boolean;
     hasPrevPage: boolean;
   };
+  // Enhanced error handling fields
+  errors?: Array<{ message: string }>; // For validation errors
+  details?: string; // For additional error details in development
 }
 const ApiRequest = async ({
   method,
   cookie,
   url,
   data,
-  refreshtoken,
+  refreshtoken = false,
   reactQuery = false,
 }: ApiRequestProps): Promise<ApiRequestReturnType> => {
   const accessToken = localStorage.getItem("accessToken");
@@ -161,12 +167,37 @@ const ApiRequest = async ({
     }
 
     const errorResponse = err.response?.data as ErrorResponse;
-    const errorMessage =
-      (errorResponse?.errors
-        ? errorResponse.errors[0]?.message
-        : errorResponse?.message) ??
-      err.message ??
-      "Error Occured";
+
+    // Enhanced error message extraction to handle improved backend error format
+    let errorMessage = "Error Occurred";
+
+    if (errorResponse) {
+      // Check for new enhanced error format
+      if (errorResponse.message && errorResponse.error) {
+        errorMessage = `${errorResponse.message} (${errorResponse.error})`;
+      }
+      // Check for validation errors
+      else if (
+        errorResponse.errors &&
+        Array.isArray(errorResponse.errors) &&
+        errorResponse.errors.length > 0
+      ) {
+        errorMessage =
+          errorResponse.errors[0]?.message ||
+          errorResponse.message ||
+          "Validation error";
+      }
+      // Check for simple message
+      else if (errorResponse.message) {
+        errorMessage = errorResponse.message;
+      }
+      // Fallback to axios error message
+      else {
+        errorMessage = err.message || "Unknown error";
+      }
+    } else {
+      errorMessage = err.message || "Network error";
+    }
 
     if (reactQuery) {
       // For React Query, throw the error to be handled by error boundaries
@@ -183,6 +214,7 @@ const ApiRequest = async ({
       success: false,
       status: err.status,
       error: errorMessage,
+      message: errorResponse?.message, // Include original message for debugging
       reactQuery,
     };
   }

@@ -64,7 +64,6 @@ const useRespondentFormPaginaition = ({
   const [fetchType, setfetchType] = useState<fetchtype>("initial");
   const [localformsession, setlocalformsession] =
     useState<RespondentSessionType>();
-  const [isStableLoading, setIsStableLoading] = useState(false);
   const accessModeRef = useRef(accessMode);
   accessModeRef.current = accessMode;
 
@@ -129,6 +128,7 @@ const useRespondentFormPaginaition = ({
 
       if (!getData.success) {
         if (getData.status === 401) {
+          console.log("Unauthenticated");
           return { ...getData, isAuthenicated: false };
         }
 
@@ -176,40 +176,42 @@ const useRespondentFormPaginaition = ({
     user?.isAuthenticated,
   ]);
 
-  const { data, error, isPending, isFetching } = useQuery({
+  const { data, error, isFetching } = useQuery({
     queryKey: stableQueryKey,
     queryFn,
     staleTime: 5 * 60 * 1000, // 5 minutes - better caching
     gcTime: 10 * 60 * 1000, // 10 minutes - retain cached data longer
-    enabled: enabled && !!formId,
+    enabled: Boolean(enabled && formId),
+    retry: false, // Disable retry to prevent multiple failed requests
     refetchOnWindowFocus: false,
-    retry: 2,
     refetchOnMount: false, // Don't refetch on mount if data is fresh
     refetchInterval: false, // Disable automatic refetching
+    refetchOnReconnect: false, // Don't refetch when network reconnects
+    refetchIntervalInBackground: false, // Don't refetch in background
     // Add network mode to prevent loading on every network change
     networkMode: "online",
   });
-
-  useEffect(() => {
-    if (isFetching) {
-      setIsStableLoading(true);
-    } else {
-      const timer = setTimeout(() => {
-        setIsStableLoading(false);
-      }, 150); //Delay 150ms to avoid shuttering
-      return () => clearTimeout(timer);
-    }
-  }, [isFetching]);
 
   const formState = useMemo(() => {
     return data?.data as GetFormStateResponseType | undefined;
   }, [data]);
 
+  // Log errors for debugging when query fails
   useEffect(() => {
-    if (
-      formState?.isAuthenticated &&
-      (accessMode === "authenticated" || accessMode === "guest")
-    ) {
+    if (error) {
+      console.error("Form pagination query failed:", {
+        error: error.message,
+        formId,
+        currentPage,
+        fetchType,
+        accessMode,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }, [error, formId, currentPage, fetchType, accessMode]);
+
+  useEffect(() => {
+    if (accessMode === "authenticated" && !formState?.isLoggedIn) {
       setfetchType("data");
     }
   }, [accessMode, formState]);
@@ -258,7 +260,7 @@ const useRespondentFormPaginaition = ({
 
   return useMemo(
     () => ({
-      isLoading: isStableLoading, // Use stable loading instead of isPending
+      isLoading: isFetching, // Use stable loading instead of isPending
       handlePage,
       formState,
       currentPage,
@@ -267,11 +269,8 @@ const useRespondentFormPaginaition = ({
       canGoPrev: navigationState.canGoPrev,
       error,
       totalPages,
-      isFetching, // Keep original for debugging if needed
-      isPending, // Keep original for debugging if needed
     }),
     [
-      isStableLoading, // Use stable loading in dependencies
       handlePage,
       formState,
       currentPage,
@@ -281,7 +280,6 @@ const useRespondentFormPaginaition = ({
       error,
       totalPages,
       isFetching,
-      isPending,
     ]
   );
 };

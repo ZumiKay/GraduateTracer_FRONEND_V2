@@ -19,6 +19,7 @@ import { RootState } from "../../redux/store";
 import {
   generateStorageKey,
   getGuestData,
+  removeGuestData,
   saveGuestData,
 } from "../../helperFunc";
 import { RespondentInfoType, RespondentSessionType } from "./Response.type";
@@ -28,8 +29,10 @@ import {
   GuestData,
 } from "../../types/PublicFormAccess.types";
 import { useSessionManager } from "../../hooks/useSessionManager";
+import { useInactivityWarning } from "../../hooks/useInactivityWarning";
 import { AuthContainer } from "./AuthContainer";
 import { InactivityAlert } from "./InactivityAlert";
+import { InactivityWarning } from "../InactivityWarning";
 import useFormsessionAPI from "../../hooks/useFormsessionAPI";
 
 /* ------------------------------ State Reducer ----------------------------- */
@@ -60,7 +63,13 @@ const initialFormState: FormState = {
   accessMode: "login",
   showGuestForm: false,
   loginData: { email: "", password: "", rememberMe: false },
-  guestData: { name: "", email: "", rememberMe: false, isActive: false },
+  guestData: {
+    name: "",
+    email: "",
+    rememberMe: false,
+    isActive: false,
+    timeStamp: 0,
+  },
 };
 
 function formStateReducer(state: FormState, action: FormAction): FormState {
@@ -124,6 +133,14 @@ const useFormInitialization = (
 ) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const { useSessionVerification } = useFormsessionAPI();
+
+  // Ensure stable boolean value for enabled parameter
+  const sessionVerificationEnabled = Boolean(formId);
+  const verifiedSession = useSessionVerification(
+    sessionVerificationEnabled,
+    formId
+  );
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -136,10 +153,29 @@ const useFormInitialization = (
           return;
         }
 
-        if (user.isAuthenticated && user.user) {
+        // Wait for session verification to complete before proceeding
+        if (verifiedSession.isLoading || verifiedSession.isFetching) {
+          console.debug("Waiting for session verification to complete...", {
+            isLoading: verifiedSession.isLoading,
+            isFetching: verifiedSession.isFetching,
+            formId,
+          });
+          return; // Don't proceed until session verification is done
+        }
+
+        console.debug(
+          "Session verification completed, proceeding with form initialization",
+          {
+            hasError: !!verifiedSession.error,
+            hasData: !!verifiedSession.data,
+            formId,
+          }
+        );
+
+        if (verifiedSession.data?.data && !verifiedSession.data.data.isGuest) {
           const key = generateStorageKey({
             suffix: "state",
-            userKey: user.user.email,
+            userKey: verifiedSession.data.data.email,
             formId: formId,
           });
 
@@ -162,27 +198,51 @@ const useFormInitialization = (
         const guestData = getGuestData();
         if (guestData) {
           dispatch({
-            type: "INIT_GUEST_USER",
-            payload: guestData,
+            type: "SET_FORMSESSION",
+            payload: {
+              isActive: guestData.isActive,
+              respondentinfo: guestData.email
+                ? {
+                    email: guestData.email,
+                  }
+                : undefined,
+            },
           });
         }
 
-        // Mark initialization as complete
+        // Mark initialization as complete only after session verification is done
         setIsInitialized(true);
       } catch (error) {
         console.error("Form initialization error:", error);
         setIsInitialized(true); // Still mark as initialized to prevent blocking
       } finally {
-        setIsInitializing(false);
+        // Only set initializing to false if session verification is not loading
+        if (!verifiedSession.isLoading && !verifiedSession.isFetching) {
+          setIsInitializing(false);
+        }
       }
     };
 
     initializeForm();
-  }, [formId, user.user?.email, user.isAuthenticated, dispatch, user.user]);
+  }, [
+    formId,
+    user.user?.email,
+    user.isAuthenticated,
+    dispatch,
+    user.user,
+    verifiedSession.isLoading,
+    verifiedSession.isFetching,
+    verifiedSession.data,
+    verifiedSession.error,
+  ]);
 
   return {
     isInitialized,
     isInitializing,
+    sessionVerificationLoading:
+      verifiedSession.isLoading || verifiedSession.isFetching,
+    sessionVerificationError: verifiedSession.error,
+    sessionData: verifiedSession.data,
   };
 };
 
@@ -217,16 +277,16 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   }, [formId, navigate]);
 
   // API hooks
-  const { respondentLogin, loginError, signOut, userRespondentLogin } =
-    useFormsessionAPI();
+  const { respondentLogin, signOut, error } = useFormsessionAPI();
 
   // Only enable form data fetching after initialization is complete
+  const formDataEnabled = Boolean(isInitialized && formId);
   const formReqData = useRespondentFormPaginaition({
     formId,
     accessMode: formState.accessMode,
     formsession: formState.formsession as never,
     user,
-    enabled: isInitialized && !!formId,
+    enabled: formDataEnabled,
   });
 
   const isFormRequiredSessionChecked = useMemo(() => {
@@ -258,7 +318,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
             : "authenticated";
         }
         dispatch(dispatchState);
-      } else {
+      } else if (formReqData.error) {
         dispatch({ type: "SET_ACCESS_MODE", payload: "error" });
       }
     }
@@ -270,6 +330,93 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     return formState.formsession?.isActive === true;
   }, [formState.accessMode, formState.formsession?.isActive]);
 
+  // Unified loading state to prevent shuttering between multiple loading phases
+  const [loadingState, setLoadingState] = useState({
+    isLoading: true,
+    phase: "initializing" as "initializing" | "loading-form" | "ready",
+    minLoadingTime: 500, // Minimum loading time to prevent flickering
+    loadingStartTime: Date.now(),
+    allowPaginationLoading: false, // Allow form pagination to show its own loading
+  });
+
+  // Effect to manage unified loading state transitions
+  useEffect(() => {
+    const currentTime = Date.now();
+    const timeSinceStart = currentTime - loadingState.loadingStartTime;
+
+    // Determine the current loading phase
+    if (isInitializing) {
+      // Still initializing
+      if (loadingState.phase !== "initializing") {
+        setLoadingState((prev) => ({
+          ...prev,
+          phase: "initializing",
+          loadingStartTime: currentTime,
+          allowPaginationLoading: false,
+        }));
+      }
+    } else if (
+      formReqData.isLoading &&
+      isInitialized &&
+      !loadingState.allowPaginationLoading
+    ) {
+      // Form data loading (only after initialization is complete and not allowing pagination loading)
+      if (loadingState.phase !== "loading-form") {
+        setLoadingState((prev) => ({
+          ...prev,
+          phase: "loading-form",
+          loadingStartTime: currentTime,
+        }));
+      }
+    } else if (
+      !isInitializing &&
+      (!formReqData.isLoading || loadingState.allowPaginationLoading) &&
+      isInitialized
+    ) {
+      // Ready state - but respect minimum loading time to prevent flickering
+      const shouldWait = timeSinceStart < loadingState.minLoadingTime;
+
+      if (!shouldWait && loadingState.isLoading) {
+        setLoadingState((prev) => ({
+          ...prev,
+          isLoading: false,
+          phase: "ready",
+          allowPaginationLoading: true, // Now allow form to handle its own loading
+        }));
+      } else if (shouldWait) {
+        // Wait for minimum loading time, then transition to ready
+        const remainingTime = loadingState.minLoadingTime - timeSinceStart;
+        setTimeout(() => {
+          setLoadingState((prev) => ({
+            ...prev,
+            isLoading: false,
+            phase: "ready",
+            allowPaginationLoading: true,
+          }));
+        }, remainingTime);
+      }
+    }
+  }, [
+    isInitializing,
+    formReqData.isLoading,
+    isInitialized,
+    loadingState.phase,
+    loadingState.loadingStartTime,
+    loadingState.minLoadingTime,
+    loadingState.isLoading,
+    loadingState.allowPaginationLoading,
+  ]);
+
+  const setFormsessionStable = useCallback(
+    (session: Partial<RespondentSessionType>) => {
+      dispatch({ type: "SET_FORMSESSION", payload: session });
+    },
+    []
+  );
+
+  /* --------------------------- Session Mangagement -------------------------- */
+
+  // Auto signout handler - simpler version for unauthenticated users
   const handleAutoSignOut = useCallback(async () => {
     if (!formId) return;
     try {
@@ -285,13 +432,24 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         }),
       };
 
-      if (formId && user.user?.email) {
+      // Handle localStorage based on authentication status
+      if (user.isAuthenticated && user.user?.email) {
+        // For authenticated users, save the inactive session state
         const key = generateStorageKey({
           suffix: "state",
           userKey: user.user.email,
           formId: formId,
         });
         localStorage.setItem(key, JSON.stringify(sessionState));
+      } else {
+        // For unauthenticated users, clear basic storage items
+        try {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("formsession");
+          sessionStorage.clear(); // Clear session storage for guest data
+        } catch (error) {
+          console.error("Error clearing storage on auto signout:", error);
+        }
       }
 
       dispatch({ type: "SET_FORMSESSION", payload: sessionState });
@@ -311,21 +469,26 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     formState.formsession?.isSwitchedUser,
     formId,
     user.user?.email,
+    user.isAuthenticated,
   ]);
-
-  const setFormsessionStable = useCallback(
-    (session: Partial<RespondentSessionType>) => {
-      dispatch({ type: "SET_FORMSESSION", payload: session });
-    },
-    []
-  );
-
-  /* --------------------------- Session Mangagement -------------------------- */
 
   const sessionManager = useSessionManager({
     formId,
-    userEmail: user.user?.email,
     accessMode: formState.accessMode,
+    isFormRequiredSessionChecked,
+    formsession: formState.formsession,
+    setformsession: setFormsessionStable as never,
+    onAutoSignOut: handleAutoSignOut,
+  });
+
+  // Enhanced inactivity warning hook
+  const inactivityWarning = useInactivityWarning({
+    formId,
+    accessMode: formState.accessMode,
+    userEmail:
+      formState.loginData.email !== ""
+        ? formState.loginData.email
+        : formState.formsession?.respondentinfo?.email,
     isFormRequiredSessionChecked,
     formsession: formState.formsession,
     setformsession: setFormsessionStable as never,
@@ -361,7 +524,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       e.preventDefault();
       if (!formId) return;
 
-      const loginReq = await userRespondentLogin.mutateAsync({
+      const loginReq = await respondentLogin.mutateAsync({
         formId,
         rememberMe: formState.loginData.rememberMe,
         email: formState.loginData.email,
@@ -372,13 +535,16 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       if (!loginReq.success) {
         ErrorToast({
           title: "Error",
-          content: loginError?.message ?? "Error Occurred",
+          content: error ?? "Error Occurred",
         });
         return;
       }
 
       const sessionState: Partial<RespondentSessionType> = {
         isActive: true,
+        respondentinfo: {
+          email: formState.loginData.email,
+        },
         ...(user.isAuthenticated && { isSwitchedUser: false }),
       };
 
@@ -389,12 +555,14 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     },
     [
       formId,
-      formState.loginData,
+      respondentLogin,
+      formState.loginData.rememberMe,
+      formState.loginData.email,
+      formState.loginData.password,
       formState.formsession?.isSwitchedUser,
-      userRespondentLogin,
-      loginError?.message,
       user.isAuthenticated,
       sessionManager,
+      error,
     ]
   );
 
@@ -444,10 +612,35 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         return;
       }
 
+      const guestSession: Partial<GuestData> = {
+        ...(guestLoginRequest.data ?? {}),
+      };
+
+      if (!guestSession.sessionId || !guestSession.timeStamp) {
+        ErrorToast({ title: "Error", content: "Error guest login" });
+        return;
+      }
+
       //Save guest to session storage
-      saveGuestData({ email, name, isActive: true, rememberMe });
+      saveGuestData({
+        email,
+        name,
+        isActive: true,
+        rememberMe,
+        sessionId: guestSession.sessionId,
+        timeStamp: guestSession.timeStamp,
+      });
 
       dispatch({ type: "SET_ACCESS_MODE", payload: "guest" });
+      dispatch({
+        type: "SET_FORMSESSION",
+        payload: {
+          isActive: true,
+          respondentinfo: {
+            email,
+          },
+        },
+      });
       SuccessToast({ title: "Success", content: "Guest access granted!" });
     },
     [formId, formState.guestData, respondentLogin]
@@ -456,28 +649,61 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   const handleSwitchUser = useCallback(async () => {
     if (!formId) return;
 
-    const asyncLogout = await signOut.mutateAsync(formId);
-    if (!asyncLogout.success) {
+    try {
+      const asyncLogout = await signOut.mutateAsync(formId);
+      if (!asyncLogout.success) {
+        ErrorToast({
+          toastid: "loginerror",
+          title: "Error",
+          content: "Can't Login",
+        });
+        return;
+      }
+
+      //handle Guest and User
+      if (formState.accessMode === "guest") {
+        removeGuestData();
+      } else {
+        if (user.isAuthenticated) {
+          const updateFormSession = {
+            isActive: undefined,
+            ...(formState.formsession?.isSwitchedUser !== undefined && {
+              isSwitchedUser: true,
+            }),
+          };
+          sessionManager.saveLoginStateToStorage(updateFormSession);
+          dispatch({ type: "SET_FORMSESSION", payload: updateFormSession });
+        } else {
+          const localKey = generateStorageKey({
+            suffix: "state",
+            formId,
+            userKey: formState.formsession?.respondentinfo?.email,
+          });
+          window.localStorage.removeItem(localKey);
+        }
+      }
+
+      // Use setTimeout to ensure localStorage operations complete before reload
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
+    } catch (error) {
+      console.error("Error during switch user:", error);
       ErrorToast({
-        toastid: "loginerror",
+        toastid: "switchusererror",
         title: "Error",
-        content: "Can't Login",
+        content: "Failed to switch user",
       });
-      return;
     }
-
-    const sessionState: Partial<RespondentSessionType> = {
-      isActive: false,
-      ...(formState.formsession?.isSwitchedUser !== undefined && {
-        isSwitchedUser: true,
-      }),
-    };
-
-    sessionManager.saveLoginStateToStorage(sessionState);
-    dispatch({ type: "SET_FORMSESSION", payload: sessionState });
-
-    window.location.reload();
-  }, [formId, formState.formsession?.isSwitchedUser, sessionManager, signOut]);
+  }, [
+    formId,
+    formState.accessMode,
+    formState.formsession?.isSwitchedUser,
+    formState.formsession?.respondentinfo?.email,
+    sessionManager,
+    signOut,
+    user.isAuthenticated,
+  ]);
 
   const handleRememberMeChange = useCallback((checked: boolean) => {
     dispatch({ type: "UPDATE_LOGIN_DATA", payload: { rememberMe: checked } });
@@ -554,6 +780,9 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       accessMode:
         formState.accessMode === "error" ? "login" : formState.accessMode,
       isUserActive,
+      // Loading management props
+      allowInternalLoading: loadingState.allowPaginationLoading,
+      globalLoadingManaged: true,
     }),
     [
       formReqData,
@@ -563,6 +792,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       user.user,
       isUserActive,
       handleRespondentInfoChange,
+      loadingState.allowPaginationLoading,
     ]
   );
 
@@ -597,15 +827,30 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     ]
   );
 
-  // Loading state - show spinner during initialization or form data loading
-  if (isInitializing || formReqData.isLoading) {
+  // Loading state - unified and smooth transitions
+  if (loadingState.isLoading) {
+    const loadingMessages = {
+      initializing: "Initializing form...",
+      "loading-form": "Loading form data...",
+      ready: "Almost ready...",
+    };
+
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
           <Spinner size="lg" />
           <p className="mt-4 text-gray-600">
-            {isInitializing ? "Initializing form..." : "Loading form data..."}
+            {loadingMessages[loadingState.phase]}
           </p>
+          {/* Debug info in development */}
+          {import.meta.env.DEV && (
+            <div className="mt-2 text-xs text-gray-400">
+              Phase: {loadingState.phase} | Initializing:{" "}
+              {isInitializing ? "yes" : "no"} | Form Loading:{" "}
+              {formReqData.isLoading ? "yes" : "no"} | Initialized:{" "}
+              {isInitialized ? "yes" : "no"}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -636,8 +881,16 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         {/* Inactivity Alert */}
         <MemoizedInactivityAlert {...inactivityAlertProps} />
 
+        {/* Enhanced Inactivity Warning Modal */}
+        <InactivityWarning
+          isOpen={inactivityWarning.showWarning}
+          onReactivate={inactivityWarning.handleContinueSession}
+          timeUntilAutoSignout={inactivityWarning.timeUntilAutoSignout}
+          warningMessage={inactivityWarning.warningMessage}
+        />
+
         {/* Switch User Button */}
-        {isUserActive && !sessionManager.showInactivityAlert && (
+        {!sessionManager.showInactivityAlert && (
           <div className="fixed top-4 right-4 z-10">
             <Button
               variant="light"
@@ -651,6 +904,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
           </div>
         )}
 
+        {JSON.stringify(formState.formsession)}
         {/* Render form based on user state */}
         {(formState.accessMode === "authenticated" ||
           formState.accessMode === "guest") &&

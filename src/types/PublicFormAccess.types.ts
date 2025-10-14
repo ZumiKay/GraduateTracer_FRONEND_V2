@@ -10,6 +10,8 @@ export interface LoginData {
 export interface GuestData extends Partial<LoginData> {
   name: string;
   isActive: boolean;
+  timeStamp: number;
+  sessionId?: string;
 }
 
 export interface CheckRequestReturnType {

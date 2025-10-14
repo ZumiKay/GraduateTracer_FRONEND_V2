@@ -1,27 +1,24 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { extractStorageKeyComponents, generateStorageKey } from "../helperFunc";
+import { generateStorageKey, getGuestData, saveGuestData } from "../helperFunc";
 import { RespondentSessionType } from "../component/Response/Response.type";
 import { ErrorToast } from "../component/Modal/AlertModal";
 import { accessModeType } from "../component/Response/hooks/usePaginatedFormData";
-import useFormsessionAPI from "./useFormsessionAPI";
+import { GuestData } from "../types/PublicFormAccess.types";
 
 interface UseSessionManagerProps {
   formId?: string;
-  userEmail?: string;
   accessMode: accessModeType;
   isFormRequiredSessionChecked: boolean;
   formsession?: Partial<RespondentSessionType>;
   setformsession: React.Dispatch<
     React.SetStateAction<Partial<RespondentSessionType> | undefined>
   >;
-  onAutoSignOut?: () => Promise<void>; // Callback for automatic signout
+  onAutoSignOut?: () => Promise<void>;
 }
 
 const INACTIVITY_WARNING_TIMEOUT = 5 * 1000; // 5 seconds (for testing)
 const AUTO_SIGNOUT_TIMEOUT = 60 * 60 * 1000; // 60 minutes
-const PAGE_VISIBILITY_ALERT_THRESHOLD = 5 * 60 * 1000; // 5 minutes
-const AWAY_NOTIFICATION_DELAY = 15 * 60 * 1000; // 15 minutes
-const ALERT_AUTO_DISMISS_DELAY = 10000; // 10 seconds
+const PAGE_VISIBILITY_ALERT_THRESHOLD = 5 * 1000; // 5 minutes
 const ACTIVITY_EVENTS = [
   "mousedown",
   "mousemove",
@@ -33,7 +30,6 @@ const ACTIVITY_EVENTS = [
 
 export const useSessionManager = ({
   formId,
-  userEmail,
   accessMode,
   isFormRequiredSessionChecked,
   formsession,
@@ -43,514 +39,225 @@ export const useSessionManager = ({
   // Core state
   const [userInactive, setUserInactive] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
+  const [lastActivityTime, setLastActivityTime] = useState<Date>(new Date());
+  const [isPageVisible, setIsPageVisible] = useState<boolean>(true);
+  const [alertDismissed, setAlertDismissed] = useState<boolean>(false);
 
-  // Page visibility state - initialize more safely
-  const [isPageVisible, setIsPageVisible] = useState(() => {
-    try {
-      return typeof document !== "undefined" ? !document.hidden : true;
-    } catch {
-      return true;
-    }
-  });
-  const [timeAwayFromPage, setTimeAwayFromPage] = useState(0);
-  const [showPageVisibilityAlert, setShowPageVisibilityAlert] = useState(false);
-
-  // Refs for timers and tracking
+  // Refs for persistence
   const activityTimeoutRef = useRef<number | null>(null);
   const autoSignoutTimeoutRef = useRef<number | null>(null);
-  const pageVisibilityTimeRef = useRef<number | null>(null);
-  const awayStartTimeRef = useRef<number | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
-  const alertDismissTimeoutRef = useRef<number | null>(null);
-  const isMountedRef = useRef(true);
+  const isMountedRef = useRef<boolean>(true);
+  const lastActivityTimeRef = useRef<Date>(new Date());
 
-  // API hooks
-  const { useSessionVerification } = useFormsessionAPI();
-  const sessionVerification = useSessionVerification(
-    {
-      isActive: !!formId || accessMode !== "login",
-    },
-    userInactive,
-    formId
-  );
-
+  // Generate storage key for guest mode
   const storageKey = useMemo(() => {
-    if (!formId || !userEmail) return null;
-    return generateStorageKey({
-      suffix: "state",
-      userKey: userEmail,
-      formId,
-    });
-  }, [formId, userEmail]);
-
-  // Cleanup function for all timers
-  const clearAllTimers = useCallback(() => {
-    const timers = [
-      activityTimeoutRef.current,
-      autoSignoutTimeoutRef.current,
-      pageVisibilityTimeRef.current,
-      alertDismissTimeoutRef.current,
-    ];
-
-    timers.forEach((timer) => {
-      if (timer) clearTimeout(timer);
-    });
-
-    activityTimeoutRef.current = null;
-    autoSignoutTimeoutRef.current = null;
-    pageVisibilityTimeRef.current = null;
-    alertDismissTimeoutRef.current = null;
-  }, []);
-
-  // Cleanup form progress storage
-  const cleanupOtherFormProgress = useCallback(() => {
-    if (!formId) return;
-
-    try {
-      const currentFormPrefix = `form_progress_${formId}`;
-      const keysToRemove: string[] = [];
-
-      // Iterate through localStorage to find form_progress keys
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-
-        if (
-          key &&
-          key.startsWith("form_progress_") &&
-          !key.startsWith(currentFormPrefix)
-        ) {
-          const extractedKey = extractStorageKeyComponents(key);
-          if (
-            extractedKey.suffix === "state" &&
-            extractedKey.formId !== formId
-          ) {
-            keysToRemove.push(key);
-          }
-        }
-      }
-
-      // Remove the keys that don't belong to current form
-      keysToRemove.forEach((key) => {
-        localStorage.removeItem(key);
-      });
-
-      if (keysToRemove.length > 0) {
-        console.log(
-          `Cleaned up ${keysToRemove.length} form progress entries from other forms`
-        );
-      }
-    } catch (error) {
-      console.error("Failed to cleanup form progress storage:", error);
+    if (accessMode === "guest" && formId) {
+      return generateStorageKey({ suffix: "session", formId });
     }
-  }, [formId]);
+    return null;
+  }, [accessMode, formId]);
 
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    cleanupOtherFormProgress();
-
-    return () => {
-      isMountedRef.current = false;
-      clearAllTimers();
-    };
-  }, [clearAllTimers, cleanupOtherFormProgress]);
-
-  useEffect(() => {
-    if (!formId || !isMountedRef.current) return;
-
-    const verificationData = sessionVerification.data;
-    if (!verificationData?.success && verificationData?.status === 401) {
-      try {
-        ErrorToast({
-          toastid: "UniquesessionExpired",
-          title: "Session expire",
-          content: "Session expired",
-        });
-
-        //Should be auto signout
-      } catch (error) {
-        console.error("Session verification error:", error);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formId, sessionVerification.data]);
-
+  // Get storage data helper functions
   const getLocalStorageData = useCallback(() => {
-    if (!storageKey) return null;
-
-    try {
-      const savedData = localStorage.getItem(storageKey);
-      return savedData
-        ? (JSON.parse(savedData) as RespondentSessionType)
-        : null;
-    } catch (error) {
-      console.error("Failed to get localStorage data:", error);
-      return null;
+    if (accessMode === "guest") {
+      return getGuestData();
     }
-  }, [storageKey]);
+    return null;
+  }, [accessMode]);
 
   const saveLoginStateToStorage = useCallback(
-    (state: Partial<RespondentSessionType>) => {
-      if (!storageKey) return;
-
-      try {
-        localStorage.setItem(storageKey, JSON.stringify({ ...state }));
-      } catch (error) {
-        console.error("Failed to save to localStorage:", error);
+    (sessionData: Partial<RespondentSessionType>) => {
+      if (accessMode === "guest" && sessionData) {
+        // Convert session data to GuestData format
+        const guestData: GuestData = {
+          name: sessionData.respondentinfo?.name || "Guest",
+          isActive: sessionData.isActive || false,
+          timeStamp: Date.now(),
+          sessionId: sessionData.session_id,
+        };
+        saveGuestData(guestData, storageKey || undefined);
       }
     },
-    [storageKey]
+    [accessMode, storageKey]
   );
 
-  const removeLocalStorageState = useCallback(() => {
-    if (getLocalStorageData() && storageKey) {
-      window.localStorage.removeItem(storageKey);
-    }
-  }, [getLocalStorageData, storageKey]);
-
-  const handleVisibilityChange = useCallback(() => {
-    if (!isMountedRef.current) return;
-
-    try {
-      const isVisible =
-        typeof document !== "undefined" ? !document.hidden : true;
-      setIsPageVisible(isVisible);
-
-      if (isVisible) {
-        // User returned to page
-        if (awayStartTimeRef.current) {
-          const timeAway = Date.now() - awayStartTimeRef.current;
-          setTimeAwayFromPage(timeAway);
-
-          // Show alert if conditions are met
-          if (
-            timeAway > PAGE_VISIBILITY_ALERT_THRESHOLD &&
-            accessMode === "authenticated" &&
-            formsession?.isActive &&
-            isMountedRef.current
-          ) {
-            setShowPageVisibilityAlert(true);
-
-            // Auto-hide alert with cleanup
-            alertDismissTimeoutRef.current = window.setTimeout(() => {
-              if (isMountedRef.current) {
-                setShowPageVisibilityAlert(false);
-              }
-            }, ALERT_AUTO_DISMISS_DELAY);
-          }
-
-          awayStartTimeRef.current = null;
-        }
-
-        // Clear the page visibility timer
-        if (pageVisibilityTimeRef.current) {
-          clearTimeout(pageVisibilityTimeRef.current);
-          pageVisibilityTimeRef.current = null;
-        }
-      } else {
-        // User left the page
-        awayStartTimeRef.current = Date.now();
-
-        // Set timer for notification
-        pageVisibilityTimeRef.current = window.setTimeout(() => {
-          if (!isMountedRef.current || typeof document === "undefined") return;
-          if (!document.hidden) return; // User returned
-
-          //Update localstorage state
-          const prevStored = getLocalStorageData();
-          saveLoginStateToStorage({ ...(prevStored ?? {}), isActive: false });
-
-          // Show notification if available
-          if (
-            "Notification" in window &&
-            Notification.permission === "granted"
-          ) {
-            try {
-              new Notification("Session Alert", {
-                body: "You have been away from the form. Your session may expire soon.",
-                requireInteraction: true,
-                icon: "/favicon.ico",
-              });
-            } catch (error) {
-              console.warn("Failed to show notification:", error);
-            }
-          }
-        }, AWAY_NOTIFICATION_DELAY);
-      }
-    } catch (error) {
-      console.error("Page visibility change error:", error);
-    }
-  }, [
-    accessMode,
-    formsession?.isActive,
-    getLocalStorageData,
-    saveLoginStateToStorage,
-  ]);
-
-  // Request notification permission
-  const requestNotificationPermission = useCallback(async () => {
-    if ("Notification" in window && Notification.permission === "default") {
-      try {
-        await Notification.requestPermission();
-      } catch (error) {
-        console.log("Notification permission request failed:", error);
-      }
-    }
-  }, []);
-
-  // Dismiss page visibility alert
-  const dismissPageVisibilityAlert = useCallback(() => {
-    setShowPageVisibilityAlert(false);
-  }, []);
-
+  // Reset activity timer and update session state
   const resetActivityTimer = useCallback(() => {
     if (!isMountedRef.current) return;
 
-    lastActivityRef.current = Date.now();
+    const now = new Date();
+    setLastActivityTime(now);
+    lastActivityTimeRef.current = now;
 
-    // Clear existing timers safely
+    // Clear existing timers
     if (activityTimeoutRef.current) {
       clearTimeout(activityTimeoutRef.current);
-      activityTimeoutRef.current = null;
     }
     if (autoSignoutTimeoutRef.current) {
       clearTimeout(autoSignoutTimeoutRef.current);
-      autoSignoutTimeoutRef.current = null;
     }
 
-    // Only set timers if conditions are met
-    if (
-      accessMode === "authenticated" &&
-      isFormRequiredSessionChecked &&
-      formsession?.isActive &&
-      isMountedRef.current
-    ) {
-      // Set 30-minute warning timer
-      activityTimeoutRef.current = window.setTimeout(() => {
+    // Reset warning and inactive states
+    setShowWarning(false);
+    setUserInactive(false);
+
+    // Update formsession to active state if it exists
+    if (formsession) {
+      setformsession((prev) => ({
+        ...prev,
+        isActive: true,
+      }));
+    }
+
+    // Set new inactivity warning timer
+    activityTimeoutRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
+      console.log("⚠️ User inactive - showing warning");
+      setUserInactive(true);
+      setShowWarning(true);
+
+      // Update formsession to inactive state
+      setformsession((prev) => ({
+        ...prev,
+        isActive: false,
+      }));
+
+      // Set auto signout timer
+      autoSignoutTimeoutRef.current = setTimeout(async () => {
         if (!isMountedRef.current) return;
 
-        try {
-          setShowWarning(true);
-          setUserInactive(true);
-
-          //Update form session state
-          const userStored = getLocalStorageData();
-
-          saveLoginStateToStorage({ ...(userStored ?? {}), isActive: false });
-
-          setformsession((prev) => ({
-            ...prev,
-            isActive: false,
-            alert: true,
-          }));
-        } catch (error) {
-          console.error("Warning timer error:", error);
-        }
-      }, INACTIVITY_WARNING_TIMEOUT);
-
-      // Set 60-minute auto signout timer
-      autoSignoutTimeoutRef.current = window.setTimeout(async () => {
-        if (!isMountedRef.current) return;
-
+        console.log("🚪 Auto signout due to inactivity");
         try {
           if (onAutoSignOut) {
             await onAutoSignOut();
           }
         } catch (error) {
-          console.error("Auto signout failed:", error);
-          if (isMountedRef.current) {
-            ErrorToast({
-              title: "Session Expired",
-              content:
-                "You have been automatically signed out due to inactivity.",
-            });
-          }
-        } finally {
-          if (isMountedRef.current) {
-            // Clean up storage
-            if (storageKey) {
-              try {
-                localStorage.removeItem(storageKey);
-              } catch (error) {
-                console.error("Failed to remove localStorage item:", error);
-              }
-            }
-
-            setUserInactive(true);
-            setShowWarning(false);
-            setformsession({ isActive: false });
-          }
+          console.error("Error during auto signout:", error);
         }
-      }, AUTO_SIGNOUT_TIMEOUT);
-    }
-  }, [
-    accessMode,
-    isFormRequiredSessionChecked,
-    formsession?.isActive,
-    getLocalStorageData,
-    saveLoginStateToStorage,
-    setformsession,
-    onAutoSignOut,
-    storageKey,
-  ]);
+      }, AUTO_SIGNOUT_TIMEOUT - INACTIVITY_WARNING_TIMEOUT);
+    }, INACTIVITY_WARNING_TIMEOUT);
+  }, [formsession, setformsession, onAutoSignOut]);
 
-  // Throttled user activity handler for better performance
-  const handleUserActivity = useCallback(() => {
-    const now = Date.now();
+  // Activity event handler
+  const handleActivity = useCallback(() => {
+    if (!isMountedRef.current) return;
+    resetActivityTimer();
+  }, [resetActivityTimer]);
 
-    // Throttle activity detection to prevent excessive calls (500ms throttle)
-    if (now - lastActivityRef.current < 500) return;
+  // Helper function to reactivate session (alias for resetActivityTimer)
+  const handleReactivateSession = useCallback(() => {
+    resetActivityTimer();
+  }, [resetActivityTimer]);
 
-    if (
-      accessMode === "authenticated" &&
-      (formsession?.isActive || showWarning) &&
-      !userInactive &&
-      isMountedRef.current
-    ) {
-      resetActivityTimer();
-    }
-  }, [
-    accessMode,
-    formsession?.isActive,
-    showWarning,
-    userInactive,
-    resetActivityTimer,
-  ]);
-
-  // Activity tracking effect
+  // Initialize timer when form loads - FIXED: Prevent infinite loop
   useEffect(() => {
     if (
-      accessMode === "authenticated" &&
-      isFormRequiredSessionChecked &&
-      formsession?.isActive &&
-      !userInactive &&
-      isMountedRef.current
+      ((accessMode === "authenticated" && isFormRequiredSessionChecked) ||
+        accessMode === "guest") &&
+      !activityTimeoutRef.current
     ) {
-      // Add event listeners with passive option for better performance
+      console.log(`🚀 Initialize timer for ${accessMode}`);
+      // Use setTimeout to break dependency cycle and prevent infinite loop
+      setTimeout(() => {
+        if (isMountedRef.current) {
+          resetActivityTimer();
+        }
+      }, 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessMode, isFormRequiredSessionChecked]); // Intentionally not including resetActivityTimer
+
+  // Setup activity event listeners
+  useEffect(() => {
+    if (
+      (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
+      accessMode === "guest"
+    ) {
       ACTIVITY_EVENTS.forEach((event) => {
-        document.addEventListener(event, handleUserActivity, {
-          passive: true,
-          capture: false,
-        });
+        document.addEventListener(event, handleActivity, { passive: true });
       });
 
-      resetActivityTimer();
-
       return () => {
-        // Clean up event listeners
         ACTIVITY_EVENTS.forEach((event) => {
-          document.removeEventListener(event, handleUserActivity);
+          document.removeEventListener(event, handleActivity);
         });
-
-        // Clean up timers
-        if (activityTimeoutRef.current) {
-          clearTimeout(activityTimeoutRef.current);
-          activityTimeoutRef.current = null;
-        }
-        if (autoSignoutTimeoutRef.current) {
-          clearTimeout(autoSignoutTimeoutRef.current);
-          autoSignoutTimeoutRef.current = null;
-        }
       };
     }
-  }, [
-    accessMode,
-    isFormRequiredSessionChecked,
-    formsession?.isActive,
-    userInactive,
-    handleUserActivity,
-    resetActivityTimer,
-  ]);
+  }, [accessMode, isFormRequiredSessionChecked, handleActivity]);
 
-  // Page visibility tracking effect
+  // Page visibility handling
   useEffect(() => {
-    if (
-      accessMode === "authenticated" &&
-      formsession?.isActive &&
-      isMountedRef.current
-    ) {
-      document.addEventListener("visibilitychange", handleVisibilityChange, {
-        passive: true,
-      });
+    const handleVisibilityChange = () => {
+      if (!isMountedRef.current) return;
 
-      // Request notification permission when session starts
-      requestNotificationPermission();
+      const isVisible = !document.hidden;
+      setIsPageVisible(isVisible);
 
-      return () => {
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange
-        );
-        if (pageVisibilityTimeRef.current) {
-          clearTimeout(pageVisibilityTimeRef.current);
-          pageVisibilityTimeRef.current = null;
-        }
-      };
-    }
-  }, [
-    accessMode,
-    formsession?.isActive,
-    handleVisibilityChange,
-    requestNotificationPermission,
-  ]);
-
-  const handleReactivateSession = useCallback(async () => {
-    if (!formId || !userEmail || !isMountedRef.current) return;
-
-    try {
-      const prevSavedData = getLocalStorageData();
-      const sessionData = { ...prevSavedData, isActive: true };
-      saveLoginStateToStorage(sessionData);
-
-      if (isMountedRef.current) {
-        setformsession(sessionData);
-        setUserInactive(false);
-        setShowWarning(false);
+      if (isVisible) {
+        setAlertDismissed(false);
         resetActivityTimer();
       }
-    } catch (error) {
-      console.error("Session reactivation error:", error);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [resetActivityTimer]);
+
+  // Show page visibility alert
+  useEffect(() => {
+    if (!isPageVisible && !alertDismissed) {
+      const timer = setTimeout(() => {
+        if (!isMountedRef.current || isPageVisible || alertDismissed) return;
+
+        ErrorToast({
+          title: "Page Not Visible",
+          content: "Please keep this page visible to maintain your session.",
+        });
+        setAlertDismissed(true);
+      }, PAGE_VISIBILITY_ALERT_THRESHOLD);
+
+      return () => clearTimeout(timer);
     }
-  }, [
-    formId,
-    userEmail,
+  }, [isPageVisible, alertDismissed]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
+      }
+      if (autoSignoutTimeoutRef.current) {
+        clearTimeout(autoSignoutTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return {
+    userInactive,
+    showWarning,
+    lastActivityTime,
+    isPageVisible,
     getLocalStorageData,
     saveLoginStateToStorage,
-    setformsession,
     resetActivityTimer,
-  ]);
-
-  // Memoized return object for better performance
-  return useMemo(
-    () => ({
-      userInactive,
-      showWarning,
-      saveLoginStateToStorage,
-      handleReactivateSession,
-      showInactivityAlert: userInactive && formsession?.alert,
-      timeUntilAutoSignout: showWarning
-        ? AUTO_SIGNOUT_TIMEOUT - INACTIVITY_WARNING_TIMEOUT
-        : null,
-      // Page visibility states
-      isPageVisible,
-      timeAwayFromPage,
-      showPageVisibilityAlert,
-      dismissPageVisibilityAlert,
-      requestNotificationPermission,
-      removeLocalStorageState,
-    }),
-    [
-      userInactive,
-      showWarning,
-      saveLoginStateToStorage,
-      handleReactivateSession,
-      formsession?.alert,
-      isPageVisible,
-      timeAwayFromPage,
-      showPageVisibilityAlert,
-      dismissPageVisibilityAlert,
-      requestNotificationPermission,
-      removeLocalStorageState,
-    ]
-  );
+    storageKey,
+    // Additional properties for InactivityWarning compatibility
+    isSessionActive: !userInactive,
+    timeUntilAutoSignout: AUTO_SIGNOUT_TIMEOUT - INACTIVITY_WARNING_TIMEOUT,
+    warningMessage: userInactive
+      ? "You will be automatically signed out due to inactivity."
+      : "",
+    showInactivityAlert: showWarning,
+    debugInfo: {
+      accessMode,
+      formsessionActive: formsession?.isActive,
+      isFormRequiredSessionChecked,
+      lastActivity: lastActivityTime.toISOString(),
+    },
+    handleReactivateSession,
+  };
 };

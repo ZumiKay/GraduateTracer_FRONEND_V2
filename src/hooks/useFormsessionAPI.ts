@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import ApiRequest, { ApiRequestReturnType } from "./ApiHook";
 import queryClient from "./ReactQueryClient";
+import { ErrorToast } from "../component/Modal/AlertModal";
 
 // Type definitions for formsession API requests
 export interface RespondentLoginProps extends Record<string, unknown> {
@@ -44,8 +45,8 @@ export interface FormsessionResponse {
 
 export interface SessionVerificationResponse extends FormsessionResponse {
   data?: {
-    isExpired?: boolean;
-    sessionId?: string;
+    email: string;
+    isGuest?: boolean;
   };
 }
 
@@ -72,18 +73,15 @@ export const useFormsessionAPI = () => {
       setIsLoading(true);
       setError(null);
 
-      try {
-        const response = await ApiRequest({
-          method: "POST",
-          url: "/response/respodnentlogin",
-          data: props,
-          cookie: true,
-        });
+      const response = await ApiRequest({
+        method: "POST",
+        url: "/response/respondentlogin",
+        data: props,
+        cookie: true,
+      });
+      setIsLoading(false);
 
-        return handleApiResponse(response) as FormsessionResponse;
-      } finally {
-        setIsLoading(false);
-      }
+      return handleApiResponse(response) as FormsessionResponse;
     },
     onSuccess: () => {
       //Make sure all data up to date
@@ -91,63 +89,37 @@ export const useFormsessionAPI = () => {
       queryClient.invalidateQueries({ queryKey: ["formsession"] });
     },
     onError: (error: Error) => {
-      console.error("❌ Respondent login failed:", error);
-      setError(error.message);
-    },
-  });
-
-  const userRespondentLogin = useMutation({
-    mutationKey: ["userRespondentLogin"],
-    mutationFn: async (
-      props: UserRespondentLoginProps
-    ): Promise<FormsessionResponse> => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const response = await ApiRequest({
-          method: "POST",
-          url: "/response/userrespondentlogin",
-          data: props,
-          cookie: true,
-        });
-
-        return handleApiResponse(response) as FormsessionResponse;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sessionVerification"] });
-    },
-    onError: (error: Error) => {
-      console.error("User respondent login (public) failed:", error);
+      console.log("Respondent Login", error);
+      ErrorToast({ title: "Failed", content: error.message });
       setError(error.message);
     },
   });
 
   const useSessionVerification = (
-    params?: SessionVerificationParams,
     enabled: boolean = false,
     formId: string = ""
   ) => {
     return useQuery({
-      queryKey: ["sessionVerification", params],
-      queryFn: async (): Promise<SessionVerificationResponse> => {
-        const queryParams = params ? `?isActive=${params.isActive}` : "";
+      queryKey: ["sessionVerification"],
+      queryFn: async () => {
+        if (!formId) {
+          throw Error("No form found");
+        }
 
         const response = await ApiRequest({
           method: "GET",
-          url: `/response/verifyformsession/${formId}${queryParams}`,
+          url: `/response/verifyformsession/${formId}`,
           cookie: true,
         });
 
         return handleApiResponse(response) as SessionVerificationResponse;
       },
       enabled,
+      retry: false, // Disable retry to prevent multiple failed requests
       staleTime: 5 * 60 * 1000, // 5 minutes
-      refetchInterval: 10 * 60 * 1000, // Auto-refetch every 10 minutes
-      refetchOnWindowFocus: true,
+      refetchInterval: false, // Disable automatic refetching
+      refetchOnWindowFocus: false, // Disable refetch on window focus
+      refetchOnReconnect: false, // Disable refetch on network reconnect
     });
   };
 
@@ -265,7 +237,6 @@ export const useFormsessionAPI = () => {
     return (
       isLoading ||
       respondentLogin.isPending ||
-      userRespondentLogin.isPending ||
       replaceSession.isPending ||
       signOut.isPending ||
       sendRemovalEmail.isPending
@@ -273,7 +244,6 @@ export const useFormsessionAPI = () => {
   }, [
     isLoading,
     respondentLogin.isPending,
-    userRespondentLogin,
     replaceSession.isPending,
     signOut.isPending,
     sendRemovalEmail.isPending,
@@ -281,43 +251,31 @@ export const useFormsessionAPI = () => {
 
   return {
     respondentLogin,
-    userRespondentLogin,
     replaceSession,
     signOut,
     sendRemovalEmail,
-
     useSessionVerification,
-
     refreshSession,
     clearSessionData,
     clearError,
     isAnyLoading,
-
     isLoading,
     error,
 
     // Quick access
-    isLoginLoading: respondentLogin.isPending || userRespondentLogin.isPending,
-    isSessionLoading: replaceSession.isPending || signOut.isPending,
+    isLoginLoading: respondentLogin.isPending,
+    isSessionLoading: replaceSession.isPending,
     isEmailLoading: sendRemovalEmail.isPending,
 
-    loginSuccess: respondentLogin.isSuccess || userRespondentLogin.isSuccess,
-    sessionSuccess: replaceSession.isSuccess || signOut.isSuccess,
+    loginSuccess: respondentLogin.isSuccess,
+    sessionSuccess: replaceSession.isSuccess,
     emailSuccess: sendRemovalEmail.isSuccess,
 
-    loginError: respondentLogin.error || userRespondentLogin.error,
+    loginError: respondentLogin.error,
 
     sessionError: replaceSession.error || signOut.error,
     emailError: sendRemovalEmail.error,
   };
-};
-
-export const useSessionVerification = (
-  params?: SessionVerificationParams,
-  enabled?: boolean
-) => {
-  const { useSessionVerification } = useFormsessionAPI();
-  return useSessionVerification(params, enabled);
 };
 
 export const useSessionActions = () => {

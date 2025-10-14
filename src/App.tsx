@@ -6,6 +6,7 @@ import { useEffect, lazy, Suspense, memo, useMemo } from "react";
 import { ConfirmModal } from "./component/Modal/AlertModal";
 import { AsyncGetUser } from "./redux/user.store";
 import PrivateRoute, { PublichRoute } from "./route/PrivateRoute";
+import ReplaceSessionPage from "./pages/ReplaceSession";
 
 const AuthenticationPage = lazy(() => import("./pages/Authentication"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -117,6 +118,12 @@ const App = memo(() => {
 
             {/* Privacy Policy - Public Route */}
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+
+            {/* Session Removal Route */}
+            <Route
+              path="/response/session/replace/:formId/:code"
+              element={<ReplaceSessionPage />}
+            />
 
             <Route element={<PrivateRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
