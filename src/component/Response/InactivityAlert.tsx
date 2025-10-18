@@ -65,6 +65,7 @@ export const InactivityAlert: React.FC<InactivityAlertProps> = ({
           color={isWarningState ? "warning" : "danger"}
           title={isWarningState ? "Session Warning" : "Session Inactive"}
           className="max-w-md"
+          aria-label="inactive alert modal"
         >
           <div className="flex flex-col gap-2">
             {isWarningState ? (
@@ -121,6 +122,7 @@ export const InactivityAlert: React.FC<InactivityAlertProps> = ({
               title={
                 isWarningState ? "Session Expiring Soon" : "Session Inactive"
               }
+              aria-label="full inactive alert"
             >
               {isWarningState ? (
                 <div>

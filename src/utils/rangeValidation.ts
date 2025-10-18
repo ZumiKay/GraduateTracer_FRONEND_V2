@@ -59,13 +59,18 @@ export const validateRangeQuestions = (
           const start = rangeDate.start;
           const end = rangeDate.end;
 
-          if (start && end && end.compare && end.compare(start) < 0) {
-            errors.push({
-              questionId,
-              questionTitle,
-              questionType: QuestionType.RangeDate,
-              errorMessage: `Range Date: End date must be after or equal to start date`,
-            });
+          if (start && end) {
+            const startDate = new Date(start);
+            const endDate = new Date(end);
+
+            if (endDate < startDate) {
+              errors.push({
+                questionId,
+                questionTitle,
+                questionType: QuestionType.RangeDate,
+                errorMessage: `Range Date: End date must be after or equal to start date`,
+              });
+            }
           }
         }
         break;

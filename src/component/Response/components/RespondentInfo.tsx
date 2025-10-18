@@ -1,18 +1,38 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { Card, CardHeader, CardBody, Input } from "@heroui/react";
 import { RespondentInfoType } from "../Response.type";
+import {
+  generateStorageKey,
+  saveFormStateToLocalStorage,
+} from "../../../helperFunc";
 
 interface RespondentInfoProps {
+  formId: string;
   respondentInfo: RespondentInfoType;
-  setRespondentInfo: React.Dispatch<React.SetStateAction<RespondentInfoType>>;
-  isGuestMode: boolean;
+  setRespondentInfo: (
+    value: React.SetStateAction<RespondentInfoType | undefined>
+  ) => void;
 }
 
 export const RespondentInfo: React.FC<RespondentInfoProps> = ({
   respondentInfo,
+  formId,
   setRespondentInfo,
-  isGuestMode,
 }) => {
+  const handleUpdateFormUser = useCallback(() => {
+    saveFormStateToLocalStorage({
+      key: generateStorageKey({
+        suffix: "state",
+        formId: formId,
+        userKey: respondentInfo.respondentEmail,
+      }),
+      data: {
+        respondentInfo: {
+          ...respondentInfo,
+        },
+      },
+    });
+  }, [formId, respondentInfo]);
   return (
     <Card className="mb-6 form-info-card">
       <CardHeader>
@@ -25,27 +45,20 @@ export const RespondentInfo: React.FC<RespondentInfoProps> = ({
           <Input
             label="Name"
             placeholder="Enter your name"
-            value={respondentInfo?.name}
+            value={respondentInfo?.respondentName}
             onChange={(e) =>
-              setRespondentInfo((prev) => ({
-                ...prev,
-                name: e.target.value,
-              }))
+              setRespondentInfo({ respondentName: e.target.value } as never)
             }
-            isDisabled={isGuestMode}
+            onBlur={() => handleUpdateFormUser()}
           />
           <Input
             label="Email"
             type="email"
             placeholder="Enter your email"
-            value={respondentInfo.email}
+            value={respondentInfo.respondentEmail}
             onChange={(e) =>
-              setRespondentInfo((prev) => ({
-                ...prev,
-                email: e.target.value,
-              }))
+              setRespondentInfo({ respondentEmail: e.target.value })
             }
-            isDisabled={isGuestMode}
             readOnly={true}
           />
         </div>

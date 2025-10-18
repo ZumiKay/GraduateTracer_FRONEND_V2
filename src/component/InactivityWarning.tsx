@@ -87,6 +87,7 @@ export const InactivityWarning: React.FC<InactivityWarningProps> = ({
       hideCloseButton={true}
       backdrop="blur"
       size="md"
+      aria-label="inactive alert modal #1"
       className={`${className}`}
       motionProps={{
         variants: {
@@ -164,6 +165,9 @@ export const InactivityWarning: React.FC<InactivityWarningProps> = ({
                         className="w-full"
                         size="md"
                         showValueLabel={false}
+                        aria-label={`Session time remaining: ${progressValue.toFixed(
+                          0
+                        )}%`}
                       />
                       <div className="flex justify-between text-xs text-foreground-500">
                         <span>Session expires</span>

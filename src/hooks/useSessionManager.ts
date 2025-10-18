@@ -1,12 +1,9 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { generateStorageKey, getGuestData, saveGuestData } from "../helperFunc";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { RespondentSessionType } from "../component/Response/Response.type";
 import { ErrorToast } from "../component/Modal/AlertModal";
 import { accessModeType } from "../component/Response/hooks/usePaginatedFormData";
-import { GuestData } from "../types/PublicFormAccess.types";
 
 interface UseSessionManagerProps {
-  formId?: string;
   accessMode: accessModeType;
   isFormRequiredSessionChecked: boolean;
   formsession?: Partial<RespondentSessionType>;
@@ -16,9 +13,9 @@ interface UseSessionManagerProps {
   onAutoSignOut?: () => Promise<void>;
 }
 
-const INACTIVITY_WARNING_TIMEOUT = 5 * 1000; // 5 seconds (for testing)
+const INACTIVITY_WARNING_TIMEOUT = 30 * 60 * 1000; // 30 minute
 const AUTO_SIGNOUT_TIMEOUT = 60 * 60 * 1000; // 60 minutes
-const PAGE_VISIBILITY_ALERT_THRESHOLD = 5 * 1000; // 5 minutes
+const PAGE_VISIBILITY_ALERT_THRESHOLD = 15 * 60 * 1000; // 5 minutes
 const ACTIVITY_EVENTS = [
   "mousedown",
   "mousemove",
@@ -29,7 +26,6 @@ const ACTIVITY_EVENTS = [
 ] as const;
 
 export const useSessionManager = ({
-  formId,
   accessMode,
   isFormRequiredSessionChecked,
   formsession,
@@ -48,69 +44,43 @@ export const useSessionManager = ({
   const autoSignoutTimeoutRef = useRef<number | null>(null);
   const isMountedRef = useRef<boolean>(true);
   const lastActivityTimeRef = useRef<Date>(new Date());
+  const lastResetTimeRef = useRef<number>(0);
 
-  // Generate storage key for guest mode
-  const storageKey = useMemo(() => {
-    if (accessMode === "guest" && formId) {
-      return generateStorageKey({ suffix: "session", formId });
-    }
-    return null;
-  }, [accessMode, formId]);
-
-  // Get storage data helper functions
-  const getLocalStorageData = useCallback(() => {
-    if (accessMode === "guest") {
-      return getGuestData();
-    }
-    return null;
-  }, [accessMode]);
-
-  const saveLoginStateToStorage = useCallback(
-    (sessionData: Partial<RespondentSessionType>) => {
-      if (accessMode === "guest" && sessionData) {
-        // Convert session data to GuestData format
-        const guestData: GuestData = {
-          name: sessionData.respondentinfo?.name || "Guest",
-          isActive: sessionData.isActive || false,
-          timeStamp: Date.now(),
-          sessionId: sessionData.session_id,
-        };
-        saveGuestData(guestData, storageKey || undefined);
-      }
-    },
-    [accessMode, storageKey]
-  );
-
-  // Reset activity timer and update session state
+  // Reset activity timer and clear any existing timers - optimized with throttling
   const resetActivityTimer = useCallback(() => {
     if (!isMountedRef.current) return;
 
-    const now = new Date();
-    setLastActivityTime(now);
-    lastActivityTimeRef.current = now;
+    // Throttle: Only reset if at least 1 second has passed since last reset
+    const currentTime = Date.now();
+    const timeSinceLastReset = currentTime - lastResetTimeRef.current;
+    if (timeSinceLastReset < 1000) {
+      return; // Skip if called too frequently
+    }
+    lastResetTimeRef.current = currentTime;
+
+    console.log("🔄 Activity detected - resetting timer");
 
     // Clear existing timers
-    if (activityTimeoutRef.current) {
+    if (activityTimeoutRef.current !== null) {
       clearTimeout(activityTimeoutRef.current);
+      activityTimeoutRef.current = null;
     }
-    if (autoSignoutTimeoutRef.current) {
+    if (autoSignoutTimeoutRef.current !== null) {
       clearTimeout(autoSignoutTimeoutRef.current);
+      autoSignoutTimeoutRef.current = null;
     }
 
-    // Reset warning and inactive states
-    setShowWarning(false);
+    // Reset warning states
     setUserInactive(false);
+    setShowWarning(false);
 
-    // Update formsession to active state if it exists
-    if (formsession) {
-      setformsession((prev) => ({
-        ...prev,
-        isActive: true,
-      }));
-    }
+    // Update last activity time
+    const activityDate = new Date();
+    setLastActivityTime(activityDate);
+    lastActivityTimeRef.current = activityDate;
 
     // Set new inactivity warning timer
-    activityTimeoutRef.current = setTimeout(() => {
+    activityTimeoutRef.current = window.setTimeout(() => {
       if (!isMountedRef.current) return;
 
       console.log("⚠️ User inactive - showing warning");
@@ -124,11 +94,12 @@ export const useSessionManager = ({
       }));
 
       // Set auto signout timer
-      autoSignoutTimeoutRef.current = setTimeout(async () => {
+      autoSignoutTimeoutRef.current = window.setTimeout(async () => {
         if (!isMountedRef.current) return;
 
         console.log("🚪 Auto signout due to inactivity");
         try {
+          // Use callback directly from closure - it's stable
           if (onAutoSignOut) {
             await onAutoSignOut();
           }
@@ -137,38 +108,49 @@ export const useSessionManager = ({
         }
       }, AUTO_SIGNOUT_TIMEOUT - INACTIVITY_WARNING_TIMEOUT);
     }, INACTIVITY_WARNING_TIMEOUT);
-  }, [formsession, setformsession, onAutoSignOut]);
+  }, [setformsession, onAutoSignOut]);
 
-  // Activity event handler
+  // Use ref for activity handler to avoid recreating listeners
+  const resetActivityTimerRef = useRef(resetActivityTimer);
+
+  // Keep ref updated
+  useEffect(() => {
+    resetActivityTimerRef.current = resetActivityTimer;
+  }, [resetActivityTimer]);
+
+  // Activity event handler - stable reference using ref
   const handleActivity = useCallback(() => {
     if (!isMountedRef.current) return;
-    resetActivityTimer();
-  }, [resetActivityTimer]);
+    resetActivityTimerRef.current();
+  }, []);
 
   // Helper function to reactivate session (alias for resetActivityTimer)
   const handleReactivateSession = useCallback(() => {
-    resetActivityTimer();
-  }, [resetActivityTimer]);
+    resetActivityTimerRef.current();
+  }, []);
 
-  // Initialize timer when form loads - FIXED: Prevent infinite loop
+  // Initialize timer when form loads - optimized with ref
   useEffect(() => {
     if (
-      ((accessMode === "authenticated" && isFormRequiredSessionChecked) ||
-        accessMode === "guest") &&
-      !activityTimeoutRef.current
+      (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
+      accessMode === "guest"
     ) {
       console.log(`🚀 Initialize timer for ${accessMode}`);
-      // Use setTimeout to break dependency cycle and prevent infinite loop
-      setTimeout(() => {
-        if (isMountedRef.current) {
-          resetActivityTimer();
-        }
-      }, 0);
+      // Reset throttle on initialization to allow immediate execution
+      lastResetTimeRef.current = 0;
+      resetActivityTimerRef.current();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessMode, isFormRequiredSessionChecked]); // Intentionally not including resetActivityTimer
+    return () => {
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
+      }
+      if (autoSignoutTimeoutRef.current) {
+        clearTimeout(autoSignoutTimeoutRef.current);
+      }
+    };
+  }, [accessMode, isFormRequiredSessionChecked]);
 
-  // Setup activity event listeners
+  // Event listeners - now stable since handleActivity has no dependencies
   useEffect(() => {
     if (
       (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
@@ -186,7 +168,7 @@ export const useSessionManager = ({
     }
   }, [accessMode, isFormRequiredSessionChecked, handleActivity]);
 
-  // Page visibility handling
+  // Visibility change handler - optimized with ref
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!isMountedRef.current) return;
@@ -196,7 +178,7 @@ export const useSessionManager = ({
 
       if (isVisible) {
         setAlertDismissed(false);
-        resetActivityTimer();
+        resetActivityTimerRef.current();
       }
     };
 
@@ -204,7 +186,7 @@ export const useSessionManager = ({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [resetActivityTimer]);
+  }, []); // No dependencies needed - all stable
 
   // Show page visibility alert
   useEffect(() => {
@@ -213,6 +195,7 @@ export const useSessionManager = ({
         if (!isMountedRef.current || isPageVisible || alertDismissed) return;
 
         ErrorToast({
+          toastid: "UniquePageVisibilityAlert",
           title: "Page Not Visible",
           content: "Please keep this page visible to maintain your session.",
         });
@@ -223,28 +206,12 @@ export const useSessionManager = ({
     }
   }, [isPageVisible, alertDismissed]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      if (activityTimeoutRef.current) {
-        clearTimeout(activityTimeoutRef.current);
-      }
-      if (autoSignoutTimeoutRef.current) {
-        clearTimeout(autoSignoutTimeoutRef.current);
-      }
-    };
-  }, []);
-
   return {
     userInactive,
     showWarning,
     lastActivityTime,
     isPageVisible,
-    getLocalStorageData,
-    saveLoginStateToStorage,
     resetActivityTimer,
-    storageKey,
     // Additional properties for InactivityWarning compatibility
     isSessionActive: !userInactive,
     timeUntilAutoSignout: AUTO_SIGNOUT_TIMEOUT - INACTIVITY_WARNING_TIMEOUT,

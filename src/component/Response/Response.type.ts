@@ -21,8 +21,9 @@ export interface AnswerKeyPairValueType {
 }
 
 export interface RespondentInfoType {
-  email: string;
-  name?: string;
+  respondentEmail: string;
+  respondentName?: string;
+  isGuest?: boolean;
 }
 export interface SaveProgressType {
   currentPage: number;

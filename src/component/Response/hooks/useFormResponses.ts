@@ -25,18 +25,6 @@ export type ResponseValue =
 export const useFormResponses = (questions: ContentType[]) => {
   const [responses, setResponses] = useState<FormResponse[]>([]);
 
-  const initializeResponses = useCallback(() => {
-    if (questions.length > 0) {
-      const initialResponses = questions
-        .filter((i) => i.type !== QuestionType.Text)
-        .map((q) => ({
-          question: q._id ?? "",
-          response: "",
-        }));
-      setResponses(initialResponses);
-    }
-  }, [questions]);
-
   const checkIfQuestionShouldShow = useCallback(
     (question: ContentType, responseList: FormResponse[]): boolean => {
       if (!question.parentcontent) {
@@ -154,54 +142,77 @@ export const useFormResponses = (questions: ContentType[]) => {
   );
 
   const updateResponse = useCallback(
-    (questionId: string, value: ResponseValue) => {
+    (
+      questionIdOrUpdates:
+        | string
+        | Array<{ question: string; response: ResponseValue }>,
+      value?: ResponseValue
+    ) => {
       setResponses((prev) => {
-        const updated = prev.map((r) =>
-          r.question === questionId ? { ...r, response: value } : r
-        );
+        // Initialize responses from questions if empty
 
-        const handleConditionalUpdates = (responses: FormResponse[]) => {
-          let hasChanges = false;
+        const updated =
+          prev.length === 0
+            ? questions
+                .filter((q) => {
+                  if (q.type === QuestionType.Text || !q._id) return false;
+                  return Array.isArray(questionIdOrUpdates)
+                    ? questionIdOrUpdates.some((i) => i.question === q._id)
+                    : questionIdOrUpdates === q._id;
+                })
+                .map((q) => ({
+                  question: q._id ?? "",
+                  response: "",
+                }))
+            : [...prev];
 
-          const updatedResponses = responses.map((response) => {
-            const question = questions.find((q) => q._id === response.question);
-            if (!question || !question.parentcontent) {
-              return response;
+        // Handle array of updates
+        if (Array.isArray(questionIdOrUpdates)) {
+          questionIdOrUpdates.forEach(({ question, response: updateValue }) => {
+            const isQuestion = questions.find((i) => i._id === question);
+
+            // Skip update if invalid question
+            if (!isQuestion) return;
+
+            const existingIndex = updated.findIndex(
+              (i) => i.question === question
+            );
+
+            if (existingIndex !== -1) {
+              // Update existing response
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                response: updateValue,
+              };
+            } else {
+              // Add new response if not exists
+              updated.push({ question: question, response: updateValue });
             }
-
-            const shouldShow = checkIfQuestionShouldShow(question, responses);
-
-            if (!shouldShow && response.response !== "") {
-              hasChanges = true;
-
-              return { ...response, response: "" };
-            }
-            return response;
           });
+        }
+        // Handle single update (backward compatible)
+        else {
+          const questionId = questionIdOrUpdates;
+          const isQuestion = questions.find((i) => i._id === questionId);
 
-          if (hasChanges) {
-            return handleConditionalUpdates(updatedResponses);
+          // Skip update if invalid question or no value provided
+          if (!isQuestion || value === undefined) return prev;
+
+          const existingIndex = updated.findIndex(
+            (i) => i.question === questionId
+          );
+
+          if (existingIndex !== -1) {
+            // Update existing response
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              response: value,
+            };
+          } else {
+            // Add new response if not exists
+            updated.push({ question: questionId, response: value });
           }
-
-          return updatedResponses;
-        };
-
-        return handleConditionalUpdates(updated);
-      });
-    },
-    [questions, checkIfQuestionShouldShow]
-  );
-
-  const batchUpdateResponses = useCallback(
-    (responsesToUpdate: Array<Partial<FormResponse>>) => {
-      setResponses((prev) => {
-        let updated = [...prev];
-
-        responsesToUpdate.forEach(({ question, response }) => {
-          updated = updated.map((r) =>
-            r.question === question ? { ...r, response } : r
-          ) as never;
-        });
+        }
 
         const handleConditionalUpdates = (responses: FormResponse[]) => {
           let hasChanges = false;
@@ -216,9 +227,9 @@ export const useFormResponses = (questions: ContentType[]) => {
 
             if (!shouldShow && response.response !== "") {
               hasChanges = true;
+
               return { ...response, response: "" };
             }
-
             return response;
           });
 
@@ -238,8 +249,6 @@ export const useFormResponses = (questions: ContentType[]) => {
   return {
     responses,
     updateResponse,
-    batchUpdateResponses,
-    initializeResponses,
     checkIfQuestionShouldShow,
   };
 };

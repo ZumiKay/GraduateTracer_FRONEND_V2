@@ -69,6 +69,14 @@ const SettingOptions = (formtype: FormTypeEnum): SettingOptionType =>
       state: "email",
       section: "General",
     },
+
+    {
+      label: "Allow Guest",
+      type: "switch",
+      state: "acceptGuest",
+      section: "General",
+    },
+
     {
       label: "Auto Save",
       type: "switch",
@@ -160,6 +168,8 @@ const SettingTab = () => {
     );
     if (!settingKeys.has("acceptResponses")) settingKeys.add("acceptResponses");
 
+    console.log({ settingKeys });
+
     const baseUpdatedState: FormDataType = {
       ...formstate,
       setting: {
@@ -179,14 +189,11 @@ const SettingTab = () => {
 
     let updatedState = baseUpdatedState;
 
-    // Handle form type changes - apply appropriate default settings
     if (newVal.type && newVal.type !== formstate.type) {
       const newType = newVal.type as FormTypeEnum;
       const defaultSettings = getDefaultFormSetting(newType);
 
-      // Merge with current settings, but handle returnscore specifically
       if (newType === FormTypeEnum.Quiz) {
-        // Add returnscore for quiz types
         updatedState = {
           ...updatedState,
           setting: {
@@ -196,7 +203,6 @@ const SettingTab = () => {
           },
         };
       } else {
-        // Remove returnscore for non-quiz types
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { returnscore, ...settingsWithoutReturnScore } =
           updatedState.setting || {};

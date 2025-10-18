@@ -45,7 +45,8 @@ export interface FormsessionResponse {
 
 export interface SessionVerificationResponse extends FormsessionResponse {
   data?: {
-    email: string;
+    respondentEmail: string;
+    respondentName: string;
     isGuest?: boolean;
   };
 }

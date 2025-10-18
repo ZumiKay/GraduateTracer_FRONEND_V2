@@ -264,6 +264,7 @@ export const DefaultFormSetting: FormSettingType = {
   email: false,
   autosave: false,
   acceptResponses: true,
+  acceptGuest: false,
   // returnscore is not set by default - only added for quiz types
 };
 

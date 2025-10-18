@@ -1,7 +1,6 @@
 import { DateValue } from "@heroui/react";
 import { ContentType } from "./types/Form.types";
 import { getLocalTimeZone } from "@internationalized/date";
-import { GuestData } from "./types/PublicFormAccess.types";
 
 export function hasObjectChanged<T>(oldObject: T, newValue: T): boolean {
   if (oldObject === newValue) return false;
@@ -448,53 +447,357 @@ export const extractStorageKeyComponents = (
   return { formId, userKey, suffix };
 };
 
-/* --------------------- Respondent Form Session Helper --------------------- */
+export const cleanupUnrelatedLocalStorage = ({
+  formId,
+  userKey,
+  suffix,
+  dryRun = false,
+}: {
+  formId: string;
+  userKey?: string;
+  suffix?: string | string[];
+  dryRun?: boolean;
+}): {
+  deletedCount: number;
+  deletedKeys: string[];
+  keptCount: number;
+  keptKeys: string[];
+} => {
+  const deletedKeys: string[] = [];
+  const keptKeys: string[] = [];
+  const prefix = "form_progress_";
 
-export const saveGuestData = (
-  guestData: GuestData,
-  customKey?: string
-): void => {
+  // Normalize suffix to array for consistent handling
+  const suffixArray = suffix
+    ? Array.isArray(suffix)
+      ? suffix
+      : [suffix]
+    : null;
+
   try {
-    // Use sessionStorage instead of localStorage for guest data
-    sessionStorage.setItem(
-      customKey ?? "guest_session",
-      JSON.stringify({
-        ...guestData,
-        timestamp: Date.now(),
-      })
-    );
+    // Get all localStorage keys
+    const allKeys = Object.keys(localStorage);
+
+    // Filter keys that start with our prefix
+    const formProgressKeys = allKeys.filter((key) => key.startsWith(prefix));
+
+    formProgressKeys.forEach((key) => {
+      const components = extractStorageKeyComponents(key);
+
+      // Skip if we couldn't parse the key (invalid format)
+      if (!components.formId) {
+        return;
+      }
+
+      // Determine if this key should be kept or deleted
+      let shouldKeep = true;
+
+      // Check formId match
+      const isMatchingForm = components.formId === formId;
+
+      // Check userKey match (if userKey is provided)
+      const isMatchingUser = !userKey || components.userKey === userKey;
+
+      // Check suffix match (if suffix is provided, only consider keys with matching suffix)
+      const isSuffixMatch =
+        !suffixArray ||
+        (components.suffix ? suffixArray.includes(components.suffix) : false);
+
+      if (isMatchingForm && isMatchingUser) {
+        shouldKeep = !suffixArray || isSuffixMatch;
+      } else {
+        shouldKeep = suffixArray ? !isSuffixMatch : false;
+      }
+
+      if (shouldKeep) {
+        keptKeys.push(key);
+      } else {
+        if (!dryRun) {
+          localStorage.removeItem(key);
+        }
+        deletedKeys.push(key);
+      }
+    });
+
+    return {
+      deletedCount: deletedKeys.length,
+      deletedKeys,
+      keptCount: keptKeys.length,
+      keptKeys,
+    };
   } catch (error) {
-    console.error("Failed to save guest data:", error);
+    console.error("Failed to cleanup unrelated localStorage:", error);
+    return {
+      deletedCount: 0,
+      deletedKeys: [],
+      keptCount: 0,
+      keptKeys: [],
+    };
   }
 };
 
-export const getGuestData = (): GuestData | null => {
+export const deleteFormLocalStorage = ({
+  formId,
+  userKey,
+}: {
+  formId: string;
+  userKey?: string;
+}): {
+  deletedCount: number;
+  deletedKeys: string[];
+} => {
+  const deletedKeys: string[] = [];
+  const prefix = "form_progress_";
+
   try {
-    const data = sessionStorage.getItem("guest_session");
-    if (!data) return null;
+    // Get all localStorage keys
+    const allKeys = Object.keys(localStorage);
 
-    const parsed = JSON.parse(data) as GuestData;
+    // Filter keys that start with our prefix
+    const formProgressKeys = allKeys.filter((key) => key.startsWith(prefix));
 
-    // If session exceed 1 days removed
-    const ADays = 24 * 60 * 60 * 1000;
-    if (Date.now() - parsed.timeStamp > ADays) {
-      removeGuestData();
-      return null;
-    }
+    formProgressKeys.forEach((key) => {
+      const components = extractStorageKeyComponents(key);
 
-    return parsed;
+      // Skip if we couldn't parse the key
+      if (!components.formId) {
+        return;
+      }
+
+      // Check if this key matches the formId and userKey
+      const isMatchingForm = components.formId === formId;
+      const isMatchingUser = !userKey || components.userKey === userKey;
+
+      // Delete if it matches both formId and userKey
+      if (isMatchingForm && isMatchingUser) {
+        localStorage.removeItem(key);
+        deletedKeys.push(key);
+      }
+    });
+
+    return {
+      deletedCount: deletedKeys.length,
+      deletedKeys,
+    };
   } catch (error) {
-    console.error("Failed to get guest data:", error);
-    return null;
+    console.error("Failed to delete form localStorage:", error);
+    return {
+      deletedCount: 0,
+      deletedKeys: [],
+    };
   }
 };
 
-export const removeGuestData = (): void => {
+export const clearAllStateLocalStorage = ({
+  formId,
+  userKey,
+}: {
+  formId: string;
+  userKey: string;
+}) => {
+  const localKey = generateStorageKey({ suffix: "state", formId, userKey });
   try {
-    sessionStorage.removeItem("guest_session");
-
-    //Verify DB Session
+    localStorage.removeItem(localKey);
+    return true;
   } catch (error) {
-    console.error("Failed to remove guest data:", error);
+    console.error("Failed to clear state localStorage:", error);
+    return false;
   }
 };
+
+export const getLocalStorageStats = (): {
+  totalKeys: number;
+  formProgressKeys: number;
+  totalSize: number;
+  formProgressSize: number;
+  keysByForm: Record<string, number>;
+  keysByUser: Record<string, number>;
+  oldestTimestamp?: number;
+  newestTimestamp?: number;
+} => {
+  const prefix = "form_progress_";
+  const stats = {
+    totalKeys: 0,
+    formProgressKeys: 0,
+    totalSize: 0,
+    formProgressSize: 0,
+    keysByForm: {} as Record<string, number>,
+    keysByUser: {} as Record<string, number>,
+    oldestTimestamp: undefined as number | undefined,
+    newestTimestamp: undefined as number | undefined,
+  };
+
+  try {
+    const allKeys = Object.keys(localStorage);
+    stats.totalKeys = allKeys.length;
+
+    allKeys.forEach((key) => {
+      const value = localStorage.getItem(key) || "";
+      const size = new Blob([value]).size;
+      stats.totalSize += size;
+
+      if (key.startsWith(prefix)) {
+        stats.formProgressKeys++;
+        stats.formProgressSize += size;
+
+        const components = extractStorageKeyComponents(key);
+        if (components.formId) {
+          stats.keysByForm[components.formId] =
+            (stats.keysByForm[components.formId] || 0) + 1;
+        }
+        if (components.userKey) {
+          stats.keysByUser[components.userKey] =
+            (stats.keysByUser[components.userKey] || 0) + 1;
+        }
+
+        // Try to extract timestamp if available
+        try {
+          const parsed = JSON.parse(value);
+          if (parsed.timestamp || parsed.timeStamp) {
+            const ts = parsed.timestamp || parsed.timeStamp;
+            if (!stats.oldestTimestamp || ts < stats.oldestTimestamp) {
+              stats.oldestTimestamp = ts;
+            }
+            if (!stats.newestTimestamp || ts > stats.newestTimestamp) {
+              stats.newestTimestamp = ts;
+            }
+          }
+        } catch {
+          // Not JSON or no timestamp, skip
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Failed to get localStorage stats:", error);
+  }
+
+  return stats;
+};
+
+export const cleanupOldLocalStorage = (
+  maxAgeMs: number = 7 * 24 * 60 * 60 * 1000 // Default: 7 days
+): {
+  deletedCount: number;
+  deletedKeys: string[];
+} => {
+  const deletedKeys: string[] = [];
+  const prefix = "form_progress_";
+  const now = Date.now();
+
+  try {
+    const allKeys = Object.keys(localStorage);
+    const formProgressKeys = allKeys.filter((key) => key.startsWith(prefix));
+
+    formProgressKeys.forEach((key) => {
+      try {
+        const value = localStorage.getItem(key);
+        if (!value) return;
+
+        const parsed = JSON.parse(value);
+        const timestamp = parsed.timestamp || parsed.timeStamp;
+
+        if (timestamp && now - timestamp > maxAgeMs) {
+          localStorage.removeItem(key);
+          deletedKeys.push(key);
+        }
+      } catch {
+        // Not JSON or no timestamp, skip
+      }
+    });
+
+    return {
+      deletedCount: deletedKeys.length,
+      deletedKeys,
+    };
+  } catch (error) {
+    console.error("Failed to cleanup old localStorage:", error);
+    return {
+      deletedCount: 0,
+      deletedKeys: [],
+    };
+  }
+};
+
+export const listLocalStorageItems = (
+  filterPrefix: string = "form_progress_"
+): Array<{
+  key: string;
+  size: number;
+  formId?: string;
+  userKey?: string;
+  suffix?: string;
+  hasTimestamp: boolean;
+  age?: number;
+}> => {
+  const items: Array<{
+    key: string;
+    size: number;
+    formId?: string;
+    userKey?: string;
+    suffix?: string;
+    hasTimestamp: boolean;
+    age?: number;
+  }> = [];
+
+  try {
+    const allKeys = Object.keys(localStorage);
+    const filteredKeys = filterPrefix
+      ? allKeys.filter((key) => key.startsWith(filterPrefix))
+      : allKeys;
+
+    const now = Date.now();
+
+    filteredKeys.forEach((key) => {
+      const value = localStorage.getItem(key) || "";
+      const size = new Blob([value]).size;
+      const components = extractStorageKeyComponents(key);
+
+      let hasTimestamp = false;
+      let age: number | undefined;
+
+      try {
+        const parsed = JSON.parse(value);
+        const timestamp = parsed.timestamp || parsed.timeStamp;
+        if (timestamp) {
+          hasTimestamp = true;
+          age = now - timestamp;
+        }
+      } catch {
+        // Not JSON or no timestamp
+      }
+
+      items.push({
+        key,
+        size,
+        formId: components.formId || undefined,
+        userKey: components.userKey || undefined,
+        suffix: components.suffix || undefined,
+        hasTimestamp,
+        age,
+      });
+    });
+  } catch (error) {
+    console.error("Failed to list localStorage items:", error);
+  }
+
+  return items;
+};
+
+export function saveFormStateToLocalStorage<PartialDataType>({
+  replace,
+  key,
+  data,
+}: {
+  replace?: boolean;
+  key: string;
+  data: Partial<PartialDataType>;
+}) {
+  const isStored = window.localStorage.getItem(key);
+
+  localStorage.setItem(
+    key,
+    JSON.stringify(
+      replace ? data : { ...(isStored && { ...JSON.parse(isStored) }), data }
+    )
+  );
+}

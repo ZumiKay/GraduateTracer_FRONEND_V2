@@ -11,8 +11,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import ApiRequest from "../hooks/ApiHook";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
-import { saveGuestData, generateStorageKey } from "../helperFunc";
-import { GuestData } from "../types/PublicFormAccess.types";
+import { generateStorageKey } from "../helperFunc";
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 
@@ -107,17 +106,12 @@ const ReplaceSessionPage = () => {
   // Separate mutation for terminate and login
   const terminateAndLoginMutation = useMutation({
     mutationFn: () => asyncReplaceSession(decodedCode),
-    onSuccess: (data) => {
+    onSuccess: () => {
       setSessionReplaced(true);
       SuccessToast({
         title: "Success",
         content: "Session replaced successfully! Redirecting...",
       });
-
-      if (data.data) {
-        const sessionData = data.data as GuestData;
-        saveGuestData(sessionData);
-      }
 
       handleNavigateToForm();
     },
@@ -189,18 +183,6 @@ const ReplaceSessionPage = () => {
 
         localStorage.setItem(key, JSON.stringify(sessionState));
       }
-
-      // Save guest data to prevent auto-login
-      const guestData: Partial<GuestData> = {
-        isActive: false,
-        timeStamp: Date.now(),
-        name: "dismissed_session",
-      };
-
-      saveGuestData(
-        guestData as GuestData,
-        `guest_session_${formId}_dismissed`
-      );
     } catch (error) {
       // Error is already handled by the mutation's onError
       console.error("Dismiss operation failed:", error);

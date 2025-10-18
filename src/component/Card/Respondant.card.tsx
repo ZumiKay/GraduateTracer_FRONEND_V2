@@ -13,7 +13,7 @@ import {
   RangeType,
 } from "../../types/Form.types";
 import StyledTiptap from "../Response/components/StyledTiptap";
-import { useCallback, useMemo, memo } from "react";
+import { useCallback, useMemo, memo, useEffect } from "react";
 import {
   ChoiceAnswer,
   DateQuestionType,
@@ -52,6 +52,10 @@ const Respondant_Question_Card = memo(
       },
       [onSelectAnswer, isDisable]
     );
+
+    useEffect(() => {
+      console.log(content);
+    }, [content]);
 
     const contentTitle = useMemo(() => {
       if (content.parentcontent) {
@@ -322,22 +326,24 @@ const Respondant_Question_Card = memo(
 
         case QuestionType.Selection: {
           return (
-            <Selection
-              items={
-                content.selection?.map((i) => ({
-                  label: i.content,
-                  value: idx,
-                })) as never
-              }
-              selectedKeys={
-                answerKey?.answer ? [String(answerKey.answer)] : undefined
-              }
-              onSelectionChange={(val) => handleAnswer(val)}
-              placeholder="Select"
-              isDisabled={!ty || isDisable}
-              isRequired={content.require}
-              aria-label={`selection${content._id ?? content.qIdx}`}
-            />
+            <>
+              <Selection
+                items={
+                  content.selection?.map((i) => ({
+                    label: i.content,
+                    value: i.idx.toString(),
+                  })) as never
+                }
+                selectedKeys={[answerKey?.answer?.toString()]}
+                onChange={(val) => {
+                  handleAnswer(val.target.value);
+                }}
+                placeholder="Select"
+                isDisabled={!ty || isDisable}
+                isRequired={content.require}
+                aria-label={`selection${content._id ?? content.qIdx}`}
+              />
+            </>
           );
         }
 
@@ -345,20 +351,13 @@ const Respondant_Question_Card = memo(
           return null;
       }
     }, [
-      content.type,
-      content.answer,
-      content.rangenumber,
-      content.selection,
-      content.require,
-      content._id,
-      content.qIdx,
+      content,
       MultipleChoiceComponent,
       CheckboxComponent,
       RangeDateComponent,
       handleAnswer,
       isDisable,
       ty,
-      idx,
     ]);
 
     return (

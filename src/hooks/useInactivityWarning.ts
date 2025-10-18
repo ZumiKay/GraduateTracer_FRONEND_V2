@@ -56,29 +56,32 @@ export const useInactivityWarning = (
 
   // Show warning when session manager indicates inactivity
   useEffect(() => {
-    if (showInactivityAlert && !isSessionActive) {
-      console.log("🚨 [InactivityWarning] Showing inactivity warning", {
-        isSessionActive,
-        showInactivityAlert,
-        timeUntilAutoSignout,
-        warningMessage,
-      });
-      setShowWarning(true);
-    } else if (isSessionActive) {
-      console.log(
-        "✅ [InactivityWarning] Session reactivated, hiding warning",
-        {
+    if (props.accessMode === "authenticated" || props.accessMode === "guest") {
+      if (showInactivityAlert && !isSessionActive) {
+        console.log("🚨 [InactivityWarning] Showing inactivity warning", {
           isSessionActive,
           showInactivityAlert,
-        }
-      );
-      setShowWarning(false);
+          timeUntilAutoSignout,
+          warningMessage,
+        });
+        setShowWarning(true);
+      } else if (isSessionActive) {
+        console.log(
+          "✅ [InactivityWarning] Session reactivated, hiding warning",
+          {
+            isSessionActive,
+            showInactivityAlert,
+          }
+        );
+        setShowWarning(false);
+      }
     }
   }, [
     showInactivityAlert,
     isSessionActive,
     timeUntilAutoSignout,
     warningMessage,
+    props.accessMode,
   ]);
 
   // Handle continue session action

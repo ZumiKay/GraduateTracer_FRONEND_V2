@@ -211,7 +211,10 @@ const useRespondentFormPaginaition = ({
   }, [error, formId, currentPage, fetchType, accessMode]);
 
   useEffect(() => {
-    if (accessMode === "authenticated" && !formState?.isLoggedIn) {
+    if (
+      (accessMode === "authenticated" || accessMode === "guest") &&
+      !formState?.isLoggedIn
+    ) {
       setfetchType("data");
     }
   }, [accessMode, formState]);

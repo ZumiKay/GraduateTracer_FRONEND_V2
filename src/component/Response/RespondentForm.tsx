@@ -16,7 +16,6 @@ import {
   AnswerKey,
   FormResponseType,
 } from "../../types/Form.types";
-import { getGuestData, GuestData } from "../../utils/publicFormUtils";
 
 const Respondant_Question_Card = lazy(() => import("../Card/Respondant.card"));
 const FormHeader = lazy(() =>
@@ -65,18 +64,18 @@ import {
 } from "./Response.type";
 import { useMutation } from "@tanstack/react-query";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
+import { generateStorageKey } from "../../helperFunc";
 
 const uniqueToastId = "respondentFormUniqueToastId";
 
-interface RespondentFormProps {
+export interface RespondentFormProps {
   isGuest?: boolean;
-  RespondentData?: Partial<GuestData>;
   userId?: string;
   data: UseRespondentFormPaginationReturn;
-  respondentInfo?: RespondentInfoType;
-  setrespondentInfo?: React.Dispatch<
-    React.SetStateAction<RespondentInfoType | undefined>
-  >;
+  formSessionInfo: RespondentInfoType;
+  handleUpdateSessionInfo?: () => (
+    value: React.SetStateAction<RespondentInfoType | undefined>
+  ) => void;
   // New props to better integrate with PublicFormAccess
   accessMode?: "login" | "guest" | "authenticated";
   isUserActive?: boolean;
@@ -109,13 +108,11 @@ const useSendResponseCopy = (responseId?: string, recipitentEmail?: string) =>
 
 const RespondentForm: React.FC<RespondentFormProps> = memo(
   ({
-    isGuest = false,
-    RespondentData,
     data,
-    respondentInfo,
-    setrespondentInfo,
     accessMode = "authenticated",
     isUserActive = true,
+    formSessionInfo,
+    handleUpdateSessionInfo,
   }) => {
     const {
       formState,
@@ -134,13 +131,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       [formState?.contents]
     );
 
-    const {
-      responses,
-      updateResponse,
-      batchUpdateResponses,
-      initializeResponses,
-      checkIfQuestionShouldShow,
-    } = useFormResponses(questions);
+    const { responses, updateResponse, checkIfQuestionShouldShow } =
+      useFormResponses(questions);
 
     const { isPageComplete, validateForm } = useFormValidation(
       checkIfQuestionShouldShow
@@ -156,15 +148,21 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const isGuestMode = useMemo(
-      () => Boolean(isGuest && RespondentData),
-      [RespondentData, isGuest]
-    );
-
     const sendResponse = useSendResponseCopy(
       submissionResult?.responseId,
       submissionResult?.respondentEmail
     );
+
+    //Progress Key
+    const progressStorageKey = useMemo(() => {
+      if (!formState || !formState._id) return null;
+
+      return generateStorageKey({
+        suffix: "progress",
+        formId: formState._id,
+        userKey: formSessionInfo?.respondentEmail,
+      });
+    }, [formState, formSessionInfo?.respondentEmail]);
 
     //Check if the user already response
     useEffect(() => {
@@ -173,34 +171,22 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       }
     }, [formState?.responses, formState?.setting?.submitonce]);
 
-    // Generate unique storage key
-    const getStorageKey = useCallback(
-      (suffix: string) => {
-        const formId = formState?._id || "unknown";
-        const userKey = isGuestMode
-          ? `guest_${RespondentData?.email || "anonymous"}`
-          : "user";
-        return `form_progress_${formId}_${userKey}_${suffix}`;
-      },
-      [formState?._id, isGuestMode, RespondentData?.email]
-    );
-
     const saveProgressToStorage = useCallback(
       (value?: Record<string, unknown>) => {
-        if (!formState?._id || !progressLoaded) {
+        if (!formState?._id || !progressLoaded || !progressStorageKey) {
           return;
         }
 
-        if (accessMode === "authenticated" && !isUserActive) {
+        if (accessMode === "login" && !isUserActive) {
           return;
         }
 
         try {
-          const storageKey = getStorageKey("progress");
-
           let previousStoredData: SaveProgressType | null = null;
+
+          //Get form progress
           try {
-            const savedProgress = localStorage.getItem(storageKey);
+            const savedProgress = localStorage.getItem(progressStorageKey);
             if (savedProgress) {
               previousStoredData = JSON.parse(
                 savedProgress
@@ -213,7 +199,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             );
           }
 
-          const meaningfulResponses = responses.filter((r) => {
+          const nonNullResponses = responses.filter((r) => {
             if (
               r.response === null ||
               r.response === undefined ||
@@ -232,11 +218,11 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           if (
             previousStoredData?.responses &&
             previousStoredData.responses.length > 0 &&
-            meaningfulResponses.length > 0
+            nonNullResponses.length > 0
           ) {
             const mergedResponses = [...previousStoredData.responses];
 
-            meaningfulResponses.forEach((meaningfulRes) => {
+            nonNullResponses.forEach((meaningfulRes) => {
               const existingIndex = mergedResponses.findIndex(
                 (prevRes) => prevRes.question === meaningfulRes.question
               );
@@ -258,7 +244,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
               previousStoredData.responses.length > 0
             )
               responsesSetUp = previousStoredData?.responses;
-            else responsesSetUp = meaningfulResponses;
+            else responsesSetUp = nonNullResponses;
           }
 
           const progressData: SaveProgressType = {
@@ -266,7 +252,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             responses: responsesSetUp,
             respondentInfo: {
               ...((previousStoredData?.respondentInfo ??
-                respondentInfo) as RespondentInfoType),
+                formSessionInfo) as RespondentInfoType),
             },
             timestamp: new Date().toISOString(),
             formId: formState._id,
@@ -274,7 +260,42 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             ...(value ?? {}),
           };
 
-          localStorage.setItem(storageKey, JSON.stringify(progressData));
+          localStorage.setItem(
+            progressStorageKey,
+            JSON.stringify(progressData)
+          );
+
+          // Clean up duplicate progress key without email if we're saving with email
+          if (formSessionInfo?.respondentEmail) {
+            const keyWithoutEmail = generateStorageKey({
+              suffix: "progress",
+              formId: formState._id,
+              userKey: undefined, // No email
+            });
+
+            // Remove the key without email if it exists and is different from current key
+            if (
+              keyWithoutEmail !== progressStorageKey &&
+              localStorage.getItem(keyWithoutEmail)
+            ) {
+              localStorage.removeItem(keyWithoutEmail);
+              if (import.meta.env.DEV) {
+                console.log(
+                  "Removed duplicate progress key without email:",
+                  keyWithoutEmail
+                );
+              }
+            }
+          }
+
+          if (import.meta.env.DEV) {
+            console.log("Progress saved to localStorage:", {
+              key: progressStorageKey,
+              responsesCount: responsesSetUp.length,
+              currentPage: progressData.currentPage,
+              timestamp: progressData.timestamp,
+            });
+          }
         } catch (error) {
           console.error("Failed to save progress to localStorage:", error);
         }
@@ -282,12 +303,12 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       [
         formState?._id,
         progressLoaded,
+        progressStorageKey,
         accessMode,
         isUserActive,
-        getStorageKey,
         responses,
         currentPage,
-        respondentInfo,
+        formSessionInfo,
       ]
     );
 
@@ -302,24 +323,19 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     }, [saveProgressToStorage]);
 
     const loadProgressFromStorage = useCallback(() => {
-      if (!formState?._id) {
+      if (!formState?._id || !progressStorageKey) {
         return false;
       }
 
       try {
-        const storageKey = getStorageKey("progress");
-        const savedProgress = localStorage.getItem(storageKey);
+        const savedProgress = localStorage.getItem(progressStorageKey);
 
         if (savedProgress) {
           const progressData = JSON.parse(savedProgress) as SaveProgressType;
 
           if (progressData.formId === formState._id && progressData.version) {
-            if (progressData.respondentInfo?.email && setrespondentInfo) {
-              setrespondentInfo(progressData.respondentInfo);
-            }
-
-            if (progressData.responses) {
-              batchUpdateResponses(progressData.responses);
+            if (progressData.responses && progressData.responses.length > 0) {
+              updateResponse(progressData.responses as never);
             }
 
             if (progressData.currentPage && progressData.currentPage > 0) {
@@ -343,39 +359,37 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           }
         } else {
           if (import.meta.env.DEV) {
-            console.log("No saved progress found for key:", storageKey);
+            console.log("No saved progress found for key:", progressStorageKey);
           }
         }
       } catch (error) {
         console.error("Failed to load progress from localStorage:", error);
 
         try {
-          localStorage.removeItem(getStorageKey("progress"));
+          localStorage.removeItem(progressStorageKey);
         } catch (clearError) {
           console.error("Failed to clear corrupted progress data:", clearError);
         }
       }
       return false;
-    }, [
-      formState?._id,
-      getStorageKey,
-      setrespondentInfo,
-      batchUpdateResponses,
-      goToPage,
-      data,
-    ]);
+    }, [formState?._id, progressStorageKey, updateResponse, goToPage, data]);
 
     const clearProgressFromStorage = useCallback(() => {
+      if (!progressStorageKey) return;
+
       try {
-        const storageKey = getStorageKey("progress");
-        localStorage.removeItem(storageKey);
+        localStorage.removeItem(progressStorageKey);
         if (import.meta.env.DEV) {
-          console.log("Progress cleared from localStorage:", storageKey);
+          console.log(
+            "Progress cleared from localStorage:",
+            progressStorageKey
+          );
         }
       } catch (error) {
         console.error("Failed to clear progress from localStorage:", error);
       }
-    }, [getStorageKey]);
+    }, [progressStorageKey]);
+
     useEffect(() => {
       if (clearStorage) {
         clearProgressFromStorage();
@@ -388,8 +402,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         if (questionsWithoutIds.length > 0) {
           return;
         }
-
-        initializeResponses();
 
         const timer = setTimeout(() => {
           const progressLoaded = loadProgressFromStorage();
@@ -407,7 +419,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           formId: formState?._id,
         });
       }
-    }, []);
+    }, [clearStorage, formState?._id, loadProgressFromStorage, questions]);
 
     useEffect(() => {
       if (
@@ -466,25 +478,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         );
       };
     }, [clearStorage, saveProgressToStorage]);
-
-    useEffect(() => {
-      if (setrespondentInfo) {
-        if (isGuest && !RespondentData) {
-          const storedGuestData = getGuestData();
-          if (storedGuestData) {
-            setrespondentInfo({
-              name: storedGuestData.name || "",
-              email: storedGuestData.email || "",
-            });
-          }
-        } else {
-          setrespondentInfo({
-            name: "",
-            email: RespondentData?.email as string,
-          });
-        }
-      }
-    }, []);
 
     //Apply the style setting to the form
 
@@ -597,6 +590,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
               }
               break;
             case QuestionType.Number:
+            case QuestionType.Selection:
               if (
                 typeof answer.answer === "string" &&
                 !isNaN(Number(answer.answer))
@@ -626,8 +620,15 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     );
 
     const handleSubmit = async () => {
-      if (!formState) return;
-      const savedData = localStorage.getItem(getStorageKey("progress"));
+      if (!formState || !progressStorageKey) {
+        ErrorToast({
+          toastid: "SubmitError",
+          title: "Failed",
+          content: "Missing Parameter",
+        });
+        return;
+      }
+      const savedData = localStorage.getItem(progressStorageKey);
       const prevQuestion =
         savedData && (JSON.parse(savedData) as SaveProgressType);
 
@@ -673,7 +674,10 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         return;
       }
 
-      if (formState?.type === FormTypeEnum.Quiz && !respondentInfo?.email) {
+      if (
+        formState?.type === FormTypeEnum.Quiz &&
+        !formSessionInfo?.respondentEmail
+      ) {
         setError("Email is required for quiz forms");
         return;
       }
@@ -721,8 +725,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
               question: r.question,
               response: r.response,
             })),
-            respondentEmail: RespondentData?.email,
-            respondentName: RespondentData?.name,
+            respondentEmail: formSessionInfo?.respondentEmail,
+            respondentName: formSessionInfo?.respondentName,
           },
         })) as ApiRequestReturnType;
 
@@ -886,7 +890,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     return (
       <div className="max-w-4xl mx-auto p-6 min-h-screen respondent-form">
         {/* User Activity Status Indicator */}
-        {accessMode === "authenticated" && !isUserActive && (
+        {accessMode !== "login" && !isUserActive && (
           <div className="mb-4 p-3 bg-amber-100 border border-amber-400 rounded-lg text-amber-800">
             <div className="flex items-center gap-2">
               <span className="font-medium">⚠️ Session Inactive</span>
@@ -924,13 +928,14 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         )}
 
         {formState &&
+          formState._id &&
           currentPage === 1 &&
-          respondentInfo &&
-          setrespondentInfo && (
+          formSessionInfo &&
+          handleUpdateSessionInfo && (
             <RespondentInfo
-              respondentInfo={respondentInfo}
-              setRespondentInfo={setrespondentInfo as never}
-              isGuestMode={isGuestMode}
+              formId={formState._id}
+              respondentInfo={formSessionInfo}
+              setRespondentInfo={handleUpdateSessionInfo}
             />
           )}
 
@@ -1051,12 +1056,13 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
                           content={{
                             ...question,
                             idx: index,
-                            answer: currentResponse?.response
-                              ? {
-                                  answer:
-                                    currentResponse.response as AnswerKey["answer"],
-                                }
-                              : undefined,
+                            answer:
+                              currentResponse?.response !== undefined &&
+                              currentResponse.response !== null
+                                ? ({
+                                    answer: currentResponse.response,
+                                  } as AnswerKey)
+                                : undefined,
                             rangenumber: question.rangenumber,
                           }}
                           color={formState?.setting?.qcolor}
