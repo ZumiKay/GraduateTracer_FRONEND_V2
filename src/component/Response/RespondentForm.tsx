@@ -21,11 +21,7 @@ const Respondant_Question_Card = lazy(() => import("../Card/Respondant.card"));
 const FormHeader = lazy(() =>
   import("./components/FormHeader").then((m) => ({ default: m.FormHeader }))
 );
-const RespondentInfo = lazy(() =>
-  import("./components/RespondentInfo").then((m) => ({
-    default: m.RespondentInfo,
-  }))
-);
+
 const ConditionalIndicator = lazy(() =>
   import("./components/ConditionalIndicator").then((m) => ({
     default: m.ConditionalIndicator,
@@ -65,6 +61,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
 import { generateStorageKey } from "../../helperFunc";
+import { RespondentInfo } from "./components/RespondentInfo";
 
 const uniqueToastId = "respondentFormUniqueToastId";
 
@@ -73,9 +70,6 @@ export interface RespondentFormProps {
   userId?: string;
   data: UseRespondentFormPaginationReturn;
   formSessionInfo: RespondentInfoType;
-  handleUpdateSessionInfo?: () => (
-    value: React.SetStateAction<RespondentInfoType | undefined>
-  ) => void;
   // New props to better integrate with PublicFormAccess
   accessMode?: "login" | "guest" | "authenticated";
   isUserActive?: boolean;
@@ -112,7 +106,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     accessMode = "authenticated",
     isUserActive = true,
     formSessionInfo,
-    handleUpdateSessionInfo,
   }) => {
     const {
       formState,
@@ -927,17 +920,9 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           />
         )}
 
-        {formState &&
-          formState._id &&
-          currentPage === 1 &&
-          formSessionInfo &&
-          handleUpdateSessionInfo && (
-            <RespondentInfo
-              formId={formState._id}
-              respondentInfo={formSessionInfo}
-              setRespondentInfo={handleUpdateSessionInfo}
-            />
-          )}
+        {formState && formState._id && currentPage === 1 && formSessionInfo && (
+          <RespondentInfo respondentInfo={formSessionInfo} />
+        )}
 
         <div className="space-y-6">
           {/* Debug info for conditional questions in development */}

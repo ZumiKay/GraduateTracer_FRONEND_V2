@@ -63,13 +63,14 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           hover:shadow-lg hover:shadow-primary/10 hover:scale-[1.02] hover:-translate-y-1
           active:scale-[0.98] active:transition-none
           ${isChild ? `border-l-4 ${borderColor} ml-2` : ""}
-          relative overflow-hidden
+          relative overflow-visible
         `}
-        isPressable
-        onPress={() => onQuestionClick(question, index)}
         shadow="sm"
       >
-        <CardBody className="p-3 sm:p-4">
+        <CardBody
+          className="p-3 sm:p-4"
+          onClick={() => onQuestionClick(question, index)}
+        >
           {/* Parent indicator */}
           {isChild && parentQuestion && (
             <div className="mb-2 p-2 bg-gradient-to-r from-blue-50 to-blue-50/30 rounded-lg border border-blue-200/70">
@@ -128,7 +129,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             </div>
 
             {/* Action buttons */}
-            <div className="flex items-center gap-1">
+            <div
+              className="flex items-center gap-1"
+              onClick={(e) => e.stopPropagation()}
+            >
               {canToggleVisibility(question) && (
                 <Tooltip
                   content={isVisible ? "Hide question" : "Show question"}
@@ -201,10 +205,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           {/* Bottom metadata */}
           <div className="flex flex-wrap gap-2 mt-2 items-center justify-between">
             <div className="flex flex-wrap gap-2">
-              {question.score && question.score > 0 && (
+              {question.score && question.score > 0 ? (
                 <Chip size="sm" color="success" variant="flat">
                   {question.score} points
                 </Chip>
+              ) : (
+                <></>
               )}
               {hasChildren && (
                 <Chip size="sm" color="warning" variant="dot">

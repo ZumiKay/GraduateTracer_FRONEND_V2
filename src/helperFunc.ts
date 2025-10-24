@@ -394,7 +394,9 @@ export const getConditionalDepth = (
 };
 
 export const convertDateValueToString = (val: DateValue) => {
-  return val.toDate(getLocalTimeZone()).toISOString();
+  const date = val.toDate(getLocalTimeZone());
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
 };
 
 export const isMoreThanDay = (val: Date): boolean => {

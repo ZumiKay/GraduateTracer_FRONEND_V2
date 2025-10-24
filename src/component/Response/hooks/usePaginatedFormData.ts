@@ -93,14 +93,10 @@ const useRespondentFormPaginaition = ({
       page,
       ty,
       formId,
-      user,
-      formsession,
     }: {
       page: number;
       ty: fetchtype;
       formId?: string;
-      user?: SessionState;
-      formsession?: RespondentSessionType;
     }): Promise<FetchContentReturnType | null> => {
       // Check the passed formsession parameter instead of closure
       if (!formId) {
@@ -111,11 +107,6 @@ const useRespondentFormPaginaition = ({
         p: page.toString(),
         ty,
       };
-
-      // Only add isSwitched if needed to reduce query key variations
-      if (formsession?.isSwitchedUser || user?.isAuthenticated) {
-        paramObj.isSwitched = String(formsession?.isSwitchedUser ?? false);
-      }
 
       const params = new URLSearchParams(paramObj);
 
@@ -160,21 +151,13 @@ const useRespondentFormPaginaition = ({
     const baseKey = ["respondent-form", formId, currentPage, fetchType];
 
     // Only add dynamic parts if they exist and are stable
-    if (localformsession?.isSwitchedUser) {
-      baseKey.push("switched", String(localformsession.isSwitchedUser));
-    }
+
     if (user?.isAuthenticated) {
       baseKey.push("auth", String(user.isAuthenticated));
     }
 
     return baseKey;
-  }, [
-    formId,
-    currentPage,
-    fetchType,
-    localformsession?.isSwitchedUser,
-    user?.isAuthenticated,
-  ]);
+  }, [formId, currentPage, fetchType, user?.isAuthenticated]);
 
   const { data, error, isFetching } = useQuery({
     queryKey: stableQueryKey,

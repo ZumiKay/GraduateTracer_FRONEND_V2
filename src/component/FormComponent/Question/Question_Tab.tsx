@@ -30,6 +30,10 @@ import { useSetSearchParam } from "../../../hooks/CustomHook";
 import QuestionStructure from "./QuestionStructure";
 import { checkUnsavedQuestions } from "../../../utils/formValidation";
 import { ConditionContentCopy } from "../../../helperFunc";
+import {
+  AsyncAutoSaveDeleteRequest,
+  DeleteAndShift,
+} from "./Question_Tab_Helper";
 
 const QuestionTab = () => {
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -129,93 +133,63 @@ const QuestionTab = () => {
     dispatch,
   ]);
 
+  //*Autosave helper to delete question
   const handleDeleteQuestion = useCallback(
     async (qidx: number) => {
       const questionToDelete = allQuestion[qidx];
-      if (!questionToDelete) return;
+      if (!questionToDelete || !formState._id) return;
 
       // Pause autosave during delete operation
       dispatch(setpauseAutoSave(true));
-
-      const deleteRequest = async () => {
-        try {
-          if (formState.setting?.autosave && questionToDelete._id) {
-            const request = await PromiseToast(
-              {
-                promise: ApiRequest({
-                  url: "/deletecontent",
-                  method: "DELETE",
-                  cookie: true,
-                  refreshtoken: true,
-                  data: {
-                    id: questionToDelete._id,
-                    formId: formState._id,
-                  },
-                }),
-              },
-              { pending: "Deleting Question", error: "Can't Delete" }
-            );
-
-            if (!request.success) return;
-          }
-
-          //Delete conditions
-          const idxToBeDelete = questionToDelete.conditional?.map(
-            (i) => i.contentIdx
-          );
-
-          dispatch(
-            setallquestion((prev) =>
-              prev
-                .filter(
-                  (_, idx) => idx !== qidx && !idxToBeDelete?.includes(idx)
-                )
-                .map((question) => {
-                  const updatedqIdx =
-                    question.qIdx > questionToDelete.qIdx
-                      ? question.qIdx - 1 - (idxToBeDelete?.length ?? 0)
-                      : question.qIdx;
-
-                  return {
-                    ...question,
-                    qIdx: updatedqIdx,
-                    conditional: question?.conditional
-                      ?.filter((condition) =>
-                        questionToDelete._id
-                          ? condition.contentId !== questionToDelete._id
-                          : condition.contentIdx !== qidx
-                      )
-                      .map((condition) => ({
-                        ...condition,
-                        contentIdx:
-                          condition.contentIdx !== undefined &&
-                          condition.contentIdx > qidx
-                            ? condition.contentIdx - 1
-                            : condition.contentIdx,
-                      })),
-                  };
-                })
-            )
-          );
-        } finally {
-          dispatch(setpauseAutoSave(false));
-        }
-      };
 
       const hasConditionals =
         questionToDelete.conditional &&
         questionToDelete.conditional?.length > 0;
 
-      if (hasConditionals) {
+      if (
+        hasConditionals &&
+        questionToDelete._id &&
+        formState.setting?.autosave
+      ) {
         dispatch(
           setopenmodal({
             state: "confirm",
-            value: { open: true, data: { onAgree: deleteRequest } },
+
+            value: {
+              open: true,
+
+              data: {
+                question: "All related conditioned question will be delete!",
+                onAgree: async () => {
+                  try {
+                    await AsyncAutoSaveDeleteRequest({
+                      formId: formState._id as string,
+                      qId: questionToDelete._id as string,
+                    });
+                  } catch (error) {
+                    ErrorToast({
+                      toastid: "DeleteQuestion",
+                      title: "Failed",
+                      content: (error as Error).message,
+                    });
+                  }
+                },
+              },
+            },
           })
         );
-      } else {
-        await deleteRequest();
       }
+
+      //*General Delete and Update State
+      const updatedQuestion = DeleteAndShift({
+        allquestion: allQuestion,
+        targetQuestion: questionToDelete.qIdx,
+        targetQuestionIdx: qidx,
+      });
+
+      dispatch(setallquestion(updatedQuestion));
+
+      dispatch(setpauseAutoSave(false));
     },
     [allQuestion, formState.setting?.autosave, formState._id, dispatch]
   );
@@ -241,35 +215,19 @@ const QuestionTab = () => {
             const existingConditionals = targetQuestion.conditional || [];
             const nextAvailableIdx = targetQuestion.qIdx + 1;
 
-            const maxExistingConditionIdx =
-              existingConditionals.length > 0
-                ? Math.max(
-                    ...(existingConditionals
-                      .map(
-                        (condQues) =>
-                          condQues.contentIdx &&
-                          prevQuestions[condQues.contentIdx].qIdx
-                      )
-                      .filter(Boolean) as number[])
-                  )
-                : targetQuestion.qIdx;
-
-            const newChildQIdx = Math.max(
-              maxExistingConditionIdx,
-              nextAvailableIdx
-            );
+            //Assign next availiable qIdx based on overall questions andt its condition
 
             const newConditional = {
-              contentIdx: questionIdx + 1,
+              contentIdx: questionIdx + 1, //Array key Index
               key: anskey,
             };
 
             const newChildQuestion: ContentType = {
               ...DefaultContentType,
-              qIdx: newChildQIdx,
+              qIdx: nextAvailableIdx,
               parentcontent: {
                 optIdx: anskey,
-                qIdx: questionIdx,
+                qIdx: targetQuestion.qIdx,
                 qId: targetQuestion._id,
               },
               page,
@@ -278,6 +236,7 @@ const QuestionTab = () => {
             const result: ContentType[] = [];
             let insertionDone = false;
 
+            //*Update other questions qIdx for the new appending qIdx
             for (let i = 0; i < prevQuestions.length; i++) {
               const currentQuestion = prevQuestions[i];
 
@@ -290,7 +249,7 @@ const QuestionTab = () => {
                       ...cond,
                       contentIdx:
                         cond.contentIdx !== undefined &&
-                        cond.contentIdx >= newChildQIdx
+                        cond.contentIdx >= questionIdx + 1
                           ? cond.contentIdx + 1
                           : cond.contentIdx,
                     })),
@@ -301,7 +260,8 @@ const QuestionTab = () => {
                 result.push(newChildQuestion);
                 insertionDone = true;
               } else {
-                const needsUpdate = currentQuestion.qIdx >= newChildQIdx;
+                //Update other question qIdx
+                const needsUpdate = currentQuestion.qIdx >= nextAvailableIdx;
 
                 if (needsUpdate) {
                   result.push({
@@ -311,7 +271,7 @@ const QuestionTab = () => {
                       ...cond,
                       contentIdx:
                         cond.contentIdx !== undefined &&
-                        cond.contentIdx >= newChildQIdx
+                        cond.contentIdx >= nextAvailableIdx
                           ? cond.contentIdx + 1
                           : cond.contentIdx,
                     })),
@@ -321,7 +281,8 @@ const QuestionTab = () => {
                         ? {
                             ...currentQuestion.parentcontent,
                             qIdx:
-                              currentQuestion.parentcontent.qIdx >= questionIdx
+                              currentQuestion.parentcontent.qIdx >
+                              targetQuestion.qIdx
                                 ? currentQuestion.parentcontent.qIdx + 1
                                 : currentQuestion.parentcontent.qIdx,
                           }
@@ -611,8 +572,6 @@ const QuestionTab = () => {
           key: id,
           qIdx: parentcontent.qIdx as number,
           ansIdx: parentcontent.optIdx as number,
-          parentQIdx:
-            parentcontent.qIdx && allQuestion[parentcontent.qIdx].qIdx,
         };
       }
 
@@ -632,7 +591,7 @@ const QuestionTab = () => {
           (con) => con.contentId === id || con.contentIdx === id
         )?.key ?? 0;
 
-      return { key, qIdx, ansIdx };
+      return { key, qIdx: allQuestion[qIdx].qIdx, ansIdx };
     },
     [allQuestion]
   );
@@ -740,7 +699,24 @@ const QuestionTab = () => {
   );
 
   const shouldShowConditionedQuestion = useCallback(
-    (questionData: ContentType): boolean => {
+    (
+      questionData: ContentType,
+      visited: Set<string | number> = new Set()
+    ): boolean => {
+      // Get the question ID early to check for cycles
+      const questionId =
+        questionData._id ??
+        `temp-question-${allQuestion.indexOf(questionData)}`;
+
+      // Prevent infinite recursion by checking if we've already visited this question
+      if (visited.has(questionId)) {
+        return true; // Break the cycle by assuming visible
+      }
+
+      // Add current question to visited set
+      const newVisited = new Set(visited);
+      newVisited.add(questionId);
+
       // First check if this question has a parent
       if (questionData.parentcontent) {
         const parentQuestionIndex = questionData.parentcontent.qIdx;
@@ -765,14 +741,11 @@ const QuestionTab = () => {
             return false;
           }
 
-          return shouldShowConditionedQuestion(parentQuestion);
+          return shouldShowConditionedQuestion(parentQuestion, newVisited);
         }
       }
 
-      // If no parent  is visible, check this question's own visibility
-      const questionId =
-        questionData._id ??
-        `temp-question-${allQuestion.indexOf(questionData)}`;
+      // If no parent is visible, check this question's own visibility
       const linkedQuestion = showLinkedQuestion?.find(
         (i) => i.question === questionId
       );

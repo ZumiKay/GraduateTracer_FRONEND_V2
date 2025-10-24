@@ -7,11 +7,12 @@ import { ErrorToast } from "../component/Modal/AlertModal";
 // Type definitions for formsession API requests
 export interface RespondentLoginProps extends Record<string, unknown> {
   formId: string;
-  email: string;
-  rememberMe: boolean;
+  email?: string;
+  rememberMe?: boolean;
   name?: string;
   password?: string;
   isGuest?: boolean;
+  existed?: string;
 }
 
 export interface UserRespondentLoginProps extends Record<string, unknown> {

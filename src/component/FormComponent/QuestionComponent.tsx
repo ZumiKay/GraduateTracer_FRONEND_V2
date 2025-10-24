@@ -347,15 +347,13 @@ const QuestionComponent = memo(
         </div>
         {!isNotConditioned &&
           conditionInfo.qIdx !== -1 &&
-          conditionInfo.parentQIdx &&
-          !isNaN(conditionInfo.qIdx) &&
-          !isNaN(conditionInfo.parentQIdx) && (
+          !isNaN(conditionInfo.qIdx) && (
             <div
               onClick={handleConditionScroll}
               style={{ backgroundColor: color }}
               className="condition_indicator w-fit p-2 rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200"
             >
-              {`Condition for Q${conditionInfo.parentQIdx} option ${
+              {`Condition for Q${conditionInfo.qIdx} option ${
                 conditionInfo.ansIdx + 1
               }`}
             </div>

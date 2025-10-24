@@ -1,7 +1,8 @@
-import { DateValue, RangeValue } from "@heroui/react";
+import { RangeValue } from "@heroui/react";
 import { Content, JSONContent } from "@tiptap/react";
 import {
   AnswerKeyPairValueType,
+  ContentAnswerType,
   SubmittionProcessionReturnType,
 } from "../component/Response/Response.type";
 
@@ -122,14 +123,7 @@ export interface ChoiceQuestionType {
 // Answer Key
 export interface AnswerKey {
   _id?: string;
-  answer:
-    | string
-    | number
-    | Date
-    | RangeType<Date>
-    | RangeType<DateValue>
-    | RangeType<number>
-    | Array<number>;
+  answer: ContentAnswerType;
   isCorrect?: boolean;
 }
 

@@ -99,7 +99,8 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
 
             {isQuestionVisible(question, index) &&
               hasChildren &&
-              !isExpanded && (
+              !isExpanded &&
+              question.children.length > 0 && (
                 <div
                   className="ml-8 my-1 py-1 px-2 text-xs text-gray-500 bg-gray-100 rounded-md inline-block cursor-pointer hover:bg-gray-200 transition-colors"
                   onClick={(e) => {
@@ -184,7 +185,8 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
                 <div className="mt-6 pt-2">
                   <Divider />
                   <div className="text-center text-xs text-gray-500 py-2">
-                    {questionHierarchy.length} top-level questions
+                    {questionHierarchy.length} top-level question
+                    {questionHierarchy.length !== 1 ? "s" : ""}
                   </div>
                 </div>
               )}
@@ -196,7 +198,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
       {isMobile && (
         <div className="p-3 border-t border-gray-200 bg-white/95 backdrop-blur flex justify-between items-center">
           <div className="text-xs text-gray-600">
-            {searchQuery && (
+            {searchQuery && questionHierarchy.length > 0 && (
               <span>
                 {questionHierarchy.length} result
                 {questionHierarchy.length !== 1 ? "s" : ""}

@@ -13,7 +13,7 @@ import {
   RangeType,
 } from "../../types/Form.types";
 import StyledTiptap from "../Response/components/StyledTiptap";
-import { useCallback, useMemo, memo, useEffect } from "react";
+import { useCallback, useMemo, memo } from "react";
 import {
   ChoiceAnswer,
   DateQuestionType,
@@ -52,10 +52,6 @@ const Respondant_Question_Card = memo(
       },
       [onSelectAnswer, isDisable]
     );
-
-    useEffect(() => {
-      console.log(content);
-    }, [content]);
 
     const contentTitle = useMemo(() => {
       if (content.parentcontent) {
@@ -208,12 +204,31 @@ const Respondant_Question_Card = memo(
       if (content.type !== QuestionType.RangeDate) return null;
 
       const value = content.rangedate;
+
+      const parseFlexibleDate = (dateStr: string): DateValue => {
+        try {
+          const cleanDateStr = dateStr
+            .replace(/\.\d{3}Z?$/, "")
+            .replace("Z", "");
+
+          // Extract just the date part
+          const datePart = cleanDateStr.split("T")[0];
+
+          return parseDate(datePart);
+        } catch (error) {
+          console.error("Error parsing date:", error, dateStr);
+          return now(getLocalTimeZone());
+        }
+      };
+
       const rangeData: RangeValue<DateValue> | undefined = value
         ? {
             start: value.start
-              ? parseDate(value.start)
+              ? parseFlexibleDate(value.start)
               : now(getLocalTimeZone()),
-            end: value.end ? parseDate(value.end) : now(getLocalTimeZone()),
+            end: value.end
+              ? parseFlexibleDate(value.end)
+              : now(getLocalTimeZone()),
           }
         : undefined;
 
@@ -224,8 +239,9 @@ const Respondant_Question_Card = memo(
           <DateRangeSelector
             rangvalue={rangeData as RangeValue<DateValue>}
             idx={idx}
-            value={answerKey.answer as never}
+            value={answerKey?.answer as never}
             onSelectionChange={handleAnswer}
+            label={`${content._id ?? content.qIdx} range date`}
           />
         )
       );

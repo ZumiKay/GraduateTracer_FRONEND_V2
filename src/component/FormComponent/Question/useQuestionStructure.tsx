@@ -80,55 +80,119 @@ export const useQuestionStructure = () => {
   ]);
 
   const buildQuestionHierarchy = useCallback(() => {
-    const hierarchy: Array<ContentType & { children: ContentType[] }> = [];
+    if (!enhancedFilteredQuestions.length) return [];
 
-    //Recursive Build Children
-    const buildChildren = (
-      parentId: string | number,
-      parentMapIdx?: number
-    ): Array<ContentType & { children: ContentType[] }> => {
-      //Get only question with parentContent
-      const children = enhancedFilteredQuestions.filter(
-        (q) =>
-          q.parentcontent &&
-          ((q.parentcontent.qId &&
-            parentId &&
-            q.parentcontent.qId.toString() === parentId.toString()) ||
-            (q.parentcontent.qIdx !== undefined &&
-              parentMapIdx !== undefined &&
-              q.parentcontent.qIdx === parentMapIdx))
-      );
+    // Create a map for quick lookup
+    const questionMap = new Map<
+      string | number,
+      ContentType & { children: ContentType[] }
+    >();
 
-      return children.map((child, index) => {
-        // Find the map index of this child
-        const childMapIdx = enhancedFilteredQuestions.findIndex((q) =>
-          q._id ? q._id === child._id : q === child
-        );
-
-        return {
-          ...child,
-          children: buildChildren(
-            child._id || `temp-child-${parentId}-${index}`,
-            childMapIdx >= 0 ? childMapIdx : undefined
-          ),
-        };
+    // Initialize all questions with empty children array
+    enhancedFilteredQuestions.forEach((question, index) => {
+      const questionId = question._id || `temp-question-${index}`;
+      questionMap.set(questionId, {
+        ...question,
+        children: [],
       });
-    };
+      // Also map by index if available
+      questionMap.set(index, {
+        ...question,
+        children: [],
+      });
+    });
+
+    // Build parent-child relationships
+    const rootQuestions: Array<ContentType & { children: ContentType[] }> = [];
+    const processedChildren = new Set<string | number>();
 
     enhancedFilteredQuestions.forEach((question, index) => {
+      const questionId = question._id || `temp-question-${index}`;
+      const questionNode = questionMap.get(questionId);
+
+      if (!questionNode) return;
+
+      // If no parent, it's a root question
       if (!question.parentcontent) {
-        hierarchy.push({
-          ...question,
-          children: buildChildren(
-            question._id || `temp-parent-${index}`,
-            index
-          ),
-        });
+        rootQuestions.push(questionNode);
+        return;
+      }
+
+      // Find parent and add this as a child
+      const parentId = question.parentcontent.qId;
+      const parentIdx = question.parentcontent.qIdx;
+
+      let parentNode: (ContentType & { children: ContentType[] }) | undefined;
+
+      // Try to find parent by ID first
+      if (parentId) {
+        parentNode = questionMap.get(parentId);
+      }
+
+      // Try to find parent by index if ID lookup failed
+      if (!parentNode && parentIdx !== undefined) {
+        parentNode = questionMap.get(parentIdx);
+      }
+
+      if (parentNode) {
+        // Check for circular reference before adding
+        const wouldCreateCycle = (
+          child: ContentType & { children: ContentType[] },
+          targetParentId: string | number
+        ): boolean => {
+          // Use BFS to check if adding this child would create a cycle
+          const queue: Array<ContentType & { children?: ContentType[] }> = [
+            ...child.children,
+          ];
+          const visited = new Set<string | number>();
+
+          while (queue.length > 0) {
+            const current = queue.shift();
+            if (!current) continue;
+
+            const currentId =
+              current._id ||
+              `temp-${allQuestion.indexOf(current as ContentType)}`;
+
+            if (visited.has(currentId)) continue;
+            visited.add(currentId);
+
+            if (currentId === targetParentId) {
+              return true; // Cycle detected
+            }
+
+            const children = (
+              current as ContentType & { children?: ContentType[] }
+            ).children;
+            if (Array.isArray(children) && children.length > 0) {
+              queue.push(...children);
+            }
+          }
+
+          return false;
+        };
+
+        const parentIdToCheck = parentNode._id || `temp-question-${parentIdx}`;
+
+        // Only add child if it doesn't create a cycle and hasn't been processed
+        if (
+          !wouldCreateCycle(questionNode, parentIdToCheck) &&
+          !processedChildren.has(questionId)
+        ) {
+          parentNode.children.push(questionNode);
+          processedChildren.add(questionId);
+        }
+      } else {
+        // Parent not found, treat as root
+        if (!processedChildren.has(questionId)) {
+          rootQuestions.push(questionNode);
+          processedChildren.add(questionId);
+        }
       }
     });
 
-    return hierarchy;
-  }, [enhancedFilteredQuestions]);
+    return rootQuestions;
+  }, [enhancedFilteredQuestions, allQuestion]);
 
   const questionHierarchy = useMemo(
     () => buildQuestionHierarchy(),

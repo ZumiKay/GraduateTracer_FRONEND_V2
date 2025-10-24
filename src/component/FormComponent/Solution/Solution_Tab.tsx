@@ -52,6 +52,7 @@ const Solution_Tab = memo(() => {
     useFormValidation();
 
   // Memoize the React Query configuration to prevent unnecessary re-renders
+
   const queryConfig = useMemo(
     () => ({
       queryKey: ["formTotalSummary", formstate._id],

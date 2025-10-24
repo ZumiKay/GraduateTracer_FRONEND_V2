@@ -1,5 +1,9 @@
 import { createSlice } from "@reduxjs/toolkit";
 
+/**
+ * Configuration type for the confirmation modal
+ * Used to display a confirmation dialog to the user
+ */
 export type ConfirmModalDataType = {
   open: boolean;
   data?: {

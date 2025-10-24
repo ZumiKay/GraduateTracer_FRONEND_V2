@@ -15,11 +15,10 @@ import {
   CalendarDate,
   CalendarDateTime,
   getLocalTimeZone,
-  now,
+  parseAbsoluteToLocal,
   parseDate,
-  today,
 } from "@internationalized/date";
-import { FormatDate } from "../../../helperFunc";
+import { convertDateValueToString } from "../../../helperFunc";
 
 interface AnswerComponent_Props<t> {
   onChange?: (val: t) => void;
@@ -197,6 +196,7 @@ export const DateQuestionType = (props: AnswerComponent_Props<string>) => {
         labelPlacement="outside-left"
         value={value}
         label={props.placeholder ?? "Date"}
+        granularity="day"
         visibleMonths={2}
         onChange={setvalue}
         isDisabled={props.isDisable}
@@ -212,19 +212,26 @@ export const DateRangePickerQuestionType = ({
   questionstate?: RangeValue<string>;
   setquestionstate: (name: string, val: string) => void;
 }) => {
-  const [value, setValue] = useState<RangeValue<DateValue> | null>({
-    start: today(getLocalTimeZone()),
-    end: today(getLocalTimeZone()),
+  const [value, setValue] = useState<RangeValue<DateValue | null>>({
+    start: null,
+    end: null,
   });
 
   // Initialize State
   useEffect(() => {
     if (questionstate?.start && questionstate?.end) {
-      const convertedRange: RangeValue<DateValue> = {
-        start: parseDate(questionstate.start),
-        end: parseDate(questionstate.end),
-      };
-      setValue(convertedRange);
+      try {
+        const convertedRange: RangeValue<DateValue> = {
+          start: parseAbsoluteToLocal(questionstate.start),
+          end: parseAbsoluteToLocal(questionstate.end),
+        };
+
+        console.log("Range Question Value", convertedRange);
+        setValue(convertedRange);
+      } catch (error) {
+        console.error("Error parsing date range:", error, { questionstate });
+        // Fallback to today if parsing fails
+      }
     }
   }, [questionstate]);
 
@@ -236,8 +243,7 @@ export const DateRangePickerQuestionType = ({
   const handleChangeDate = useCallback(
     (name: "start" | "end", val: CalendarDate | CalendarDateTime | null) => {
       if (val) {
-        const convertedVal = FormatDate(val.toDate(getLocalTimeZone()));
-        setquestionstate(name, convertedVal);
+        setquestionstate(name, convertDateValueToString(val));
       }
       setValue(
         (prev) => ({ ...(prev ?? {}), [name]: val } as RangeValue<DateValue>)
@@ -255,6 +261,7 @@ export const DateRangePickerQuestionType = ({
             label="Start Date"
             showMonthAndYearPickers
             hideTimeZone
+            granularity="day"
             labelPlacement="outside"
             onChange={(val) => handleChangeDate("start", val as never)}
             visibleMonths={2}
@@ -264,6 +271,7 @@ export const DateRangePickerQuestionType = ({
             label="End Date"
             labelPlacement="outside"
             showMonthAndYearPickers
+            granularity="day"
             hideTimeZone
             onChange={(val) => handleChangeDate("end", val as never)}
             visibleMonths={2}

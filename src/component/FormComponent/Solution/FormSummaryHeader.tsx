@@ -68,7 +68,7 @@ const FormSummaryHeader = memo(
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {loading ? (
               <div className="col-span-3 flex justify-center">
-                <CircularProgress size="sm" />
+                <CircularProgress aria-label="Loading progress" size="sm" />
               </div>
             ) : (
               <>

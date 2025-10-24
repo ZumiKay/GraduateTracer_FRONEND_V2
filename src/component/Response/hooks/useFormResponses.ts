@@ -75,6 +75,43 @@ export const useFormResponses = (questions: ContentType[]) => {
         return shouldShow;
       }
 
+      if (parentQuestion.type === QuestionType.Selection) {
+        const responseValue = parentResponse.response;
+
+        // Selection responses should only be numbers
+        let selectedIndex: number | undefined;
+
+        if (typeof responseValue === "number") {
+          selectedIndex = responseValue;
+        } else if (
+          typeof responseValue === "string" &&
+          !isNaN(Number(responseValue))
+        ) {
+          selectedIndex = Number(responseValue);
+        } else {
+          // Invalid response type for selection question
+          return false;
+        }
+
+        // Find the selected option in the selection array
+        const selectedOption = parentQuestion.selection?.find(
+          (option) =>
+            option.idx === selectedIndex || Number(option.idx) === selectedIndex
+        );
+
+        if (!selectedOption) {
+          return false;
+        }
+
+        // Compare with expected answer
+        const expectedAnswerNum = Number(expectedAnswer);
+        const shouldShow =
+          selectedOption.idx === expectedAnswerNum ||
+          Number(selectedOption.idx) === expectedAnswerNum;
+
+        return shouldShow;
+      }
+
       if (parentQuestion.type === QuestionType.CheckBox) {
         const responseValue = parentResponse.response;
         let selectedIndices: number[] = [];
@@ -189,9 +226,7 @@ export const useFormResponses = (questions: ContentType[]) => {
               updated.push({ question: question, response: updateValue });
             }
           });
-        }
-        // Handle single update (backward compatible)
-        else {
+        } else {
           const questionId = questionIdOrUpdates;
           const isQuestion = questions.find((i) => i._id === questionId);
 

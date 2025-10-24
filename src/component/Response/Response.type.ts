@@ -15,6 +15,15 @@ export type ResponseValueType =
   | Array<AnswerKeyPairValueType>
   | AnswerKeyPairValueType;
 
+export type ContentAnswerType =
+  | string
+  | number
+  | RangeValue<DateValue>
+  | RangeValue<string>
+  | RangeValue<number>
+  | RangeValue<string | null>
+  | Array<number>;
+
 export interface AnswerKeyPairValueType {
   key: number | number[];
   val: string | string[];
@@ -74,7 +83,6 @@ export interface ResponseDataType {
 
 export interface RespondentSessionType {
   isActive: boolean;
-  isSwitchedUser?: boolean;
   session_id?: string;
   alert?: boolean;
   respondentinfo?: RespondentInfoType;
