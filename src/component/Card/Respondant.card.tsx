@@ -30,20 +30,11 @@ interface TextCardProps {
   onSelectAnswer?: (val: Pick<AnswerKey, "answer">) => void;
   ty?: "result" | "form";
   idx: number;
-  parentQIdx?: number;
   isDisable?: boolean;
 }
 
 const Respondant_Question_Card = memo(
-  ({
-    content,
-    color,
-    ty,
-    onSelectAnswer,
-    idx,
-    isDisable,
-    parentQIdx,
-  }: TextCardProps) => {
+  ({ content, color, ty, onSelectAnswer, idx, isDisable }: TextCardProps) => {
     const handleAnswer = useCallback(
       (ans: unknown) => {
         if (onSelectAnswer && !isDisable) {
@@ -55,12 +46,12 @@ const Respondant_Question_Card = memo(
 
     const contentTitle = useMemo(() => {
       if (content.parentcontent) {
-        return `Question ${content.qIdx} (Sub of Q-${parentQIdx} option ${
-          content.parentcontent.optIdx + 1
-        })`;
+        return `Question ${content.qIdx} (Sub of Q-${
+          content.parentcontent.qIdx
+        } option ${content.parentcontent.optIdx + 1})`;
       }
       return `Question ${content.qIdx ?? idx + 1}`;
-    }, [content.parentcontent, content.qIdx, idx, parentQIdx]);
+    }, [content.parentcontent, content.qIdx, idx]);
 
     const questionTypeLabel = useMemo(() => {
       switch (content.type) {

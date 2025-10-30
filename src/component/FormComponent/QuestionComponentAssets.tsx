@@ -1,17 +1,15 @@
-import { useSelector } from "react-redux";
 import {
   ChoiceQuestionType,
   ConditionalType,
   ContentType,
   QuestionType,
 } from "../../types/Form.types";
-import { RootState } from "../../redux/store";
-import { ErrorToast } from "../Modal/AlertModal";
 import { CustomCheckBox, CustomRadio, RenderDropDownMenu } from "./Input";
 import { Button, Input, NumberInput, RangeValue } from "@heroui/react";
 
 import { DeleteIcon } from "../svg/GeneralIcon";
 import { useCallback, useState, useEffect } from "react";
+import { ErrorToast } from "../Modal/AlertModal";
 
 interface ChoiceQuestionProps {
   condition?: ConditionalType;
@@ -21,7 +19,7 @@ interface ChoiceQuestionProps {
   onAddCondition?: (answeridx: number) => void;
   removeCondition?: (answeridx: number, ty: "delete" | "unlink") => void;
   isLinked?: (ansidx: number) => boolean;
-  handleScrollTo?: (key: string) => void;
+  handleScrollTo?: (key: number) => void;
 }
 
 export const ChoiceQuestionEdit = ({
@@ -33,10 +31,6 @@ export const ChoiceQuestionEdit = ({
   handleScrollTo,
   isLinked,
 }: ChoiceQuestionProps) => {
-  const allquestion = useSelector(
-    (root: RootState) => root.allform.allquestion
-  );
-
   const isMultipleChoice = type === QuestionType.MultipleChoice;
   const optionKey = isMultipleChoice ? "multiple" : "checkbox";
   const options = (questionstate[optionKey] as Array<ChoiceQuestionType>) || [];
@@ -68,39 +62,31 @@ export const ChoiceQuestionEdit = ({
     setquestionsate({ [optionKey]: updatedOptions });
   };
 
-  const handleScrolllToQuestion = (ansidx: number) => {
-    if (!handleScrollTo) return;
-
-    const question = allquestion.find((q) => q._id === questionstate._id);
-    const linkedContentId = question?.conditional?.find(
-      (c) => c.key === ansidx
-    );
-
-    if (!linkedContentId) {
-      ErrorToast({ title: "Failed", content: "Can't Find Question" });
-      return;
-    }
-
-    const linkedQuestion = allquestion.findIndex((q, idx) =>
-      q._id
-        ? q._id === linkedContentId.contentId
-        : linkedContentId.contentIdx === idx
-    );
-
-    if (linkedQuestion !== -1) {
-      handleScrollTo(
-        `${allquestion[linkedQuestion].type}${
-          allquestion[linkedQuestion]._id ?? linkedQuestion
-        }`
+  const handleOptionScrollTo = useCallback(
+    (key: number) => {
+      if (!handleScrollTo) return;
+      const isQuestion = questionstate.conditional?.find(
+        (cond) => cond.key === key
       );
-    } else {
-      ErrorToast({ title: "Failed", content: "Can't Find Question" });
-    }
-  };
+      if (!isQuestion || !isQuestion.contentIdx) {
+        ErrorToast({
+          toastid: "Unique scroll to opt question",
+          title: "Error",
+          content: "Question not found",
+        });
+        return;
+      }
+
+      console.log({ isQuestion });
+
+      handleScrollTo(isQuestion.contentIdx);
+    },
+    [handleScrollTo, questionstate.conditional]
+  );
 
   const renderOption = (option: ChoiceQuestionType, idx: number) => {
     const commonProps = {
-      key: `Question${allquestion.indexOf(questionstate)}${optionKey}${idx}`,
+      key: `Question${questionstate.qIdx}${optionKey}${idx}`,
       idx,
       isLink: isLinked?.(idx),
       value: option.content,
@@ -109,7 +95,7 @@ export const ChoiceQuestionEdit = ({
       onDelete: () => handleDeleteOption(idx),
       addConditionQuestion: () => onAddCondition?.(idx),
       removeConditionQuestion: () => removeCondition?.(idx, "unlink"),
-      handleScrollTo: () => handleScrolllToQuestion(idx),
+      handleScrollTo: () => handleOptionScrollTo(idx),
     };
 
     return isMultipleChoice ? (
@@ -142,11 +128,8 @@ export const SelectionQuestionEdit = ({
   onAddCondition?: (answeridx: number) => void;
   removeCondition?: (answeridx: number, ty: "delete" | "unlink") => void;
   isLinked?: (ansidx: number) => boolean;
-  handleScrollTo?: (key: string) => void;
+  handleScrollTo?: (key: number) => void;
 }) => {
-  const allquestion = useSelector(
-    (root: RootState) => root.allform.allquestion
-  );
   const handleConditionQuestion = (ansidx: number) => {
     if (isLinked && isLinked(ansidx)) {
       if (removeCondition) removeCondition(ansidx, "unlink");
@@ -168,6 +151,26 @@ export const SelectionQuestionEdit = ({
 
     removeCondition?.(didx, "delete");
   };
+
+  const handleOptionScrollTo = useCallback(
+    (key: number) => {
+      if (!handleScrollTo) return;
+      const isQuestion = state.conditional?.find((cond) => cond.key === key);
+      if (!isQuestion || !isQuestion.contentIdx) {
+        ErrorToast({
+          toastid: "Unique scroll to opt question",
+          title: "Error",
+          content: "Question not found",
+        });
+        return;
+      }
+
+      console.log({ isQuestion });
+
+      handleScrollTo(isQuestion.contentIdx);
+    },
+    [handleScrollTo, state.conditional]
+  );
 
   return (
     <div className="w-full h-fit flex flex-col items-start gap-y-5">
@@ -207,12 +210,9 @@ export const SelectionQuestionEdit = ({
             <RenderDropDownMenu
               handleConditionQuestion={() => handleConditionQuestion(idx)}
               isLink={!!isLinked?.(idx)}
-              handleScrollTo={() =>
-                handleScrollTo &&
-                handleScrollTo(
-                  `${QuestionType.Selection}${allquestion.indexOf(state)}`
-                )
-              }
+              handleScrollTo={() => {
+                handleOptionScrollTo(idx);
+              }}
             />
           </li>
         ))}

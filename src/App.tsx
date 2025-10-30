@@ -11,7 +11,7 @@ import ReplaceSessionPage from "./pages/ReplaceSession";
 const AuthenticationPage = lazy(() => import("./pages/Authentication"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const FilledFormPage = lazy(() => import("./pages/FilledFormPage"));
-const NavigationBar = lazy(() => import("./component/nav/Navigationbar"));
+const NavigationBar = lazy(() => import("./component/Navigator/Navigationbar"));
 const SettingModal = lazy(() => import("./component/Modal/Setting.modal"));
 const FormPage = lazy(() => import("./pages/FormPage"));
 const UserResponsesPage = lazy(() => import("./pages/UserResponsesPage"));

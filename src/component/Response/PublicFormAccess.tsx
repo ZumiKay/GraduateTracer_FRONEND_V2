@@ -125,12 +125,17 @@ function formStateReducer(state: FormState, action: FormAction): FormState {
 }
 
 /* --------------------------- Hook and Utilities --------------------------- */
-const useFormInitialization = (
-  formId: string | undefined,
-  user: RootState["usersession"],
-  dispatch: React.Dispatch<FormAction>,
-  onSessionExpired?: (data: GuestData) => void
-) => {
+const useFormInitialization = ({
+  formId,
+  user,
+  dispatch,
+  onSessionExpired,
+}: {
+  formId: string | undefined;
+  user: RootState["usersession"];
+  dispatch: React.Dispatch<FormAction>;
+  onSessionExpired?: (data: GuestData) => void;
+}) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const { useSessionVerification } = useFormsessionAPI();
@@ -220,7 +225,6 @@ const useFormInitialization = (
     initializeForm();
   }, [
     formId,
-    user.user?.email,
     user.isAuthenticated,
     dispatch,
     user.user,
@@ -269,21 +273,13 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     setShowExpiredAlert(true);
   }, []);
 
-  const handleContinueSession = useCallback(() => {
-    // Handler left empty as requested
-  }, []);
-
-  const handleTerminateSession = useCallback(() => {
-    // Handler left empty as requested
-  }, []);
-
   // Initialize form state and track completion
-  const { isInitialized, isInitializing } = useFormInitialization(
+  const { isInitialized, isInitializing } = useFormInitialization({
     formId,
     user,
     dispatch,
-    handleSessionExpired
-  );
+    onSessionExpired: handleSessionExpired,
+  });
 
   useEffect(() => {
     if (!formId) {
@@ -292,7 +288,40 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   }, [formId, navigate]);
 
   // API hooks
-  const { respondentLogin, signOut, error } = useFormsessionAPI();
+  const { respondentLogin, signOut, error, useManuallySessionVeriftication } =
+    useFormsessionAPI();
+  const manuallyCheckSession = useManuallySessionVeriftication(formId);
+
+  const handleContinueSession = useCallback(async () => {
+    try {
+      const asyncContinueSession = await manuallyCheckSession.mutateAsync();
+
+      if (!asyncContinueSession.success) {
+        ErrorToast({
+          toastid: "session-continue-error",
+          title: "Session Verification Failed",
+          content:
+            asyncContinueSession.message ||
+            "Failed to verify session. Please try again.",
+        });
+        return;
+      }
+
+      // Session valid - dismiss expired alert and continue
+      setShowExpiredAlert(false);
+      setExpiredSessionData(null);
+    } catch (error) {
+      console.error("Session continuation error:", error);
+      ErrorToast({
+        toastid: "session-continue-exception",
+        title: "Error",
+        content:
+          error instanceof Error
+            ? error.message
+            : "An error occurred while verifying your session. Please try again.",
+      });
+    }
+  }, [manuallyCheckSession]);
 
   // Only enable form data fetching after initialization is complete
   const formDataEnabled = Boolean(isInitialized && formId);
@@ -957,11 +986,18 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
                 <Button
                   variant="bordered"
                   color="default"
+                  isLoading={manuallyCheckSession.isPending}
+                  isDisabled={signOut.isPending}
                   onPress={handleContinueSession}
                 >
                   Continue Session
                 </Button>
-                <Button color="warning" onPress={handleTerminateSession}>
+                <Button
+                  isDisabled={manuallyCheckSession.isPending}
+                  color="warning"
+                  isLoading={signOut.isPending}
+                  onPress={handleSwitchUser}
+                >
                   Start Fresh
                 </Button>
               </div>

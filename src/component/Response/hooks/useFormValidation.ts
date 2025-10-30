@@ -5,7 +5,7 @@ import { FormResponse } from "./useFormResponses";
 /**
  * Hook for validating form responses with comprehensive validation logic
  *
- * Features:
+ *
  * - Validates required questions by type
  * - Handles conditional question visibility
  * - Provides detailed validation messages
@@ -36,13 +36,8 @@ export const useFormValidation = (
 
         case QuestionType.MultipleChoice:
         case QuestionType.Selection:
-          if (typeof value === "string") return value.trim() === "";
-          if (typeof value === "number") return isNaN(value);
-          if (typeof value === "boolean") return false; // Boolean is valid selection
-          if (typeof value === "object") {
-            return Object.keys(value).length === 0;
-          }
-          return true; // If none of the above, consider it empty
+          return typeof value !== "number" || isNaN(value);
+          break;
 
         case QuestionType.ShortAnswer:
         case QuestionType.Paragraph:

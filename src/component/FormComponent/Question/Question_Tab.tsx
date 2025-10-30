@@ -69,7 +69,6 @@ const QuestionTab = () => {
           state: "confirm",
           value: {
             open: true,
-
             data: {
               question:
                 "You have unsaved questions. Please save them before proceeding.",
@@ -596,12 +595,31 @@ const QuestionTab = () => {
     [allQuestion]
   );
 
-  const scrollToDiv = useCallback((key: string) => {
-    const element = componentRefs.current[key];
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, []);
+  const scrollToDiv = useCallback(
+    ({ questionIdx }: { questionIdx: number }) => {
+      const targetQuestionType = { ...allQuestion[questionIdx] };
+
+      if (!targetQuestionType) {
+        ErrorToast({
+          toastid: "Unique ScrollToDiv",
+          title: "Error",
+          content: "Can't Find Question",
+        });
+        return;
+      }
+      const key = `${targetQuestionType.type}${
+        targetQuestionType._id ?? questionIdx
+      }`;
+
+      console.log({ key });
+
+      const element = componentRefs.current[key];
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    },
+    [allQuestion]
+  );
 
   const handlePageInternal = useCallback(
     async (type: "add" | "delete", deletepage?: number) => {
@@ -690,7 +708,7 @@ const QuestionTab = () => {
 
       handlePageInternal(type, deletepage);
     },
-    [hasUnsavedQuestions, showSaveConfirmation, handlePageInternal]
+    [handlePageInternal, hasUnsavedQuestions, showSaveConfirmation]
   );
 
   const questionColor = useMemo(
@@ -849,7 +867,9 @@ const QuestionTab = () => {
                       removeConditionedQuestion(answeridx, idx, ty)
                     }
                     onDuplication={() => handleDuplication(idx)}
-                    scrollToCondition={scrollToDiv}
+                    scrollToCondition={(targetIdx) =>
+                      scrollToDiv({ questionIdx: targetIdx })
+                    }
                     isConditioned={() =>
                       checkConditionedContent(
                         question._id ?? idx,

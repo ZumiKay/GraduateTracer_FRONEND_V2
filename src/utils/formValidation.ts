@@ -3,6 +3,8 @@ import { ContentType } from "../types/Form.types";
 /**
  * Check for unsaved questions in admin form builder (Question Tab)
  * This checks for structural changes to the form, not required field validation
+ * @params allquestion , prevAllQuestion , currentPage
+ * @returns boolean
  */
 export const checkUnsavedQuestions = (
   allQuestion: ContentType[],
@@ -26,14 +28,12 @@ export const checkUnsavedQuestions = (
   return currentPageQuestions.some((currentQ, index) => {
     const prevQ = prevPageQuestions[index];
 
-    // If no corresponding previous question, it's new
     if (!prevQ) {
       return true;
     }
 
-    // Compare key properties to detect structural changes
-    // Note: We compare require field as it's part of form structure
     return (
+      currentPageQuestions.some((i) => !i._id) ||
       JSON.stringify(currentQ.title) !== JSON.stringify(prevQ.title) ||
       currentQ.type !== prevQ.type ||
       currentQ.require !== prevQ.require ||

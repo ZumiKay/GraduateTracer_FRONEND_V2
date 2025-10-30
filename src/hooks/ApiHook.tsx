@@ -51,6 +51,10 @@ export interface ApiRequestReturnType {
   error?: string; // Enhanced error field for specific error codes/types
   status?: number;
   reactQuery?: boolean;
+  session?: {
+    isExpired?: boolean;
+    isValid?: boolean;
+  };
   pagination?: {
     currentPage: number;
     totalPages: number;

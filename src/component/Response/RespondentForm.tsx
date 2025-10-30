@@ -62,6 +62,8 @@ import { useMutation } from "@tanstack/react-query";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
 import { generateStorageKey } from "../../helperFunc";
 import { RespondentInfo } from "./components/RespondentInfo";
+import { useDispatch } from "react-redux";
+import { setopenmodal } from "../../redux/openmodal";
 
 const uniqueToastId = "respondentFormUniqueToastId";
 
@@ -119,25 +121,32 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       totalPages,
     } = data;
 
+    const dispatch = useDispatch();
+
     const questions = useMemo(
       () => formState?.contents || [],
       [formState?.contents]
     );
 
     const { responses, updateResponse, checkIfQuestionShouldShow } =
-      useFormResponses(questions);
+      useFormResponses(
+        questions,
+        formState?._id as string,
+        formSessionInfo.respondentEmail
+      );
 
     const { isPageComplete, validateForm } = useFormValidation(
       checkIfQuestionShouldShow
     );
 
     const [submitting, setSubmitting] = useState(false);
-    const [clearStorage, setclearStorage] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [submissionResult, setSubmissionResult] =
       useState<SubmittionProcessionReturnType | null>(null);
     const [progressLoaded, setProgressLoaded] = useState(false);
+    const [respondentInfo, setRespondentInfo] =
+      useState<RespondentInfoType>(formSessionInfo);
 
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -367,30 +376,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       return false;
     }, [formState?._id, progressStorageKey, updateResponse, goToPage, data]);
 
-    const clearProgressFromStorage = useCallback(() => {
-      if (!progressStorageKey) return;
-
-      try {
-        localStorage.removeItem(progressStorageKey);
-        if (import.meta.env.DEV) {
-          console.log(
-            "Progress cleared from localStorage:",
-            progressStorageKey
-          );
-        }
-      } catch (error) {
-        console.error("Failed to clear progress from localStorage:", error);
-      }
-    }, [progressStorageKey]);
-
     useEffect(() => {
-      if (clearStorage) {
-        clearProgressFromStorage();
-      }
-    }, [clearProgressFromStorage, clearStorage]);
-
-    useEffect(() => {
-      if (questions.length > 0 && formState?._id && !clearStorage) {
+      if (questions.length > 0 && formState?._id) {
         const questionsWithoutIds = questions.filter((q) => !q._id);
         if (questionsWithoutIds.length > 0) {
           return;
@@ -412,15 +399,15 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           formId: formState?._id,
         });
       }
-    }, [clearStorage, formState?._id, loadProgressFromStorage, questions]);
+    }, [formState?._id, loadProgressFromStorage, questions]);
 
     useEffect(() => {
       if (
         formState?._id &&
         questions.length > 0 &&
         progressLoaded &&
-        !clearStorage &&
-        (accessMode === "guest" || isUserActive) // Only auto-save for guests or active users
+        (accessMode === "guest" || isUserActive) && // Only auto-save for guests or active users
+        !submitting
       ) {
         debouncedSaveProgress();
       }
@@ -431,7 +418,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       progressLoaded,
       formState?._id,
       submitting,
-      clearStorage,
       debouncedSaveProgress,
       accessMode,
       isUserActive,
@@ -458,7 +444,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         }
       };
 
-      if (!clearStorage) {
+      if (!submitting) {
         window.addEventListener("beforeunload", handleBeforeUnload);
         document.addEventListener("visibilitychange", handleVisibilityChange);
       }
@@ -470,7 +456,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           handleVisibilityChange
         );
       };
-    }, [clearStorage, saveProgressToStorage]);
+    }, [saveProgressToStorage, submitting]);
 
     //Apply the style setting to the form
 
@@ -501,33 +487,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       };
     }, [formState?.setting]);
 
-    const handlePageChange = useCallback(
-      (newPage: number) => {
-        saveProgressToStorage({ currentPage: newPage });
-        goToPage(newPage);
-      },
-      [saveProgressToStorage, goToPage]
-    );
-
-    // Navigation handlers
-    const handleNext = useCallback(() => {
-      if (canGoNext && currentPage) {
-        saveProgressToStorage({
-          currentPage: currentPage < totalPages ? currentPage + 1 : 1,
-        });
-        handlePage("next");
-      }
-    }, [canGoNext, currentPage, saveProgressToStorage, totalPages, handlePage]);
-
-    const handlePrevious = useCallback(() => {
-      if (canGoPrev && currentPage) {
-        saveProgressToStorage({
-          currentPage: currentPage === 1 ? 1 : currentPage - 1,
-        });
-        handlePage("prev");
-      }
-    }, [canGoPrev, currentPage, handlePage, saveProgressToStorage]);
-
     const getCurrentPageQuestions = useCallback(() => {
       const validQuestions = questions.filter((question) => {
         if (!question._id) {
@@ -548,6 +507,60 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
       return visibleQuestions;
     }, [questions, checkIfQuestionShouldShow, responses]);
+
+    const currentQuestions = getCurrentPageQuestions();
+    const currentPageComplete = isPageComplete(currentQuestions, responses);
+
+    const handlePageChange = useCallback(
+      (newPage: number) => {
+        const proceed = () => {
+          saveProgressToStorage({ currentPage: newPage });
+          goToPage(newPage);
+        };
+
+        if (!currentPageComplete) {
+          dispatch(
+            setopenmodal({
+              state: "confirm",
+              value: {
+                open: true,
+                data: {
+                  question: "Please fill in required question before procceed",
+                  onAgree: () => proceed(),
+                  btn: {
+                    agree: "Proceed",
+                    disagree: "Close",
+                  },
+                },
+              },
+            })
+          );
+          return;
+        }
+
+        proceed();
+      },
+      [currentPageComplete, saveProgressToStorage, goToPage, dispatch]
+    );
+
+    // Navigation handlers
+    const handleNext = useCallback(() => {
+      if (canGoNext && currentPage) {
+        saveProgressToStorage({
+          currentPage: currentPage < totalPages ? currentPage + 1 : 1,
+        });
+        handlePage("next");
+      }
+    }, [canGoNext, currentPage, saveProgressToStorage, totalPages, handlePage]);
+
+    const handlePrevious = useCallback(() => {
+      if (canGoPrev && currentPage) {
+        saveProgressToStorage({
+          currentPage: currentPage === 1 ? 1 : currentPage - 1,
+        });
+        handlePage("prev");
+      }
+    }, [canGoPrev, currentPage, handlePage, saveProgressToStorage]);
 
     const handleQuestionAnswer = useCallback(
       (questionId: string, answer: Pick<AnswerKey, "answer">) => {
@@ -612,6 +625,13 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       [questions, updateResponse]
     );
 
+    const handleRespondentInfoChange = useCallback(
+      (updatedInfo: RespondentInfoType) => {
+        setRespondentInfo(updatedInfo);
+      },
+      []
+    );
+
     const handleSubmit = async () => {
       if (!formState || !progressStorageKey) {
         ErrorToast({
@@ -621,6 +641,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         });
         return;
       }
+
+      //Load progress from storage
       const savedData = localStorage.getItem(progressStorageKey);
       const prevQuestion =
         savedData && (JSON.parse(savedData) as SaveProgressType);
@@ -700,26 +722,18 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         return;
       }
 
-      setclearStorage(true);
-
       try {
         setSubmitting(true);
         setError(null);
 
         const result = (await ApiRequest({
-          url: `response/submit-response`,
+          url: `response/submit-response/${formState._id}`,
           method: "POST",
+          cookie: true,
           data: {
-            formInfo: {
-              _id: formState._id,
-              type: formState.type,
-            },
-            responseSet: ToSubmitQuestion.map((r) => ({
-              question: r.question,
-              response: r.response,
-            })),
-            respondentEmail: formSessionInfo?.respondentEmail,
-            respondentName: formSessionInfo?.respondentName,
+            responseSet: ToSubmitQuestion,
+            respondentEmail: respondentInfo?.respondentEmail,
+            respondentName: respondentInfo?.respondentName,
           },
         })) as ApiRequestReturnType;
 
@@ -730,7 +744,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             setSubmissionResult(data);
           }
 
-          setclearStorage(true);
+          //Remove progressStorage
+          window.localStorage.removeItem(progressStorageKey);
           setSuccess(true);
         } else {
           setError(result.error || "Failed to submit form");
@@ -877,9 +892,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     if (!formState) return null;
 
-    const currentQuestions = getCurrentPageQuestions();
-    const currentPageComplete = isPageComplete(currentQuestions, responses);
-
     return (
       <div className="max-w-4xl mx-auto p-6 min-h-screen respondent-form">
         {/* User Activity Status Indicator */}
@@ -921,7 +933,10 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         )}
 
         {formState && formState._id && currentPage === 1 && formSessionInfo && (
-          <RespondentInfo respondentInfo={formSessionInfo} />
+          <RespondentInfo
+            respondentInfo={respondentInfo}
+            onRespondentInfoChange={handleRespondentInfoChange}
+          />
         )}
 
         <div className="space-y-6">

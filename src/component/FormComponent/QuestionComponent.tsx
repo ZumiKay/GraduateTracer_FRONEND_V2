@@ -43,7 +43,7 @@ interface QuestionComponentProps {
   onAddCondition?: (answeridx: number) => void;
   removeCondition?: (answeridx: number, ty: "delete" | "unlink") => void;
   onDuplication: () => void;
-  scrollToCondition?: (key: string) => void;
+  scrollToCondition?: (key: number) => void;
   isConditioned: () => {
     key: string;
     qIdx: number;
@@ -183,8 +183,8 @@ const QuestionComponent = memo(
     }, [
       value,
       isLinked,
-      onAddCondition,
       onUpdateState,
+      onAddCondition,
       removeCondition,
       scrollToCondition,
     ]);
@@ -234,10 +234,6 @@ const QuestionComponent = memo(
       (val: boolean) => onUpdateState({ require: val }),
       [onUpdateState]
     );
-
-    const handleConditionScroll = useCallback(() => {
-      scrollToCondition?.(conditionInfo.key);
-    }, [scrollToCondition, conditionInfo.key]);
 
     const handleShowLinkedQuestions = useCallback(() => {
       const currentState = allshowLinkedQuestions ?? [];
@@ -349,7 +345,6 @@ const QuestionComponent = memo(
           conditionInfo.qIdx !== -1 &&
           !isNaN(conditionInfo.qIdx) && (
             <div
-              onClick={handleConditionScroll}
               style={{ backgroundColor: color }}
               className="condition_indicator w-fit p-2 rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200"
             >

@@ -94,11 +94,11 @@ export const ChoiceAnswer = (props: AnswerComponent_Props<number>) => {
 export const RangeNumberAnswer = (
   props: AnswerComponent_Props<RangeType<number>>
 ) => {
-  const questionRange = props.value;
+  const { value: questionRange, onChange, previousAnswer } = props;
 
   const [userSelection, setUserSelection] = useState<SliderValue>(() => {
-    if (props.previousAnswer) {
-      return [props.previousAnswer.start, props.previousAnswer.end];
+    if (previousAnswer) {
+      return [previousAnswer.start, previousAnswer.end];
     } else if (questionRange) {
       return [questionRange.start, questionRange.end];
     }
@@ -106,19 +106,19 @@ export const RangeNumberAnswer = (
   });
 
   useEffect(() => {
-    if (props.onChange && questionRange) {
+    if (onChange && questionRange) {
       // Send back the user's selected range
       const val = userSelection as number[];
-      props.onChange({ start: val[0], end: val[1] });
+      onChange({ start: val[0], end: val[1] });
     }
-  }, [props, questionRange, userSelection]);
+  }, [onChange, questionRange, userSelection]);
 
   // Update selection when question range changes, but preserve user selection if they have one
   useEffect(() => {
-    if (questionRange && !props.previousAnswer) {
+    if (questionRange && !previousAnswer) {
       setUserSelection([questionRange.start, questionRange.start]);
     }
-  }, [questionRange, props.previousAnswer]);
+  }, [questionRange, previousAnswer]);
 
   return (
     <div className="w-full h-fit flex flex-col items-center gap-y-3">
@@ -176,18 +176,20 @@ export const RangeNumberAnswer = (
 };
 
 export const DateQuestionType = (props: AnswerComponent_Props<string>) => {
+  const { onChange, value: initialValue, placeholder, isDisable } = props;
+
   const [value, setvalue] = useState<DateValue | null>(() => {
-    if (props.value) {
-      return parseDate(props.value);
+    if (initialValue) {
+      return parseDate(initialValue);
     }
     return null;
   });
 
   useEffect(() => {
-    if (props.onChange && value) {
-      props.onChange(value.toDate(getLocalTimeZone()).toISOString());
+    if (onChange && value) {
+      onChange(value.toDate(getLocalTimeZone()).toISOString());
     }
-  }, [props, value]);
+  }, [onChange, value]);
 
   return (
     <div className="flex w-full flex-wrap md:flex-nowrap gap-4">
@@ -195,11 +197,11 @@ export const DateQuestionType = (props: AnswerComponent_Props<string>) => {
         size="lg"
         labelPlacement="outside-left"
         value={value}
-        label={props.placeholder ?? "Date"}
+        label={placeholder ?? "Date"}
         granularity="day"
         visibleMonths={2}
         onChange={setvalue}
-        isDisabled={props.isDisable}
+        isDisabled={isDisable}
       />
     </div>
   );

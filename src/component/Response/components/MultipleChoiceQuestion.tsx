@@ -7,7 +7,7 @@ interface MultipleChoiceQuestionProps {
   question: ContentType;
   idx: number;
   currentResponse?: ResponseValue;
-  updateResponse: (questionId: string, value: ResponseValue) => void;
+  updateResponse: (questionId: string, value?: ResponseValue) => void;
 }
 
 export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
@@ -47,7 +47,7 @@ export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
         {currentResponse !== "" ? (
           <button
             type="button"
-            onClick={() => updateResponse(question._id ?? "", "")}
+            onClick={() => question._id && updateResponse(question._id, "")}
             className="clear-button"
           >
             Clear Selection

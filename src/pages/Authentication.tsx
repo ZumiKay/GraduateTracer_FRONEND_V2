@@ -29,7 +29,7 @@ import SuccessToast, {
   ErrorToast,
   InfoToast,
 } from "../component/Modal/AlertModal";
-import RecaptchaButton from "../component/FormComponent/Recapcha";
+import RecaptchaButton from "../component/FormComponent/recapcha";
 import ReactDomSever from "react-dom/server";
 import EmailTemplate from "../component/FormComponent/EmailTemplate";
 import { useDispatch } from "react-redux";
@@ -791,7 +791,7 @@ export default function AuthenticationPage() {
       {/* Footer */}
       <div className="mt-8 text-center space-y-2">
         <p className="text-white/70 text-sm">
-          © 2024 Graduate Tracer. All rights reserved.
+          {`© ${new Date().getFullYear()} Graduate Tracer. All rights reserved.`}
         </p>
         <div className="flex items-center justify-center gap-4 text-xs text-white/60">
           <span>Secure Login</span>

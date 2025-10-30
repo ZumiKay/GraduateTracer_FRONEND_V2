@@ -3,9 +3,14 @@ import { FormDataType } from "../../../types/Form.types";
 import { useQuery } from "@tanstack/react-query";
 import ApiRequest, { ApiRequestReturnType } from "../../../hooks/ApiHook";
 import { useNavigate } from "react-router";
-import { RespondentInfoType, RespondentSessionType } from "../Response.type";
+import {
+  RespondentInfoType,
+  RespondentSessionType,
+  SaveProgressType,
+} from "../Response.type";
 import { SessionVerificationResponse } from "../../../hooks/useFormsessionAPI";
 import { SessionState } from "../../../redux/user.store";
+import { generateStorageKey } from "../../../helperFunc";
 
 export type accessModeType = "login" | "guest" | "authenticated" | "error";
 type fetchtype = "data" | "initial";
@@ -14,7 +19,7 @@ export type UseRespondentFormPaginationReturn = {
   isLoading: boolean;
   handlePage: (direction: "prev" | "next") => void;
   formState: FormDataType | undefined;
-  currentPage: number | undefined;
+  currentPage: number | null;
   goToPage: (page: number) => void;
   canGoNext: boolean | undefined;
   canGoPrev: boolean | undefined;
@@ -60,12 +65,46 @@ const useRespondentFormPaginaition = ({
   enabled = false,
 }: useRespondentFormPaginationProps): UseRespondentFormPaginationReturn => {
   const navigate = useNavigate();
-  const [currentPage, setcurrentPage] = useState(1);
+  const [currentPage, setcurrentPage] = useState<number | null>(null);
   const [fetchType, setfetchType] = useState<fetchtype>("initial");
   const [localformsession, setlocalformsession] =
     useState<RespondentSessionType>();
   const accessModeRef = useRef(accessMode);
   accessModeRef.current = accessMode;
+
+  // Memoize storage key to avoid recalculation
+  const storageKey = useMemo(
+    () =>
+      formId && formsession?.respondentinfo?.respondentEmail
+        ? generateStorageKey({
+            suffix: "progress",
+            formId,
+            userKey: formsession.respondentinfo.respondentEmail,
+          })
+        : null,
+    [formId, formsession?.respondentinfo?.respondentEmail]
+  );
+
+  // Memoize localStorage retrieval
+  const savedPageData = useMemo(() => {
+    if (!storageKey) return null;
+    try {
+      const storedData = localStorage.getItem(storageKey);
+      return storedData ? (JSON.parse(storedData) as SaveProgressType) : null;
+    } catch (error) {
+      console.error("Failed to parse saved page data:", error);
+      return null;
+    }
+  }, [storageKey]);
+
+  //Page Inititalize
+  useEffect(() => {
+    if (savedPageData?.currentPage) {
+      setcurrentPage(savedPageData.currentPage);
+    } else {
+      setcurrentPage(1);
+    }
+  }, [savedPageData]);
 
   // Debounce formsession updates to prevent rapid changes
   const stableFormsession = useMemo(() => {
@@ -94,39 +133,56 @@ const useRespondentFormPaginaition = ({
       ty,
       formId,
     }: {
-      page: number;
+      page: number | null;
       ty: fetchtype;
       formId?: string;
     }): Promise<FetchContentReturnType | null> => {
-      // Check the passed formsession parameter instead of closure
+      // Validate required parameters early
       if (!formId) {
         return Promise.reject(new Error("FormId is missing"));
       }
 
-      const paramObj: Record<string, string> = {
-        p: page.toString(),
-        ty,
-      };
-
-      const params = new URLSearchParams(paramObj);
-
-      const getData = await ApiRequest({
-        url: `/response/form/${formId}?${params}`,
-        method: "GET",
-        cookie: true,
-        reactQuery: true,
-      });
-
-      if (!getData.success) {
-        if (getData.status === 401) {
-          console.log("Unauthenticated");
-          return { ...getData, isAuthenicated: false };
-        }
-
-        return Promise.reject(new Error("Error Occured"));
+      if (!page || page < 1) {
+        return Promise.reject(new Error("Invalid page number"));
       }
 
-      return getData;
+      // Build URL with query parameters
+      const params = new URLSearchParams({
+        p: page.toString(),
+        ty,
+      });
+
+      try {
+        const getData = await ApiRequest({
+          url: `/response/form/${formId}?${params}`,
+          method: "GET",
+          cookie: true,
+          reactQuery: true,
+        });
+
+        if (!getData.success) {
+          if (getData.status === 401) {
+            console.log("Unauthenticated - user session expired");
+            return { ...getData, isAuthenicated: false };
+          }
+
+          // Log error details for debugging
+          console.error("Fetch content error:", {
+            status: getData.status,
+            formId,
+            page,
+            ty,
+          });
+          return Promise.reject(
+            new Error(`Failed to fetch form data: ${getData.status}`)
+          );
+        }
+
+        return getData;
+      } catch (error) {
+        console.error("Network error during fetch:", error);
+        return Promise.reject(error);
+      }
     },
     []
   );
@@ -148,24 +204,22 @@ const useRespondentFormPaginaition = ({
   );
 
   const stableQueryKey = useMemo(() => {
-    const baseKey = ["respondent-form", formId, currentPage, fetchType];
-
-    // Only add dynamic parts if they exist and are stable
-
-    if (user?.isAuthenticated) {
-      baseKey.push("auth", String(user.isAuthenticated));
-    }
-
-    return baseKey;
-  }, [formId, currentPage, fetchType, user?.isAuthenticated]);
+    // Only include parameters that affect the query result
+    return ["respondent-form", formId, currentPage, fetchType];
+  }, [formId, currentPage, fetchType]);
 
   const { data, error, isFetching } = useQuery({
     queryKey: stableQueryKey,
     queryFn,
     staleTime: 5 * 60 * 1000, // 5 minutes - better caching
     gcTime: 10 * 60 * 1000, // 10 minutes - retain cached data longer
-    enabled: Boolean(enabled && formId),
-    retry: false, // Disable retry to prevent multiple failed requests
+    enabled: Boolean(enabled && formId && currentPage && currentPage >= 1),
+    retry: (failureCount, error: Error) => {
+      // Retry on network errors, but not on 401 (auth errors)
+      const status = (error as unknown as { status?: number }).status;
+      if (status === 401) return false;
+      return failureCount < 2; // Max 2 retries
+    },
     refetchOnWindowFocus: false,
     refetchOnMount: false, // Don't refetch on mount if data is fresh
     refetchInterval: false, // Disable automatic refetching
@@ -217,6 +271,8 @@ const useRespondentFormPaginaition = ({
   const handlePage = useCallback(
     (direction: "prev" | "next") => {
       setcurrentPage((prevPage) => {
+        if (!prevPage || prevPage < 1) return prevPage;
+
         if (direction === "prev") {
           return prevPage > 1 ? prevPage - 1 : prevPage;
         } else {
@@ -229,8 +285,13 @@ const useRespondentFormPaginaition = ({
 
   const goToPage = useCallback(
     (page: number) => {
+      // Validate page bounds before setting
       if (page >= 1 && page <= totalPages) {
         setcurrentPage(page);
+      } else {
+        console.warn(
+          `Invalid page number: ${page}. Valid range: 1-${totalPages}`
+        );
       }
     },
     [totalPages]
@@ -238,15 +299,15 @@ const useRespondentFormPaginaition = ({
 
   const navigationState = useMemo(
     () => ({
-      canGoNext: currentPage < totalPages,
-      canGoPrev: currentPage > 1,
+      canGoNext: currentPage ? currentPage < totalPages : undefined,
+      canGoPrev: currentPage ? currentPage > 1 : undefined,
     }),
     [currentPage, totalPages]
   );
 
   return useMemo(
     () => ({
-      isLoading: isFetching, // Use stable loading instead of isPending
+      isLoading: isFetching,
       handlePage,
       formState,
       currentPage,
@@ -255,8 +316,12 @@ const useRespondentFormPaginaition = ({
       canGoPrev: navigationState.canGoPrev,
       error,
       totalPages,
+      // Additional states for debugging and loading management
+      isFetching,
+      isPending: isFetching, // Alias for isPending
     }),
     [
+      isFetching,
       handlePage,
       formState,
       currentPage,
@@ -265,7 +330,6 @@ const useRespondentFormPaginaition = ({
       navigationState.canGoPrev,
       error,
       totalPages,
-      isFetching,
     ]
   );
 };

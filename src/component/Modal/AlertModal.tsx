@@ -139,6 +139,11 @@ type ConfirmModalProps = {
   open: boolean;
   onClose: () => void;
 };
+
+/**
+ * ConfirmModal Component
+ *
+ */
 export function ConfirmModal(props: ConfirmModalProps) {
   const confirmdata = useSelector(
     (root: RootState) => root.openmodal.confirm.data
@@ -147,39 +152,73 @@ export function ConfirmModal(props: ConfirmModalProps) {
     (root: RootState) => root.allform
   );
   const [loading, setloading] = useState(false);
+
+  // Enhanced button handler with error handling
+  const handleAgree = async () => {
+    try {
+      if (confirmdata?.onAgree) {
+        setloading(true);
+        const result = confirmdata.onAgree();
+        if (result instanceof Promise) {
+          await result;
+        }
+      }
+    } catch (error) {
+      console.error("Error in ConfirmModal onAgree:", error);
+    } finally {
+      setloading(false);
+      props.onClose();
+    }
+  };
+
+  // Enhanced close handler
+  const handleDisagree = () => {
+    try {
+      if (confirmdata?.onClose) {
+        confirmdata.onClose();
+      }
+    } catch (error) {
+      console.error("Error in ConfirmModal onClose:", error);
+    } finally {
+      props.onClose();
+    }
+  };
+
+  // Determine if buttons are disabled
+  const isLoadingOrSaving = loading || saveformLoading;
+
   const Btn = () => {
     return (
-      <div className="btn_container inline-flex w-fit gap-x-3 items-center">
-        <Button
-          color="success"
-          onPress={async () => {
-            if (confirmdata?.onAgree) {
-              setloading(true);
-              await confirmdata.onAgree();
-              setloading(false);
-            }
-            props.onClose();
-          }}
-          className="max-w-xs font-bold"
-          isLoading={loading || saveformLoading}
-          variant="flat"
-        >
-          {confirmdata?.btn?.agree ?? "Yes"}
-        </Button>
+      <div
+        className="btn_container flex gap-3 items-center justify-end w-full"
+        role="group"
+        aria-label="Confirmation actions"
+      >
         <Button
           color="danger"
-          onPress={() => {
-            if (confirmdata?.onClose) confirmdata.onClose();
-            props.onClose();
-          }}
-          className="max-w-xs font-bold"
-          variant="flat"
+          onPress={() => handleDisagree()}
+          className="font-semibold min-w-24"
+          variant="light"
+          disabled={isLoadingOrSaving}
+          aria-label={`Disagree: ${confirmdata?.btn?.disagree ?? "No"}`}
         >
           {confirmdata?.btn?.disagree ?? "No"}
+        </Button>
+        <Button
+          color="success"
+          onPress={() => handleAgree()}
+          className="font-semibold min-w-24"
+          isLoading={isLoadingOrSaving}
+          variant="flat"
+          disabled={isLoadingOrSaving}
+          aria-label={`Agree: ${confirmdata?.btn?.agree ?? "Yes"}`}
+        >
+          {confirmdata?.btn?.agree ?? "Yes"}
         </Button>
       </div>
     );
   };
+
   return (
     <ModalWrapper
       size="sm"
@@ -188,12 +227,13 @@ export function ConfirmModal(props: ConfirmModalProps) {
       onClose={props.onClose}
       footer={() => <Btn />}
     >
-      <div className="bg-white w-full h-full">
+      <div className="w-full py-2">
         <p
-          className="text-lg font-normal
-        "
+          className="text-base sm:text-lg font-normal text-foreground/90 leading-relaxed"
+          role="status"
+          aria-live="polite"
         >
-          {confirmdata?.question ?? "Are you sure ?"}
+          {confirmdata?.question ?? "Are you sure?"}
         </p>
       </div>
     </ModalWrapper>

@@ -1,7 +1,6 @@
-import { Pagination, Tab, Tabs } from "@heroui/react";
+import { Tab, Tabs } from "@heroui/react";
 import { useNavigate, useParams } from "react-router";
 import { useEffect, useState, useCallback, useMemo, memo } from "react";
-
 import { FormDataType } from "../types/Form.types";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../redux/store";
@@ -26,6 +25,7 @@ import useFormValidation from "../hooks/ValidationHook";
 import ImprovedAutoSave from "../component/AutoSave/ImprovedAutoSave";
 import { useQuery } from "@tanstack/react-query";
 import { checkUnsavedQuestions } from "../utils/formValidation";
+import Pagination from "../component/Navigator/PaginationComponent";
 
 type alltabs =
   | "question"
@@ -71,6 +71,7 @@ const fetchFormTab = async ({
 function FormPage() {
   const param = useParams();
   const dispatch = useDispatch();
+
   const { formstate, reloaddata, page, allquestion, prevAllQuestion } =
     useSelector((root: RootState) => root.allform);
   const navigate = useNavigate();
@@ -89,10 +90,8 @@ function FormPage() {
   const { data, error, isLoading, isFetching } = useQuery({
     queryKey: ["FormInfo", formId, page, tab],
     queryFn: () => fetchFormTab({ tab, page, formId }),
-
     staleTime: 30000,
-    enabled:
-      !!formId && reloaddata && tab !== "analytics" && tab !== "response",
+    enabled: !!formId && tab !== "analytics" && tab !== "response",
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchOnMount: false,
@@ -105,6 +104,11 @@ function FormPage() {
       return failureCount < 3;
     },
   });
+
+  const isUnSavedQuestion = useMemo(
+    () => checkUnsavedQuestions(allquestion, prevAllQuestion, page),
+    [allquestion, page, prevAllQuestion]
+  );
 
   //Initiallize Page
   useEffect(() => {
@@ -252,10 +256,24 @@ function FormPage() {
     [continueTabSwitching, setParams, dispatch]
   );
 
+  const handlePageChange = useCallback(
+    (val: number) => {
+      setParams({ page: val.toString() });
+      dispatch(setfetchloading(true));
+      dispatch(setpage(val));
+      dispatch(setreloaddata(true));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [dispatch, setParams]
+  );
+
   const handlePage = useCallback(
     (val: number) => {
       // Check for unsaved questions before navigating
-      if (checkUnsavedQuestions(allquestion, prevAllQuestion, page)) {
+
+      if (isUnSavedQuestion) {
+        //Block page
+        dispatch(setpage(page));
         dispatch(
           setopenmodal({
             state: "confirm",
@@ -263,14 +281,14 @@ function FormPage() {
               open: true,
               data: {
                 question:
-                  "You have unsaved questions on this page. Please save them before navigating to another page.",
+                  "You have unsaved questions on this page. Are you sure you want to go back without saving?",
+                btn: {
+                  agree: "Prceed",
+                  disagree: "Close",
+                },
                 onAgree: () => {
-                  // If user confirms, proceed with navigation
-                  setParams({ page: val.toString() });
-                  dispatch(setfetchloading(true));
-                  dispatch(setpage(val));
-                  dispatch(setreloaddata(true));
-                  window.scrollTo({ top: 0, behavior: "smooth" });
+                  // If user confirms, proceed with backward navigation
+                  handlePageChange(val);
                 },
               },
             },
@@ -280,13 +298,9 @@ function FormPage() {
         return;
       }
 
-      setParams({ page: val.toString() });
-      dispatch(setfetchloading(true));
-      dispatch(setpage(val));
-      dispatch(setreloaddata(true));
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      handlePageChange(val);
     },
-    [setParams, dispatch, allquestion, prevAllQuestion, page]
+    [isUnSavedQuestion, handlePageChange, dispatch, page]
   );
 
   const selectedKey = useMemo(
@@ -342,16 +356,12 @@ function FormPage() {
 
       {/* Pagination */}
 
-      {tab === "question" || tab === "solution" ? (
+      {tab === "question" || tab === "solution" || formstate.totalpage ? (
         <div className="w-full h-fit grid place-content-center">
           <Pagination
-            loop
-            showControls
-            className="bg-white rounded-xl"
-            color="default"
-            total={formstate.totalpage ?? 0}
             page={page}
-            onChange={handlePage}
+            setPage={handlePage}
+            totalPage={formstate.totalpage}
           />
         </div>
       ) : (

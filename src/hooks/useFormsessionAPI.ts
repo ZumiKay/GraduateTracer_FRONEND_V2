@@ -44,7 +44,7 @@ export interface FormsessionResponse {
   data?: unknown;
 }
 
-export interface SessionVerificationResponse extends FormsessionResponse {
+export interface SessionVerificationResponse extends ApiRequestReturnType {
   data?: {
     respondentEmail: string;
     respondentName: string;
@@ -58,6 +58,9 @@ export const useFormsessionAPI = () => {
 
   const handleApiResponse = useCallback((response: ApiRequestReturnType) => {
     if (!response.success) {
+      if (response.status === 401) {
+        return { ...response, session: { isExpired: true } };
+      }
       const errorMessage =
         response.error || response.message || "An error occurred";
       setError(errorMessage);
@@ -122,6 +125,37 @@ export const useFormsessionAPI = () => {
       refetchInterval: false, // Disable automatic refetching
       refetchOnWindowFocus: false, // Disable refetch on window focus
       refetchOnReconnect: false, // Disable refetch on network reconnect
+    });
+  };
+
+  const useManuallySessionVeriftication = (formId?: string) => {
+    return useMutation({
+      mutationKey: ["manualSessionVerification", formId],
+      mutationFn: async () => {
+        if (!formId) {
+          throw new Error("Invalid FormId");
+        }
+
+        const response = await ApiRequest({
+          method: "GET",
+          url: `/response/verifyformsession/${formId}`,
+          cookie: true,
+        });
+
+        return handleApiResponse(response);
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["sessionVerification"] });
+      },
+      onError: (error: Error) => {
+        console.error("❌ Manual session verification failed:", error);
+        ErrorToast({
+          toastid: "Manually check session",
+          title: "Verification Failed",
+          content: error.message,
+        });
+        setError(error.message);
+      },
     });
   };
 
@@ -257,6 +291,7 @@ export const useFormsessionAPI = () => {
     signOut,
     sendRemovalEmail,
     useSessionVerification,
+    useManuallySessionVeriftication,
     refreshSession,
     clearSessionData,
     clearError,

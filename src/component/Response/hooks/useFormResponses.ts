@@ -1,5 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { ContentType, QuestionType } from "../../../types/Form.types";
+import { generateStorageKey } from "../../../helperFunc";
+import { SaveProgressType } from "../Response.type";
 
 export interface FormResponse {
   question: string;
@@ -22,160 +24,149 @@ export type ResponseValue =
   | choiceResponseType
   | choiceResponseType[];
 
-export const useFormResponses = (questions: ContentType[]) => {
+export const useFormResponses = (
+  questions: ContentType[],
+  formId: string,
+  userKey?: string
+) => {
   const [responses, setResponses] = useState<FormResponse[]>([]);
 
+  // Memoize questions map for O(1) lookup instead of O(n) find
+  const questionsMap = useMemo(() => {
+    const map = new Map<string, ContentType>();
+    questions.forEach((q) => {
+      if (q._id) map.set(q._id, q);
+    });
+    return map;
+  }, [questions]);
+
+  // Memoize question type checks
+  const isEmptyResponse = useCallback(
+    (response: ResponseValue | null | undefined): boolean => {
+      return (
+        response === null ||
+        response === undefined ||
+        response === "" ||
+        (Array.isArray(response) && response.length === 0)
+      );
+    },
+    []
+  );
+
   const checkIfQuestionShouldShow = useCallback(
-    (question: ContentType, responseList: FormResponse[]): boolean => {
+    (
+      question: ContentType,
+      responseList: FormResponse[] | Map<string, ResponseValue | null>
+    ): boolean => {
+      //If no condition exit
       if (!question.parentcontent) {
         return true;
       }
 
-      const parentQuestion = questions.find(
-        (q) =>
-          q._id === question.parentcontent?.qId ||
-          q._id === question.parentcontent?.qIdx?.toString()
+      const parentQuestion = questionsMap.get(
+        question.parentcontent?.qId || ""
       );
 
       if (!parentQuestion) {
         return false;
       }
 
-      const parentResponse = responseList.find(
-        (r) => r.question === parentQuestion._id
-      );
+      // Support both array and Map for flexibility
+      let parentResponse: ResponseValue | null | undefined;
 
-      if (
-        !parentResponse ||
-        parentResponse.response === null ||
-        parentResponse.response === undefined ||
-        parentResponse.response === ""
-      ) {
+      if (responseList instanceof Map) {
+        parentResponse = responseList.get(parentQuestion._id ?? "");
+      } else {
+        const found = responseList.find(
+          (r) => r.question === parentQuestion._id
+        );
+        parentResponse = found?.response;
+      }
+
+      if (isEmptyResponse(parentResponse)) {
         return false;
       }
 
       const expectedAnswer = question.parentcontent?.optIdx;
 
       if (parentQuestion.type === QuestionType.MultipleChoice) {
-        const responseValue = parentResponse.response;
-
-        const selectedOption = parentQuestion.multiple?.find((option) => {
-          if (option.idx === responseValue) return true;
-          if (option.idx === Number(responseValue)) return true;
-          if (option.idx?.toString() === String(responseValue)) return true;
-          if (option.content === responseValue) return true;
+        // MultipleChoice response should be a number
+        if (typeof parentResponse !== "number") {
           return false;
-        });
+        }
 
-        const shouldShow =
-          selectedOption?.idx === expectedAnswer ||
-          selectedOption?.idx === Number(expectedAnswer) ||
-          Number(selectedOption?.idx) === Number(expectedAnswer);
-
-        return shouldShow;
+        // Check if responseValue matches expectedAnswer
+        return (
+          parentResponse === expectedAnswer ||
+          parentResponse === Number(expectedAnswer)
+        );
       }
 
       if (parentQuestion.type === QuestionType.Selection) {
-        const responseValue = parentResponse.response;
-
-        // Selection responses should only be numbers
-        let selectedIndex: number | undefined;
-
-        if (typeof responseValue === "number") {
-          selectedIndex = responseValue;
-        } else if (
-          typeof responseValue === "string" &&
-          !isNaN(Number(responseValue))
-        ) {
-          selectedIndex = Number(responseValue);
-        } else {
-          // Invalid response type for selection question
+        // Selection response should be a number
+        if (typeof parentResponse !== "number") {
           return false;
         }
 
-        // Find the selected option in the selection array
-        const selectedOption = parentQuestion.selection?.find(
-          (option) =>
-            option.idx === selectedIndex || Number(option.idx) === selectedIndex
+        // Check if responseValue matches expectedAnswer
+        return (
+          parentResponse === expectedAnswer ||
+          parentResponse === Number(expectedAnswer)
         );
-
-        if (!selectedOption) {
-          return false;
-        }
-
-        // Compare with expected answer
-        const expectedAnswerNum = Number(expectedAnswer);
-        const shouldShow =
-          selectedOption.idx === expectedAnswerNum ||
-          Number(selectedOption.idx) === expectedAnswerNum;
-
-        return shouldShow;
       }
 
       if (parentQuestion.type === QuestionType.CheckBox) {
-        const responseValue = parentResponse.response;
+        // CheckBox response can be a number or number[]
         let selectedIndices: number[] = [];
-        let selectedContents: string[] = [];
 
-        if (Array.isArray(responseValue)) {
-          const numeric = responseValue
-            .map((val) =>
-              typeof val === "number"
-                ? val
-                : typeof val === "string" && !isNaN(Number(val))
-                ? Number(val)
-                : NaN
-            )
-            .filter((val) => !isNaN(val));
-          selectedIndices = numeric as number[];
-
-          const strings = responseValue
-            .filter((val) => typeof val === "string" && isNaN(Number(val)))
-            .map((val) => String(val));
-          selectedContents = strings as string[];
-        } else if (typeof responseValue === "number") {
-          selectedIndices = [responseValue];
-        } else if (
-          typeof responseValue === "string" &&
-          !isNaN(Number(responseValue))
-        ) {
-          selectedIndices = [Number(responseValue)];
-        } else if (typeof responseValue === "string") {
-          selectedContents = [responseValue];
+        if (Array.isArray(parentResponse)) {
+          // Filter only numeric values
+          selectedIndices = parentResponse.filter(
+            (val) => typeof val === "number"
+          ) as number[];
+        } else if (typeof parentResponse === "number") {
+          selectedIndices = [parentResponse];
+        } else {
+          // Invalid response type for checkbox
+          return false;
         }
 
         const expectedAnswerNum = Number(expectedAnswer);
-        const expectedIsNumeric =
-          expectedAnswer !== undefined && !isNaN(expectedAnswerNum);
-        const expectedStr = String(expectedAnswer);
 
-        if (selectedIndices.length > 0 && parentQuestion.checkbox) {
-          const idxToContent = new Map<number, string>();
-          parentQuestion.checkbox.forEach((opt, i) => {
-            const idx = (opt.idx ?? i) as number;
-            idxToContent.set(idx, String(opt.content));
-          });
-          selectedIndices.forEach((idx) => {
-            const content = idxToContent.get(idx);
-            if (content) selectedContents.push(content);
-          });
-        }
-
-        const shouldShow = expectedIsNumeric
-          ? selectedIndices.includes(expectedAnswerNum) ||
-            selectedIndices.some(
-              (idx) => String(idx) === String(expectedAnswerNum)
-            )
-          : selectedContents.includes(expectedStr);
-
-        return shouldShow;
+        // Check if expectedAnswer is in selectedIndices
+        return selectedIndices.includes(expectedAnswerNum);
       }
 
-      const shouldShow = parentResponse.response === expectedAnswer;
-
-      return shouldShow;
+      return parentResponse === expectedAnswer;
     },
-    [questions]
+    [questionsMap, isEmptyResponse]
+  );
+
+  //Update Response Helper
+  const RemoveSavedQuestion = useCallback(
+    (question: string) => {
+      const storageKey = generateStorageKey({
+        suffix: "progress",
+        formId,
+        userKey,
+      });
+
+      const isStored = localStorage.getItem(storageKey);
+
+      if (isStored) {
+        let toUpdateData = JSON.parse(isStored) as SaveProgressType;
+
+        toUpdateData = {
+          ...toUpdateData,
+          responses: toUpdateData.responses.filter(
+            (q) => q.question !== question
+          ),
+        };
+
+        localStorage.setItem(storageKey, JSON.stringify(toUpdateData));
+      }
+    },
+    [formId, userKey]
   );
 
   const updateResponse = useCallback(
@@ -187,7 +178,6 @@ export const useFormResponses = (questions: ContentType[]) => {
     ) => {
       setResponses((prev) => {
         // Initialize responses from questions if empty
-
         const updated =
           prev.length === 0
             ? questions
@@ -206,7 +196,8 @@ export const useFormResponses = (questions: ContentType[]) => {
         // Handle array of updates
         if (Array.isArray(questionIdOrUpdates)) {
           questionIdOrUpdates.forEach(({ question, response: updateValue }) => {
-            const isQuestion = questions.find((i) => i._id === question);
+            // Use questionsMap for O(1) lookup instead of O(n) find
+            const isQuestion = questionsMap.has(question);
 
             // Skip update if invalid question
             if (!isQuestion) return;
@@ -217,18 +208,27 @@ export const useFormResponses = (questions: ContentType[]) => {
 
             if (existingIndex !== -1) {
               // Update existing response
-              updated[existingIndex] = {
-                ...updated[existingIndex],
-                response: updateValue,
-              };
+
+              if (updateValue === "" || !updateValue) {
+                updated.splice(existingIndex, 1);
+                //Remove from storage
+                RemoveSavedQuestion(question);
+              } else
+                updated[existingIndex] = {
+                  ...updated[existingIndex],
+                  response: updateValue,
+                };
             } else {
-              // Add new response if not exists
-              updated.push({ question: question, response: updateValue });
+              // Add new response if not exists and value is not empty
+              if (updateValue !== "" && updateValue !== undefined) {
+                updated.push({ question: question, response: updateValue });
+              }
             }
           });
         } else {
           const questionId = questionIdOrUpdates;
-          const isQuestion = questions.find((i) => i._id === questionId);
+          // Use questionsMap for O(1) lookup instead of O(n) find
+          const isQuestion = questionsMap.has(questionId);
 
           // Skip update if invalid question or no value provided
           if (!isQuestion || value === undefined) return prev;
@@ -238,35 +238,58 @@ export const useFormResponses = (questions: ContentType[]) => {
           );
 
           if (existingIndex !== -1) {
-            // Update existing response
-            updated[existingIndex] = {
-              ...updated[existingIndex],
-              response: value,
-            };
+            // If value is undefined or empty, delete the response
+            if (value === "" || value === undefined) {
+              updated.splice(existingIndex, 1);
+
+              //Remove from storage
+              RemoveSavedQuestion(questionId);
+            } else {
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                response: value,
+              };
+            }
           } else {
-            // Add new response if not exists
-            updated.push({ question: questionId, response: value });
+            // Only add new response if value is not empty/undefined
+            if (value !== "" && value !== undefined) {
+              updated.push({ question: questionId, response: value });
+            }
           }
         }
 
-        const handleConditionalUpdates = (responses: FormResponse[]) => {
+        const handleConditionalUpdates = (
+          responses: FormResponse[]
+        ): FormResponse[] => {
           let hasChanges = false;
+          const updatedResponses: FormResponse[] = [];
 
-          const updatedResponses = responses.map((response) => {
-            const question = questions.find((q) => q._id === response.question);
+          // Create response map for O(1) lookups in loop
+          const responseMap = new Map<string, ResponseValue | null>();
+          for (let i = 0; i < responses.length; i++) {
+            const resp = responses[i];
+            responseMap.set(resp.question, resp.response);
+          }
+
+          for (let i = 0; i < responses.length; i++) {
+            const response = responses[i];
+            const question = questionsMap.get(response.question);
+
             if (!question || !question.parentcontent) {
-              return response;
+              updatedResponses.push(response);
+              continue;
             }
 
-            const shouldShow = checkIfQuestionShouldShow(question, responses);
+            // Pass responseMap instead of array for O(1) lookups
+            const shouldShow = checkIfQuestionShouldShow(question, responseMap);
 
             if (!shouldShow && response.response !== "") {
               hasChanges = true;
-
-              return { ...response, response: "" };
+              updatedResponses.push({ ...response, response: "" });
+            } else {
+              updatedResponses.push(response);
             }
-            return response;
-          });
+          }
 
           if (hasChanges) {
             return handleConditionalUpdates(updatedResponses);
@@ -278,7 +301,7 @@ export const useFormResponses = (questions: ContentType[]) => {
         return handleConditionalUpdates(updated);
       });
     },
-    [questions, checkIfQuestionShouldShow]
+    [questions, questionsMap, RemoveSavedQuestion, checkIfQuestionShouldShow]
   );
 
   return {
