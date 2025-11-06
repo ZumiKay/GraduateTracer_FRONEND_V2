@@ -61,7 +61,10 @@ const useResponseById = (data: {
 };
 
 export default useResponseById;
-
+/**
+Get list of respondents
+@params formId:string
+*/
 export const useGetAllUniqueRespondent = (formId: string) => {
   const [uniqueRespondents, setUniqueRespondents] =
     useState<UniqueRespondentType[]>();
