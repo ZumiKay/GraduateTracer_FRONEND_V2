@@ -39,7 +39,6 @@ import {
 import { useFetchResponseDashbardData } from "./hooks/useResponseDashboardData";
 import { useResponseFilter } from "./hooks/useResponseFilter";
 import { useSearchParams } from "react-router-dom";
-import { getLocalTimeZone } from "@internationalized/date";
 
 interface ResponseDashboardProps {
   formId: string;
@@ -131,12 +130,12 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   } = useFetchResponseDashbardData({ formId, filterValue });
 
   const { data: responseDetails, isLoading: isLoadingUserResponse } = useQuery({
-    queryKey: ["responseDetails", selectedResponse?._id, formId],
+    queryKey: ["responseDetails", selectedResponse?._id],
     queryFn: async () => {
       if (!selectedResponse?._id || !formId) {
         throw new Error("Response ID and Form ID are required");
       }
-      return await fetchResponseDetails(selectedResponse._id, formId);
+      return await fetchResponseDetails(selectedResponse._id);
     },
     enabled: !!selectedResponse?._id && !!formId && isViewOpen,
     staleTime: 30000,
@@ -390,7 +389,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
               selectedKeys={[limit.toString()]}
               onSelectionChange={(keys) => {
                 const selected = Array.from(keys)[0];
-                if (selected) {
+                if (selected !== "" && selected !== null) {
                   handleLimitChange(Number(selected));
                 }
               }}

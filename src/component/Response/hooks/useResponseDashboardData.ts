@@ -41,7 +41,7 @@ export const useFetchResponseDashbardData = ({
   }, [searchParams]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["responses", formId, currentPage, limit, filterValue],
+    queryKey: ["responses", formId, currentPage, limit],
     queryFn: () =>
       fetchResponseList({
         formId,
@@ -55,10 +55,12 @@ export const useFetchResponseDashbardData = ({
         completionStatus: filterValue?.completionStatus,
       }),
     enabled: !!formId,
-    staleTime: 30000, // 30 seconds
+    staleTime: Infinity, // Never stale - fetch once on mount
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: (failureCount) => failureCount < 3,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   const handlePageChange = useCallback(
@@ -80,6 +82,7 @@ export const useFetchResponseDashbardData = ({
   // Memoized limit change handler
   const handleLimitChange = useCallback(
     (newLimit: number) => {
+      console.log({ newLimit });
       if (newLimit <= 0) return;
 
       setSearchParams((prev) => {

@@ -72,6 +72,7 @@ export interface ResponseDataType {
   respondentEmail?: string;
   respondentName?: string;
   totalScore?: number;
+  scoringMethod: ScoringMethod;
   completionStatus?: ResponseCompletionStatus;
   submittedAt?: Date;
   respondentType?: respondentType;
@@ -95,6 +96,7 @@ export interface SubmittionProcessionReturnType {
   responseId?: string;
   respondentEmail?: string;
   isComplete?: boolean;
+  isNonScore?: boolean;
 }
 
 export interface ResponseDashboardFilterType {

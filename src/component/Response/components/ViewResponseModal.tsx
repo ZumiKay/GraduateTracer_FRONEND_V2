@@ -10,6 +10,7 @@ import {
   Chip,
   Divider,
   CircularProgress,
+  RangeValue,
 } from "@heroui/react";
 import {
   FormDataType,
@@ -27,6 +28,7 @@ import {
 import { getResponseDisplayName } from "../../../utils/respondentUtils";
 import StyledTiptap from "./StyledTiptap";
 import { ConditionalIndicator } from "./ConditionalIndicator";
+import { FormatDate } from "../../../helperFunc";
 
 interface ViewResponseModalProps {
   isOpen: boolean;
@@ -216,6 +218,42 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
             );
           }
 
+          case QuestionType.RangeDate:
+          case QuestionType.RangeNumber: {
+            const RangeResponse = response as unknown as RangeValue<
+              string | number
+            >;
+
+            return (
+              <div className="w-full h-full flex flex-row items-center gap-x-5">
+                <Chip
+                  size="sm"
+                  variant="flat"
+                  color="primary"
+                  className="font-medium"
+                >
+                  {`${
+                    typeof RangeResponse.start === "string"
+                      ? FormatDate(new Date(RangeResponse.start))
+                      : RangeResponse.start
+                  }`}
+                </Chip>
+                <Chip
+                  size="sm"
+                  variant="flat"
+                  color="primary"
+                  className="font-medium"
+                >
+                  {`${
+                    typeof RangeResponse.end === "string"
+                      ? FormatDate(new Date(RangeResponse.end))
+                      : RangeResponse.end
+                  }`}
+                </Chip>
+              </div>
+            );
+          }
+
           default:
             return (
               <span className="font-medium text-gray-900">
@@ -303,7 +341,7 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
                               >
                                 {selectedResponse.completionStatus || "Unknown"}
                               </Chip>
-                              {selectedResponse.isManuallyScored && (
+                              {selectedResponse.scoringMethod && (
                                 <Chip
                                   size="md"
                                   color="warning"
@@ -330,7 +368,7 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
                           Question Responses
                         </h5>
                         <Chip size="sm" variant="flat" color="default">
-                          {responseItems.length} questions
+                          questions
                         </Chip>
                       </div>
 
@@ -357,8 +395,7 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
               </ModalBody>
               <ModalFooter className="justify-between">
                 <div className="text-sm text-gray-500">
-                  {selectedResponse &&
-                    `${responseItems.length} questions answered`}
+                  {selectedResponse && ` questions answered`}
                 </div>
                 <div className="flex gap-2">
                   <Button variant="light" onPress={onClose}>

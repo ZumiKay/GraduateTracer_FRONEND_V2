@@ -128,12 +128,16 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       [formState?.contents]
     );
 
-    const { responses, updateResponse, checkIfQuestionShouldShow } =
-      useFormResponses(
-        questions,
-        formState?._id as string,
-        formSessionInfo.respondentEmail
-      );
+    const {
+      responses,
+      updateResponse,
+      checkIfQuestionShouldShow,
+      clearProgressState,
+    } = useFormResponses(
+      questions,
+      formState?._id as string,
+      formSessionInfo.respondentEmail
+    );
 
     const { isPageComplete, validateForm } = useFormValidation(
       checkIfQuestionShouldShow
@@ -168,14 +172,31 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     //Check if the user already response
     useEffect(() => {
-      if (formState?.setting?.submitonce && formState.responses) {
+      console.log({ formState });
+      if (formState?.setting?.submitonce && formState.isResponsed) {
         setSuccess(true);
       }
-    }, [formState?.responses, formState?.setting?.submitonce]);
+    }, [
+      formState,
+      formState?.isResponsed,
+      formState?.responses,
+      formState?.setting?.submitonce,
+    ]);
+    useEffect(() => {
+      //Clear storage if form is submitted
+      if (success && progressStorageKey) {
+        window.localStorage.removeItem(progressStorageKey);
+      }
+    }, [clearProgressState, progressStorageKey, success]);
 
     const saveProgressToStorage = useCallback(
       (value?: Record<string, unknown>) => {
-        if (!formState?._id || !progressLoaded || !progressStorageKey) {
+        if (
+          !formState?._id ||
+          !progressLoaded ||
+          !progressStorageKey ||
+          success
+        ) {
           return;
         }
 
@@ -306,6 +327,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         formState?._id,
         progressLoaded,
         progressStorageKey,
+        success,
         accessMode,
         isUserActive,
         responses,
@@ -406,8 +428,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         formState?._id &&
         questions.length > 0 &&
         progressLoaded &&
-        (accessMode === "guest" || isUserActive) && // Only auto-save for guests or active users
-        !submitting
+        (accessMode === "guest" || isUserActive)
       ) {
         debouncedSaveProgress();
       }
@@ -444,7 +465,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         }
       };
 
-      if (!submitting) {
+      if (!submitting && !success) {
         window.addEventListener("beforeunload", handleBeforeUnload);
         document.addEventListener("visibilitychange", handleVisibilityChange);
       }
@@ -456,7 +477,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           handleVisibilityChange
         );
       };
-    }, [saveProgressToStorage, submitting]);
+    }, [saveProgressToStorage, submitting, success]);
 
     //Apply the style setting to the form
 
@@ -744,9 +765,10 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             setSubmissionResult(data);
           }
 
-          //Remove progressStorage
-          window.localStorage.removeItem(progressStorageKey);
           setSuccess(true);
+          //Remove progressStorage
+          clearProgressState();
+          window.localStorage.removeItem(progressStorageKey);
         } else {
           setError(result.error || "Failed to submit form");
         }
@@ -816,11 +838,16 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     }
 
     if (success) {
-      const submissionData = formState?.submittedResult ?? submissionResult;
+      const submissionData =
+        formState?.submittedResult ??
+        submissionResult ??
+        formState?.isResponsed;
       const hasScore =
         submissionData &&
         submissionResult &&
-        typeof submissionResult.totalScore === "number";
+        !submissionData.isNonScore &&
+        typeof submissionResult.totalScore === "number" &&
+        submissionResult.totalScore > 0;
       const scorePercentage =
         hasScore && submissionData.maxScore
           ? Math.round(

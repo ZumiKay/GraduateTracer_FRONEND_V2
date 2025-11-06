@@ -11,6 +11,7 @@ interface QuestionItemProps {
   onSelectAnswer: (answer: { answer: unknown }) => void;
   parentScore?: number;
   parentQIdx?: number;
+  scoreMode?: boolean;
 }
 
 const QuestionItem = memo(
@@ -21,7 +22,7 @@ const QuestionItem = memo(
     onUpdateContent,
     onSelectAnswer,
     parentScore,
-    parentQIdx,
+    scoreMode,
   }: QuestionItemProps) => {
     const isConditional = !!question.parentcontent;
 
@@ -44,7 +45,6 @@ const QuestionItem = memo(
           onSelectAnswer={onSelectAnswer}
           color={formColor}
           isDisable={true}
-          parentQIdx={parentQIdx}
         />
         <SolutionInput
           key={`solution-${question._id || idx}-${idx}`}

@@ -31,7 +31,6 @@ export const useFormResponses = (
 ) => {
   const [responses, setResponses] = useState<FormResponse[]>([]);
 
-  // Memoize questions map for O(1) lookup instead of O(n) find
   const questionsMap = useMemo(() => {
     const map = new Map<string, ContentType>();
     questions.forEach((q) => {
@@ -89,21 +88,11 @@ export const useFormResponses = (
 
       const expectedAnswer = question.parentcontent?.optIdx;
 
-      if (parentQuestion.type === QuestionType.MultipleChoice) {
+      if (
+        parentQuestion.type === QuestionType.MultipleChoice ||
+        parentQuestion.type === QuestionType.Selection
+      ) {
         // MultipleChoice response should be a number
-        if (typeof parentResponse !== "number") {
-          return false;
-        }
-
-        // Check if responseValue matches expectedAnswer
-        return (
-          parentResponse === expectedAnswer ||
-          parentResponse === Number(expectedAnswer)
-        );
-      }
-
-      if (parentQuestion.type === QuestionType.Selection) {
-        // Selection response should be a number
         if (typeof parentResponse !== "number") {
           return false;
         }
@@ -304,9 +293,14 @@ export const useFormResponses = (
     [questions, questionsMap, RemoveSavedQuestion, checkIfQuestionShouldShow]
   );
 
+  const clearProgressState = () => {
+    setResponses([]);
+  };
+
   return {
     responses,
     updateResponse,
     checkIfQuestionShouldShow,
+    clearProgressState,
   };
 };

@@ -16,7 +16,6 @@ import {
   CalendarDateTime,
   getLocalTimeZone,
   parseAbsoluteToLocal,
-  parseDate,
 } from "@internationalized/date";
 import { convertDateValueToString } from "../../../helperFunc";
 
@@ -111,7 +110,7 @@ export const RangeNumberAnswer = (
       const val = userSelection as number[];
       onChange({ start: val[0], end: val[1] });
     }
-  }, [onChange, questionRange, userSelection]);
+  }, [questionRange, userSelection]);
 
   // Update selection when question range changes, but preserve user selection if they have one
   useEffect(() => {
@@ -178,18 +177,18 @@ export const RangeNumberAnswer = (
 export const DateQuestionType = (props: AnswerComponent_Props<string>) => {
   const { onChange, value: initialValue, placeholder, isDisable } = props;
 
-  const [value, setvalue] = useState<DateValue | null>(() => {
-    if (initialValue) {
-      return parseDate(initialValue);
-    }
-    return null;
-  });
-
+  const [value, setvalue] = useState<DateValue | null>(null);
   useEffect(() => {
-    if (onChange && value) {
-      onChange(value.toDate(getLocalTimeZone()).toISOString());
+    if (initialValue) {
+      setvalue(parseAbsoluteToLocal(initialValue));
     }
-  }, [onChange, value]);
+  }, [initialValue]);
+
+  const handleChange = (val: DateValue) => {
+    setvalue(val);
+    if (!onChange) return;
+    onChange(val.toDate(getLocalTimeZone()).toISOString());
+  };
 
   return (
     <div className="flex w-full flex-wrap md:flex-nowrap gap-4">
@@ -200,7 +199,7 @@ export const DateQuestionType = (props: AnswerComponent_Props<string>) => {
         label={placeholder ?? "Date"}
         granularity="day"
         visibleMonths={2}
-        onChange={setvalue}
+        onChange={(val) => handleChange(val as DateValue)}
         isDisabled={isDisable}
       />
     </div>

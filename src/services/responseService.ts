@@ -133,16 +133,10 @@ export const fetchUserResponse = async (data: {
 };
 
 export const fetchResponseDetails = async (
-  responseId: string,
-  formId: string
+  responseId: string
 ): Promise<ResponseDataType> => {
-  const params = new URLSearchParams({
-    userId: responseId,
-    formId: formId,
-  });
-
   const result = await ApiRequest({
-    url: `response/getbyuserid?${params}`,
+    url: `response/getresponseById/${responseId}`,
     method: "GET",
     cookie: true,
     refreshtoken: true,

@@ -4,12 +4,8 @@ import { FormResponse } from "./useFormResponses";
 
 /**
  * Hook for validating form responses with comprehensive validation logic
- *
- *
  * - Validates required questions by type
- * - Handles conditional question visibility
- * - Provides detailed validation messages
- * - Supports all question types with specific validation rules
+ * - Return True If Usr Response is empty
  */
 export const useFormValidation = (
   checkIfQuestionShouldShow?: (
@@ -37,7 +33,6 @@ export const useFormValidation = (
         case QuestionType.MultipleChoice:
         case QuestionType.Selection:
           return typeof value !== "number" || isNaN(value);
-          break;
 
         case QuestionType.ShortAnswer:
         case QuestionType.Paragraph:
@@ -50,10 +45,13 @@ export const useFormValidation = (
           }
           return true;
 
-        case QuestionType.Date:
-          if (value instanceof Date) return isNaN(value.getTime());
-          if (typeof value === "string") return value.trim() === "";
+        case QuestionType.Date: {
+          if (typeof value === "string") {
+            const date = new Date(value);
+            return isNaN(date.getTime());
+          }
           return true;
+        }
 
         case QuestionType.RangeNumber:
         case QuestionType.RangeDate: {
@@ -81,13 +79,8 @@ export const useFormValidation = (
           return false;
         }
 
+        //Wrong question type
         default:
-          // Generic check for other types
-          if (typeof value === "string") return value.trim() === "";
-          if (typeof value === "number") return isNaN(value);
-          if (Array.isArray(value)) return value.length === 0;
-          if (typeof value === "boolean") return false;
-          if (typeof value === "object") return Object.keys(value).length === 0;
           return true;
       }
     },
@@ -153,13 +146,7 @@ export const useFormValidation = (
               return cleanTitle || `Question ${index + 1}`;
             }
 
-            // Fallback to finding position in original questions array
-            const originalIndex = questions.findIndex(
-              (originalQ) => originalQ._id === q._id
-            );
-            return originalIndex >= 0
-              ? `Question ${originalIndex + 1}`
-              : `Required question`;
+            return `Question ${q.qIdx}`;
           })
           .filter((title) => title) // Remove any empty titles
           .join(", ");

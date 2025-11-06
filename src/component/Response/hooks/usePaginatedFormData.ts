@@ -7,18 +7,26 @@ import {
   RespondentInfoType,
   RespondentSessionType,
   SaveProgressType,
+  SubmittionProcessionReturnType,
 } from "../Response.type";
 import { SessionVerificationResponse } from "../../../hooks/useFormsessionAPI";
 import { SessionState } from "../../../redux/user.store";
 import { generateStorageKey } from "../../../helperFunc";
+import { ErrorToast } from "../../Modal/AlertModal";
 
 export type accessModeType = "login" | "guest" | "authenticated" | "error";
 type fetchtype = "data" | "initial";
+export interface GetFormStateResponseType extends FormDataType {
+  isResponsed?: SubmittionProcessionReturnType;
+  message?: string;
+  //For test unique of response for public form
+  fingerprintStrength?: number;
+}
 
 export type UseRespondentFormPaginationReturn = {
   isLoading: boolean;
   handlePage: (direction: "prev" | "next") => void;
-  formState: FormDataType | undefined;
+  formState: GetFormStateResponseType | undefined;
   currentPage: number | null;
   goToPage: (page: number) => void;
   canGoNext: boolean | undefined;
@@ -31,13 +39,6 @@ export type UseRespondentFormPaginationReturn = {
   isPending?: boolean;
 };
 
-export interface GetFormStateResponseType extends FormDataType {
-  isResponse?: boolean;
-  message?: string;
-  //For test unique of response for public form
-  fingerprintStrength?: number;
-}
-
 type useRespondentFormPaginationProps = {
   formId?: string;
   initialVerify?: boolean;
@@ -45,10 +46,8 @@ type useRespondentFormPaginationProps = {
   respondentInfo?: RespondentInfoType;
   formsessioncheck?: SessionVerificationResponse;
   user?: SessionState;
-
   //Helper Type
   formsession?: RespondentSessionType;
-
   accessMode: accessModeType;
   enabled?: boolean;
 };
@@ -162,6 +161,7 @@ const useRespondentFormPaginaition = ({
 
         if (!getData.success) {
           if (getData.status === 401) {
+            ErrorToast({ title: "Session", content: "Unauthenticated" });
             console.log("Unauthenticated - user session expired");
             return { ...getData, isAuthenicated: false };
           }
