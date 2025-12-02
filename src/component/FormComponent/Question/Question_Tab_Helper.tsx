@@ -12,7 +12,6 @@ export const AsyncAutoSaveDeleteRequest = async ({
     url: "/deletecontent",
     method: "DELETE",
     cookie: true,
-    refreshtoken: true,
     data: {
       id: qId,
       formId,

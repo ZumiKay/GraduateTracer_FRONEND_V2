@@ -44,10 +44,10 @@ export default function FormPagination({
     }
   };
   return (
-    <div className="w-full h-fit flex flex-col items-center gap-5 bg-white p-4 rounded-lg shadow-sm border">
+    <div className="w-full h-fit flex flex-col items-center gap-5 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border dark:border-gray-700">
       {/* Pagination info */}
       {totalCount ? (
-        <div className="text-sm text-default-500 text-center">
+        <div className="text-sm text-default-500 dark:text-gray-400 text-center">
           Showing {currentItems || 0} of {totalCount} forms (Page {currentPage}{" "}
           of {total})
         </div>
@@ -109,13 +109,13 @@ export default function FormPagination({
         >
           Next
         </Button>
-        <label className="flex items-center text-default-600 text-small ml-4">
+        <label className="flex items-center text-default-600 dark:text-gray-400 text-small ml-4">
           Rows per page:
           <select
             onChange={handleChange}
             name="show"
             value={showperpage}
-            className="bg-transparent outline-none text-default-400 text-small ml-2 border-b border-default-300 focus:border-primary"
+            className="bg-transparent outline-none text-default-400 dark:text-gray-500 text-small ml-2 border-b border-default-300 dark:border-gray-600 focus:border-primary dark:focus:border-primary"
           >
             {RowPerPage.map((item) => (
               <option key={item} value={item}>

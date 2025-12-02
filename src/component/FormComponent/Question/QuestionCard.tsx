@@ -63,7 +63,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           hover:shadow-lg hover:shadow-primary/10 hover:scale-[1.02] hover:-translate-y-1
           active:scale-[0.98] active:transition-none
           ${isChild ? `border-l-4 ${borderColor} ml-2` : ""}
-          relative overflow-visible
+          relative overflow-visible 
         `}
         shadow="sm"
       >
@@ -197,7 +197,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 />
               )}
             </div>
-            <p className="text-sm font-medium text-gray-700 line-clamp-3 transition-colors">
+            <p className="text-sm font-medium text-gray-700 dark:text-white line-clamp-3 transition-colors">
               {getQuestionTitle(question)}
             </p>
           </div>

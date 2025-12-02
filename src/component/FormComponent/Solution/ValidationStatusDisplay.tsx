@@ -34,25 +34,31 @@ const ValidationStatusDisplay = memo(
         )}
 
         {formstate.type === "QUIZ" && (
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="font-semibold mb-2 text-gray-800">
+          <div className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow-sm border border-gray-200 dark:text-white">
+            <h3 className="font-semibold mb-2 text-gray-800 dark:text-white">
               Quiz Configuration Details
             </h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-600">Valid Questions:</span>
+                <span className="text-gray-600 dark:text-white">
+                  Valid Questions:
+                </span>
                 <span className="ml-2 font-medium text-green-600">
                   {validationSummary.totalValidQuestions}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Issues Found:</span>
+                <span className="text-gray-600 dark:text-white">
+                  Issues Found:
+                </span>
                 <span className="ml-2 font-medium text-red-600">
                   {validationSummary.totalInvalidQuestions}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Auto-scoring:</span>
+                <span className="text-gray-600 dark:text-white">
+                  Auto-scoring:
+                </span>
                 <span className="ml-2 font-medium">
                   {validationSummary.canReturnScoreAutomatically
                     ? "Enabled"
@@ -60,7 +66,9 @@ const ValidationStatusDisplay = memo(
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Return Type:</span>
+                <span className="text-gray-600 dark:text-white">
+                  Return Type:
+                </span>
                 <span className="ml-2 font-medium">
                   {formstate.setting?.returnscore || "Manual"}
                 </span>

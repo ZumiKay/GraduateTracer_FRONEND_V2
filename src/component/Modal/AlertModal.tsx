@@ -1,8 +1,8 @@
 import { Button } from "@heroui/react";
-import { CSSProperties, useState } from "react";
+import { CSSProperties, useState, useCallback, memo, useMemo } from "react";
 import { toast, ToastContentProps } from "react-toastify";
 import ModalWrapper from "./Modal";
-import { useSelector } from "react-redux";
+import { useSelector, shallowEqual } from "react-redux";
 import { RootState } from "../../redux/store";
 import { ApiRequestReturnType } from "../../hooks/ApiHook";
 
@@ -140,21 +140,85 @@ type ConfirmModalProps = {
   onClose: () => void;
 };
 
+// Memoized selector to prevent unnecessary re-renders
+const selectConfirmData = (root: RootState) => root.openmodal.confirm.data;
+const selectSaveFormLoading = (root: RootState) => root.allform.loading;
+
+// Memoized button component to prevent re-creation on parent re-renders
+const ConfirmModalButtons = memo(function ConfirmModalButtons({
+  isLoadingOrSaving,
+  agreeLabel,
+  disagreeLabel,
+  onAgree,
+  onDisagree,
+}: {
+  isLoadingOrSaving: boolean;
+  agreeLabel: string;
+  disagreeLabel: string;
+  onAgree: () => void;
+  onDisagree: () => void;
+}) {
+  return (
+    <div
+      className="btn_container flex gap-3 items-center justify-end w-full"
+      role="group"
+      aria-label="Confirmation actions"
+    >
+      <Button
+        color="danger"
+        onPress={onDisagree}
+        className="font-semibold min-w-24"
+        variant="light"
+        disabled={isLoadingOrSaving}
+        aria-label={`Disagree: ${disagreeLabel}`}
+      >
+        {disagreeLabel}
+      </Button>
+      <Button
+        color="success"
+        onPress={onAgree}
+        className="font-semibold min-w-24"
+        isLoading={isLoadingOrSaving}
+        variant="flat"
+        disabled={isLoadingOrSaving}
+        aria-label={`Agree: ${agreeLabel}`}
+      >
+        {agreeLabel}
+      </Button>
+    </div>
+  );
+});
+
 /**
  * ConfirmModal Component
- *
+ * Optimized with memoization and stable callbacks
  */
-export function ConfirmModal(props: ConfirmModalProps) {
-  const confirmdata = useSelector(
-    (root: RootState) => root.openmodal.confirm.data
-  );
-  const { loading: saveformLoading } = useSelector(
-    (root: RootState) => root.allform
-  );
+export const ConfirmModal = memo(function ConfirmModal(
+  props: ConfirmModalProps
+) {
+  const confirmdata = useSelector(selectConfirmData, shallowEqual);
+  const saveformLoading = useSelector(selectSaveFormLoading);
   const [loading, setloading] = useState(false);
 
-  // Enhanced button handler with error handling
-  const handleAgree = async () => {
+  // Memoized button labels
+  const agreeLabel = useMemo(
+    () => confirmdata?.btn?.agree ?? "Yes",
+    [confirmdata?.btn?.agree]
+  );
+  const disagreeLabel = useMemo(
+    () => confirmdata?.btn?.disagree ?? "No",
+    [confirmdata?.btn?.disagree]
+  );
+  const question = useMemo(
+    () => confirmdata?.question ?? "Are you sure?",
+    [confirmdata?.question]
+  );
+
+  // Memoized loading state
+  const isLoadingOrSaving = loading || saveformLoading;
+
+  // Memoized button handler with error handling
+  const handleAgree = useCallback(async () => {
     try {
       if (confirmdata?.onAgree) {
         setloading(true);
@@ -169,10 +233,10 @@ export function ConfirmModal(props: ConfirmModalProps) {
       setloading(false);
       props.onClose();
     }
-  };
+  }, [confirmdata, props]);
 
-  // Enhanced close handler
-  const handleDisagree = () => {
+  // Memoized close handler
+  const handleDisagree = useCallback(() => {
     try {
       if (confirmdata?.onClose) {
         confirmdata.onClose();
@@ -182,42 +246,21 @@ export function ConfirmModal(props: ConfirmModalProps) {
     } finally {
       props.onClose();
     }
-  };
+  }, [confirmdata, props]);
 
-  // Determine if buttons are disabled
-  const isLoadingOrSaving = loading || saveformLoading;
-
-  const Btn = () => {
-    return (
-      <div
-        className="btn_container flex gap-3 items-center justify-end w-full"
-        role="group"
-        aria-label="Confirmation actions"
-      >
-        <Button
-          color="danger"
-          onPress={() => handleDisagree()}
-          className="font-semibold min-w-24"
-          variant="light"
-          disabled={isLoadingOrSaving}
-          aria-label={`Disagree: ${confirmdata?.btn?.disagree ?? "No"}`}
-        >
-          {confirmdata?.btn?.disagree ?? "No"}
-        </Button>
-        <Button
-          color="success"
-          onPress={() => handleAgree()}
-          className="font-semibold min-w-24"
-          isLoading={isLoadingOrSaving}
-          variant="flat"
-          disabled={isLoadingOrSaving}
-          aria-label={`Agree: ${confirmdata?.btn?.agree ?? "Yes"}`}
-        >
-          {confirmdata?.btn?.agree ?? "Yes"}
-        </Button>
-      </div>
-    );
-  };
+  // Memoized footer render function
+  const renderFooter = useCallback(
+    () => (
+      <ConfirmModalButtons
+        isLoadingOrSaving={isLoadingOrSaving}
+        agreeLabel={agreeLabel}
+        disagreeLabel={disagreeLabel}
+        onAgree={handleAgree}
+        onDisagree={handleDisagree}
+      />
+    ),
+    [isLoadingOrSaving, agreeLabel, disagreeLabel, handleAgree, handleDisagree]
+  );
 
   return (
     <ModalWrapper
@@ -225,7 +268,7 @@ export function ConfirmModal(props: ConfirmModalProps) {
       title="Confirmation"
       isOpen={props.open}
       onClose={props.onClose}
-      footer={() => <Btn />}
+      footer={renderFooter}
     >
       <div className="w-full py-2">
         <p
@@ -233,9 +276,9 @@ export function ConfirmModal(props: ConfirmModalProps) {
           role="status"
           aria-live="polite"
         >
-          {confirmdata?.question ?? "Are you sure?"}
+          {question}
         </p>
       </div>
     </ModalWrapper>
   );
-}
+});

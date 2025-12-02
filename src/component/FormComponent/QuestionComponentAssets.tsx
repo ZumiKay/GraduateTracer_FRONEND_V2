@@ -48,8 +48,16 @@ export const ChoiceQuestionEdit = ({
   };
 
   const handleDeleteOption = (idx: number) => {
+    // Filter out the deleted option and reindex remaining options
+    const updatedOptions = options
+      .filter((_, oIdx) => oIdx !== idx)
+      .map((option, newIdx) => ({
+        ...option,
+        idx: newIdx,
+      }));
+
     setquestionsate({
-      [optionKey]: options.filter((_, oIdx) => oIdx !== idx),
+      [optionKey]: updatedOptions,
     });
     removeCondition?.(idx, "delete");
   };
@@ -76,8 +84,6 @@ export const ChoiceQuestionEdit = ({
         });
         return;
       }
-
-      console.log({ isQuestion });
 
       handleScrollTo(isQuestion.contentIdx);
     },
@@ -147,8 +153,15 @@ export const SelectionQuestionEdit = ({
   };
 
   const handleDeleteOption = (didx: number) => {
-    setstate({ selection: state.selection?.filter((_, idx) => idx !== didx) });
+    // Filter out the deleted option and reindex remaining options
+    const updatedSelection = state.selection
+      ?.filter((_, idx) => idx !== didx)
+      .map((option, newIdx) => ({
+        ...option,
+        idx: newIdx,
+      }));
 
+    setstate({ selection: updatedSelection });
     removeCondition?.(didx, "delete");
   };
 
@@ -165,8 +178,6 @@ export const SelectionQuestionEdit = ({
         return;
       }
 
-      console.log({ isQuestion });
-
       handleScrollTo(isQuestion.contentIdx);
     },
     [handleScrollTo, state.conditional]
@@ -180,7 +191,7 @@ export const SelectionQuestionEdit = ({
             key={idx}
             className="w-full h-fit inline-flex gap-x-3 items-center"
           >
-            <span className="w-[10px] h-[10px] bg-black rounded-full"></span>
+            <span className="w-[10px] h-[10px] bg-black dark:bg-white rounded-full"></span>
             <Input
               type="text"
               variant="bordered"
@@ -188,6 +199,7 @@ export const SelectionQuestionEdit = ({
               value={option.content}
               endContent={
                 <DeleteIcon
+                  fill="#fff"
                   onClick={() => {
                     handleDeleteOption(idx);
                   }}

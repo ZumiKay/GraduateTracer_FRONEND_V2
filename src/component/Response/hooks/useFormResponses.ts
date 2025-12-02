@@ -198,7 +198,11 @@ export const useFormResponses = (
             if (existingIndex !== -1) {
               // Update existing response
 
-              if (updateValue === "" || !updateValue) {
+              if (
+                updateValue === "" ||
+                updateValue === null ||
+                updateValue === undefined
+              ) {
                 updated.splice(existingIndex, 1);
                 //Remove from storage
                 RemoveSavedQuestion(question);

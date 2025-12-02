@@ -5,7 +5,6 @@ import StyledTiptap from "./StyledTiptap";
 
 interface CheckboxQuestionProps {
   question: ContentType;
-  idx: number;
   currentResponse?: ResponseValue;
   updateResponse: (questionId: string, value: ResponseValue) => void;
 }
@@ -14,14 +13,15 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
   question,
   currentResponse,
   updateResponse,
-  idx,
 }) => {
   const contentTitle = useMemo(() => {
     if (question.parentcontent) {
-      return "";
+      return `Q${question.questionId} (Sub-Q of Q${
+        question.parentcontent.questionId
+      } Option ${question.parentcontent.optIdx + 1} )`;
     }
-    return `Question ${question.qIdx ?? idx + 1}`;
-  }, [idx, question.parentcontent, question.qIdx]);
+    return `Question ${question.questionId}}`;
+  }, [question.parentcontent, question.questionId]);
   return (
     <div className="space-y-4 p-6 bg-white rounded-lg border shadow-sm">
       <div className="bg-black p-2 w-full rounded-lg text-white">

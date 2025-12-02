@@ -85,7 +85,7 @@ export const ScoreModeInput = ({
     if (validateScore(localScore)) {
       onScoreChange({
         score: localScore,
-        comment: comment.trim() || undefined,
+        comment: comment || undefined,
       });
       setHasChanged(false);
     }
@@ -93,14 +93,12 @@ export const ScoreModeInput = ({
 
   // Handle blur with conditions
   const handleInputBlur = useCallback(() => {
-    // Only submit on blur if both inputs have values and no errors
-    const hasBothInputs = localScore > 0 && comment.trim().length > 0;
     const isValid = !error && validateScore(localScore);
 
-    if (hasBothInputs && isValid && hasChanged) {
+    if (isValid && hasChanged) {
       handleSubmit();
     }
-  }, [localScore, comment, error, validateScore, hasChanged, handleSubmit]);
+  }, [localScore, error, validateScore, hasChanged, handleSubmit]);
 
   // Get color based on status
   const getColorClass = () => {
@@ -116,6 +114,7 @@ export const ScoreModeInput = ({
     }
   };
 
+  //Get color for progress bar
   const getProgressColor = () => {
     switch (scoreStatus) {
       case "success":
@@ -130,101 +129,156 @@ export const ScoreModeInput = ({
   };
 
   return (
-    <Card className="w-full p-6 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm">
-      <div className="space-y-5">
+    <Card className="w-full p-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-50 border-2 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-800">Score Entry</h3>
+          <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+              <span className="text-white text-sm">★</span>
+            </div>
+            Score Entry
+          </h3>
           {scoreStatus === "success" && Number(score) > 0 && (
-            <div className="flex items-center gap-1.5 text-green-600">
-              <CheckCircleIcon className="w-5 h-5" />
-              <span className="text-sm font-medium">Complete</span>
+            <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 rounded-full">
+              <CheckCircleIcon className="w-6 h-6" />
+              <span className="text-base font-bold">Excellent!</span>
             </div>
           )}
         </div>
 
         {/* Score Input Section */}
-        <div className="space-y-3">
-          <label className="text-sm font-medium text-slate-700">Score</label>
-          <div className="flex items-end gap-3">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs">
+                🎯
+              </span>
+              Score
+            </label>
+            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
+              Press Tab to move to feedback
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
             <Input
               aria-label="score input"
               type="number"
               value={score}
               onValueChange={handleScoreChange}
-              startContent={
-                <span className="text-slate-500 text-sm font-medium">pts</span>
-              }
-              endContent={
-                <span className={`text-sm font-medium ${getColorClass()}`}>
-                  /{maxScore}
-                </span>
-              }
+              startContent=""
+              endContent=""
               onBlur={handleInputBlur}
               placeholder="0"
               min="0"
               max={maxScore}
               className="flex-1"
+              size="lg"
               classNames={{
-                input: "font-semibold text-center",
-                inputWrapper: "border-slate-300",
+                input: "text-3xl font-black text-center text-blue-700",
+                inputWrapper:
+                  "border-3 border-blue-300 shadow-md hover:border-blue-400 transition-colors h-20",
               }}
               isInvalid={!!error}
               errorMessage={error}
             />
-            <div className={`text-sm font-semibold ${getColorClass()}`}>
-              {scorePercentage.toFixed(0)}%
+            <div className="flex flex-col items-center gap-2 min-w-[120px]">
+              <div className="text-5xl font-black text-slate-300">/</div>
+            </div>
+            <div className="flex flex-col items-center justify-center bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl px-6 py-4 min-w-[120px] border-3 border-purple-200 shadow-md">
+              <div className="text-4xl font-black text-purple-700">
+                {maxScore}
+              </div>
+              <div className="text-xs text-purple-600 font-bold uppercase tracking-wide mt-1">
+                Max
+              </div>
             </div>
           </div>
 
-          {/* Progress Bar */}
-          <Progress
-            value={Math.min(scorePercentage, 100)}
-            color={getProgressColor()}
-            className="h-2"
-            classNames={{
-              track: "bg-slate-200",
-            }}
-          />
+          {/* Large Percentage Display */}
+          <div className="bg-white rounded-xl p-5 border-2 border-slate-200 shadow-inner">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-bold text-slate-700">Progress</span>
+              <div className={`text-3xl font-black ${getColorClass()}`}>
+                {scorePercentage.toFixed(0)}%
+              </div>
+            </div>
 
-          {/* Score Status Text */}
-          <div className="text-xs text-slate-600 text-center">
-            {localScore === 0
-              ? "Enter a score to get started"
-              : localScore === maxScore
-              ? "Perfect score achieved! 🎉"
-              : `${score} out of ${maxScore} points`}
+            {/* Progress Bar */}
+            <Progress
+              value={Math.min(scorePercentage, 100)}
+              color={getProgressColor()}
+              size="lg"
+              className="h-4"
+              classNames={{
+                track: "bg-slate-200",
+                indicator: "shadow-md",
+              }}
+            />
+
+            {/* Score Status Text */}
+            <div className="text-sm text-slate-600 text-center font-medium mt-3">
+              {localScore === 0
+                ? "✏️ Enter a score to get started"
+                : localScore === maxScore
+                ? "🎉 Perfect score achieved!"
+                : `${score} out of ${maxScore} points (${
+                    scorePercentage >= 80
+                      ? "👍 Great!"
+                      : scorePercentage >= 50
+                      ? "👌 Good!"
+                      : "👊 Keep going!"
+                  })`}
+            </div>
           </div>
         </div>
 
         {/* Comment Section */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">
-            Feedback (Optional)
+        <div className="space-y-3">
+          <label className="text-base font-bold text-slate-800 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-xs">
+              💬
+            </span>
+            Feedback{" "}
+            <span className="text-xs font-normal text-slate-500">
+              (Optional)
+            </span>
           </label>
           <Input
             type="text"
             value={comment}
             onValueChange={handleCommentChange}
             aria-label="Comment"
-            placeholder="Add feedback or notes..."
+            placeholder="Add helpful feedback"
             onBlur={handleInputBlur}
+            size="lg"
             className="w-full"
             classNames={{
-              inputWrapper: "border-slate-300",
+              input: "text-base",
+              inputWrapper:
+                "border-2 border-slate-300 shadow-sm hover:border-blue-300 transition-colors",
             }}
             maxLength={500}
           />
-          <div className="text-xs text-slate-500 text-right">
-            {comment.length}/500
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">
+              💡 Tip: Provide constructive feedback to help improve
+            </span>
+            <span
+              className={`text-xs font-medium ${
+                comment.length > 450 ? "text-orange-600" : "text-slate-500"
+              }`}
+            >
+              {comment.length}/500
+            </span>
           </div>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <ExclamationCircleIcon className="w-4 h-4 text-red-600 flex-shrink-0" />
-            <span className="text-sm text-red-700">{error}</span>
+          <div className="flex items-center gap-3 p-4 bg-red-50 border-2 border-red-300 rounded-xl shadow-sm">
+            <ExclamationCircleIcon className="w-6 h-6 text-red-600 flex-shrink-0" />
+            <span className="text-base font-medium text-red-700">{error}</span>
           </div>
         )}
       </div>

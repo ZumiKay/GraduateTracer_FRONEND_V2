@@ -31,7 +31,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             name="email"
             type="email"
             label="Email"
-            placeholder="Enter your email"
+            placeholder="Email / Name"
             fullWidth
             value={loginData.email}
             onChange={onLoginChange}

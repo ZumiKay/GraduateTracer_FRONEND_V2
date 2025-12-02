@@ -11,7 +11,6 @@ export const testFormOwnerEndpoints = async (formId: string) => {
       url: `/getformowners/${formId}`,
       method: "GET",
       cookie: true,
-      refreshtoken: true,
     });
 
     console.log("Get Form Owners Response:", ownersResponse);
@@ -23,7 +22,6 @@ export const testFormOwnerEndpoints = async (formId: string) => {
       method: "POST",
       data: { formId, userEmail: "test@example.com" },
       cookie: true,
-      refreshtoken: true,
     });
 
     console.log("Add Form Owner Response:", addResponse);
@@ -36,7 +34,6 @@ export const testFormOwnerEndpoints = async (formId: string) => {
         method: "DELETE",
         data: { formId, userId: "test-user-id" },
         cookie: true,
-        refreshtoken: true,
       });
 
       console.log("Remove Form Owner Response:", removeResponse);
@@ -49,7 +46,6 @@ export const testFormOwnerEndpoints = async (formId: string) => {
       method: "DELETE",
       data: { formId },
       cookie: true,
-      refreshtoken: true,
     });
 
     console.log("Remove Self From Form Response:", removeSelfResponse);

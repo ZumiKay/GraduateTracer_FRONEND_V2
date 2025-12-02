@@ -33,7 +33,6 @@ export const useFormValidation = (): ValidationHookReturn => {
           url: `/validateform?formId=${formId}&action=${action}`,
           method: "GET",
           cookie: true,
-          refreshtoken: true,
         });
 
         if (!response.success) {
@@ -71,7 +70,6 @@ export const useFormValidation = (): ValidationHookReturn => {
           url: `/validatecontent?formId=${formId}`,
           method: "GET",
           cookie: true,
-          refreshtoken: true,
         });
 
         if (!response.success) {
@@ -109,7 +107,6 @@ export const useFormValidation = (): ValidationHookReturn => {
           url: `/validateformsubmission?formId=${formId}`,
           method: "GET",
           cookie: true,
-          refreshtoken: true,
         });
 
         if (!response.success) {

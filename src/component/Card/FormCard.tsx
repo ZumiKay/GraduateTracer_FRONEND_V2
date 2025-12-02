@@ -16,7 +16,7 @@ const SelectionCheckbox = memo(({ isSelect }: { isSelect: boolean }) => (
       className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 shadow-sm ${
         isSelect
           ? "bg-blue-500 border-blue-500 shadow-blue-200"
-          : "border-gray-300 hover:border-blue-400 hover:shadow-md bg-white"
+          : "border-gray-300 hover:border-blue-400 hover:shadow-md bg-white dark:bg-gray-700 dark:border-gray-600"
       }`}
     >
       {isSelect && (
@@ -75,8 +75,8 @@ const FormCard: React.FC<FormCardProps> = ({
   const cardClassName = useMemo(() => {
     return `h-fit cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 ${
       isSelect
-        ? "ring-2 ring-blue-500 shadow-xl bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200"
-        : "hover:shadow-lg border-gray-200 bg-white"
+        ? "ring-2 ring-blue-500 shadow-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700"
+        : "hover:shadow-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
     } ${isManage ? "hover:scale-[1.02] select-none" : ""} rounded-xl border`;
   }, [isSelect, isManage]);
 
@@ -89,7 +89,7 @@ const FormCard: React.FC<FormCardProps> = ({
       <CardHeader className="pb-3 px-6 pt-6">
         <div className="flex justify-between items-start w-full">
           <div className="flex-1">
-            <h3 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 leading-tight">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 line-clamp-2 leading-tight">
               {data.title || "Untitled Form"}
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -128,7 +128,7 @@ const FormCard: React.FC<FormCardProps> = ({
       </CardHeader>
       <CardBody className="pt-0 px-6 pb-6">
         <div className="space-y-4">
-          <div className="flex justify-between items-center text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+          <div className="flex justify-between items-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
             <div className="flex items-center space-x-1">
               <span className="text-gray-500">📅</span>
               <span className="font-medium">Created:</span>

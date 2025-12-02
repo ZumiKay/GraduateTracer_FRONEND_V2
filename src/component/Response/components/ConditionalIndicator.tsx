@@ -11,9 +11,6 @@ export const ConditionalIndicator: React.FC<ConditionalIndicatorProps> = memo(
     if (!question.parentcontent) return null;
 
     const getConditionText = () => {
-      const parentIdx = questions.findIndex(
-        (q) => q._id === question.parentcontent?.qId
-      );
       const parentQuestion = questions.find(
         (q) => q._id === question.parentcontent?.qId
       );
@@ -28,7 +25,7 @@ export const ConditionalIndicator: React.FC<ConditionalIndicatorProps> = memo(
             )?.content
           : `option ${(question.parentcontent?.optIdx ?? 0) + 1}`;
 
-      return `${parentIdx + 1 || "unknown"} selects "${
+      return `${question.parentcontent?.questionId || "unknown"} selects "${
         optionLabel || "unknown option"
       }"`;
     };

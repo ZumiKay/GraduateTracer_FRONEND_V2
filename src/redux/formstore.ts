@@ -28,7 +28,6 @@ export const AsyncSaveForm = createAsyncThunk(
         method: "PUT",
         cookie: true,
         data: { data: data.data, formID: data.formID, page: data.page },
-        refreshtoken: true,
       });
 
       if (!response.success) {

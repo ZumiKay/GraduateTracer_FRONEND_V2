@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useRef, useState, memo } from "react";
 import { RootState } from "../../../redux/store";
 import { useDispatch, useSelector } from "react-redux";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ChoiceQuestionType,
   ContentType,
   DefaultContentType,
-  ParentContentType,
 } from "../../../types/Form.types";
 import { AutoSaveQuestion } from "../../../pages/FormPage.action";
 import { ErrorToast, PromiseToast } from "../../Modal/AlertModal";
@@ -335,7 +335,8 @@ const QuestionTab = () => {
               con.contentIdx !== questionConditionContent?.contentIdx
           )
           .map((cond) => {
-            return {
+            // Adjust both contentIdx (question index) and key (option index) after deletion
+            const updatedCond = {
               ...cond,
               contentIdx:
                 cond.contentIdx !== undefined &&
@@ -344,6 +345,17 @@ const QuestionTab = () => {
                   ? cond.contentIdx - 1
                   : cond.contentIdx,
             };
+
+            // If deleting an option, adjust keys for options after the deleted one
+            if (
+              ty === "delete" &&
+              cond.key !== undefined &&
+              cond.key > ansidx
+            ) {
+              updatedCond.key = cond.key - 1;
+            }
+
+            return updatedCond;
           }),
       } as ContentType<Array<ChoiceQuestionType>>;
 
@@ -351,11 +363,17 @@ const QuestionTab = () => {
         ty === "delete" &&
         Array.isArray(updatedQuestion[updatedQuestion.type as never])
       ) {
+        //Delete question options and reindex
         updatedQuestion[updatedQuestion.type] = (
           updatedQuestion[updatedQuestion.type] as Array<ChoiceQuestionType>
-        ).filter((i, idx) =>
-          i.idx ? i.idx !== ansidx : idx !== ansidx
-        ) as never;
+        )
+          .filter((i, idx) =>
+            i.idx !== undefined ? i.idx !== ansidx : idx !== ansidx
+          )
+          .map((option, newIdx) => ({
+            ...option,
+            idx: newIdx,
+          })) as never;
       }
 
       const updatedAllQuestion = allQuestion.filter((q, idx) =>
@@ -556,45 +574,6 @@ const QuestionTab = () => {
     [allQuestion, dispatch, validateQuestionStructure]
   );
 
-  const checkIsLinkedForQuestionOption = useCallback(
-    (ansidx: number, qidx: number) =>
-      allQuestion[qidx] && allQuestion[qidx].conditional
-        ? allQuestion[qidx].conditional.some((con) => con.key === ansidx)
-        : false,
-    [allQuestion]
-  );
-
-  const checkConditionedContent = useCallback(
-    (id: string | number, parentcontent?: ParentContentType) => {
-      if (parentcontent) {
-        return {
-          key: id,
-          qIdx: parentcontent.qIdx as number,
-          ansIdx: parentcontent.optIdx as number,
-        };
-      }
-
-      const qIdx = allQuestion.findIndex((question) =>
-        question.conditional?.some(
-          (con) => con.contentId === id || con.contentIdx === id
-        )
-      );
-
-      if (qIdx === -1) {
-        return { key: "", qIdx: -1, ansIdx: 0 };
-      }
-
-      const key = `${allQuestion[qIdx].type}${qIdx}`;
-      const ansIdx =
-        allQuestion[qIdx].conditional?.find(
-          (con) => con.contentId === id || con.contentIdx === id
-        )?.key ?? 0;
-
-      return { key, qIdx: allQuestion[qIdx].qIdx, ansIdx };
-    },
-    [allQuestion]
-  );
-
   const scrollToDiv = useCallback(
     ({ questionIdx }: { questionIdx: number }) => {
       const targetQuestionType = { ...allQuestion[questionIdx] };
@@ -650,7 +629,6 @@ const QuestionTab = () => {
           url: "/modifypage",
           method: "PUT",
           cookie: true,
-          refreshtoken: true,
           data: {
             formId: formState._id,
             ty: type,
@@ -811,28 +789,39 @@ const QuestionTab = () => {
   return (
     <div className="w-full h-fit flex flex-row">
       {/* Question Structure Sidebar */}
-      {showStructure && (
-        <QuestionStructure
-          onQuestionClick={handleQuestionClick}
-          onToggleVisibility={handleToggleVisibility}
-          currentPage={page}
-          onClose={() => setShowStructure(false)}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {showStructure && (
+          <QuestionStructure
+            onQuestionClick={handleQuestionClick}
+            onToggleVisibility={handleToggleVisibility}
+            currentPage={page}
+            onClose={() => setShowStructure(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center gap-y-20 p-4">
         {/* Toggle Structure Button */}
-        {!showStructure && (
-          <Button
-            className="self-start mb-4"
-            variant="flat"
-            onPress={() => setShowStructure(true)}
-            aria-label="Show question structure sidebar"
-          >
-            Show Question Structure
-          </Button>
-        )}
+        <AnimatePresence mode="wait">
+          {!showStructure && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="self-start mb-4"
+            >
+              <Button
+                variant="flat"
+                onPress={() => setShowStructure(true)}
+                aria-label="Show question structure sidebar"
+              >
+                Show Question Structure
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {fetchLoading || isPageLoading ? (
           <QuestionLoading count={3} />
@@ -842,6 +831,18 @@ const QuestionTab = () => {
             const isChildCondition = question.parentcontent
               ? shouldShowConditionedQuestion(question)
               : true;
+
+            // Create a stable isLinked function that depends on the question's conditional array
+            const isLinkedFunc = (ansidx: number) => {
+              if (
+                !question ||
+                !question.conditional ||
+                question.conditional.length === 0
+              ) {
+                return false;
+              }
+              return question.conditional.some((con) => con.key === ansidx);
+            };
 
             return (
               isChildCondition && (
@@ -854,9 +855,7 @@ const QuestionTab = () => {
                 >
                   <QuestionComponent
                     idx={idx}
-                    isLinked={(ansidx) =>
-                      checkIsLinkedForQuestionOption(ansidx, idx)
-                    }
+                    isLinked={isLinkedFunc}
                     value={question}
                     color={questionColor}
                     onDelete={() => handleDeleteQuestion(idx)}
@@ -869,12 +868,6 @@ const QuestionTab = () => {
                     onDuplication={() => handleDuplication(idx)}
                     scrollToCondition={(targetIdx) =>
                       scrollToDiv({ questionIdx: targetIdx })
-                    }
-                    isConditioned={() =>
-                      checkConditionedContent(
-                        question._id ?? idx,
-                        question.parentcontent
-                      ) as never
                     }
                   />
                 </div>

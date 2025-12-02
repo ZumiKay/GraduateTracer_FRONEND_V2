@@ -4,6 +4,15 @@ import ApiRequest, { ApiRequestReturnType } from "./ApiHook";
 import queryClient from "./ReactQueryClient";
 import { ErrorToast } from "../component/Modal/AlertModal";
 
+// Global flag to suppress error toasts during user switch
+let isSwitchingUser = false;
+
+export const setUserSwitching = (value: boolean) => {
+  isSwitchingUser = value;
+};
+
+export const isUserSwitching = () => isSwitchingUser;
+
 // Type definitions for formsession API requests
 export interface RespondentLoginProps extends Record<string, unknown> {
   formId: string;
@@ -95,7 +104,10 @@ export const useFormsessionAPI = () => {
     },
     onError: (error: Error) => {
       console.log("Respondent Login", error);
-      ErrorToast({ title: "Failed", content: error.message });
+      // Skip showing error toast if user is switching
+      if (!isSwitchingUser) {
+        ErrorToast({ title: "Failed", content: error.message });
+      }
       setError(error.message);
     },
   });
@@ -149,11 +161,14 @@ export const useFormsessionAPI = () => {
       },
       onError: (error: Error) => {
         console.error("❌ Manual session verification failed:", error);
-        ErrorToast({
-          toastid: "Manually check session",
-          title: "Verification Failed",
-          content: error.message,
-        });
+        // Skip showing error toast if user is switching
+        if (!isSwitchingUser) {
+          ErrorToast({
+            toastid: "Manually check session",
+            title: "Verification Failed",
+            content: error.message,
+          });
+        }
         setError(error.message);
       },
     });

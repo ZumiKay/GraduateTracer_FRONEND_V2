@@ -26,8 +26,10 @@ export const GuestForm: React.FC<GuestFormProps> = ({
         <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center mx-auto shadow-lg">
           <FiUserCheck className="w-8 h-8 text-white" />
         </div>
-        <h3 className="text-xl font-bold text-gray-800">Guest Access</h3>
-        <p className="text-gray-600 text-sm">
+        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+          Guest Access
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400 text-sm">
           Please provide your details to continue
         </p>
       </div>
@@ -46,12 +48,14 @@ export const GuestForm: React.FC<GuestFormProps> = ({
             size="lg"
             className="w-full"
             classNames={{
-              input: "text-gray-700",
+              input: "text-gray-700 dark:text-gray-200",
               inputWrapper:
-                "border-gray-200 hover:border-emerald-400 focus-within:border-emerald-500 bg-white/50 transition-colors",
-              label: "text-gray-600 font-medium",
+                "border-gray-200 dark:border-gray-600 hover:border-emerald-400 dark:hover:border-emerald-500 focus-within:border-emerald-500 bg-white/50 dark:bg-gray-800/50 transition-colors",
+              label: "text-gray-600 dark:text-gray-400 font-medium",
             }}
-            startContent={<FiUser className="w-4 h-4 text-gray-400" />}
+            startContent={
+              <FiUser className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+            }
             isRequired
           />
         </div>
@@ -69,12 +73,14 @@ export const GuestForm: React.FC<GuestFormProps> = ({
             size="lg"
             className="w-full"
             classNames={{
-              input: "text-gray-700",
+              input: "text-gray-700 dark:text-gray-200",
               inputWrapper:
-                "border-gray-200 hover:border-emerald-400 focus-within:border-emerald-500 bg-white/50 transition-colors",
-              label: "text-gray-600 font-medium",
+                "border-gray-200 dark:border-gray-600 hover:border-emerald-400 dark:hover:border-emerald-500 focus-within:border-emerald-500 bg-white/50 dark:bg-gray-800/50 transition-colors",
+              label: "text-gray-600 dark:text-gray-400 font-medium",
             }}
-            startContent={<FiMail className="w-4 h-4 text-gray-400" />}
+            startContent={
+              <FiMail className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+            }
             isRequired
           />
         </div>
@@ -87,10 +93,12 @@ export const GuestForm: React.FC<GuestFormProps> = ({
             radius="md"
             classNames={{
               base: "data-[selected=true]:bg-blue-500",
-              wrapper: "border-gray-300",
+              wrapper: "border-gray-300 dark:border-gray-600",
             }}
           >
-            <span className="text-sm text-gray-600">Remember me</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Remember me
+            </span>
           </Checkbox>
         </div>
 
@@ -100,7 +108,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({
             variant="bordered"
             size="lg"
             radius="lg"
-            className="flex-1 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-medium transition-all duration-200"
+            className="flex-1 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200"
             onPress={onBackToLogin}
           >
             Back to Login

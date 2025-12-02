@@ -19,30 +19,19 @@ export interface UniqueRespondentType {
 
 const useResponseById = (data: {
   formId: string;
-  respondentEmail: string;
+  resId: string;
   page: number;
 }) => {
   const [responseData, setResponseData] = useState<useResponseByIdType>();
 
   //Fetch data
   const { isLoading, error, refetch } = useQuery({
-    queryKey: [
-      "responses-by-email",
-      data.formId,
-      data.respondentEmail,
-      data.page,
-    ],
+    queryKey: ["responses-by-email", data.formId, data.page],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set("formId", data.formId);
-      params.set("respondentEmail", data.respondentEmail);
-      params.set("page", data.page.toString());
-
       const makeReq = await ApiRequest({
-        url: `/response/getuserresponses?${params.toString()}`,
+        url: `/response/getuserresponses/${data.formId}/${data.resId}/${data.page}`,
         method: "GET",
         cookie: true,
-        refreshtoken: true,
         reactQuery: true,
       });
 
@@ -54,7 +43,7 @@ const useResponseById = (data: {
       return makeReq.data;
     },
     staleTime: 30000,
-    enabled: !!(data.formId && data.respondentEmail),
+    enabled: !!data.formId,
   });
 
   return { responseData, setResponseData, isLoading, error, refetch };
@@ -72,14 +61,10 @@ export const useGetAllUniqueRespondent = (formId: string) => {
   const { isLoading, error, refetch } = useQuery({
     queryKey: ["unique-respondents", formId],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set("formId", formId);
-
       const makeReq = await ApiRequest({
-        url: `/response/getrespondents?${params.toString()}`,
+        url: `/response/getrespondents/${formId}`,
         method: "GET",
         cookie: true,
-        refreshtoken: true,
         reactQuery: true,
       });
 

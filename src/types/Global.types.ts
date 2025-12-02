@@ -1,6 +1,7 @@
 export interface SelectionType<t> {
   label: string;
   value: t;
+  description?: string;
 }
 
 export interface ShowLinkedQuestionType {

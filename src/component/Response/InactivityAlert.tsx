@@ -64,7 +64,7 @@ export const InactivityAlert: React.FC<InactivityAlertProps> = ({
         <Alert
           color={isWarningState ? "warning" : "danger"}
           title={isWarningState ? "Session Warning" : "Session Inactive"}
-          className="max-w-md"
+          className="max-w-md dark:bg-gray-800 dark:border-gray-700"
           aria-label="inactive alert modal"
         >
           <div className="flex flex-col gap-2">
@@ -115,7 +115,7 @@ export const InactivityAlert: React.FC<InactivityAlertProps> = ({
 
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md dark:bg-gray-800">
           <CardBody className="text-center">
             <Alert
               color={isWarningState ? "warning" : "danger"}

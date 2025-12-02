@@ -172,7 +172,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     //Check if the user already response
     useEffect(() => {
-      console.log({ formState });
       if (formState?.setting?.submitonce && formState.isResponsed) {
         setSuccess(true);
       }
@@ -1065,14 +1064,12 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
                     {question.type === QuestionType.CheckBox ? (
                       <CheckboxQuestion
-                        idx={index}
                         question={question}
                         currentResponse={currentResponse?.response as never}
                         updateResponse={updateResponse}
                       />
                     ) : question.type === QuestionType.MultipleChoice ? (
                       <MultipleChoiceQuestion
-                        idx={index}
                         question={question}
                         currentResponse={currentResponse?.response as never}
                         updateResponse={updateResponse}
@@ -1090,7 +1087,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
                                     answer: currentResponse.response,
                                   } as AnswerKey)
                                 : undefined,
-                            rangenumber: question.rangenumber,
                           }}
                           color={formState?.setting?.qcolor}
                           ty="form"

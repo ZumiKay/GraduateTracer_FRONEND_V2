@@ -32,7 +32,10 @@ import { useInactivityWarning } from "../../hooks/useInactivityWarning";
 import { AuthContainer } from "./AuthContainer";
 import { InactivityAlert } from "./InactivityAlert";
 import { InactivityWarning } from "../InactivityWarning";
-import useFormsessionAPI from "../../hooks/useFormsessionAPI";
+import useFormsessionAPI, {
+  setUserSwitching,
+  isUserSwitching,
+} from "../../hooks/useFormsessionAPI";
 
 /* ------------------------------ State Reducer ----------------------------- */
 interface FormState {
@@ -362,7 +365,10 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         }
         dispatch(dispatchState);
       } else if (formReqData.error) {
-        dispatch({ type: "SET_ACCESS_MODE", payload: "error" });
+        // Only show error state if not currently switching users
+        if (!isUserSwitching()) {
+          dispatch({ type: "SET_ACCESS_MODE", payload: "error" });
+        }
       }
     }
   }, [formReqData, formState.guestData.isActive, isInitialized]);
@@ -755,12 +761,18 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     if (!formId) return;
 
     try {
+      // Set flag to suppress error toasts during user switch
+      setUserSwitching(true);
+
       const asyncLogout = await signOut.mutateAsync(formId);
       if (!asyncLogout.success) {
+        // Only show error if logout actually failed
+        console.error("Logout failed:", asyncLogout);
+        setUserSwitching(false); // Reset flag on error
         ErrorToast({
           toastid: "loginerror",
           title: "Error",
-          content: "Can't Login",
+          content: "Can't logout. Please try again.",
         });
         return;
       }
@@ -789,12 +801,11 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         window.localStorage.removeItem(localKey);
       }
 
-      // Use setTimeout to ensure localStorage operations complete before reload
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
+      dispatch({ type: "SET_ACCESS_MODE", payload: "login" });
     } catch (error) {
+      // Only show error on actual exceptions
       console.error("Error during switch user:", error);
+      setUserSwitching(false); // Reset flag on error
       ErrorToast({
         toastid: "switchusererror",
         title: "Error",

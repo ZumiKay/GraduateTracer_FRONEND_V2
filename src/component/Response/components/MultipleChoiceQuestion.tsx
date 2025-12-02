@@ -5,25 +5,23 @@ import StyledTiptap from "./StyledTiptap";
 
 interface MultipleChoiceQuestionProps {
   question: ContentType;
-  idx: number;
   currentResponse?: ResponseValue;
   updateResponse: (questionId: string, value?: ResponseValue) => void;
 }
 
 export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
   question,
-  idx,
   currentResponse,
   updateResponse,
 }) => {
   const contentTitle = useMemo(() => {
     if (question.parentcontent) {
-      return `Q${idx + 1} (Sub-Q of Q${
-        (question.parentcontent.qIdx ?? 0) + 1
-      }.${question.parentcontent.optIdx})`;
+      return `Q${question.questionId} (Sub-Q of Q${
+        question.parentcontent.questionId
+      } Option ${question.parentcontent.optIdx + 1} )`;
     }
-    return `Question ${idx + 1}`;
-  }, [idx, question.parentcontent]);
+    return `Question ${question.questionId}}`;
+  }, [question.parentcontent, question.questionId]);
   return (
     <div className="space-y-4 p-6 bg-white rounded-lg border shadow-sm">
       <div className="question_label bg-black rounded-lg text-white p-2">
@@ -44,7 +42,9 @@ export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
       <div className="flex justify-between items-center">
         <p className="text-sm font-medium text-gray-600">Select one option:</p>
 
-        {currentResponse !== "" ? (
+        {currentResponse !== null &&
+        currentResponse !== undefined &&
+        currentResponse !== "" ? (
           <button
             type="button"
             onClick={() => question._id && updateResponse(question._id, "")}

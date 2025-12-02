@@ -14,6 +14,7 @@ import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 import { CardLoading } from "../component/Loading/ContainerLoading";
 import { useNavigate, useSearchParams } from "react-router";
 import FormCard from "../component/Card/FormCard";
+import FilledFormCard from "../component/Card/FilledFormCard";
 import CreateCardBtn from "../component/Card/CreateCardBtn";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardFilterType, DashboardTabType } from "../types/Global.types";
@@ -36,7 +37,7 @@ const HeaderSection = memo(
     filterState: DashboardFilterType;
     setfilterState: React.Dispatch<React.SetStateAction<DashboardFilterType>>;
   }) => (
-    <div className="header_section h-fit flex flex-row justify-between items-center gap-x-4 bg-white p-4 rounded-lg shadow-sm border">
+    <div className="header_section h-fit flex flex-row justify-between items-center gap-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border dark:border-gray-700">
       <FilterSection
         Filterstate={filterState}
         setFilterstate={setfilterState}
@@ -98,7 +99,16 @@ const FormGrid = memo(
           ))
         : allformstate?.map(
             (form) =>
-              form._id && (
+              form._id &&
+              (form.isFilled ? (
+                <FilledFormCard
+                  key={`form-${form._id}`}
+                  data={form}
+                  isManage={isManage}
+                  onClick={() => onCardClick(form._id ?? "")}
+                  isSelect={selectedCard.has(form._id)}
+                />
+              ) : (
                 <FormCard
                   key={`form-${form._id}`}
                   data={form}
@@ -107,7 +117,7 @@ const FormGrid = memo(
                   onClick={() => onCardClick(form._id ?? "")}
                   isSelect={selectedCard.has(form._id)}
                 />
-              )
+              ))
           )}
     </div>
   )
@@ -218,7 +228,6 @@ function Dashboard() {
       url: `/filteredform?${queryParam}`,
       method: "GET",
       cookie: true,
-      refreshtoken: true,
     }),
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2,
@@ -229,7 +238,6 @@ function Dashboard() {
       url: "/deleteform",
       method: "DELETE",
       cookie: true,
-      refreshtoken: true,
     }),
     onSuccess: () => {
       SuccessToast({
@@ -273,11 +281,11 @@ function Dashboard() {
         // Find the form data to check if it's filled
         const form = allformstate.find((f) => f._id === id);
         if (form?.isFilled) {
-          // Navigate to filled form view
-          navigate(`/filled-form/${id}`, { replace: true });
+          // Navigate to filled form view to show questions, responses, scores and feedback
+          navigate(`/filled-form/${id}`);
         } else {
           // Navigate to form editor
-          navigate(`/form/${id}`, { replace: true });
+          navigate(`/form/${id}`);
         }
       }
     },
@@ -477,7 +485,7 @@ function Dashboard() {
         />
       )}
 
-      <div className="w-full p-6 h-full flex flex-col gap-y-8 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      <div className="w-full p-6 h-full flex flex-col gap-y-8 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen">
         <HeaderSection
           isManage={isManage}
           filterState={Filterstate}

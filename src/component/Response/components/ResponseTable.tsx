@@ -17,6 +17,9 @@ import {
   ModalFooter,
   useDisclosure,
   Selection,
+  Input,
+  Textarea,
+  Switch,
 } from "@heroui/react";
 import {
   FiEye,
@@ -25,25 +28,34 @@ import {
   FiTrash2,
   FiAlertTriangle,
   FiCornerUpLeft,
+  FiUsers,
+  FiList,
+  FiSend,
 } from "react-icons/fi";
 import { getResponseDisplayName } from "../../../utils/respondentUtils";
-import { ResponseListItem } from "../../../services/responseService";
+import {
+  ResponseListItem,
+  GroupResponseListItemType,
+} from "../../../services/responseService";
 import { useMutation } from "@tanstack/react-query";
 import ApiRequest from "../../../hooks/ApiHook";
 import SuccessToast, { ErrorToast } from "../../Modal/AlertModal";
 
 const uniqueToastId = "ResponseTableUniqueErrorToastId";
 
+type ViewMode = "normal" | "grouped";
+
 interface ResponseTableProps {
-  responses: ResponseListItem[];
+  responses: ResponseListItem[] | GroupResponseListItemType[];
   isLoading: boolean;
   isQuizForm: boolean;
   formId: string;
-  onViewResponse: (response: ResponseListItem) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+  showGroupToggle?: boolean; // Only show toggle if email collection is enabled
   onEditScore: (response: ResponseListItem) => void;
   onDeleteResponse: (id: string) => void;
   onBulkDelete: (ids: string[]) => void;
-  formatDate: (date: Date) => string;
   getStatusColor: (
     status: string
   ) => "success" | "warning" | "danger" | "default";
@@ -51,11 +63,30 @@ interface ResponseTableProps {
 
 const useReturnResponse = () => {
   return useMutation({
-    mutationFn: async (responseId: string) => {
+    mutationFn: async ({
+      responseId,
+      html,
+      reason,
+      feedback,
+      includeQuestionsAndResponses,
+    }: {
+      responseId: string;
+      html: string;
+      reason?: string;
+      feedback?: string;
+      includeQuestionsAndResponses?: boolean;
+    }) => {
       const res = await ApiRequest({
         url: "/response/return",
         method: "POST",
-        data: { responseId },
+        data: {
+          responseId,
+          html,
+          reason,
+          feedback,
+          includeQuestionsAndResponses,
+        },
+        cookie: true,
       });
 
       if (!res.success) {
@@ -71,15 +102,22 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
   isLoading,
   isQuizForm,
   formId,
-  onViewResponse,
+  viewMode,
+  onViewModeChange,
+  showGroupToggle = false,
   onEditScore,
   onDeleteResponse,
   onBulkDelete,
-  formatDate,
   getStatusColor,
 }) => {
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set([]));
   const [deleteItem, setDeleteItem] = useState<ResponseListItem | null>(null);
+  const [returnItem, setReturnItem] = useState<ResponseListItem | null>(null);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnFeedback, setReturnFeedback] = useState("");
+  const [returnAdditionalInfo, setReturnAdditionalInfo] = useState("");
+  const [includeQuestionsAndResponses, setIncludeQuestionsAndResponses] =
+    useState(false);
   const returnMutation = useReturnResponse();
 
   const {
@@ -92,12 +130,39 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     onOpen: onBulkDeleteOpen,
     onClose: onBulkDeleteClose,
   } = useDisclosure();
+  const {
+    isOpen: isReturnModalOpen,
+    onOpen: onReturnModalOpen,
+    onClose: onReturnModalClose,
+  } = useDisclosure();
+
+  // Type guard to check if response is ResponseListItem
+  const isResponseListItem = (
+    response: ResponseListItem | GroupResponseListItemType
+  ): response is ResponseListItem => {
+    return "_id" in response;
+  };
 
   const handleViewResponse = useCallback(
-    (response: ResponseListItem) => {
-      onViewResponse(response);
+    (response: ResponseListItem | GroupResponseListItemType) => {
+      if (viewMode === "grouped" && !isResponseListItem(response)) {
+        // For grouped items, open with all responseIds in the group
+        if (response.responseIds && response.responseIds.length > 0) {
+          const queryParams = new URLSearchParams();
+          queryParams.set("responseIds", response.responseIds.join(","));
+          window.open(
+            `/response/${formId}/${
+              response.responseIds[0]
+            }?${queryParams.toString()}`,
+            "_blank"
+          );
+        }
+      } else if (isResponseListItem(response)) {
+        // For normal items, open single response
+        window.open(`/response/${formId}/${response._id}`, "_blank");
+      }
     },
-    [onViewResponse]
+    [formId, viewMode]
   );
 
   const handleEditScore = useCallback(
@@ -194,26 +259,81 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
   }, [onBulkDeleteOpen]);
 
   const handleReturnResponse = useCallback(
-    async (response: ResponseListItem) => {
-      try {
-        await returnMutation.mutateAsync(response._id);
-
-        SuccessToast({
-          toastid: "SuccessToast",
-          title: "Response Returned",
-          content:
-            "The response has been successfully returned to the respondent.",
-        });
-      } catch (error) {
-        ErrorToast({
-          toastid: uniqueToastId,
-          title: "Error Returning Response",
-          content: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
+    (response: ResponseListItem) => {
+      setReturnItem(response);
+      onReturnModalOpen();
     },
-    [returnMutation]
+    [onReturnModalOpen]
   );
+
+  const handleConfirmReturn = useCallback(async () => {
+    if (!returnItem) return;
+
+    try {
+      const htmlContent = `
+          <div style="margin: 20px 0;">
+            ${
+              returnAdditionalInfo
+                ? `<p style="white-space: pre-wrap;">${returnAdditionalInfo}</p>`
+                : "<p>No additional information provided.</p>"
+            }
+          </div>
+        `;
+
+      await returnMutation.mutateAsync({
+        responseId: returnItem._id,
+        html: htmlContent,
+        reason: returnReason || undefined,
+        feedback: returnFeedback || undefined,
+        includeQuestionsAndResponses,
+      });
+
+      SuccessToast({
+        title: "Success",
+        content: "Response returned successfully",
+      });
+
+      onReturnModalClose();
+      setReturnItem(null);
+      setReturnReason("");
+      setReturnFeedback("");
+      setReturnAdditionalInfo("");
+      setIncludeQuestionsAndResponses(false);
+    } catch (error) {
+      ErrorToast({
+        toastid: uniqueToastId,
+        title: "Error",
+        content: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }, [
+    returnItem,
+    returnReason,
+    returnFeedback,
+    returnAdditionalInfo,
+    includeQuestionsAndResponses,
+    returnMutation,
+    onReturnModalClose,
+  ]);
+
+  // Handle viewing multiple selected responses
+  const handleViewSelectedResponses = useCallback(() => {
+    const selectedIds = Array.from(selectedKeys) as string[];
+    if (selectedIds.length === 0) return;
+
+    // Get the first selected response to start with
+    const firstResponseId = selectedIds[0];
+
+    // Build URL with all selected response IDs as query parameters
+    const queryParams = new URLSearchParams();
+    queryParams.set("responseIds", selectedIds.join(","));
+
+    // Open in new tab with query parameters
+    window.open(
+      `/response/${formId}/${firstResponseId}?${queryParams.toString()}`,
+      "_blank"
+    );
+  }, [selectedKeys, formId]);
 
   const selectedCount = Array.from(selectedKeys).length;
 
@@ -227,126 +347,223 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
 
   return (
     <>
-      {selectedCount > 0 && (
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg flex justify-between items-center">
-          <span className="text-sm text-gray-600">
-            {selectedCount} item(s) selected
-          </span>
-          <Button
-            color="danger"
-            variant="flat"
-            size="sm"
-            onPress={handleBulkDeleteOpen}
-            startContent={<FiTrash2 />}
-          >
-            Delete Selected
-          </Button>
-        </div>
-      )}
+      <div className="mb-4 flex justify-between items-center">
+        {/* View Mode Toggle - only show if email collection is enabled */}
+        {showGroupToggle && (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={viewMode === "normal" ? "solid" : "flat"}
+              color={viewMode === "normal" ? "primary" : "default"}
+              onPress={() => onViewModeChange("normal")}
+              startContent={<FiList />}
+            >
+              Normal View
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "grouped" ? "solid" : "flat"}
+              color={viewMode === "grouped" ? "primary" : "default"}
+              onPress={() => onViewModeChange("grouped")}
+              startContent={<FiUsers />}
+            >
+              Group by Email
+            </Button>
+          </div>
+        )}
 
-      <Table
-        selectionMode="multiple"
-        selectedKeys={selectedKeys}
-        onSelectionChange={setSelectedKeys}
-        aria-label="Response table"
-      >
-        <TableHeader>
-          <TableColumn>RESPONDENT</TableColumn>
-          <TableColumn>EMAIL</TableColumn>
-          <TableColumn>STATUS</TableColumn>
-          <TableColumn>SUBMITTED</TableColumn>
-          <TableColumn>ACTIONS</TableColumn>
-        </TableHeader>
-        <TableBody emptyContent="No responses found">
-          {responses.map((response) => (
-            <TableRow key={response._id}>
-              <TableCell>{getResponseDisplayName(response)}</TableCell>
-              <TableCell>
-                {response.respondentEmail || "N/A"}
-                {` (${response.respondentType})`}
-              </TableCell>
-              <TableCell>
-                <Chip
-                  color={getStatusColor(response.completionStatus || "default")}
-                  variant="flat"
-                  size="sm"
-                >
-                  {response.completionStatus || "Unknown"}
-                </Chip>
-              </TableCell>
-              <TableCell>
-                {response.submittedAt
-                  ? formatDate(response.submittedAt)
-                  : "N/A"}
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-2">
-                  <Tooltip content="View Response">
-                    <Button
-                      size="sm"
-                      variant="light"
-                      isIconOnly
-                      onPress={() => handleViewResponse(response)}
-                    >
-                      <FiEye />
-                    </Button>
-                  </Tooltip>
-                  {isQuizForm && (
-                    <>
-                      <Tooltip content="Edit Score">
-                        <Button
-                          size="sm"
-                          variant="light"
-                          isIconOnly
-                          onPress={() => handleEditScore(response)}
-                        >
-                          <FiEdit3 />
-                        </Button>
-                      </Tooltip>
-                      <Tooltip
-                        content={response.isCompleted ? "Returned" : "Return"}
-                        isDisabled={response.isCompleted}
+        {/* Bulk Actions - only show if items are selected */}
+        {selectedCount > 0 && (
+          <div className="flex gap-2 items-center">
+            <span className="text-sm text-gray-600">
+              {selectedCount} item(s) selected
+            </span>
+            <Button
+              color="primary"
+              variant="flat"
+              size="sm"
+              onPress={handleViewSelectedResponses}
+              startContent={<FiEye />}
+            >
+              View Responses
+            </Button>
+            <Button
+              color="danger"
+              variant="flat"
+              size="sm"
+              onPress={handleBulkDeleteOpen}
+              startContent={<FiTrash2 />}
+            >
+              Delete Selected
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {viewMode === "normal" ? (
+        // Normal View Table
+        <Table
+          selectionMode="multiple"
+          selectedKeys={selectedKeys}
+          onSelectionChange={setSelectedKeys}
+          aria-label="Response table"
+        >
+          <TableHeader>
+            <TableColumn>RESPONDENT</TableColumn>
+            <TableColumn>EMAIL</TableColumn>
+            <TableColumn>STATUS</TableColumn>
+            <TableColumn>SUBMITTED AT</TableColumn>
+            <TableColumn>ACTIONS</TableColumn>
+          </TableHeader>
+          <TableBody emptyContent="No responses found">
+            {responses.filter(isResponseListItem).map((response) => (
+              <TableRow key={response._id}>
+                <TableCell>{getResponseDisplayName(response)}</TableCell>
+                <TableCell>
+                  {response.respondentEmail || "N/A"}
+                  {` (${response.respondentType})`}
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    color={getStatusColor(
+                      response.completionStatus || "default"
+                    )}
+                    variant="flat"
+                    size="sm"
+                  >
+                    {response.completionStatus || "Unknown"}
+                  </Chip>
+                </TableCell>
+                <TableCell>
+                  {response.submittedAt
+                    ? new Date(response.submittedAt).toLocaleString()
+                    : "N/A"}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Tooltip content="View Response">
+                      <Button
+                        size="sm"
+                        variant="light"
+                        isIconOnly
+                        onPress={() => handleViewResponse(response)}
                       >
-                        <Button
-                          size="sm"
-                          variant="light"
-                          isIconOnly
-                          isLoading={returnMutation.isPending}
-                          onPress={() => handleReturnResponse(response)}
+                        <FiEye />
+                      </Button>
+                    </Tooltip>
+                    {isQuizForm && (
+                      <>
+                        <Tooltip content="Edit Score">
+                          <Button
+                            size="sm"
+                            variant="light"
+                            isIconOnly
+                            onPress={() => handleEditScore(response)}
+                          >
+                            <FiEdit3 />
+                          </Button>
+                        </Tooltip>
+                        <Tooltip
+                          content={response.isCompleted ? "Returned" : "Return"}
+                          isDisabled={response.isCompleted}
                         >
-                          <FiCornerUpLeft />
-                        </Button>
-                      </Tooltip>
-                    </>
-                  )}
-                  <Tooltip content="Export PDF">
-                    <Button
-                      size="sm"
-                      variant="light"
-                      isIconOnly
-                      isLoading={exportPDFMutation.isPending}
-                      onPress={() => exportToPDF(response)}
-                    >
-                      <FiDownload />
-                    </Button>
-                  </Tooltip>
-                  <Tooltip content="Delete Response" color="danger">
-                    <Button
-                      size="sm"
-                      variant="light"
-                      isIconOnly
-                      color="danger"
-                      onPress={() => handleSingleDelete(response)}
-                    >
-                      <FiTrash2 />
-                    </Button>
-                  </Tooltip>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                          <Button
+                            size="sm"
+                            variant="light"
+                            isIconOnly
+                            isLoading={returnMutation.isPending}
+                            onPress={() => handleReturnResponse(response)}
+                          >
+                            <FiCornerUpLeft />
+                          </Button>
+                        </Tooltip>
+                      </>
+                    )}
+                    <Tooltip content="Export PDF">
+                      <Button
+                        size="sm"
+                        variant="light"
+                        isIconOnly
+                        isLoading={exportPDFMutation.isPending}
+                        onPress={() => exportToPDF(response)}
+                      >
+                        <FiDownload />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content="Delete Response" color="danger">
+                      <Button
+                        size="sm"
+                        variant="light"
+                        isIconOnly
+                        color="danger"
+                        onPress={() => handleSingleDelete(response)}
+                      >
+                        <FiTrash2 />
+                      </Button>
+                    </Tooltip>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        // Grouped View Table
+        <Table
+          selectionMode="multiple"
+          selectedKeys={selectedKeys}
+          onSelectionChange={setSelectedKeys}
+          aria-label="Grouped response table"
+        >
+          <TableHeader>
+            <TableColumn>RESPONDENT</TableColumn>
+            <TableColumn>EMAIL</TableColumn>
+            <TableColumn>TYPE</TableColumn>
+            <TableColumn>RESPONSE COUNT</TableColumn>
+            <TableColumn>ACTIONS</TableColumn>
+          </TableHeader>
+          <TableBody emptyContent="No grouped responses found">
+            {responses
+              .filter(
+                (r): r is GroupResponseListItemType => !isResponseListItem(r)
+              )
+              .map((response, index) => {
+                // Use email as key since grouped items don't have _id
+                const key = response.respondentEmail || `group-${index}`;
+                return (
+                  <TableRow key={key}>
+                    <TableCell>{response.respondentName || "N/A"}</TableCell>
+                    <TableCell>{response.respondentEmail || "N/A"}</TableCell>
+                    <TableCell>
+                      <Chip color="primary" variant="flat" size="sm">
+                        {response.respondentType || "Unknown"}
+                      </Chip>
+                    </TableCell>
+                    <TableCell>
+                      <Chip color="secondary" variant="flat" size="sm">
+                        {response.responseCount || 0}
+                      </Chip>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Tooltip content="View Responses">
+                          <Button
+                            size="sm"
+                            variant="light"
+                            isIconOnly
+                            onPress={() => handleViewResponse(response)}
+                          >
+                            <FiEye />
+                          </Button>
+                        </Tooltip>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+          </TableBody>
+        </Table>
+      )}
 
       <Modal isOpen={isDeleteOpen} onClose={onDeleteClose}>
         <ModalContent>
@@ -402,6 +619,124 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
               Delete {selectedCount} Response(s)
             </Button>
           </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Return to Respondent Modal */}
+      <Modal
+        isOpen={isReturnModalOpen}
+        onClose={onReturnModalClose}
+        size="2xl"
+        scrollBehavior="inside"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                <h3 className="text-xl font-bold">
+                  Return Response to Respondent
+                </h3>
+                <p className="text-sm text-gray-500 font-normal">
+                  This will send an email to{" "}
+                  {returnItem?.respondentEmail || "the respondent"} with the
+                  information below.
+                </p>
+              </ModalHeader>
+              <ModalBody className="gap-4">
+                <Input
+                  label="Reason for Return"
+                  placeholder="e.g., Incomplete answers, missing information"
+                  value={returnReason}
+                  onValueChange={setReturnReason}
+                  variant="bordered"
+                  labelPlacement="outside"
+                  description="Optional: Brief reason why the response is being returned"
+                />
+
+                <Textarea
+                  label="Feedback"
+                  placeholder="Provide constructive feedback to help the respondent improve their submission..."
+                  value={returnFeedback}
+                  onValueChange={setReturnFeedback}
+                  variant="bordered"
+                  labelPlacement="outside"
+                  minRows={4}
+                  description="Optional: Detailed feedback for the respondent"
+                />
+
+                <Textarea
+                  label="Additional Information"
+                  placeholder="Any other information you'd like to include in the email..."
+                  value={returnAdditionalInfo}
+                  onValueChange={setReturnAdditionalInfo}
+                  variant="bordered"
+                  labelPlacement="outside"
+                  minRows={6}
+                  description="This will be included in the email body"
+                  isRequired
+                />
+
+                <Switch
+                  isSelected={includeQuestionsAndResponses}
+                  onValueChange={setIncludeQuestionsAndResponses}
+                  classNames={{
+                    base: "inline-flex flex-row-reverse w-full max-w-full bg-content1 hover:bg-content2 items-center justify-between cursor-pointer rounded-lg gap-2 p-4 border-2 border-transparent data-[selected=true]:border-primary",
+                    wrapper: "p-0 h-4 overflow-visible",
+                    thumb:
+                      "w-6 h-6 border-2 shadow-lg group-data-[selected=true]:ml-6",
+                  }}
+                >
+                  <div className="flex flex-col gap-1">
+                    <p className="text-medium font-semibold">
+                      Include Questions and Responses
+                    </p>
+                    <p className="text-tiny text-default-400">
+                      Include all questions and the respondent's answers in the
+                      return email
+                    </p>
+                  </div>
+                </Switch>
+
+                {isQuizForm && returnItem && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Current Score:</strong>{" "}
+                      {returnItem.totalScore || 0} points
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      The current score will be included in the email.
+                    </p>
+                  </div>
+                )}
+              </ModalBody>
+              <ModalFooter>
+                <Button
+                  color="default"
+                  variant="light"
+                  onPress={onClose}
+                  isDisabled={returnMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  color="warning"
+                  variant="solid"
+                  onPress={handleConfirmReturn}
+                  isLoading={returnMutation.isPending}
+                  isDisabled={
+                    !returnAdditionalInfo.trim() || returnMutation.isPending
+                  }
+                  startContent={
+                    returnMutation.isPending ? undefined : <FiSend />
+                  }
+                >
+                  {returnMutation.isPending
+                    ? "Sending..."
+                    : "Send Return Email"}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
         </ModalContent>
       </Modal>
     </>

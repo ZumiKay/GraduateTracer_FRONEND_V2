@@ -53,6 +53,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
   parentScore,
 }) => {
   const formstate = useSelector((root: RootState) => root.allform.formstate);
+  const isDark = useSelector((root: RootState) => root.globalindex.darkmode);
   const dispatch = useDispatch();
   const previousAnswerRef = useRef<ContentAnswerType | undefined>(undefined);
 
@@ -354,7 +355,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
 
       case QuestionType.MultipleChoice:
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 dark:bg-gray-500 dark:p-2">
             <p className="text-sm font-medium">Select correct answer:</p>
             <RadioGroup
               value={
@@ -362,6 +363,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
               }
               onValueChange={(value) => handleAnswerChange(Number(value))}
               className="flex flex-col gap-2"
+              color="default"
             >
               {content.multiple?.map((option, index) => (
                 <Radio key={`mc-${index}`} value={String(index)}>
@@ -449,7 +451,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
 
       case QuestionType.Selection:
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 dark:bg-gray-500 dark:p-2">
             <p className="text-sm font-medium">Select correct option:</p>
             <RadioGroup
               value={
@@ -457,6 +459,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
               }
               onValueChange={(value) => handleAnswerChange(Number(value))}
               className="flex flex-col gap-2"
+              color="default"
             >
               {content.selection?.map((option, index) => (
                 <Radio key={`sel-${index}`} value={String(index)}>
@@ -681,7 +684,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
   ]);
 
   return (
-    <div className="w-full space-y-4 p-4 bg-white rounded-lg border">
+    <div className="w-full space-y-4 p-4 bg-white dark:bg-gray-700 rounded-lg border">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Solution Settings</h3>
@@ -751,7 +754,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
                 handleScoreSave(localScore);
                 handleTotalScoreUpdate(localScore);
               }}
-              variant="bordered"
+              variant={isDark ? "flat" : "bordered"}
               min={0}
               max={parentScore}
               startContent={<span className="text-sm text-gray-500">pts</span>}

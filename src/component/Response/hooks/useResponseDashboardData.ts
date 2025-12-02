@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   fetchResponseList,
   ResponseListItem,
+  GroupResponseListItemType,
   ResponseListResponse,
 } from "../../../services/responseService";
 import { useSearchParams } from "react-router-dom";
@@ -11,10 +12,11 @@ import { ResponseDashboardFilterType } from "../Response.type";
 interface UseFetchResponseDashboardDataType {
   formId: string;
   filterValue?: ResponseDashboardFilterType;
+  groupBy?: string; // Add groupBy parameter
 }
 
 interface UseFetchResponseDashboardDataReturn {
-  responseList?: Array<ResponseListItem>;
+  responseList?: Array<ResponseListItem | GroupResponseListItemType>;
   isLoading: boolean;
   error: Error | null;
   pagination: ResponseListResponse["pagination"] | undefined;
@@ -27,6 +29,7 @@ interface UseFetchResponseDashboardDataReturn {
 export const useFetchResponseDashbardData = ({
   formId,
   filterValue,
+  groupBy,
 }: UseFetchResponseDashboardDataType): UseFetchResponseDashboardDataReturn => {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -41,7 +44,7 @@ export const useFetchResponseDashbardData = ({
   }, [searchParams]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["responses", formId, currentPage, limit],
+    queryKey: ["responses", formId, currentPage, limit, groupBy, filterValue],
     queryFn: () =>
       fetchResponseList({
         formId,
@@ -53,6 +56,7 @@ export const useFetchResponseDashbardData = ({
         minScore: filterValue?.scoreRange?.start?.toString(),
         maxScore: filterValue?.scoreRange?.end?.toString(),
         completionStatus: filterValue?.completionStatus,
+        group: groupBy, // Pass group parameter
       }),
     enabled: !!formId,
     staleTime: Infinity, // Never stale - fetch once on mount

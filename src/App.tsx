@@ -4,10 +4,12 @@ import { RootState } from "./redux/store";
 import OpenModal from "./redux/openmodal";
 import { useEffect, lazy, Suspense, memo, useMemo } from "react";
 import { ConfirmModal } from "./component/Modal/AlertModal";
-import { AsyncGetUser } from "./redux/user.store";
+import { setUser } from "./redux/user.store";
 import PrivateRoute, { PublichRoute } from "./route/PrivateRoute";
 import ReplaceSessionPage from "./pages/ReplaceSession";
-
+import { setupAxiosInterceptors } from "./config/axiosInterceptor";
+import { useUserSession } from "./hooks/useUserSession";
+import { AppLoading, PageLoading } from "./component/Loading/AppLoading";
 const AuthenticationPage = lazy(() => import("./pages/Authentication"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const FilledFormPage = lazy(() => import("./pages/FilledFormPage"));
@@ -15,6 +17,7 @@ const NavigationBar = lazy(() => import("./component/Navigator/Navigationbar"));
 const SettingModal = lazy(() => import("./component/Modal/Setting.modal"));
 const FormPage = lazy(() => import("./pages/FormPage"));
 const UserResponsesPage = lazy(() => import("./pages/UserResponsesPage"));
+const ViewResponsePage = lazy(() => import("./pages/ViewResponsePage"));
 const PublicFormAccess = lazy(
   () => import("./component/Response/PublicFormAccess")
 );
@@ -22,23 +25,20 @@ const CookieConsent = lazy(() => import("./component/Cookie/CookieConsent"));
 const Footer = lazy(() => import("./component/Cookie/Footer"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-
-const LoadingSpinner = memo(() => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-  </div>
-));
-
-const PageLoadingFallback = memo(() => (
-  <div className="flex items-center justify-center h-48">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-  </div>
-));
+const CollaboratorConfirmPage = lazy(
+  () => import("./pages/CollaboratorConfirmPage")
+);
 
 const App = memo(() => {
   const { pathname } = useLocation();
   const redux = useSelector((selector: RootState) => selector.openmodal);
   const dispatch = useDispatch();
+
+  const {
+    data: sessionData,
+    isFetching,
+    isLoading,
+  } = useUserSession({ enabled: pathname !== "/" });
 
   // Memoize pathname checks for performance
   const shouldShowNavigation = useMemo(
@@ -59,12 +59,29 @@ const App = memo(() => {
   );
 
   useEffect(() => {
-    // Check user session
-    dispatch(AsyncGetUser() as never);
-  }, [dispatch]);
+    // Initialize axios interceptors for token refresh
+    setupAxiosInterceptors();
+  }, []);
+
+  // Sync React Query data with Redux store for components that still use Redux
+  useEffect(() => {
+    if (sessionData && !isFetching) {
+      dispatch(
+        setUser({
+          user: sessionData.user,
+          isAuthenticated: sessionData.isAuthenticated,
+        })
+      );
+    }
+  }, [dispatch, isFetching, sessionData]);
+
+  // Show loading spinner while session is being initially fetched
+  if (isLoading) {
+    return <AppLoading />;
+  }
 
   return (
-    <Suspense fallback={<LoadingSpinner />}>
+    <Suspense fallback={<AppLoading />}>
       {/* Modal Setting */}
       {redux.setting && (
         <Suspense fallback={null}>
@@ -107,7 +124,7 @@ const App = memo(() => {
           </Suspense>
         )}
 
-        <Suspense fallback={<PageLoadingFallback />}>
+        <Suspense fallback={<PageLoading />}>
           <Routes>
             <Route element={<PublichRoute />}>
               <Route index element={<AuthenticationPage />} />
@@ -125,6 +142,14 @@ const App = memo(() => {
               element={<ReplaceSessionPage />}
             />
 
+            {/* Collaborator Confirmation Route */}
+            <Route element={<PrivateRoute />}>
+              <Route
+                path="/collaborator/confirm"
+                element={<CollaboratorConfirmPage />}
+              />
+            </Route>
+
             <Route element={<PrivateRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/form/:id" element={<FormPage />} />
@@ -133,6 +158,10 @@ const App = memo(() => {
               <Route
                 path="/filled-form/:formId/:responseId"
                 element={<FilledFormPage />}
+              />
+              <Route
+                path="/response/:formId/:responseId"
+                element={<ViewResponsePage />}
               />
             </Route>
 

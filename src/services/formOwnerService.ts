@@ -9,6 +9,16 @@ export interface FormOwner {
   isPrimary?: boolean;
 }
 
+export interface PendingCollaborator {
+  _id: string;
+  pendingId: string;
+  email: string;
+  name: string;
+  expireIn: number;
+  isExpired: boolean;
+  code: string;
+}
+
 export interface FormAccessResponse {
   hasAccess: boolean;
   isOwner: boolean;
@@ -19,19 +29,8 @@ export interface FormOwnersResponse {
   primaryOwner: FormOwner;
   allOwners?: FormOwner[];
   allEditors?: FormOwner[];
+  pendingCollaborators?: PendingCollaborator[];
   totalCollaborators: number;
-}
-
-export interface AddOwnerResponse {
-  message: string;
-  data: {
-    form: {
-      _id: string;
-      title: string;
-      owners: string[];
-    };
-    addedUser: FormOwner;
-  };
 }
 
 export const formOwnerService = {
@@ -44,7 +43,6 @@ export const formOwnerService = {
         url: `/validateform?formId=${formId}`,
         method: "GET",
         cookie: true,
-        refreshtoken: true,
       });
 
       if (!response.success) return null;
@@ -67,7 +65,6 @@ export const formOwnerService = {
       url: `/getformowners/${formId}`,
       method: "GET",
       cookie: true,
-      refreshtoken: true,
     });
 
     return response;
@@ -78,7 +75,7 @@ export const formOwnerService = {
     formId: string,
     email: string,
     role: CollaboratorType
-  ): Promise<AddOwnerResponse | null> => {
+  ) => {
     const response = await ApiRequest({
       url: `/addformowner`,
       method: "POST",
@@ -89,25 +86,24 @@ export const formOwnerService = {
         role,
       },
       cookie: true,
-      refreshtoken: true,
     });
 
     if (!response.success) throw response.error;
 
-    return response.data as never;
+    return response;
   },
 
   // Remove an owner from a form (only primary owner can do this)
   removeFormOwner: async (
     formId: string,
-    email: string
+    email: string,
+    role: string
   ): Promise<{ message: string } | null> => {
     const response = await ApiRequest({
       url: `/removeformowner`,
       method: "DELETE",
-      data: { formId, email, action: CollaborateActionType.remove },
+      data: { formId, email, action: CollaborateActionType.remove, role },
       cookie: true,
-      refreshtoken: true,
     });
 
     if (!response.success) throw response.error;
@@ -120,11 +116,43 @@ export const formOwnerService = {
     formId: string
   ): Promise<{ message: string } | null> => {
     const response = await ApiRequest({
-      url: `/removeselfform`,
+      url: `/removeselfform/${formId}`,
       method: "DELETE",
-      data: { formId },
       cookie: true,
-      refreshtoken: true,
+    });
+
+    if (!response.success) throw response.error;
+
+    return response.data as never;
+  },
+
+  // Resend pending collaborator invitation
+  resendPendingInvitation: async (
+    formId: string,
+    pendingId: string
+  ): Promise<{ message: string } | null> => {
+    const response = await ApiRequest({
+      url: `/resendpending`,
+      method: "POST",
+      data: { formId, pendingId },
+      cookie: true,
+    });
+
+    if (!response.success) throw response.error;
+
+    return response.data as never;
+  },
+
+  // Delete pending collaborator invitation
+  deletePendingCollaborator: async (
+    formId: string,
+    pendingId: string
+  ): Promise<{ message: string } | null> => {
+    const response = await ApiRequest({
+      url: `/deletepending`,
+      method: "DELETE",
+      data: { formId, pendingId },
+      cookie: true,
     });
 
     if (!response.success) throw response.error;

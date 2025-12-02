@@ -19,6 +19,7 @@ export interface ResponseListItem {
   respondentEmail?: string;
   respondentName?: string;
   respondentType?: respondentType;
+  responseCount?: number;
   totalScore?: number;
   completionStatus?: responseCompletionStatus;
   submittedAt?: Date;
@@ -27,6 +28,15 @@ export interface ResponseListItem {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+export interface GroupResponseListItemType {
+  respondentEmail?: string;
+  respondentName?: string;
+  respondentType?: respondentType;
+  responseCount?: number;
+  responseIds?: Array<string>;
+}
+
 export interface PaginationType {
   page: number;
   limit: number;
@@ -35,7 +45,7 @@ export interface PaginationType {
 }
 
 export interface ResponseListResponse {
-  responses: ResponseListItem[];
+  responses: ResponseListItem[] | GroupResponseListItemType[];
   pagination: PaginationType;
 }
 
@@ -54,6 +64,7 @@ interface fetchResponseListParamType {
   sortOrder?: string;
   search?: string;
   completionStatus?: string;
+  group?: string; // Add group parameter
 }
 export const fetchResponseList = async ({
   formId,
@@ -67,6 +78,7 @@ export const fetchResponseList = async ({
   sortBy,
   sortOrder,
   completionStatus,
+  group,
   ...rest
 }: fetchResponseListParamType): Promise<ResponseListResponse> => {
   const params = new URLSearchParams({
@@ -84,6 +96,7 @@ export const fetchResponseList = async ({
   if (maxScore) params.set("endS", maxScore);
   if (sortBy) params.set("sortBy", sortBy);
   if (sortOrder) params.set("sortOrder", sortOrder);
+  if (group) params.set("group", group); // Add group parameter
 
   // Add any remaining parameters
   Object.entries(rest).forEach(([key, value]) => {
@@ -96,7 +109,6 @@ export const fetchResponseList = async ({
     url: `/response/getresponselist?${params}`,
     method: "GET",
     cookie: true,
-    refreshtoken: true,
     reactQuery: true,
   });
 
@@ -122,7 +134,6 @@ export const fetchUserResponse = async (data: {
     url: "/response/getuserresponses" + `?${searchParam}`,
     method: "GET",
     cookie: true,
-    refreshtoken: true,
     reactQuery: true,
   });
 
@@ -133,13 +144,13 @@ export const fetchUserResponse = async (data: {
 };
 
 export const fetchResponseDetails = async (
-  responseId: string
+  responseId: string,
+  formId: string
 ): Promise<ResponseDataType> => {
   const result = await ApiRequest({
-    url: `response/getresponseById/${responseId}`,
+    url: `response/getresponseById/${responseId}/${formId}`,
     method: "GET",
     cookie: true,
-    refreshtoken: true,
     reactQuery: true,
   });
 
@@ -155,7 +166,6 @@ export const updateResponseScores = async (
     url: "/updateresponsescore",
     method: "PUT",
     cookie: true,
-    refreshtoken: true,
     data: {
       responseId,
       scores,
@@ -171,7 +181,6 @@ export const deleteResponse = async (responseId: string) => {
     url: `/deleteresponse/${responseId}`,
     method: "DELETE",
     cookie: true,
-    refreshtoken: true,
   });
 
   return result;
@@ -185,7 +194,6 @@ export const bulkDeleteResponses = async (
     url: "/bulkdeleteresponses",
     method: "DELETE",
     cookie: true,
-    refreshtoken: true,
     data: {
       responseIds,
       formId,

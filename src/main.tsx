@@ -18,6 +18,14 @@ if (import.meta.env.DEV) {
   import("./utils/debugFormAccess.ts");
 }
 
+// Apply dark mode on initial load based on localStorage
+const isDarkMode = JSON.parse(localStorage.getItem("darkmode") ?? "false");
+if (isDarkMode) {
+  document.documentElement.classList.add("dark");
+} else {
+  document.documentElement.classList.remove("dark");
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

@@ -117,17 +117,22 @@ export const CustomCheckBox = (props: CustomChoiceProps) => {
           <Input
             className="ml-5"
             size="lg"
+            value={props.value}
             variant="bordered"
             placeholder="Option"
             onChange={props.onChange}
-            value={props.value}
             endContent={
               <DeleteIcon
-                onClick={() => props.onDelete && props.onDelete()}
                 width={"20px"}
                 height={"20px"}
+                onClick={() => props.onDelete && props.onDelete()}
+                className="cursor-pointer"
+                fill="#fff"
               />
             }
+            classNames={{
+              input: "dark:text-white",
+            }}
           />
           <RenderDropDownMenu
             isLink={!!props.isLink}
@@ -182,8 +187,13 @@ export const CustomRadio = (props: CustomChoiceProps) => {
                 width={"20px"}
                 height={"20px"}
                 onClick={() => props.onDelete && props.onDelete()}
+                className="cursor-pointer"
+                fill="#fff"
               />
             }
+            classNames={{
+              input: "dark:text-white",
+            }}
           />
           <RenderDropDownMenu
             isLink={!!props.isLink}

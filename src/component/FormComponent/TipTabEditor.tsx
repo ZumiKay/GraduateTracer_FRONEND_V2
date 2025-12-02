@@ -227,10 +227,10 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
               onChange={(val) => {
                 const { value } = val.target;
                 setheader(value);
-
                 toggleHeader(Number(value));
               }}
               placeholder="Heading"
+              aria-label="Select Heading Level"
             />
             <span
               onClick={() => applyStyle("bold")}

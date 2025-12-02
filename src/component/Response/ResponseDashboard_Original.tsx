@@ -141,7 +141,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         url: `/getresponsebyform?${params}`,
         method: "GET",
         cookie: true,
-        refreshtoken: true,
         reactQuery: true,
       });
 
@@ -333,6 +332,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         },
         cookie: true,
         reactQuery: true,
+        encrypt: true,
       });
       return result.data;
     },

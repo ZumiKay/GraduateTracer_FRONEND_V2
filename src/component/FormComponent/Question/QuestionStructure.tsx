@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
 import { Button, Divider, ScrollShadow } from "@heroui/react";
+import { motion } from "framer-motion";
 import { ContentType } from "../../../types/Form.types";
 import { ChevronDownIcon } from "./icons";
 import { QuestionCard } from "./QuestionCard";
@@ -130,10 +131,20 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
   );
 
   return (
-    <aside
-      className={`w-full sm:w-80 h-full bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out ${
-        isMobile ? "shadow-lg" : ""
+    <motion.aside
+      initial={{ x: -320, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: -320, opacity: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+        mass: 0.8,
+      }}
+      className={`w-full sm:w-80 bg-gray-50 border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700 flex flex-col transition-all duration-300 ease-in-out sticky top-20 self-start overflow-hidden ${
+        isMobile ? "shadow-lg h-screen" : "h-[calc(100vh-5rem)]"
       }`}
+      style={{ zIndex: 40 }}
     >
       <Header
         currentPage={currentPage}
@@ -178,17 +189,30 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
             </div>
           ) : (
             <>
-              <div className="animate-in slide-in-from-top-2 duration-500">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.4,
+                  ease: "easeOut",
+                  staggerChildren: 0.1,
+                }}
+              >
                 {renderQuestionsRecursively(questionHierarchy)}
-              </div>
+              </motion.div>
               {questionHierarchy.length > 1 && (
-                <div className="mt-6 pt-2">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.3 }}
+                  className="mt-6 pt-2"
+                >
                   <Divider />
-                  <div className="text-center text-xs text-gray-500 py-2">
+                  <div className="text-center text-xs text-gray-500 dark:text-white py-2">
                     {questionHierarchy.length} top-level question
                     {questionHierarchy.length !== 1 ? "s" : ""}
                   </div>
-                </div>
+                </motion.div>
               )}
             </>
           )}
@@ -216,7 +240,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
           </Button>
         </div>
       )}
-    </aside>
+    </motion.aside>
   );
 };
 

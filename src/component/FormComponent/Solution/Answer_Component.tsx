@@ -95,29 +95,31 @@ export const RangeNumberAnswer = (
 ) => {
   const { value: questionRange, onChange, previousAnswer } = props;
 
-  const [userSelection, setUserSelection] = useState<SliderValue>(() => {
-    if (previousAnswer) {
-      return [previousAnswer.start, previousAnswer.end];
-    } else if (questionRange) {
-      return [questionRange.start, questionRange.end];
+  const [userSelection, setUserSelection] = useState<SliderValue | undefined>(
+    () => {
+      if (previousAnswer) {
+        return [previousAnswer.start, previousAnswer.end];
+      }
+      return undefined;
     }
-    return [0, 0];
-  });
+  );
 
   useEffect(() => {
-    if (onChange && questionRange) {
+    if (onChange && questionRange && userSelection) {
       // Send back the user's selected range
       const val = userSelection as number[];
-      onChange({ start: val[0], end: val[1] });
+      if (val[0] < val[1]) {
+        onChange({ start: val[0], end: val[1] });
+      }
     }
-  }, [questionRange, userSelection]);
+  }, [questionRange, userSelection, onChange]);
 
   // Update selection when question range changes, but preserve user selection if they have one
   useEffect(() => {
-    if (questionRange && !previousAnswer) {
+    if (questionRange && !previousAnswer && !userSelection) {
       setUserSelection([questionRange.start, questionRange.start]);
     }
-  }, [questionRange, previousAnswer]);
+  }, [questionRange, previousAnswer, userSelection]);
 
   return (
     <div className="w-full h-fit flex flex-col items-center gap-y-3">
@@ -152,7 +154,7 @@ export const RangeNumberAnswer = (
       </div>
       <div className="input_field max-w-md w-full h-[30px] inline-flex items-center justify-between gap-x-3">
         <Input
-          value={String((userSelection as number[])[0])}
+          value={userSelection ? String((userSelection as number[])[0]) : ""}
           name="start"
           label="Selected Start"
           labelPlacement="outside-left"
@@ -161,7 +163,7 @@ export const RangeNumberAnswer = (
           isDisabled={props.readonly}
         />
         <Input
-          value={String((userSelection as number[])[1])}
+          value={userSelection ? String((userSelection as number[])[1]) : ""}
           name="end"
           labelPlacement="outside-left"
           readOnly
@@ -227,7 +229,6 @@ export const DateRangePickerQuestionType = ({
           end: parseAbsoluteToLocal(questionstate.end),
         };
 
-        console.log("Range Question Value", convertedRange);
         setValue(convertedRange);
       } catch (error) {
         console.error("Error parsing date range:", error, { questionstate });

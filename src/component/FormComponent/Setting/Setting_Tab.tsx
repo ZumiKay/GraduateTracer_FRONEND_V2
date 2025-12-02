@@ -1,5 +1,9 @@
 import { Button, Switch } from "@heroui/react";
-import { AsyncSaveForm, setformstate } from "../../../redux/formstore";
+import {
+  AsyncSaveForm,
+  setformstate,
+  setreloaddata,
+} from "../../../redux/formstore";
 import {
   BgColorTemplate,
   FormDataType,
@@ -11,11 +15,14 @@ import { SelectionType } from "../../../types/Global.types";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../../redux/store";
 import { ReactNode, useCallback, useState } from "react";
-import { setopenmodal } from "../../../redux/openmodal";
+import { ConfirmModalDataType, setopenmodal } from "../../../redux/openmodal";
 import { hasObjectChanged } from "../../../helperFunc";
 import Selection from "../Selection";
 import { CustomizeColorPicker } from "./Setting_component";
 import FormOwnerManager from "../../FormOwnerManager";
+import ApiRequest from "../../../hooks/ApiHook";
+import SuccessToast, { ErrorToast } from "../../Modal/AlertModal";
+import { useNavigate } from "react-router-dom";
 
 const ReturnScoreOption: Array<SelectionType<string>> = [
   { label: "Partial", value: returnscore.partial },
@@ -108,11 +115,27 @@ const FormTypeOptions: Array<SelectionType<FormTypeEnum>> = [
   { label: "Quiz", value: FormTypeEnum.Quiz },
 ];
 
+//Request handler
+const asyncRemoveSelfFromForm = async () => {
+  const removeReq = await ApiRequest({
+    method: "DELETE",
+    url: "/removeselfform",
+    cookie: true,
+  });
+
+  if (!removeReq.success) {
+    throw new Error(removeReq.error ?? "Unexpected Error");
+  }
+
+  return removeReq;
+};
+
 const SettingTab = () => {
   const { formstate, loading } = useSelector((root: RootState) => root.allform);
   const dispatch = useDispatch();
   const [isEdit, setisEdit] = useState(false);
   const [showOwnerManager, setShowOwnerManager] = useState(false);
+  const navigate = useNavigate();
 
   const handleRestoreSetting = async () => {
     dispatch(
@@ -218,6 +241,31 @@ const SettingTab = () => {
 
     return updatedState;
   };
+
+  const handleRemoveSelf = useCallback(async () => {
+    const mutation = await asyncRemoveSelfFromForm();
+
+    if (!mutation.success) {
+      ErrorToast({
+        toastid: "Removeself",
+        title: "Error",
+        content: mutation.error ?? "Unexpected Error",
+      });
+    }
+
+    //Success
+    dispatch(setreloaddata(true));
+
+    SuccessToast({
+      toastid: "Sucess RemoveSelf",
+      title: "Sucess",
+      content: mutation.message ?? "Sucessfully",
+    });
+
+    setTimeout(() => {
+      navigate("/", { replace: true });
+    }, 150);
+  }, [dispatch, navigate]);
   const groupedOptions = SettingOptions(formstate.type as FormTypeEnum).reduce(
     (acc, option) => {
       const section = option?.section ?? "Misc"; // Default section if missing
@@ -248,8 +296,8 @@ const SettingTab = () => {
   const Settingitem = useCallback(
     ({ content, action }: { content: string; action?: ReactNode }) => {
       return (
-        <div className="w-full h-fit flex flex-row items-center justify-between p-2 border-b-2 border-b-gray-300">
-          <p className="text-lg font-normal">{content}</p>
+        <div className="w-full h-fit flex flex-row items-center justify-between p-2 border-b-2 border-b-gray-300 dark:border-b-gray-600">
+          <p className="text-lg font-normal dark:text-gray-200">{content}</p>
           {action}
         </div>
       );
@@ -258,10 +306,13 @@ const SettingTab = () => {
   );
 
   return (
-    <div className="setting-tab w-[80%] h-fit flex flex-col items-center gap-y-10 bg-white p-2 rounded-lg">
+    <div className="setting-tab w-[80%] h-fit flex flex-col items-center gap-y-10 bg-white dark:bg-gray-800 p-2 rounded-lg">
       {Object.entries(groupedOptions).map(([section, item]) => (
         <div key={`${section} of setting`} className="w-full h-fit">
-          <p key={section} className="text-4xl font-bold text-left w-full">
+          <p
+            key={section}
+            className="text-4xl font-bold text-left w-full dark:text-gray-100"
+          >
             {section}
           </p>
 
@@ -296,6 +347,7 @@ const SettingTab = () => {
                             [setting.state]: val.target.value,
                           })
                         }
+                        aria-label={`Select ${setting.label}`}
                       />
                     ) : setting.type === "switch" ? (
                       <>
@@ -323,34 +375,58 @@ const SettingTab = () => {
         </div>
       ))}
 
-      <div className="dangerous w-full h-full flex flex-row items-center justify-between">
-        <p className="text-lg font-bold">Deletion</p>
-        <Button
-          color="danger"
-          variant="bordered"
-          className="font-bold max-w-sm"
-          onPress={() => handleDeleteForm()}
-        >
-          Delete
-        </Button>
-      </div>
+      {formstate.isCreator && (
+        <div className="dangerous w-full h-full flex flex-row items-center justify-between">
+          <p className="text-lg font-bold dark:text-gray-100">Deletion</p>
+          <Button
+            color="danger"
+            variant="bordered"
+            className="font-bold max-w-sm"
+            onPress={() => handleDeleteForm()}
+          >
+            Delete
+          </Button>
+        </div>
+      )}
 
       {/* Collaborative Features Section */}
+
       <div className="collaborative w-full h-full flex flex-row items-center justify-between">
         <div className="flex flex-col">
-          <p className="text-lg font-bold">Collaboration</p>
-          <p className="text-sm text-gray-600">
+          <p className="text-lg font-bold dark:text-gray-100">Collaboration</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Manage form access and collaborative editing
           </p>
         </div>
-        <Button
-          color="primary"
-          variant="bordered"
-          className="font-bold max-w-sm"
-          onPress={() => setShowOwnerManager(true)}
-        >
-          Manage Access
-        </Button>
+        {formstate.isEditor ? (
+          <Button
+            color="danger"
+            variant="solid"
+            className="font-bold max-w-sm"
+            onPress={() => {
+              const value: ConfirmModalDataType = {
+                open: true,
+                data: {
+                  question: "Are you sure ? (Action can't undo)",
+                  onAgree: () => handleRemoveSelf(),
+                },
+              };
+
+              dispatch(setopenmodal({ state: "confirm", value }));
+            }}
+          >
+            Remove Self From Form
+          </Button>
+        ) : (
+          <Button
+            color="primary"
+            variant="solid"
+            className="font-bold max-w-sm"
+            onPress={() => setShowOwnerManager(true)}
+          >
+            Manage Access
+          </Button>
+        )}
       </div>
 
       {/* Owner Manager Modal */}

@@ -44,12 +44,6 @@ interface QuestionComponentProps {
   removeCondition?: (answeridx: number, ty: "delete" | "unlink") => void;
   onDuplication: () => void;
   scrollToCondition?: (key: number) => void;
-  isConditioned: () => {
-    key: string;
-    qIdx: number;
-    ansIdx: number;
-    parentQIdx?: number;
-  };
   onShowLinkedQuestions?: (val: boolean) => void;
 }
 
@@ -59,6 +53,8 @@ const selectAutosave = (state: RootState) =>
   state.allform.formstate.setting?.autosave;
 const selectShowLinkedQuestions = (state: RootState) =>
   state.allform.showLinkedQuestions;
+const selectFormSettings = (state: RootState) =>
+  state.allform.formstate.setting;
 
 const QuestionComponent = memo(
   ({
@@ -71,21 +67,30 @@ const QuestionComponent = memo(
     removeCondition,
     scrollToCondition,
     onDuplication,
-    isConditioned,
   }: QuestionComponentProps) => {
     const dispatch = useDispatch();
 
     const allquestion = useSelector(selectAllQuestions);
     const autosave = useSelector(selectAutosave);
     const allshowLinkedQuestions = useSelector(selectShowLinkedQuestions);
+    const formSettings = useSelector(selectFormSettings);
+
+    // Use qcolor from form settings, fallback to color prop
+    const themeColor = useMemo(
+      () => formSettings?.qcolor || color || "#6366f1",
+      [formSettings?.qcolor, color]
+    );
 
     const questionId = useMemo(
       () => value._id ?? `temp-question-${idx}`,
       [idx, value._id]
     );
 
-    const conditionInfo = useMemo(() => isConditioned(), [isConditioned]);
-    const isNotConditioned = conditionInfo.qIdx === -1;
+    const conditionInfo = useMemo(
+      () => value.parentcontent,
+      [value.parentcontent]
+    );
+    const isNotConditioned = conditionInfo?.qIdx === -1;
     const isNotTextType = value.type !== QuestionType.Text;
 
     const currentShowState = useMemo(() => {
@@ -258,55 +263,70 @@ const QuestionComponent = memo(
 
     return (
       <div
-        className="w-full h-fit flex flex-col rounded-md bg-white border-[15px] items-center gap-y-5 py-5 relative"
-        style={{ borderColor: color }}
+        className="w-full h-fit flex flex-col rounded-xl bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-shadow duration-300 border-l-8 items-center gap-y-5 py-6 relative dark:border-gray-700"
+        style={{ borderLeftColor: themeColor }}
       >
+        {/* Question Number Badge */}
         <div
-          style={{ backgroundColor: color }}
-          className="question_count absolute -top-10 right-[45%] rounded-t-md font-bold text-white p-2 w-[150px] text-center "
+          style={{
+            backgroundColor: themeColor,
+            boxShadow: `0 4px 14px 0 ${themeColor}40`,
+          }}
+          className="question_count absolute -top-4 left-6 rounded-full font-bold text-white px-5 py-2 text-sm shadow-md"
         >
-          {`Question ${value.qIdx}`}
+          {`Q${value.questionId}`}
         </div>
 
-        <div className="text_editor w-[97%] bg-white p-3 rounded-b-md flex flex-row items-start justify-start gap-x-3">
-          <Tiptap
-            qidx={idx}
-            value={value.title as never}
-            onChange={handleTitleChange as never}
-          />
+        {/* Title and Type Selection */}
+        <div className="text_editor w-[97%] bg-gray-50 dark:bg-gray-700 p-4 rounded-lg flex flex-row items-start justify-start gap-x-4 border border-gray-200 dark:border-gray-600">
+          <div className="canvas w-full h-full dark:rounded-lg dark:p-2 dark:bg-white">
+            <Tiptap
+              qidx={idx}
+              value={value.title as never}
+              onChange={handleTitleChange as never}
+            />
+          </div>
           <Selection
-            className="max-w-sm rounded-sm"
-            variant="underlined"
-            size="lg"
+            className="max-w-sm rounded-md"
             name="type"
-            radius="sm"
-            color="warning"
+            radius="md"
+            color="default"
             placeholder="Question Type"
             selectedKeys={[value.type]}
             items={QuestionTypeOptions}
             defaultSelectedKeys={[value.type]}
             onChange={handleChangeQuestionType}
+            aria-label="Select Question Type"
           />
         </div>
+
+        {/* Question Content Area */}
         {isNotTextType && (
-          <div className="content_container w-[97%] h-fit bg-white rounded-lg min-h-[50px] p-2">
+          <div className="content_container w-[97%] h-fit bg-gray-50 dark:bg-gray-700 rounded-lg min-h-[50px] p-4 border border-gray-200 dark:border-gray-600">
             {renderContentBaseOnQuestionType()}
           </div>
         )}
-        <div className="detail_section w-fit h-[40px] flex flex-row self-end gap-x-3">
-          <div className="danger_section w-fit h-full self-end p-2 mr-2 bg-white rounded-md flex flex-row items-center gap-x-5">
+
+        {/* Action Buttons Section */}
+        <div className="detail_section w-fit h-[40px] flex flex-row self-end gap-x-3 mt-2">
+          <div className="danger_section w-fit h-full self-end p-2 mr-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 flex flex-row items-center gap-x-3 shadow-sm">
             {value.conditional && value.conditional.length > 0 && (
               <Tooltip placement="bottom" content="Show Linked Question">
                 <div
                   onClick={handleShowLinkedQuestions}
                   style={{
                     backgroundColor: currentShowState
-                      ? "lightblue"
+                      ? themeColor + "20"
                       : "transparent",
+                    borderColor: currentShowState ? themeColor : "transparent",
                   }}
-                  className="w-fit h-fit p-2 hover:bg-slate-200 rounded-md"
+                  className="w-fit h-fit p-2 hover:bg-slate-200 rounded-md cursor-pointer transition-all border"
                 >
-                  <ShowLinkedIcon width="20px" height="20px" />
+                  <ShowLinkedIcon
+                    width="20px"
+                    height="20px"
+                    color={currentShowState ? themeColor : "#64748b"}
+                  />
                 </div>
               </Tooltip>
             )}
@@ -314,18 +334,18 @@ const QuestionComponent = memo(
             <Tooltip placement="bottom" content="Delete Question">
               <div
                 onClick={onDelete}
-                className="w-fit h-fit p-2 hover:bg-slate-200 rounded-md"
+                className="w-fit h-fit p-2 hover:bg-red-50 rounded-md cursor-pointer transition-all"
               >
-                <TrashIcon width="20px" height="20px" />
+                <TrashIcon width="20px" height="20px" color="#ef4444" />
               </div>
             </Tooltip>
 
             <Tooltip content="Duplicate Question" placement="bottom">
               <div
                 onClick={onDuplication}
-                className="w-fit h-fit p-2 hover:bg-slate-200 rounded-md"
+                className="w-fit h-fit p-2 hover:bg-blue-50 rounded-md cursor-pointer transition-all"
               >
-                <CopyIcon width="20px" height="20px" />
+                <CopyIcon width="20px" height="20px" color="#3b82f6" />
               </div>
             </Tooltip>
 
@@ -341,15 +361,21 @@ const QuestionComponent = memo(
             )}
           </div>
         </div>
+
+        {/* Conditional Indicator Badge */}
         {!isNotConditioned &&
-          conditionInfo.qIdx !== -1 &&
-          !isNaN(conditionInfo.qIdx) && (
+          conditionInfo?.qIdx &&
+          conditionInfo?.qIdx !== -1 &&
+          !isNaN(conditionInfo.qIdx as number) && (
             <div
-              style={{ backgroundColor: color }}
-              className="condition_indicator w-fit p-2 rounded-b-md text-white font-medium cursor-pointer hover:bg-gray-200"
+              style={{
+                backgroundColor: themeColor,
+                boxShadow: `0 2px 8px 0 ${themeColor}40`,
+              }}
+              className="condition_indicator absolute -bottom-3 right-6 px-4 py-2 rounded-full text-white text-xs font-medium cursor-pointer hover:scale-105 transition-transform shadow-md"
             >
-              {`Condition for Q${conditionInfo.qIdx} option ${
-                conditionInfo.ansIdx + 1
+              {`Linked to Q${conditionInfo.questionId} • Option ${
+                conditionInfo.optIdx + 1
               }`}
             </div>
           )}

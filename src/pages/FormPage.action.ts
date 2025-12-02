@@ -14,7 +14,6 @@ export const AutoSaveQuestion = async (data: {
     method: "PUT",
     cookie: true,
     data,
-    refreshtoken: true,
   });
   return response;
 };
@@ -27,7 +26,6 @@ export const DeleteQuestionRequest = async (data: {
     url: "/deletequestion",
     method: "DELETE",
     cookie: true,
-    refreshtoken: true,
     data,
   });
 

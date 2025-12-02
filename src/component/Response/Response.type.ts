@@ -2,6 +2,7 @@ import { DateValue, RangeValue } from "@heroui/react";
 import { ContentType } from "../../types/Form.types";
 import { FormResponse } from "./hooks/useFormResponses";
 import { respondentType } from "../../services/responseService";
+import { SelectionType } from "../../types/Global.types";
 
 /* Response Related Types */
 
@@ -49,14 +50,19 @@ export interface ResponseSetType {
   question: ContentType;
   response: ResponseValueType;
   score?: number;
+  comment?: string;
   isManuallyScored?: boolean;
   scoringMethod?: ScoringMethod;
 }
 
 export enum ResponseCompletionStatus {
   completed = "completed",
+  noscore = "noscore",
+  notreturn = "notreturn",
+  autoscore = "autoscore",
   partial = "partial",
   abandoned = "abandoned",
+  submitted = "submitted",
 }
 
 export enum ScoringMethod {
@@ -105,3 +111,32 @@ export interface ResponseDashboardFilterType {
   scoreRange?: RangeValue<number | undefined>;
   completionStatus?: ResponseCompletionStatus;
 }
+export const ResponseStatusOpt: Array<SelectionType<ResponseCompletionStatus>> =
+  [
+    {
+      label: "Completed",
+      value: ResponseCompletionStatus.completed,
+    },
+    {
+      label: "Auto-Scored",
+      value: ResponseCompletionStatus.autoscore,
+    },
+    {
+      label: "No Score",
+      value: ResponseCompletionStatus.noscore,
+    },
+    {
+      label: "No Return",
+      value: ResponseCompletionStatus.notreturn,
+    },
+
+    {
+      label: "Partial",
+      value: ResponseCompletionStatus.partial,
+    },
+    { label: "Abandoned", value: ResponseCompletionStatus.abandoned },
+  ];
+
+export const ResponseShowPerPage: Array<SelectionType<string>> = [
+  5, 10, 20, 50,
+].map((i) => ({ label: i.toString(), value: i.toString() }));

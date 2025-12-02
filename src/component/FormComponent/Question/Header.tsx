@@ -33,21 +33,21 @@ export const Header: React.FC<HeaderProps> = ({
   onClose,
 }) => {
   return (
-    <div className="p-4 border-b border-gray-200 bg-white/90 backdrop-blur sticky top-0 z-10 space-y-3">
+    <div className="p-4 border-b border-gray-200 bg-white/90 dark:bg-gray-800 backdrop-blur sticky top-0 z-10 space-y-3">
       {/* Title and close button */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800 flex items-center">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white flex items-start">
             Question Structure
-            <span className="ml-2 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full font-normal">
+            <Chip className="ml-2 px-2 py-1 bg-primary/10 text-primary dark:bg-gray-600 dark:text-white text-xs rounded-full font-normal">
               {visibleQuestions} visible
-            </span>
+            </Chip>
           </h2>
-          <div className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+          <div className="text-sm text-gray-600 dark:text-white mt-1 flex items-center gap-2">
             <span>
               Page {currentPage} of {totalPages}
             </span>
-            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-gray-100 dark:bg-gray-600 dark:text-white px-2 py-0.5 rounded-full">
               {totalQuestions} total
             </span>
           </div>
@@ -59,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
             variant="light"
             isIconOnly
             onPress={onClose}
-            className="rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            className="rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-white"
           >
             <XMarkIcon width="16" height="16" />
           </Button>
@@ -110,7 +110,7 @@ export const Header: React.FC<HeaderProps> = ({
             startContent={<FilterIcon width="14" height="14" />}
             className={`text-xs ${
               showOnlyVisible ? "text-primary" : "text-gray-600"
-            }`}
+            } dark:bg-gray-600 dark:text-white`}
             onPress={onToggleVisibility}
           >
             {showOnlyVisible ? "Show All" : "Visible Only"}
@@ -119,7 +119,7 @@ export const Header: React.FC<HeaderProps> = ({
           <Button
             size="sm"
             variant="light"
-            className="text-xs text-gray-600"
+            className="text-xs text-gray-600 dark:bg-gray-600 dark:text-white"
             onPress={onExpandAll}
           >
             Expand All

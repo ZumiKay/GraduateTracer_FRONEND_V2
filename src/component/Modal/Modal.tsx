@@ -130,7 +130,7 @@ export const AddLinkModal = ({
     <ModalWrapper onClose={() => setopen(false)} isOpen={open} size="md">
       <Form
         onSubmit={handleAddOrEditLink}
-        className="AddLinkModal w-full h-full bg-white flex flex-col gap-y-5 items-center rounded-md p-2"
+        className="AddLinkModal w-full h-full bg-white dark:bg-gray-800 flex flex-col gap-y-5 items-center rounded-md p-2"
       >
         <Input
           name="texttoshow"

@@ -1,6 +1,8 @@
 import { memo } from "react";
 import { CircularProgress, Button, Chip } from "@heroui/react";
 import { FormValidationSummary } from "../../../types/Form.types";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../redux/store";
 
 interface FormTotalSummary {
   totalpage: number;
@@ -26,6 +28,7 @@ const FormSummaryHeader = memo(
     validationSummary,
     onValidateAll,
   }: FormSummaryHeaderProps) => {
+    const isDark = useSelector((root: RootState) => root.globalindex.darkmode);
     const getValidationStatus = () => {
       if (!validationSummary) return null;
 
@@ -47,15 +50,17 @@ const FormSummaryHeader = memo(
     };
 
     return (
-      <div className="sticky top-0 z-10 w-full bg-white shadow-md border-b border-gray-200 py-4">
+      <div className="sticky top-0 z-10 w-full bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 py-4">
         <div className="w-full max-w-4xl mx-auto px-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800">Form Summary</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+              Form Summary
+            </h2>
             <div className="flex items-center gap-3">
               {getValidationStatus()}
               <Button
                 color="primary"
-                variant="bordered"
+                variant={isDark ? "solid" : "bordered"}
                 size="sm"
                 onPress={onValidateAll}
                 isLoading={isValidating}

@@ -13,7 +13,6 @@ export const useGetFilteredForm = (
       const response = await ApiRequest({
         method: "GET",
         url: `/filteredform?ty=${tab}&q=${formId}&page=${page}`,
-        refreshtoken: true,
         cookie: true,
         reactQuery: true, // This will throw errors for React Query to handle
       });
@@ -38,7 +37,6 @@ export const useGetFormAnalytics = (formId: string) => {
     queryFn: createQueryFn({
       method: "GET",
       url: `/forms/${formId}/analytics`,
-      refreshtoken: true,
       cookie: true,
     }),
     enabled: !!formId,
@@ -61,7 +59,6 @@ export const useUpdateForm = () => {
         method: "PUT",
         url: `/forms/${formId}`,
         data,
-        refreshtoken: true,
         cookie: true,
         reactQuery: true,
       });
@@ -91,7 +88,6 @@ export const useCreateForm = () => {
     mutationFn: createMutationFn({
       method: "POST",
       url: "/forms",
-      refreshtoken: true,
       cookie: true,
     }),
     onSuccess: () => {
@@ -117,7 +113,6 @@ export const useAutoSaveForm = () => {
         method: "PATCH",
         url: `/forms/${formId}/autosave`,
         data: changes,
-        refreshtoken: true,
         cookie: true,
         reactQuery: true,
       });
@@ -161,7 +156,6 @@ export const useFormResponses = (formId: string, page: number = 1) => {
       const response = await ApiRequest({
         method: "GET",
         url: `/forms/${formId}/responses?page=${page}`,
-        refreshtoken: true,
         cookie: true,
         reactQuery: true,
       });

@@ -11,6 +11,7 @@ import CookieSettingsButton from "../Cookie/CookieSettingsButton";
 import ApiRequest from "../../hooks/ApiHook";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
 import { AsyncLoggout } from "../../redux/user.store";
+import queryClient from "../../hooks/ReactQueryClient";
 import { useNavigate } from "react-router";
 import OpenModal from "../../redux/openmodal";
 
@@ -18,8 +19,12 @@ interface SettingModalProps {
   open: boolean;
   onClose: () => void;
 }
-type TabeOptionType = "general" | "email" | "password";
+type TabeOptionType = "userinfo" | "general" | "email" | "password";
 const TabOption = [
+  {
+    name: "User Info",
+    key: "userinfo",
+  },
   {
     name: "General",
     key: "general",
@@ -34,6 +39,167 @@ const TabOption = [
     key: "password",
   },
 ];
+
+const UserInfo = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [newName, setNewName] = useState("");
+  const userSession = useSelector((state: RootState) => state.usersession);
+
+  if (!userSession.user) {
+    return (
+      <div className="userinfo_container flex items-center justify-center h-32">
+        <p className="text-default-500">Loading user information...</p>
+      </div>
+    );
+  }
+
+  const handleUpdateName = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      const username = formData.get("username") as string;
+
+      const response = await ApiRequest({
+        url: "/edituser",
+        method: "PUT",
+        data: {
+          _id: userSession.user?._id,
+          name: username,
+          edittype: "name",
+        },
+        cookie: true,
+      });
+      if (response.success) {
+        SuccessToast({
+          title: "Success",
+          content: "Username updated successfully",
+        });
+        setIsEditing(false);
+        // Refresh user session to get updated name
+        queryClient.invalidateQueries({ queryKey: ["userSession"] });
+      } else {
+        ErrorToast({
+          title: "Error",
+          content: "Failed to update username",
+          toastid: "username-error",
+        });
+      }
+    } catch {
+      ErrorToast({
+        title: "Error",
+        content: "Failed to update username",
+        toastid: "username-error",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="userinfo_container w-full h-full flex flex-col gap-y-5">
+      <div className="user-details p-4 border rounded-lg dark:border-gray-700">
+        <h3 className="text-lg font-semibold mb-4 dark:text-gray-100">
+          Account Information
+        </h3>
+
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-default-600 dark:text-gray-400">
+              Email Address
+            </label>
+            <Input
+              type="email"
+              value={userSession.user.email}
+              readOnly
+              className="bg-gray-50 dark:bg-gray-700"
+              variant="bordered"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-default-600 dark:text-gray-400">
+              Username
+            </label>
+            {!isEditing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  value={newName ? newName : userSession.user.name}
+                  readOnly
+                  className="bg-gray-50 dark:bg-gray-700"
+                  variant="bordered"
+                />
+                <Button
+                  color="primary"
+                  variant="bordered"
+                  onPress={() => {
+                    setIsEditing(true);
+                    setNewName(userSession.user?.name || "");
+                  }}
+                >
+                  Edit
+                </Button>
+              </div>
+            ) : (
+              <Form
+                onSubmit={handleUpdateName}
+                validationBehavior="native"
+                className="flex flex-col gap-3"
+              >
+                <Input
+                  type="text"
+                  name="username"
+                  placeholder="Enter new username"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  isRequired
+                  errorMessage="Please enter a username"
+                  variant="bordered"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="submit"
+                    color="primary"
+                    className="font-bold"
+                    isLoading={isLoading}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="bordered"
+                    onPress={() => {
+                      setIsEditing(false);
+                      setNewName("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </Form>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-default-600 dark:text-gray-400">
+              Role
+            </label>
+            <Input
+              type="text"
+              value={userSession.user.role}
+              readOnly
+              className="bg-gray-50 dark:bg-gray-700"
+              variant="bordered"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const GeneralOption = () => {
   const dispatch = useDispatch();
@@ -73,7 +239,6 @@ const GeneralOption = () => {
                   url: "/deleteuser",
                   method: "DELETE",
                   cookie: true,
-                  refreshtoken: true,
                 });
 
                 if (response.success) {
@@ -118,11 +283,13 @@ const GeneralOption = () => {
     action?: ReactNode;
   }) => {
     return (
-      <div className="w-full h-fit p-2 border-b-1 border-b-gray-300">
+      <div className="w-full h-fit p-2 border-b-1 border-b-gray-300 dark:border-b-gray-600">
         <div className="w-full h-fit flex flex-row items-center justify-between">
           <div className="w-full h-fit flex flex-row items-center gap-x-3">
             {Icon}
-            <span className="w-fit text-sm font-normal">{name}</span>
+            <span className="w-fit text-sm font-normal dark:text-gray-300">
+              {name}
+            </span>
           </div>
           {action}
         </div>
@@ -142,10 +309,10 @@ const GeneralOption = () => {
             isSelected={selectstate.darkmode}
             onValueChange={(val) => {
               dispatch(globalindex.actions.setdarkmode(val));
-              if (selectstate.darkmode) {
-                document.documentElement.classList.remove("dark");
-              } else {
+              if (val) {
                 document.documentElement.classList.add("dark");
+              } else {
+                document.documentElement.classList.remove("dark");
               }
             }}
             thumbIcon={({ isSelected, className }) =>
@@ -239,7 +406,6 @@ const ChangeEmailAddress = () => {
             type: "vfy",
           },
           cookie: true,
-          refreshtoken: true,
         });
 
         if (response.success) {
@@ -269,7 +435,6 @@ const ChangeEmailAddress = () => {
             code: code,
           },
           cookie: true,
-          refreshtoken: true,
         });
 
         if (verifyResponse.success) {
@@ -283,7 +448,6 @@ const ChangeEmailAddress = () => {
               type: "edit",
             },
             cookie: true,
-            refreshtoken: true,
           });
 
           if (editResponse.success) {
@@ -332,7 +496,7 @@ const ChangeEmailAddress = () => {
           name="current_email"
           value="Your current email will be replaced"
           readOnly
-          className="bg-gray-50"
+          className="bg-gray-50 dark:bg-gray-700"
         />
 
         {step === "input" ? (
@@ -346,7 +510,7 @@ const ChangeEmailAddress = () => {
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
             />
-            <p className="text-sm text-default-500">
+            <p className="text-sm text-default-500 dark:text-gray-400">
               Please enter your new email address. A verification code will be
               sent to confirm the change.
             </p>
@@ -370,7 +534,7 @@ const ChangeEmailAddress = () => {
               value={code}
               onChange={(e) => setCode(e.target.value)}
             />
-            <p className="text-sm text-default-500">
+            <p className="text-sm text-default-500 dark:text-gray-400">
               Enter the verification code sent to {newEmail}
             </p>
             <div className="flex gap-2">
@@ -432,7 +596,6 @@ const ChangePassword = () => {
           edittype: "password",
         },
         cookie: true,
-        refreshtoken: true,
       });
 
       if (response.success) {
@@ -478,7 +641,7 @@ const ChangePassword = () => {
         isRequired
         errorMessage="Please enter a new password"
       />
-      <p className="text-sm text-default-500">
+      <p className="text-sm text-default-500 dark:text-gray-400">
         Your new password must be at least 8 characters long and contain
         uppercase, lowercase, numbers, and special characters.
       </p>
@@ -495,7 +658,7 @@ const ChangePassword = () => {
 };
 
 export default function SettingModal({ open, onClose }: SettingModalProps) {
-  const [selected, setSelected] = useState<TabeOptionType>("general");
+  const [selected, setSelected] = useState<TabeOptionType>("userinfo");
   const selector = useSelector((state: RootState) => state.globalindex);
 
   return (
@@ -515,6 +678,7 @@ export default function SettingModal({ open, onClose }: SettingModalProps) {
         >
           {TabOption.map((tab) => (
             <Tab className="w-full" key={tab.key} title={tab.name}>
+              {tab.key === "userinfo" && <UserInfo />}
               {tab.key === "general" && <GeneralOption />}
               {tab.key === "email" && <ChangeEmailAddress />}
               {tab.key === "password" && <ChangePassword />}

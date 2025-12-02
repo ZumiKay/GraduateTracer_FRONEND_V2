@@ -1,22 +1,16 @@
-import React, { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
-
-import { Navigate, Outlet } from "react-router";
-import { RootState } from "../redux/store";
-import ContainerLoading from "../component/Loading/ContainerLoading";
+import React, { useEffect } from "react";
+import { Navigate, Outlet, useLocation } from "react-router";
+import { useUserSession } from "../hooks/useUserSession";
+import { setPendingRedirect } from "../utils/authRedirect";
 
 interface PrivateRouteProps {
   redirectPath?: string;
 }
 
 export const PublichRoute = () => {
-  const { isAuthenticated, loading } = useSelector(
-    (root: RootState) => root.usersession
-  );
-
-  if (loading) {
-    return <ContainerLoading />;
-  }
+  const { pathname } = useLocation();
+  const { data: sessionData } = useUserSession({ enabled: pathname !== "/" });
+  const isAuthenticated = sessionData?.isAuthenticated ?? false;
 
   if (!isAuthenticated) {
     return <Outlet />;
@@ -25,24 +19,29 @@ export const PublichRoute = () => {
   return <Navigate to="/dashboard" />;
 };
 
-const PrivateRoute: React.FC<PrivateRouteProps> = ({ redirectPath = "/" }) => {
-  const { isAuthenticated, loading } = useSelector(
-    (state: RootState) => state.usersession
-  );
+/**
+ * Private Route Component
+ *
+ * *Protect Route From Unauthenticated access
+ * @param redirectPath: string
+ *
+ *
+ */
 
-  const [isReady, setIsReady] = useState(false);
+const PrivateRoute: React.FC<PrivateRouteProps> = ({ redirectPath = "/" }) => {
+  const location = useLocation();
+  const { data: sessionData } = useUserSession();
+  const isAuthenticated = sessionData?.isAuthenticated ?? false;
 
   useEffect(() => {
-    if (!loading) {
-      setIsReady(true);
-    }
-  }, [loading]);
-
-  if (loading || !isReady) {
-    return <ContainerLoading />;
-  }
+    console.log("Testing Private Route", sessionData);
+  }, [sessionData]);
 
   if (!isAuthenticated) {
+    // Store the current URL (including search params) to redirect back after login
+    const fullUrl = location.pathname + location.search;
+    setPendingRedirect(fullUrl);
+
     return <Navigate to={redirectPath} />;
   }
 

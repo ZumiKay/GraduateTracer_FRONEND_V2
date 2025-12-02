@@ -84,7 +84,6 @@ export interface FormDataType {
   isCreator?: boolean;
   isEditor?: boolean;
   isCollaborator?: boolean;
-
   formType?: string; // Represents which dashboard tab this form belongs to
   lastqIdx?: number;
 
@@ -139,6 +138,7 @@ export interface ParentContentType {
   _id?: string;
   qId?: string;
   qIdx?: number;
+  questionId?: string;
   optIdx: number;
 }
 
@@ -146,6 +146,7 @@ export interface ParentContentType {
 export interface ContentType<t = unknown> {
   _id?: string;
   title?: JSONContent | Content;
+  questionId?: string; //Question Numbering
   qIdx: number;
   type: QuestionType;
   formId: string;

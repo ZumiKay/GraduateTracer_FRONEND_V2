@@ -20,7 +20,7 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../../redux/openmodal";
 import { RootState } from "../../redux/store";
-import { AsyncLoggout, logout } from "../../redux/user.store";
+import { AsyncLoggout } from "../../redux/user.store";
 import React, {
   useCallback,
   useEffect,
@@ -212,8 +212,8 @@ export default function Navigationbar() {
     const issignout = await AsyncLoggout();
     setloading(false);
     if (!issignout) return;
-    dispatch(logout());
-  }, [dispatch]);
+    window.location.reload();
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -418,7 +418,10 @@ export default function Navigationbar() {
             className="mr-2"
           />
 
-          <MemoizedProfileIcon label="John Doe" color="lime" />
+          <MemoizedProfileIcon
+            label={userSession.user?.name ?? "User"}
+            color="lime"
+          />
 
           <Popover isOpen={isPopoverOpen} offset={20} placement="bottom">
             <PopoverTrigger>
@@ -428,7 +431,9 @@ export default function Navigationbar() {
             </PopoverTrigger>
             <PopoverContent className="max-w-[280px] z-50 overflow-auto w-fit p-1 font-normal text-sm">
               <div className="profilecontent px-2 py-2 w-full flex flex-col gap-y-5">
-                <p className="text-left">zumilock011@gmail.com</p>
+                <p className="text-left">
+                  {userSession.user?.name || userSession.user?.email}
+                </p>
                 <Listbox
                   aria-label="Listbox menu with sections"
                   variant="solid"

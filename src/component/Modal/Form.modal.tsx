@@ -74,7 +74,6 @@ export default function CreateForm({
       url: `/filteredform?ty=detail&q=${id}`,
       method: "GET",
       cookie: true,
-      refreshtoken: true,
     }),
     enabled: !!id && open, // Only fetch when id exists and modal is open
     retry: 1,
@@ -94,7 +93,6 @@ export default function CreateForm({
       method: id ? "PUT" : "POST",
       url: id ? `/updateform/${id}` : "/createform",
       cookie: true,
-      refreshtoken: true,
     }),
     onSuccess: (response: unknown) => {
       SuccessToast({
@@ -280,10 +278,10 @@ export default function CreateForm({
           }
         `}
       </style>
-      <div className="p-6 bg-gradient-to-br from-slate-50 to-gray-100 rounded-xl animate-fadeIn">
+      <div className="p-6 bg-gradient-to-br from-slate-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl animate-fadeIn">
         {/* Form Description */}
         <div className="text-center mb-6">
-          <p className="text-gray-600 text-sm leading-relaxed">
+          <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
             {id
               ? "Update your form details and settings below"
               : "Create a beautiful form to collect responses and engage with your audience"}
@@ -334,7 +332,7 @@ export default function CreateForm({
               <div className="relative">
                 <label
                   htmlFor="type-select"
-                  className="block text-sm font-semibold text-gray-700 mb-3"
+                  className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3"
                 >
                   Form Type <span className="text-red-500">*</span>
                 </label>
@@ -345,7 +343,7 @@ export default function CreateForm({
                     value={formtype}
                     onChange={(e) => handleFormTypeChange(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-white/70 backdrop-blur-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 hover:border-purple-400 hover:shadow-lg text-gray-700 font-medium appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 bg-white/70 dark:bg-gray-700/70 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 dark:focus:border-purple-400 transition-all duration-300 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-lg text-gray-700 dark:text-gray-200 font-medium appearance-none cursor-pointer"
                   >
                     <option value="" disabled>
                       Select Form Type
@@ -359,7 +357,7 @@ export default function CreateForm({
                   {/* Custom dropdown arrow */}
                   <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
                     <svg
-                      className="w-5 h-5 text-gray-400"
+                      className="w-5 h-5 text-gray-400 dark:text-gray-500"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -374,7 +372,7 @@ export default function CreateForm({
                   </div>
                 </div>
                 {/* Form Type Description */}
-                <div className="mt-2 text-xs text-gray-500">
+                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   {formtype === FormTypeEnum.Quiz && (
                     <span className="animate-fadeIn">
                       🧠 Quiz forms support scoring and automatic result
@@ -400,7 +398,7 @@ export default function CreateForm({
                 <div className="relative animate-fadeIn">
                   <label
                     htmlFor="returnscore-select"
-                    className="block text-sm font-semibold text-gray-700 mb-3"
+                    className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3"
                   >
                     Return Score Method
                   </label>
@@ -410,7 +408,7 @@ export default function CreateForm({
                       name="returnscore"
                       value={selectedReturnScore}
                       onChange={(e) => setSelectedReturnScore(e.target.value)}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 hover:border-blue-400 hover:shadow-lg text-gray-700 font-medium appearance-none cursor-pointer"
+                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border-2 border-blue-200 dark:border-blue-700 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg text-gray-700 dark:text-gray-200 font-medium appearance-none cursor-pointer"
                     >
                       {ReturnScoreOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -421,7 +419,7 @@ export default function CreateForm({
                     {/* Custom dropdown arrow */}
                     <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
                       <svg
-                        className="w-5 h-5 text-blue-400"
+                        className="w-5 h-5 text-blue-400 dark:text-blue-500"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -435,7 +433,7 @@ export default function CreateForm({
                       </svg>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     Choose how quiz scores should be calculated and returned to
                     participants
                   </p>
@@ -443,10 +441,10 @@ export default function CreateForm({
               )}
 
               {/* Form Settings */}
-              <div className="bg-white/60 backdrop-blur-sm border border-gray-200 rounded-xl p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                   <svg
-                    className="w-4 h-4 text-purple-500"
+                    className="w-4 h-4 text-purple-500 dark:text-purple-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -476,16 +474,17 @@ export default function CreateForm({
                       className="transition-all duration-200 group-hover:scale-105"
                       classNames={{
                         wrapper:
-                          "before:border-2 before:border-gray-300 hover:before:border-purple-400 before:transition-colors before:duration-300",
+                          "before:border-2 before:border-gray-300 dark:before:border-gray-600 hover:before:border-purple-400 dark:hover:before:border-purple-500 before:transition-colors before:duration-300",
                         icon: "text-white",
-                        label: "text-gray-700 font-medium text-sm",
+                        label:
+                          "text-gray-700 dark:text-gray-300 font-medium text-sm",
                       }}
                     >
                       <div className="flex items-center gap-2">
                         <span>📧 Require Email</span>
                       </div>
                     </Checkbox>
-                    <p className="text-xs text-gray-500 mt-1 ml-6 opacity-75 group-hover:opacity-100 transition-opacity duration-200">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6 opacity-75 group-hover:opacity-100 transition-opacity duration-200">
                       Participants must provide their email address
                     </p>
                   </div>
@@ -497,23 +496,24 @@ export default function CreateForm({
                       className="transition-all duration-200 group-hover:scale-105"
                       classNames={{
                         wrapper:
-                          "before:border-2 before:border-gray-300 hover:before:border-purple-400 before:transition-colors before:duration-300",
+                          "before:border-2 before:border-gray-300 dark:before:border-gray-600 hover:before:border-purple-400 dark:hover:before:border-purple-500 before:transition-colors before:duration-300",
                         icon: "text-white",
-                        label: "text-gray-700 font-medium text-sm",
+                        label:
+                          "text-gray-700 dark:text-gray-300 font-medium text-sm",
                       }}
                     >
                       <div className="flex items-center gap-2">
                         <span>🔒 Response Once</span>
                       </div>
                     </Checkbox>
-                    <p className="text-xs text-gray-500 mt-1 ml-6 opacity-75 group-hover:opacity-100 transition-opacity duration-200">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6 opacity-75 group-hover:opacity-100 transition-opacity duration-200">
                       Users can only submit one response
                     </p>
                   </div>
                 </div>
 
                 {requireEmail && (
-                  <div className="animate-fadeIn pt-2 border-t border-gray-200">
+                  <div className="animate-fadeIn pt-2 border-t border-gray-200 dark:border-gray-700">
                     <div className="group">
                       <Checkbox
                         name="acceptGuest"
@@ -521,16 +521,17 @@ export default function CreateForm({
                         className="transition-all duration-200 group-hover:scale-105"
                         classNames={{
                           wrapper:
-                            "before:border-2 before:border-gray-300 hover:before:border-green-400 before:transition-colors before:duration-300",
+                            "before:border-2 before:border-gray-300 dark:before:border-gray-600 hover:before:border-green-400 dark:hover:before:border-green-500 before:transition-colors before:duration-300",
                           icon: "text-white",
-                          label: "text-gray-700 font-medium text-sm",
+                          label:
+                            "text-gray-700 dark:text-gray-300 font-medium text-sm",
                         }}
                       >
                         <div className="flex items-center gap-2">
                           <span>👤 Accept Guest Responses</span>
                         </div>
                       </Checkbox>
-                      <p className="text-xs text-gray-500 mt-1 ml-6 opacity-75 group-hover:opacity-100 transition-opacity duration-200">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6 opacity-75 group-hover:opacity-100 transition-opacity duration-200">
                         Allow anonymous users to respond without providing email
                       </p>
                     </div>

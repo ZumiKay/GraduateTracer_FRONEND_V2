@@ -44,14 +44,15 @@ const Respondant_Question_Card = memo(
       [onSelectAnswer, isDisable]
     );
 
+    //Question numbering
     const contentTitle = useMemo(() => {
       if (content.parentcontent) {
-        return `Question ${content.qIdx} (Sub of Q-${
-          content.parentcontent.qIdx
+        return `Question ${content.questionId} (Sub of Q-${
+          content.parentcontent.questionId
         } option ${content.parentcontent.optIdx + 1})`;
       }
-      return `Question ${content.qIdx ?? idx + 1}`;
-    }, [content.parentcontent, content.qIdx, idx]);
+      return `Question ${content.questionId}`;
+    }, [content.parentcontent, content.questionId]);
 
     const questionTypeLabel = useMemo(() => {
       switch (content.type) {
@@ -105,7 +106,7 @@ const Respondant_Question_Card = memo(
 
       return (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-700">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Select one option:
           </p>
           <RadioGroup
@@ -118,11 +119,11 @@ const Respondant_Question_Card = memo(
             {options.map((choice, cIdx) => (
               <Radio
                 key={`choice-${content.idx}-${cIdx}`}
-                className="w-full h-fit p-3 mb-3 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors duration-200"
+                className="w-full h-fit p-3 mb-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-colors duration-200"
                 value={String(choice.idx ?? cIdx)}
                 aria-label={`Option ${cIdx}`}
               >
-                <p className="text-base font-medium text-gray-800 w-full h-full leading-relaxed">
+                <p className="text-base font-medium text-gray-800 dark:text-gray-200 w-full h-full leading-relaxed">
                   {choice.content}
                 </p>
               </Radio>
@@ -142,7 +143,7 @@ const Respondant_Question_Card = memo(
 
       return (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-700">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Select multiple options:
           </p>
           <div className="grid grid-cols-1 gap-2">
@@ -255,7 +256,9 @@ const Respondant_Question_Card = memo(
         case QuestionType.Paragraph: {
           return (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Your answer:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Your answer:
+              </p>
               <ParagraphAnswer
                 value={String(answerKey?.answer || "")}
                 onChange={handleAnswer}
@@ -268,7 +271,9 @@ const Respondant_Question_Card = memo(
         case QuestionType.RangeNumber:
           return (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Select range:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Select range:
+              </p>
               <RangeNumberAnswer
                 onChange={handleAnswer}
                 value={content.rangenumber}
@@ -281,7 +286,9 @@ const Respondant_Question_Card = memo(
         case QuestionType.Date:
           return (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Select date:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Select date:
+              </p>
               <DateQuestionType
                 value={answerKey?.answer as string}
                 placeholder="Select Date"
@@ -294,7 +301,9 @@ const Respondant_Question_Card = memo(
         case QuestionType.Number:
           return (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Enter number:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Enter number:
+              </p>
               <Input
                 size="md"
                 radius="sm"
@@ -314,7 +323,9 @@ const Respondant_Question_Card = memo(
         case QuestionType.ShortAnswer:
           return (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Your answer:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Your answer:
+              </p>
               <Input
                 fullWidth
                 size="md"
@@ -369,10 +380,10 @@ const Respondant_Question_Card = memo(
 
     return (
       <div
-        className={`relative w-card_respondant_width h-fit rounded-xl bg-white shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 ${
+        className={`relative w-card_respondant_width h-fit rounded-xl bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 ${
           isDisable
             ? "cursor-not-allowed"
-            : "hover:shadow-xl hover:border-gray-200 hover:-translate-y-1"
+            : "hover:shadow-xl hover:border-gray-200 dark:hover:border-gray-600 hover:-translate-y-1"
         }`}
       >
         <div style={colorAccentStyle} className="h-3 w-full relative">
@@ -410,7 +421,7 @@ const Respondant_Question_Card = memo(
                 content.type !== QuestionType.Text
                   ? "pb-4 border-b border-gray-200"
                   : ""
-              }`}
+              } dark:bg-white dark:rounded-md dark:p-2`}
             >
               <StyledTiptap
                 value={content.title as never}
@@ -425,8 +436,8 @@ const Respondant_Question_Card = memo(
             <div
               className={`answer_container w-full min-h-[60px] p-4 rounded-lg border transition-colors duration-200 ${
                 isDisable
-                  ? "bg-gray-100 border-gray-200"
-                  : "bg-gradient-to-br from-gray-50 to-gray-100/50 border-gray-200 hover:border-gray-300"
+                  ? "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                  : "bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-700/50 dark:to-gray-600/50 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
               }`}
             >
               {RenderAnswers()}

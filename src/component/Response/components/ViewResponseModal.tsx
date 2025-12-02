@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Modal,
   ModalContent,
@@ -12,6 +12,7 @@ import {
   CircularProgress,
   RangeValue,
 } from "@heroui/react";
+import { FiChevronLeft, FiChevronRight, FiSave } from "react-icons/fi";
 import {
   FormDataType,
   FormTypeEnum,
@@ -29,6 +30,8 @@ import { getResponseDisplayName } from "../../../utils/respondentUtils";
 import StyledTiptap from "./StyledTiptap";
 import { ConditionalIndicator } from "./ConditionalIndicator";
 import { FormatDate } from "../../../helperFunc";
+import { ScoreModeInput } from "../../FormComponent/Solution/ScoreComponent";
+import { ResponseListItem } from "../../../services/responseService";
 
 interface ViewResponseModalProps {
   isOpen: boolean;
@@ -39,6 +42,17 @@ interface ViewResponseModalProps {
   formatDate: (date: Date) => string;
   getStatusColor: (status: string) => statusColor;
   isLoading: boolean;
+  responseList?: ResponseListItem[];
+  currentResponseIndex?: number;
+  onNavigateResponse?: (direction: "next" | "prev") => void;
+  respondentResponseList?: ResponseListItem[];
+  currentRespondentIndex?: number;
+  onNavigateRespondentResponse?: (direction: "next" | "prev") => void;
+  onUpdateQuestionScore?: (
+    responseId: string,
+    questionId: string,
+    score: number
+  ) => void;
 }
 
 const ResponseItem = React.memo<{
@@ -51,6 +65,8 @@ const ResponseItem = React.memo<{
     response: ResponseValueType,
     qType: QuestionType
   ) => React.ReactNode;
+  onScoreUpdate?: (questionId: string, score: number) => void;
+  responseId?: string;
 }>(
   ({
     response: resp,
@@ -59,97 +75,119 @@ const ResponseItem = React.memo<{
     isQuizForm,
     allQuestions,
     renderAnswer,
-  }) => (
-    <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
-      <div className="p-5">
-        <div className="flex justify-between items-start gap-4">
-          <div className="flex-1 space-y-4">
-            {/* Question Header */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {question.qIdx && !question.parentcontent ? (
-                <Chip
-                  size="sm"
-                  color="secondary"
-                  variant="flat"
-                  className="font-medium"
-                >
-                  Q{question.qIdx}
+    onScoreUpdate,
+    responseId,
+  }) => {
+    const isTextType = question?.type === QuestionType.Text;
+    const canScore = isQuizForm && !isTextType;
+
+    return (
+      <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+        <div className="p-5">
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex-1 space-y-4">
+              {/* Question Header */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {question.qIdx && !question.parentcontent ? (
+                  <Chip
+                    size="sm"
+                    color="secondary"
+                    variant="flat"
+                    className="font-medium"
+                  >
+                    Q{question.qIdx}
+                  </Chip>
+                ) : (
+                  <ConditionalIndicator
+                    question={question}
+                    questions={allQuestions}
+                  />
+                )}
+                <Chip size="sm" color="primary" variant="bordered">
+                  {question?.type || "Unknown"}
                 </Chip>
-              ) : (
-                <ConditionalIndicator
-                  question={question}
-                  questions={allQuestions}
-                />
+                {isQuizForm && (
+                  <Chip
+                    size="sm"
+                    color={isAutoScore ? "success" : "warning"}
+                    variant="flat"
+                  >
+                    {isAutoScore ? "Auto-Scored" : "Manual"}
+                  </Chip>
+                )}
+              </div>
+
+              {/* Question Title */}
+              {question?.title && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <StyledTiptap
+                    value={question.title as never}
+                    readonly
+                    variant="question"
+                  />
+                </div>
               )}
-              <Chip size="sm" color="primary" variant="bordered">
-                {question?.type || "Unknown"}
-              </Chip>
-              {isQuizForm && (
-                <Chip
-                  size="sm"
-                  color={isAutoScore ? "success" : "warning"}
-                  variant="flat"
-                >
-                  {isAutoScore ? "Auto-Scored" : "Manual"}
-                </Chip>
-              )}
-            </div>
 
-            {/* Question Title */}
-            {question?.title && (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <StyledTiptap
-                  value={question.title as never}
-                  readonly
-                  variant="question"
-                />
-              </div>
-            )}
-
-            {/* Answer */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-medium text-gray-700">
-                  Answer:
-                </span>
-              </div>
-              <div className="text-gray-900">
-                {renderAnswer(resp.response, resp.question.type)}
-              </div>
-            </div>
-
-            {/* Correct Answer (Quiz Only) */}
-            {question?.answer && isQuizForm && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              {/* Answer */}
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm font-medium text-green-700">
-                    Correct Answer:
+                  <span className="text-sm font-medium text-gray-700">
+                    Answer:
                   </span>
                 </div>
-                <div className="text-green-800">
-                  {renderAnswer(question.answer as never, question.type)}
+                <div className="text-gray-900">
+                  {renderAnswer(resp.response, resp.question.type)}
                 </div>
+              </div>
+
+              {/* Correct Answer (Quiz Only) */}
+              {question?.answer && isQuizForm && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-medium text-green-700">
+                      Correct Answer:
+                    </span>
+                  </div>
+                  <div className="text-green-800">
+                    {renderAnswer(question.answer as never, question.type)}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {isQuizForm && (
+              <div className="flex flex-col items-end gap-2 min-w-[100px]">
+                {!canScore ? (
+                  <div className="bg-gray-50 rounded-lg px-3 py-2 text-center">
+                    <div className="text-lg font-bold text-gray-900">
+                      {resp.score || 0}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      of {question?.score || 0}
+                    </div>
+                  </div>
+                ) : null}
+                <div className="text-xs text-gray-500">points</div>
               </div>
             )}
           </div>
 
-          {isQuizForm && (
-            <div className="flex flex-col items-end gap-2 min-w-[100px]">
-              <div className="bg-gray-50 rounded-lg px-3 py-2 text-center">
-                <div className="text-lg font-bold text-gray-900">
-                  {resp.score || 0}
-                </div>
-                <div className="text-xs text-gray-500">
-                  of {question?.score || 0}
-                </div>
-              </div>
-              <div className="text-xs text-gray-500">points</div>
+          {/* Score Mode Input for non-text, non-auto-scored questions */}
+          {onScoreUpdate && responseId && question._id && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <ScoreModeInput
+                maxScore={question?.score || 0}
+                initialScore={resp.score || 0}
+                onScoreChange={({ score }) => {
+                  onScoreUpdate(question._id as string, score);
+                }}
+              />
             </div>
           )}
         </div>
-      </div>
-    </Card>
-  )
+      </Card>
+    );
+  }
 );
 
 ResponseItem.displayName = "ResponseItem";
@@ -164,8 +202,19 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
     formatDate,
     getStatusColor,
     isLoading,
+    responseList,
+    currentResponseIndex = 0,
+    onNavigateResponse,
+    respondentResponseList,
+    currentRespondentIndex = 0,
+    onNavigateRespondentResponse,
+    onUpdateQuestionScore,
   }) => {
     const isQuizForm = form.type === FormTypeEnum.Quiz;
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [pendingScores, setPendingScores] = useState<Record<string, number>>(
+      {}
+    );
 
     const computedData = useMemo(() => {
       if (!selectedResponse) return null;
@@ -179,6 +228,88 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
 
       return { displayName, email, totalScore, submittedDate };
     }, [selectedResponse, formatDate]);
+
+    // Pagination helpers for all responses
+    const canGoPrev = useMemo(() => {
+      return (
+        responseList && responseList.length > 0 && currentResponseIndex > 0
+      );
+    }, [responseList, currentResponseIndex]);
+
+    const canGoNext = useMemo(() => {
+      return (
+        responseList &&
+        responseList.length > 0 &&
+        currentResponseIndex < responseList.length - 1
+      );
+    }, [responseList, currentResponseIndex]);
+
+    const totalResponses = responseList?.length || 0;
+    const currentPosition = currentResponseIndex + 1;
+
+    // Pagination helpers for respondent responses
+    const canGoPrevRespondent = useMemo(() => {
+      return (
+        respondentResponseList &&
+        respondentResponseList.length > 0 &&
+        currentRespondentIndex > 0
+      );
+    }, [respondentResponseList, currentRespondentIndex]);
+
+    const canGoNextRespondent = useMemo(() => {
+      return (
+        respondentResponseList &&
+        respondentResponseList.length > 0 &&
+        currentRespondentIndex < respondentResponseList.length - 1
+      );
+    }, [respondentResponseList, currentRespondentIndex]);
+
+    const totalRespondentResponses = respondentResponseList?.length || 0;
+    const currentRespondentPosition = currentRespondentIndex + 1;
+
+    // Handle navigation
+    const handleNavigate = useCallback(
+      (direction: "next" | "prev") => {
+        if (onNavigateResponse) {
+          onNavigateResponse(direction);
+        }
+      },
+      [onNavigateResponse]
+    );
+
+    // Handle respondent navigation
+    const handleRespondentNavigate = useCallback(
+      (direction: "next" | "prev") => {
+        if (onNavigateRespondentResponse) {
+          onNavigateRespondentResponse(direction);
+        }
+      },
+      [onNavigateRespondentResponse]
+    );
+
+    // Handle score update for individual questions
+    const handleQuestionScoreUpdate = useCallback(
+      (questionId: string, score: number) => {
+        setPendingScores((prev) => ({
+          ...prev,
+          [questionId]: score,
+        }));
+        setHasUnsavedChanges(true);
+      },
+      []
+    );
+
+    // Handle save all scores
+    const handleSaveAllScores = useCallback(() => {
+      if (!selectedResponse || !onUpdateQuestionScore) return;
+
+      Object.entries(pendingScores).forEach(([questionId, score]) => {
+        onUpdateQuestionScore(selectedResponse._id, questionId, score);
+      });
+
+      setPendingScores({});
+      setHasUnsavedChanges(false);
+    }, [selectedResponse, onUpdateQuestionScore, pendingScores]);
 
     const renderAnswer = useCallback(
       (response: ResponseValueType, qType: QuestionType) => {
@@ -290,17 +421,101 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        size="4xl"
+        size="5xl"
         scrollBehavior="inside"
       >
         <ModalContent>
           {() => (
             <>
-              <ModalHeader className="flex flex-col gap-1">
-                <h3 className="text-xl font-semibold">Response Summary</h3>
-                <p className="text-sm text-gray-500 font-normal">
-                  Detailed view of response data and scores
-                </p>
+              <ModalHeader className="flex flex-col gap-3 border-b">
+                <div className="flex items-center justify-between w-full">
+                  <div>
+                    <h3 className="text-xl font-semibold">Response Summary</h3>
+                    <p className="text-sm text-gray-500 font-normal">
+                      Detailed view of response data and scores
+                    </p>
+                  </div>
+
+                  {/* Save Button */}
+                  {hasUnsavedChanges && isQuizForm && (
+                    <Button
+                      color="success"
+                      variant="flat"
+                      size="sm"
+                      onPress={handleSaveAllScores}
+                      startContent={<FiSave />}
+                    >
+                      Save All Scores
+                    </Button>
+                  )}
+                </div>
+
+                {/* Navigation Controls */}
+                <div className="flex items-center gap-6 flex-wrap">
+                  {/* All Responses Navigation */}
+                  {totalResponses > 1 && (
+                    <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
+                      <span className="text-xs font-medium text-blue-700">
+                        All Responses:
+                      </span>
+                      <Chip size="sm" variant="flat" color="primary">
+                        {currentPosition} / {totalResponses}
+                      </Chip>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="flat"
+                        color="primary"
+                        onPress={() => handleNavigate("prev")}
+                        isDisabled={!canGoPrev}
+                      >
+                        <FiChevronLeft size={20} />
+                      </Button>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="flat"
+                        color="primary"
+                        onPress={() => handleNavigate("next")}
+                        isDisabled={!canGoNext}
+                      >
+                        <FiChevronRight size={20} />
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Respondent's Responses Navigation */}
+                  {totalRespondentResponses > 1 && (
+                    <div className="flex items-center gap-2 bg-purple-50 px-3 py-2 rounded-lg">
+                      <span className="text-xs font-medium text-purple-700">
+                        This Respondent:
+                      </span>
+                      <Chip size="sm" variant="flat" color="secondary">
+                        {currentRespondentPosition} / {totalRespondentResponses}
+                      </Chip>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="flat"
+                        color="secondary"
+                        onPress={() => handleRespondentNavigate("prev")}
+                        isDisabled={!canGoPrevRespondent}
+                      >
+                        <FiChevronLeft size={20} />
+                      </Button>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="flat"
+                        color="secondary"
+                        onPress={() => handleRespondentNavigate("next")}
+                        isDisabled={!canGoNextRespondent}
+                      >
+                        <FiChevronRight size={20} />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </ModalHeader>
               <ModalBody className="px-6 flex flex-col items-center">
                 {isLoading && <CircularProgress />}
@@ -385,6 +600,8 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
                                 (i) => i.question
                               )}
                               renderAnswer={renderAnswer}
+                              onScoreUpdate={handleQuestionScoreUpdate}
+                              responseId={selectedResponse._id}
                             />
                           )
                         )}

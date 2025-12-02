@@ -64,6 +64,7 @@ export const useResponseMutations = (formId: string) => {
         },
         cookie: true,
         reactQuery: true,
+        encrypt: true,
       });
       return result.data;
     },

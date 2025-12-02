@@ -32,12 +32,16 @@ import SuccessToast, {
 import RecaptchaButton from "../component/FormComponent/recapcha";
 import ReactDomSever from "react-dom/server";
 import EmailTemplate from "../component/FormComponent/EmailTemplate";
-import { useDispatch } from "react-redux";
-import { AsyncGetUser } from "../redux/user.store";
 import { memo, useMemo } from "react";
 import PrivacyPolicy from "../component/Cookie/PrivacyPolicy";
 import { FiMail, FiLock, FiUser, FiShield } from "react-icons/fi";
-
+import {
+  getPendingRedirect,
+  clearPendingRedirect,
+} from "../utils/authRedirect";
+import { useDispatch } from "react-redux";
+import { setUser } from "../redux/user.store";
+import { UserSessionData } from "../hooks/useUserSession";
 type authenticationtype = "login" | "prelogin" | "signup" | "forgot";
 
 interface AuthFormProps {
@@ -125,40 +129,43 @@ const PrivacyPolicyModal = memo(
   )
 );
 
-// Enhanced Password Strength Indicator
+// Enhanced Password Strength Indicator - Memoized for performance
 const PasswordStrengthIndicator = memo(({ strength }: { strength: number }) => {
-  const getStrengthColor = () => {
-    if (strength < 2) return "danger";
-    if (strength < 4) return "warning";
-    return "success";
-  };
-
-  const getStrengthText = () => {
-    if (strength < 2) return "Weak";
-    if (strength < 4) return "Medium";
-    return "Strong";
-  };
+  const strengthConfig = useMemo(() => {
+    if (strength < 2)
+      return { color: "danger" as const, text: "Weak", bgColor: "bg-red-500" };
+    if (strength < 4)
+      return {
+        color: "warning" as const,
+        text: "Medium",
+        bgColor: "bg-yellow-500",
+      };
+    return {
+      color: "success" as const,
+      text: "Strong",
+      bgColor: "bg-green-500",
+    };
+  }, [strength]);
 
   return (
-    <div className="w-full mt-1">
-      <div className="flex justify-between items-center text-xs mb-1">
-        <span className="text-gray-400">Password Strength</span>
-        <Chip size="sm" color={getStrengthColor()} variant="flat">
-          {getStrengthText()}
+    <div className="w-full mt-1.5">
+      <div className="flex justify-between items-center text-xs mb-1.5">
+        <span className="text-white/70 font-medium">Password Strength</span>
+        <Chip
+          size="sm"
+          color={strengthConfig.color}
+          variant="flat"
+          className="font-semibold"
+        >
+          {strengthConfig.text}
         </Chip>
       </div>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((level) => (
           <div
             key={level}
-            className={`h-1 flex-1 rounded ${
-              level <= strength
-                ? strength < 2
-                  ? "bg-red-500"
-                  : strength < 4
-                  ? "bg-yellow-500"
-                  : "bg-green-500"
-                : "bg-gray-200"
+            className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+              level <= strength ? strengthConfig.bgColor : "bg-white/20"
             }`}
           />
         ))}
@@ -167,26 +174,30 @@ const PasswordStrengthIndicator = memo(({ strength }: { strength: number }) => {
   );
 });
 
+PasswordStrengthIndicator.displayName = "PasswordStrengthIndicator";
+
 const ForgotPasswordActions = memo(
   ({ loading, onCancel }: { loading: boolean; onCancel: () => void }) => (
     <div className="w-full h-[40px] flex flex-row gap-x-5 justify-center">
       <Button
         type="submit"
         isLoading={loading}
-        className="text-white font-bold bg-secondary w-full h-[40px] rounded-md"
+        className="text-white font-bold bg-gradient-to-r from-primary to-secondary w-full h-[45px] rounded-lg transition-all hover:scale-105 shadow-lg"
       >
         Next
       </Button>
       <Button
         type="button"
         onPress={onCancel}
-        className="text-white font-bold bg-danger w-full h-[40px] rounded-md"
+        className="text-white font-bold bg-gradient-to-r from-red-300 to-red-500 w-full h-[40px] rounded-md"
       >
         Cancel
       </Button>
     </div>
   )
 );
+
+ForgotPasswordActions.displayName = "ForgotPasswordActions";
 
 const AuthForm = memo(
   ({
@@ -296,7 +307,7 @@ const AuthForm = memo(
       [logindata.password]
     );
 
-    const formActions = useMemo(() => {
+    const formActions = useCallback(() => {
       if (type === "forgot") {
         return <ForgotPasswordActions loading={loading} onCancel={onCancel} />;
       }
@@ -360,7 +371,7 @@ const AuthForm = memo(
         <Form
           ref={formRef}
           onSubmit={onSubmit}
-          className="w-[90%] h-fit flex flex-col gap-y-6 items-end"
+          className="w-full h-fit flex flex-col gap-y-5 items-end"
           validationBehavior="native"
           aria-label={`${
             type === "signup"
@@ -370,6 +381,27 @@ const AuthForm = memo(
               : "Sign in"
           } form`}
         >
+          {type === "signup" && (
+            <div className="space-y-1 w-full">
+              <Input
+                isRequired
+                errorMessage="Please enter your full name"
+                label="Full Name"
+                labelPlacement="inside"
+                name="name"
+                placeholder="Enter your full name"
+                type="text"
+                value={logindata.name}
+                onChange={onChange}
+                size="lg"
+                startContent={<FiUser className="text-gray-400" />}
+                className="transition-all focus-within:scale-[1.02]"
+                minLength={2}
+                maxLength={100}
+              />
+            </div>
+          )}
+
           <div className="space-y-1 w-full">
             <Input
               isRequired
@@ -436,47 +468,47 @@ const AuthForm = memo(
               )}
 
               {type === "signup" && (
-                <div className="w-full space-y-3">
-                  <Divider className="bg-white/20" />
-                  <Checkbox
-                    name="agree"
-                    onValueChange={onAgreeChange}
-                    isRequired
-                    color="secondary"
-                    size="sm"
-                    classNames={{
-                      base: "items-start",
-                      wrapper: "mt-1",
-                    }}
-                  >
-                    <div className="text-sm text-white leading-relaxed">
-                      I agree to the{" "}
-                      <Button
-                        onPress={onPolicyOpen}
-                        variant="light"
-                        size="sm"
-                        className="text-secondary hover:text-secondary-400 underline p-0 h-auto min-w-0 inline"
-                      >
-                        Terms of Service and Privacy Policy
-                      </Button>{" "}
-                      and consent to the processing of my personal data.
-                      <br />
-                    </div>
-                  </Checkbox>
-                  <a
-                    href="/privacy-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white/70 hover:text-white underline p-0 h-auto min-w-0 inline text-xs mt-1"
-                  >
-                    View full privacy policy →
-                  </a>
+                <div className="w-full space-y-3 mt-2">
+                  <Divider className="bg-white/30" />
+                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                    <Checkbox
+                      name="agree"
+                      onValueChange={onAgreeChange}
+                      isRequired
+                      color="secondary"
+                      size="sm"
+                      classNames={{
+                        base: "items-start",
+                        wrapper: "mt-1",
+                      }}
+                    >
+                      <div className="text-sm text-white leading-relaxed">
+                        I agree to the{" "}
+                        <Button
+                          onPress={onPolicyOpen}
+                          variant="light"
+                          size="sm"
+                          className="text-secondary hover:text-secondary-400 underline p-0 h-auto min-w-0 inline font-semibold"
+                        >
+                          Terms of Service and Privacy Policy
+                        </Button>{" "}
+                        and consent to the processing of my personal data.
+                      </div>
+                    </Checkbox>
+                    <a
+                      href="/privacy-policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-white/80 hover:text-white underline text-xs mt-2 inline-block transition-colors"
+                    >
+                      View full privacy policy →
+                    </a>
+                  </div>
                 </div>
               )}
-
-              {formActions}
             </>
           )}
+          {formActions()}
         </Form>
 
         <PrivacyPolicyModal isOpen={isPolicyOpen} onClose={onPolicyClose} />
@@ -485,21 +517,25 @@ const AuthForm = memo(
   }
 );
 
+AuthForm.displayName = "AuthForm";
+
 const DefaultLoginState = {
   email: "",
   password: "",
+  userName: "",
   agree: false,
 };
 
 export default function AuthenticationPage() {
+  const dispatch = useDispatch();
   const [page, setpage] = useState<authenticationtype>("login");
   const [forgot, setforgot] = useState<ForgotPasswordType>();
   const [loading, setloading] = useState(false);
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   const recaptcha = RecaptchaButton();
   const [logindata, setlogindata] = useState<Logindatatype>(DefaultLoginState);
 
+  //Render google recaptcha script
   useEffect(() => {
     const script = document.createElement("script");
     script.src = `https://www.google.com/recaptcha/api.js?render=${
@@ -548,8 +584,15 @@ export default function AuthenticationPage() {
 
       if (
         (page === "forgot" && !logindata.email) ||
-        (page === "signup" && !logindata.agree)
+        (page === "signup" && (!logindata.agree || !logindata.name?.trim()))
       ) {
+        if (page === "signup" && !logindata.name?.trim()) {
+          ErrorToast({
+            toastid: page,
+            title: "Name Required",
+            content: "Please enter your full name",
+          });
+        }
         return;
       }
 
@@ -578,7 +621,16 @@ export default function AuthenticationPage() {
               cookie: true,
             };
           case "signup":
-            return { ...baseConfig, data: logindata, url: "/registeruser" };
+            return {
+              ...baseConfig,
+              data: {
+                email: logindata.email,
+                password: logindata.password,
+                name: logindata.name,
+                agree: logindata.agree,
+              },
+              url: "/registeruser",
+            };
           case "forgot": {
             const html = ReactDomSever.renderToStaticMarkup(<EmailTemplate />);
             const forgotData =
@@ -607,6 +659,7 @@ export default function AuthenticationPage() {
 
       setloading(true);
 
+      //Are you a robort
       const verifyreccap = await recaptcha.handleVerify();
       if (!verifyreccap) {
         setloading(false);
@@ -632,13 +685,28 @@ export default function AuthenticationPage() {
       }
 
       // Handle success responses
-      if (page === "login") {
-        dispatch(AsyncGetUser() as never);
+      if (page === "login" && AuthenticationRequest.data) {
         SuccessToast({
           title: "Welcome!",
           content: "Successfully logged in",
         });
-        navigate("/dashboard", { replace: true });
+
+        //Set usersession as active
+        dispatch(
+          setUser({
+            isAuthenticated: true,
+            user: AuthenticationRequest.data as UserSessionData,
+          })
+        );
+
+        // Check for pending redirect
+        const pendingRedirect = getPendingRedirect();
+        if (pendingRedirect) {
+          clearPendingRedirect();
+          window.location.href = pendingRedirect;
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
       } else if (page === "signup") {
         SuccessToast({
           title: "Account Created!",
@@ -709,10 +777,10 @@ export default function AuthenticationPage() {
   };
 
   return (
-    <div className="w-full min-h-screen h-full bg-gradient-to-br from-success via-primary to-secondary flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-6xl h-auto min-h-[700px] flex flex-row items-stretch justify-center shadow-2xl rounded-2xl overflow-hidden bg-white/5 backdrop-blur-sm">
+    <div className="w-full min-h-screen h-full bg-gradient-to-br from-success via-primary to-secondary dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-6xl h-auto min-h-[700px] flex flex-row items-stretch justify-center shadow-2xl rounded-2xl overflow-hidden bg-white/5 dark:bg-gray-800/20 backdrop-blur-sm">
         {/* Left Banner */}
-        <div className="banner w-full md:w-[500px] h-full bg-white/95 backdrop-blur-md flex flex-col items-center justify-center gap-y-8 p-8 relative overflow-hidden">
+        <div className="banner w-full md:w-[500px] h-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md flex flex-col items-center justify-center gap-y-8 p-8 relative overflow-hidden">
           {/* Background decoration */}
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5" />
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -translate-y-16 translate-x-16" />
@@ -727,18 +795,18 @@ export default function AuthenticationPage() {
               <h3 className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                 Graduate Tracer
               </h3>
-              <p className="text-lg text-gray-700 leading-relaxed max-w-md">
+              <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed max-w-md">
                 A comprehensive form creation platform designed to streamline
                 data collection and analysis for educational institutions.
               </p>
             </div>
 
             <div className="text-center space-y-3">
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <FiShield className="text-primary" />
                 <span>Secure & Private</span>
               </div>
-              <p className="text-xs text-gray-500 max-w-sm">
+              <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
                 Developed as a proof of concept for Paragon International
                 University
               </p>
@@ -754,18 +822,27 @@ export default function AuthenticationPage() {
           <div className="absolute bottom-0 right-0 w-32 h-32 bg-white/5 rounded-full translate-y-16 translate-x-16" />
 
           <div className="relative z-10 w-full max-w-sm space-y-8">
-            <div className="text-center space-y-2">
-              <h3 className="text-4xl text-white font-bold">
+            <div className="text-center space-y-3">
+              <h3 className="text-4xl text-white font-bold tracking-tight">
                 {getPageTitle()}
               </h3>
               {page === "login" && (
-                <p className="text-white/80 text-sm">
+                <p className="text-white/90 text-sm leading-relaxed">
                   Enter your credentials to access your account
                 </p>
               )}
               {page === "signup" && (
-                <p className="text-white/80 text-sm">
+                <p className="text-white/90 text-sm leading-relaxed">
                   Join our platform and start creating amazing forms
+                </p>
+              )}
+              {page === "forgot" && (
+                <p className="text-white/90 text-sm leading-relaxed">
+                  {forgot?.ty === "confirm"
+                    ? "Enter the verification code sent to your email"
+                    : forgot?.ty === "change"
+                    ? "Create a strong new password for your account"
+                    : "We'll send a verification code to your email"}
                 </p>
               )}
             </div>

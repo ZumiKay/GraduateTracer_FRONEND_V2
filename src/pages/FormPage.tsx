@@ -1,6 +1,7 @@
 import { Tab, Tabs } from "@heroui/react";
 import { useNavigate, useParams } from "react-router";
 import { useEffect, useState, useCallback, useMemo, memo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { FormDataType } from "../types/Form.types";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../redux/store";
@@ -12,7 +13,6 @@ import {
   setprevallquestion,
   setreloaddata,
 } from "../redux/formstore";
-import ApiRequest from "../hooks/ApiHook";
 import { ErrorToast } from "../component/Modal/AlertModal";
 import Solution_Tab from "../component/FormComponent/Solution/Solution_Tab";
 import QuestionTab from "../component/FormComponent/Question/Question_Tab";
@@ -26,6 +26,8 @@ import ImprovedAutoSave from "../component/AutoSave/ImprovedAutoSave";
 import { useQuery } from "@tanstack/react-query";
 import { checkUnsavedQuestions } from "../utils/formValidation";
 import Pagination from "../component/Navigator/PaginationComponent";
+import { useFormAPI } from "../hooks/useFormAPI";
+import useUserSession from "../hooks/useUserSession";
 
 type alltabs =
   | "question"
@@ -44,34 +46,11 @@ interface ApiError extends Error {
   };
 }
 
-//Fetch Function
-
-const fetchFormTab = async ({
-  tab,
-  page,
-  formId,
-}: {
-  tab: alltabs;
-  page: number;
-  formId: string;
-}) => {
-  const ty = tab === "question" ? "detail" : tab;
-
-  const response = await ApiRequest({
-    url: `/filteredform?ty=${ty}&q=${formId}&page=${page}`,
-    method: "GET",
-    cookie: true,
-    refreshtoken: true,
-    reactQuery: true,
-  });
-
-  return response.data as FormDataType;
-};
-
 function FormPage() {
   const param = useParams();
   const dispatch = useDispatch();
-
+  const userSession = useUserSession();
+  const { fetchFormTab } = useFormAPI();
   const { formstate, reloaddata, page, allquestion, prevAllQuestion } =
     useSelector((root: RootState) => root.allform);
   const navigate = useNavigate();
@@ -91,10 +70,10 @@ function FormPage() {
     queryKey: ["FormInfo", formId, page, tab],
     queryFn: () => fetchFormTab({ tab, page, formId }),
     staleTime: 30000,
-    enabled: !!formId && tab !== "analytics" && tab !== "response",
+    enabled: !!formId || !!userSession.error,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchOnMount: false,
+    refetchOnMount: true,
     retry: (failureCount, error: Error) => {
       // Don't retry on 403/404 errors
       const apiError = error as ApiError;
@@ -155,7 +134,10 @@ function FormPage() {
         return;
       }
 
-      if (reloaddata) {
+      // Always update form state when data arrives
+      const shouldUpdateQuestions = tab === "question" || tab === "solution";
+
+      if (shouldUpdateQuestions && result.contents) {
         const normalizedContents = (result.contents ?? []).map((q) => ({
           ...q,
           page: q.page ?? page,
@@ -170,9 +152,22 @@ function FormPage() {
         );
         dispatch(setallquestion(normalizedContents));
         dispatch(setprevallquestion(normalizedContents));
-        dispatch(setreloaddata(false));
-        dispatch(setfetchloading(false));
+      } else if (!shouldUpdateQuestions) {
+        // For other tabs (analytics, settings, response), only update form state
+        dispatch(
+          setformstate({
+            ...result,
+            contents: undefined,
+            totalscore: result.totalscore ?? formstate.totalscore,
+          })
+        );
       }
+
+      if (reloaddata) {
+        dispatch(setreloaddata(false));
+      }
+
+      dispatch(setfetchloading(false));
     }
 
     // Handle errors
@@ -212,6 +207,7 @@ function FormPage() {
     error,
     navigate,
     page,
+    tab,
     formstate.totalscore,
     dispatch,
   ]);
@@ -308,6 +304,30 @@ function FormPage() {
     [searchParam]
   );
 
+  // Tab animation variants
+  const tabVariants = {
+    initial: {
+      opacity: 0,
+      y: 10,
+    },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.3,
+        ease: [0.4, 0, 0.2, 1] as const,
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: -10,
+      transition: {
+        duration: 0.2,
+        ease: [0.4, 0, 0.2, 1] as const,
+      },
+    },
+  };
+
   return (
     <div
       className={`formpage w-full min-h-screen h-full pb-5 ${
@@ -315,48 +335,96 @@ function FormPage() {
       }`}
     >
       <Tabs
-        className="w-full h-fit bg-white"
+        className="w-full h-fit bg-white dark:bg-black"
         variant="underlined"
         selectedKey={selectedKey}
         onSelectionChange={(val) => handleTabs(val as alltabs)}
       >
         <Tab key={"question"} title="Question">
-          <div className="relative">
-            <QuestionTab />
-            <ImprovedAutoSave />
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="question-tab"
+              variants={tabVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="relative"
+            >
+              <QuestionTab />
+              <ImprovedAutoSave />
+            </motion.div>
+          </AnimatePresence>
         </Tab>
         <Tab key={"solution"} title="Solution">
-          <Solution_Tab />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="solution-tab"
+              variants={tabVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <Solution_Tab />
+            </motion.div>
+          </AnimatePresence>
         </Tab>
         <Tab key={"response"} title="Response">
-          {formId ? (
-            <ResponseDashboard formId={formId} form={formstate} />
-          ) : (
-            <div className="w-full h-40 flex items-center justify-center">
-              <p className="text-gray-500">Loading form data...</p>
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="response-tab"
+              variants={tabVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              {formId ? (
+                <ResponseDashboard formId={formId} form={formstate} />
+              ) : (
+                <div className="w-full h-40 flex items-center justify-center">
+                  <p className="text-gray-500">Loading form data...</p>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </Tab>
         <Tab key={"analytics"} title="Analytics">
-          {formId ? (
-            <ResponseAnalytics formId={formId} form={formstate} />
-          ) : (
-            <div className="w-full h-40 flex items-center justify-center">
-              <p className="text-gray-500">Loading form data...</p>
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="analytics-tab"
+              variants={tabVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              {formId ? (
+                <ResponseAnalytics formId={formId} form={formstate} />
+              ) : (
+                <div className="w-full h-40 flex items-center justify-center">
+                  <p className="text-gray-500">Loading form data...</p>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </Tab>
         <Tab key={"setting"} title="Setting">
-          <div className="w-full min-h-screen h-full grid place-items-center">
-            <SettingTab />
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="setting-tab"
+              variants={tabVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="w-full min-h-screen h-full grid place-items-center"
+            >
+              <SettingTab />
+            </motion.div>
+          </AnimatePresence>
         </Tab>
       </Tabs>
 
       {/* Pagination */}
 
-      {tab === "question" || tab === "solution" || formstate.totalpage ? (
+      {(tab === "question" || tab === "solution") && formstate.totalpage ? (
         <div className="w-full h-fit grid place-content-center">
           <Pagination
             page={page}
