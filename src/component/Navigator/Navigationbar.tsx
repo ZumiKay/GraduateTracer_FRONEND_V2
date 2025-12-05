@@ -189,17 +189,29 @@ export default function Navigationbar() {
   );
 
   const { allquestion, prevAllQuestion } = formData;
+  const lastDetectedScoreRef = useRef<number | null>(null);
+
   useEffect(() => {
     const isChange = hasArrayChange(allquestion, prevAllQuestion);
 
     const sameLength = allquestion.length === prevAllQuestion.length;
+    let changedScoreValue: number | null = null;
     const scoreChanged = sameLength
       ? allquestion.some((q, i) => {
           const a = q?.score ?? null;
           const b = prevAllQuestion[i]?.score ?? null;
+
+          if (a !== b) {
+            changedScoreValue = q.score ?? null;
+          }
           return a !== b;
         })
-      : true;
+      : allquestion.length !== prevAllQuestion.length;
+
+    // Update ref only when a score change is actually detected
+    if (changedScoreValue !== null) {
+      lastDetectedScoreRef.current = changedScoreValue;
+    }
 
     const finalHasChange = isChange || scoreChanged;
 

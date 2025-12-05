@@ -123,6 +123,8 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
       return;
     }
     previousAnswerRef.current = newAnswer;
+
+    setLocalAnswer(newAnswer);
   }, [content.answer, content.type]);
 
   /**
@@ -355,7 +357,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
 
       case QuestionType.MultipleChoice:
         return (
-          <div className="space-y-2 dark:bg-gray-500 dark:p-2">
+          <div className="space-y-2 dark:bg-gray-600 dark:p-2">
             <p className="text-sm font-medium">Select correct answer:</p>
             <RadioGroup
               value={
@@ -363,7 +365,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
               }
               onValueChange={(value) => handleAnswerChange(Number(value))}
               className="flex flex-col gap-2"
-              color="default"
+              color="warning"
             >
               {content.multiple?.map((option, index) => (
                 <Radio key={`mc-${index}`} value={String(index)}>
@@ -396,6 +398,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
                     handleAnswerChange(newAnswers as ContentAnswerType);
                   }}
                   aria-label={`${option.content}${index + 1}`}
+                  color="warning"
                 >
                   {option.content || `Option ${index + 1}`}
                 </Checkbox>

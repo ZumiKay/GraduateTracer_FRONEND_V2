@@ -143,6 +143,30 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     return "_id" in response;
   };
 
+  // Handle selection change - convert "all" to actual IDs
+  const handleSelectionChange = useCallback(
+    (keys: Selection) => {
+      if (keys === "all") {
+        // When "all" is selected, convert to actual IDs
+        if (viewMode === "normal") {
+          const allIds = responses.filter(isResponseListItem).map((r) => r._id);
+          setSelectedKeys(new Set(allIds));
+        } else {
+          // For grouped view, use email or index as key
+          const allKeys = responses
+            .filter(
+              (r): r is GroupResponseListItemType => !isResponseListItem(r)
+            )
+            .map((r, index) => r.respondentEmail || `group-${index}`);
+          setSelectedKeys(new Set(allKeys));
+        }
+      } else {
+        setSelectedKeys(keys);
+      }
+    },
+    [responses, viewMode]
+  );
+
   const handleViewResponse = useCallback(
     (response: ResponseListItem | GroupResponseListItemType) => {
       if (viewMode === "grouped" && !isResponseListItem(response)) {
@@ -321,10 +345,8 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     const selectedIds = Array.from(selectedKeys) as string[];
     if (selectedIds.length === 0) return;
 
-    // Get the first selected response to start with
     const firstResponseId = selectedIds[0];
 
-    // Build URL with all selected response IDs as query parameters
     const queryParams = new URLSearchParams();
     queryParams.set("responseIds", selectedIds.join(","));
 
@@ -405,7 +427,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
         <Table
           selectionMode="multiple"
           selectedKeys={selectedKeys}
-          onSelectionChange={setSelectedKeys}
+          onSelectionChange={handleSelectionChange}
           aria-label="Response table"
         >
           <TableHeader>
@@ -512,7 +534,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
         <Table
           selectionMode="multiple"
           selectedKeys={selectedKeys}
-          onSelectionChange={setSelectedKeys}
+          onSelectionChange={handleSelectionChange}
           aria-label="Grouped response table"
         >
           <TableHeader>
@@ -577,7 +599,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
               be undone.
             </p>
             {deleteItem && (
-              <div className="mt-2 p-2 bg-gray-50 rounded">
+              <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-600 rounded">
                 <p className="text-sm">
                   <strong>Respondent:</strong>{" "}
                   {getResponseDisplayName(deleteItem)}

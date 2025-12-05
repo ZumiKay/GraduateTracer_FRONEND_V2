@@ -19,6 +19,20 @@ export interface PendingCollaborator {
   code: string;
 }
 
+export interface PendingOwnershipTransfer {
+  _id: string;
+  fromUser: {
+    _id: string;
+    email: string;
+  };
+  toUser: {
+    _id: string;
+    email: string;
+  };
+  expireIn: number;
+  isExpired: boolean;
+}
+
 export interface FormAccessResponse {
   hasAccess: boolean;
   isOwner: boolean;
@@ -30,6 +44,7 @@ export interface FormOwnersResponse {
   allOwners?: FormOwner[];
   allEditors?: FormOwner[];
   pendingCollaborators?: PendingCollaborator[];
+  pendingOwnershipTransfer?: PendingOwnershipTransfer | null;
   totalCollaborators: number;
 }
 
@@ -152,6 +167,39 @@ export const formOwnerService = {
       url: `/deletepending`,
       method: "DELETE",
       data: { formId, pendingId },
+      cookie: true,
+    });
+
+    if (!response.success) throw response.error;
+
+    return response.data as never;
+  },
+
+  // Transfer ownership (sends email invitation to new owner)
+  transferOwnership: async (
+    formId: string,
+    userId: string
+  ): Promise<{ message: string } | null> => {
+    const response = await ApiRequest({
+      url: `/transferuser`,
+      method: "PUT",
+      data: { formId, userId },
+      cookie: true,
+    });
+
+    if (!response.success) throw response.error;
+
+    return response.data as never;
+  },
+
+  // Cancel pending ownership transfer
+  cancelOwnershipTransfer: async (
+    formId: string
+  ): Promise<{ message: string } | null> => {
+    const response = await ApiRequest({
+      url: `/ownership/cancel`,
+      method: "DELETE",
+      data: { formId },
       cookie: true,
     });
 

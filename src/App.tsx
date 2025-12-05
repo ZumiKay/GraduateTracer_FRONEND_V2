@@ -28,6 +28,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const CollaboratorConfirmPage = lazy(
   () => import("./pages/CollaboratorConfirmPage")
 );
+const OwnershipConfirmPage = lazy(() => import("./pages/OwnershipConfirmPage"));
 
 const App = memo(() => {
   const { pathname } = useLocation();
@@ -147,6 +148,14 @@ const App = memo(() => {
               <Route
                 path="/collaborator/confirm"
                 element={<CollaboratorConfirmPage />}
+              />
+            </Route>
+
+            {/* Ownership Transfer Confirmation Route */}
+            <Route element={<PrivateRoute />}>
+              <Route
+                path="/ownership/confirm"
+                element={<OwnershipConfirmPage />}
               />
             </Route>
 

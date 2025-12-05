@@ -16,6 +16,7 @@ interface QuestionItemProps {
   parentScore?: number;
   parentQIdx?: number;
   scoreMode?: boolean;
+  updateTotalScore?: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const QuestionItem = memo(
@@ -26,6 +27,7 @@ const QuestionItem = memo(
     onUpdateContent,
     onSelectAnswer,
     parentScore,
+    updateTotalScore,
   }: QuestionItemProps) => {
     const isConditional = !!question.parentcontent;
 

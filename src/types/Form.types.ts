@@ -289,6 +289,15 @@ export interface ValidationResult {
   warnings: string[];
   missingAnswers: string[];
   missingScores: string[];
+  wrongScores: string[];
+}
+
+export interface CombinedValidationResults {
+  errors: string[];
+  warnings: string[];
+  missingAnswers: string[];
+  missingScores: string[];
+  wrongScores: string[];
 }
 
 export interface FormValidationSummary {
@@ -296,9 +305,7 @@ export interface FormValidationSummary {
   totalValidQuestions: number;
   totalInvalidQuestions: number;
   totalScore: number;
-  validationResults: ValidationResult[];
-  errors?: string[];
-  warnings?: string[];
+  validationResults: CombinedValidationResults;
   canProceed?: boolean;
   canSubmit?: boolean;
   action?: string;

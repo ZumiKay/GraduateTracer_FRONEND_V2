@@ -2,16 +2,8 @@ import { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { RootState } from "../../../redux/store";
 import { QuestionLoading } from "../../Loading/ContainerLoading";
-import {
-  setallquestion,
-  setdisbounceQuestion,
-  setformstate,
-} from "../../../redux/formstore";
-import {
-  ContentType,
-  FormValidationSummary,
-  FormDataType,
-} from "../../../types/Form.types";
+import { setallquestion, setdisbounceQuestion } from "../../../redux/formstore";
+import { ContentType, FormValidationSummary } from "../../../types/Form.types";
 import ApiRequest from "../../../hooks/ApiHook";
 import useFormValidation from "../../../hooks/ValidationHook";
 import { ErrorToast, InfoToast } from "../../Modal/AlertModal";
@@ -39,9 +31,22 @@ const fetchFormTotalSummary = async (
   return response.data as FormTotalSummary;
 };
 
+// Helper to calculate page score (excluding conditional questions)
+const calculatePageScore = (questions: ContentType[]) =>
+  questions
+    .filter((q) => !q.parentcontent)
+    .reduce((total, q) => total + (q.score ?? 0), 0);
+
 const Solution_Tab = memo(() => {
+  const dispatch = useDispatch();
+
+  // Selectors
   const allquestion = useSelector(
     (root: RootState) => root.allform.allquestion,
+    shallowEqual
+  );
+  const prevAllQuestion = useSelector(
+    (root: RootState) => root.allform.prevAllQuestion,
     shallowEqual
   );
   const fetchloading = useSelector(
@@ -66,147 +71,109 @@ const Solution_Tab = memo(() => {
 
   const [validationSummary, setValidationSummary] =
     useState<FormValidationSummary | null>(null);
-  const dispatch = useDispatch();
-
-  // Memoize formstate object to avoid recreating on every render
-  const formstate = useMemo(
-    () => ({
-      _id: formId,
-      totalscore: formTotalScore,
-      type: formType,
-      setting: {
-        qcolor: formColor,
-        autosave: autosaveEnabled,
-        returnscore: returnScore,
-      },
-    }),
-    [formId, formTotalScore, formType, formColor, autosaveEnabled, returnScore]
-  ) as FormDataType;
 
   const { validateForm, isValidating, showValidationErrors } =
     useFormValidation();
 
-  //Fetch summary of the form
-  const queryConfig = useMemo(
-    () => ({
-      queryKey: ["formTotalSummary", formId],
-      queryFn: () => fetchFormTotalSummary(formId!),
-      enabled: !!formId,
-      staleTime: 30000,
-      gcTime: 60000,
-      retry: 2,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-    }),
-    [formId]
-  );
-
+  // Query for form summary
   const {
     data: totalsummerize,
     isLoading: loading,
     refetch: refetchTotal,
-  } = useQuery(queryConfig);
+  } = useQuery({
+    queryKey: ["formTotalSummary", formId],
+    queryFn: () => fetchFormTotalSummary(formId!),
+    enabled: !!formId,
+    staleTime: 30000,
+    gcTime: 60000,
+    retry: 2,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
 
-  // Memoize parent score and index maps to avoid recalculation on every render
+  // Parent score/index maps for conditional questions
   const { parentScoreMap, parentQIdxMap } = useMemo(() => {
     const scoreMap = new Map<string, number>();
     const idxMap = new Map<string, number>();
 
-    allquestion.forEach((question) => {
+    for (const question of allquestion) {
       if (question._id) {
-        if (question.score) {
-          scoreMap.set(question._id, question.score);
-        }
-        if (question.qIdx !== undefined) {
+        if (question.score) scoreMap.set(question._id, question.score);
+        if (question.qIdx !== undefined)
           idxMap.set(question._id, question.qIdx);
-        }
       }
-    });
+    }
 
     return { parentScoreMap: scoreMap, parentQIdxMap: idxMap };
   }, [allquestion]);
 
-  const conditionalQuestionsInfo = useMemo(() => {
-    const conditionalQuestions = allquestion.filter((q) => q.parentcontent);
-    return {
-      hasConditional: conditionalQuestions.length > 0,
-      count: conditionalQuestions.length,
-    };
-  }, [allquestion]);
+  // Real-time total score calculation
+  const calculatedTotalScore = useMemo(() => {
+    const currentPageScore = calculatePageScore(allquestion);
+    const originalPageScore = calculatePageScore(prevAllQuestion);
+    const scoreDifference = currentPageScore - originalPageScore;
+    return (formTotalScore ?? 0) + scoreDifference;
+  }, [allquestion, prevAllQuestion, formTotalScore]);
 
-  const refetchTotalIfNeeded = useCallback(
-    (reason: string) => {
-      if (reason === "manual_validate" || reason === "form_submission_check") {
-        refetchTotal();
-      }
-    },
-    [refetchTotal]
+  // Conditional questions count
+  const conditionalCount = useMemo(
+    () => allquestion.filter((q) => q.parentcontent).length,
+    [allquestion]
   );
 
+  // Initial validation on mount
   useEffect(() => {
+    if (!formId) return;
+
     let isMounted = true;
-
-    const runValidation = async () => {
-      if (formId && isMounted) {
-        try {
-          const validation = await validateForm(formId, "solution");
-          if (validation && isMounted) {
-            setValidationSummary(validation);
-            dispatch(
-              setformstate({
-                ...formstate,
-                totalscore: validation.totalScore,
-              } as FormDataType)
-            );
-          }
-        } catch (error) {
-          console.error("Validation error:", error);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const validation = await validateForm(formId, "solution");
+        if (validation && isMounted) {
+          setValidationSummary(validation);
         }
+      } catch (error) {
+        console.error("Validation error:", error);
       }
-    };
-
-    const timeoutId = setTimeout(runValidation, 300);
+    }, 300);
 
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [formId, validateForm, dispatch, formstate]);
+  }, [formId, validateForm]);
 
+  // Update question handler
   const updateQuestion = useCallback(
     (newVal: Partial<ContentType>, qIdx: number) => {
-      const updatedQuestions = allquestion.map((question, index) => {
-        if (index === qIdx) {
-          return { ...question, ...newVal } as ContentType;
-        }
-        return question;
-      });
+      dispatch(
+        setallquestion((prevQuestions) => {
+          const updatedQuestions = prevQuestions.map((question, index) =>
+            index === qIdx ? { ...question, ...newVal } : question
+          );
 
-      dispatch(setallquestion(updatedQuestions as Array<ContentType>));
+          if (autosaveEnabled) {
+            dispatch(setdisbounceQuestion(updatedQuestions[qIdx]));
+          }
 
-      if (autosaveEnabled) {
-        dispatch(setdisbounceQuestion(updatedQuestions[qIdx]));
-      }
+          return updatedQuestions;
+        })
+      );
     },
-    [allquestion, dispatch, autosaveEnabled]
+    [dispatch, autosaveEnabled]
   );
 
+  // Validate all handler
   const handleValidateAll = useCallback(async () => {
-    if (!formstate._id) return;
+    if (!formId) return;
 
     try {
-      const validation = await validateForm(formstate._id, "send_form");
+      const validation = await validateForm(formId, "send_form");
       if (validation) {
         setValidationSummary(validation);
-        dispatch(
-          setformstate({
-            ...formstate,
-            totalscore: validation.totalScore,
-          } as FormDataType)
-        );
-        refetchTotalIfNeeded("manual_validate");
+        refetchTotal();
 
-        if (validation.errors && validation.errors.length > 0) {
+        if (validation.validationResults.errors?.length) {
           showValidationErrors(validation);
         } else {
           InfoToast({
@@ -224,89 +191,74 @@ const Solution_Tab = memo(() => {
         toastid: "validation-error",
       });
     }
-  }, [
-    formstate,
-    validateForm,
-    dispatch,
-    refetchTotalIfNeeded,
-    showValidationErrors,
-  ]);
+  }, [formId, validateForm, refetchTotal, showValidationErrors]);
 
+  // Select answer handler
   const handleSelectAnswer = useCallback(
     (answerData: { answer: ContentAnswerType }, idx: number) => {
-      updateQuestion(
-        {
-          answer: {
-            answer: answerData.answer,
-          },
-        },
-        idx
-      );
+      updateQuestion({ answer: { answer: answerData.answer } }, idx);
     },
     [updateQuestion]
   );
 
   return (
     <div className="solution_tab w-full h-fit flex flex-col items-center">
-      {/* Form Summary Header */}
       <FormSummaryHeader
         loading={loading}
         isValidating={isValidating}
         totalsummerize={totalsummerize}
-        formTotalScore={(formstate as FormDataType).totalscore}
+        formTotalScore={calculatedTotalScore}
         validationSummary={validationSummary}
         onValidateAll={handleValidateAll}
       />
 
       <div className="question_card w-full h-fit flex flex-col items-center gap-20 pt-8 pb-20">
-        {/* Validation Status Display */}
         <ValidationStatusDisplay
           validationSummary={validationSummary}
-          formstate={formstate}
+          formstate={{
+            type: formType,
+            setting: { returnscore: returnScore },
+          }}
         />
 
-        {/* Questions Section */}
         {fetchloading ? (
           <QuestionLoading count={3} />
         ) : (
           <div className="w-full max-w-4xl space-y-8">
-            {/* Conditional Questions Info */}
-            {conditionalQuestionsInfo.hasConditional && (
+            {conditionalCount > 0 && (
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-gray-700">
                 <h3 className="text-sm font-medium text-blue-800 dark:text-white">
                   📋 Conditional Questions Detected
                 </h3>
                 <p className="text-xs text-blue-600 mt-1 dark:text-white">
-                  This form contains {conditionalQuestionsInfo.count}{" "}
-                  conditional question(s) that appear based on parent question
-                  answers. You can assign scores and answer keys to these
-                  questions - they will be used when the conditions are met
-                  during form submission.
+                  This form contains {conditionalCount} conditional question(s)
+                  that appear based on parent question answers. You can assign
+                  scores and answer keys to these questions - they will be used
+                  when the conditions are met during form submission.
                 </p>
               </div>
             )}
 
-            {allquestion.map((question, idx) => {
-              const parentScore = question.parentcontent?.qId
-                ? parentScoreMap.get(question.parentcontent.qId)
-                : undefined;
-              const parentQIdx = question.parentcontent?.qId
-                ? parentQIdxMap.get(question.parentcontent.qId)
-                : undefined;
-
-              return (
-                <QuestionItem
-                  key={question._id || `question-${idx}`}
-                  question={question}
-                  idx={idx}
-                  formColor={formColor}
-                  onUpdateContent={updateQuestion}
-                  onSelectAnswer={handleSelectAnswer}
-                  parentScore={parentScore}
-                  parentQIdx={parentQIdx}
-                />
-              );
-            })}
+            {allquestion.map((question, idx) => (
+              <QuestionItem
+                key={question._id || `question-${idx}`}
+                question={question}
+                idx={idx}
+                formColor={formColor}
+                onUpdateContent={updateQuestion}
+                onSelectAnswer={handleSelectAnswer}
+                parentScore={
+                  question.parentcontent?.qId
+                    ? parentScoreMap.get(question.parentcontent.qId)
+                    : undefined
+                }
+                parentQIdx={
+                  question.parentcontent?.qId
+                    ? parentQIdxMap.get(question.parentcontent.qId)
+                    : undefined
+                }
+              />
+            ))}
           </div>
         )}
       </div>

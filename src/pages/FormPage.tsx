@@ -134,33 +134,30 @@ function FormPage() {
         return;
       }
 
-      // Always update form state when data arrives
       const shouldUpdateQuestions = tab === "question" || tab === "solution";
 
+      dispatch(
+        setformstate({
+          ...result,
+          contents: undefined,
+          totalscore: result.totalscore ?? formstate.totalscore,
+          totalpage: result.totalpage ?? formstate.totalpage,
+        })
+      );
+
+      // Update questions only for question/solution tabs
       if (shouldUpdateQuestions && result.contents) {
         const normalizedContents = (result.contents ?? []).map((q) => ({
           ...q,
           page: q.page ?? page,
         }));
 
-        dispatch(
-          setformstate({
-            ...result,
-            contents: undefined,
-            totalscore: result.totalscore ?? formstate.totalscore,
-          })
-        );
-        dispatch(setallquestion(normalizedContents));
-        dispatch(setprevallquestion(normalizedContents));
-      } else if (!shouldUpdateQuestions) {
-        // For other tabs (analytics, settings, response), only update form state
-        dispatch(
-          setformstate({
-            ...result,
-            contents: undefined,
-            totalscore: result.totalscore ?? formstate.totalscore,
-          })
-        );
+        // Only update both states if there are no unsaved changes or this is initial load
+        // This prevents the "hasChange" state from resetting during refetch
+        if (!isUnSavedQuestion) {
+          dispatch(setallquestion(normalizedContents));
+          dispatch(setprevallquestion(normalizedContents));
+        }
       }
 
       if (reloaddata) {
@@ -209,7 +206,9 @@ function FormPage() {
     page,
     tab,
     formstate.totalscore,
+    formstate.totalpage,
     dispatch,
+    isUnSavedQuestion,
   ]);
 
   const continueTabSwitching = useCallback(

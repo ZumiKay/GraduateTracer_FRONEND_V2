@@ -10,6 +10,7 @@ interface CollaboratorCardProps {
   isCreator: boolean;
   isLoading: boolean;
   isCurrentUser: boolean;
+  isDisabledForSelection?: boolean;
   onSelect?: (userId: string) => void;
   onRemove?: (
     userId: string,
@@ -28,6 +29,7 @@ const CollaboratorCard = memo(
     isCreator,
     isLoading,
     isCurrentUser,
+    isDisabledForSelection = false,
     onSelect,
     onRemove,
     showRole = false,
@@ -39,18 +41,23 @@ const CollaboratorCard = memo(
 
     const displayName = user.name || user.email?.split("@")[0] || "Unknown";
 
+    // Determine if this card can actually be selected
+    const canBeSelected = isSelectable && !isDisabledForSelection;
+
     return (
       <div
         className={`group collaboratorCard w-full rounded-xl border-2 transition-all duration-300 relative overflow-hidden ${
           isSelected
             ? "bg-gradient-to-br from-primary via-primary-500 to-primary-600 text-white border-primary shadow-2xl scale-[1.02] ring-4 ring-primary/30 ring-offset-2 dark:ring-offset-gray-900"
+            : isDisabledForSelection && isSelectable
+            ? "bg-gray-100 dark:bg-gray-800/50 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 opacity-60 cursor-not-allowed"
             : "bg-white dark:bg-gray-800/80 hover:bg-gray-50 dark:hover:bg-gray-700/80 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 shadow-lg hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-600"
         } ${
-          isSelectable
+          canBeSelected
             ? "cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
             : ""
         }`}
-        onClick={() => isSelectable && onSelect?.(user._id)}
+        onClick={() => canBeSelected && onSelect?.(user._id)}
         style={{ animationDelay: `${index * 50}ms` }}
       >
         {isSelected && (
@@ -163,15 +170,23 @@ const CollaboratorCard = memo(
           {/* Selection Indicator */}
           {isSelectable && (
             <div className="absolute top-3 right-3">
-              <div
-                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                  isSelected
-                    ? "bg-white border-white scale-110"
-                    : "bg-transparent border-gray-300 dark:border-gray-600 group-hover:border-primary group-hover:scale-110"
-                }`}
-              >
-                {isSelected && <CheckIcon className="w-4 h-4 text-primary" />}
-              </div>
+              {isDisabledForSelection ? (
+                <div className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-md">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Cannot select
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                    isSelected
+                      ? "bg-white border-white scale-110"
+                      : "bg-transparent border-gray-300 dark:border-gray-600 group-hover:border-primary group-hover:scale-110"
+                  }`}
+                >
+                  {isSelected && <CheckIcon className="w-4 h-4 text-primary" />}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -202,6 +217,7 @@ interface CollaboratorSectionProps {
   ) => Promise<void>;
   isLoading?: boolean;
   currentUserId?: string;
+  excludeUserIds?: string[];
 }
 
 export const CollaboratorSection = memo(
@@ -216,6 +232,7 @@ export const CollaboratorSection = memo(
     onRemove,
     isLoading = false,
     currentUserId,
+    excludeUserIds = [],
   }: CollaboratorSectionProps) => {
     if (data.length === 0) {
       return (
@@ -254,6 +271,7 @@ export const CollaboratorSection = memo(
               isCreator={isCreator}
               isLoading={isLoading}
               isCurrentUser={user._id === currentUserId}
+              isDisabledForSelection={excludeUserIds.includes(user._id)}
               onSelect={onSelect}
               onRemove={onRemove}
               showRole={showRole}

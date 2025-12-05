@@ -136,7 +136,12 @@ const ResponseItem = React.memo<ResponseItemProps>(
                     questions={allQuestions}
                   />
                 )}
-                <Chip size="md" color="primary" variant="bordered">
+                <Chip
+                  size="md"
+                  color="primary"
+                  className="dark:text-white"
+                  variant="bordered"
+                >
                   Text Display
                 </Chip>
               </div>
@@ -161,14 +166,14 @@ const ResponseItem = React.memo<ResponseItemProps>(
 
     // Non-text questions: show with answers and scoring
     return (
-      <Card className="shadow-lg hover:shadow-2xl transition-all duration-300 border-2 border-gray-200 hover:border-blue-300 bg-gradient-to-br from-white to-gray-50">
+      <Card className="shadow-lg hover:shadow-2xl transition-all duration-300 border-2 border-gray-200 hover:border-blue-300 bg-gradient-to-br from-white to-gray-50 dark:bg-black">
         {question.parentcontent && (
-          <Card className="m-4 bg-blue-50 border-l-4 border-blue-500">
+          <div className="w-full h-fit p-3 dark:text-black">
             <ConditionalIndicator
               question={question}
               questions={allQuestions}
             />
-          </Card>
+          </div>
         )}
         <div className="p-8">
           <div className="flex justify-between items-start gap-6">

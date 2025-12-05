@@ -1,13 +1,19 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+} from "react";
 import {
   formOwnerService,
   FormOwner,
   FormOwnersResponse,
   PendingCollaborator,
+  PendingOwnershipTransfer,
 } from "../../services/formOwnerService";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
-import ApiRequest from "../../hooks/ApiHook";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
 import {
@@ -59,6 +65,8 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
   const queryClient = useQueryClient();
   const hasFormAccess = isOwner || isCreator;
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
+  const alertRef = useRef<number>();
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -69,7 +77,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
     CollaboratorType | undefined
   >(isCreator ? undefined : CollaboratorType.editor);
 
-  // Fetch owners using React Query
+  // Fetch Form Collaborators
   const {
     data: ownersData,
     isLoading: isInitialLoading,
@@ -93,6 +101,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
         owners: allOwners,
         editors: reqData.allEditors || [],
         pendingCollaborators: reqData.pendingCollaborators || [],
+        pendingOwnershipTransfer: reqData.pendingOwnershipTransfer || null,
       };
     },
     enabled: !!formId && hasFormAccess,
@@ -109,6 +118,10 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
     () => ownersData?.pendingCollaborators ?? [],
     [ownersData?.pendingCollaborators]
   );
+  const pendingOwnershipTransfer: PendingOwnershipTransfer | null = useMemo(
+    () => ownersData?.pendingOwnershipTransfer ?? null,
+    [ownersData?.pendingOwnershipTransfer]
+  );
 
   // Compute error message from fetch error or local error state
   const displayError = fetchError
@@ -122,6 +135,20 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
   const invalidateOwnersQuery = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["formOwners", formId] });
   }, [queryClient, formId]);
+
+  useEffect(() => {
+    if (success || error) {
+      alertRef.current = setTimeout(() => {
+        setSuccess("");
+        setError("");
+      }, 150);
+    }
+
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      alertRef.current && clearTimeout(alertRef.current);
+    };
+  }, [error, success]);
 
   const handleAddOwner = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -252,33 +279,78 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
       return;
     }
 
+    // Find the selected user's email for the success message
+    const selectedUser = [...owners, ...editors].find((u) => u._id === toBeAdd);
+
     setIsLoading(true);
     setError("");
+    setSuccess("");
+
     try {
-      const changeRequest = await ApiRequest({
-        method: "PUT",
-        url: "/transferuser",
-        data: { formId, userId: toBeAdd },
+      await formOwnerService.transferOwnership(formId, toBeAdd);
+      SuccessToast({
+        title: "Success",
+        content: `Ownership transfer invitation sent to ${
+          selectedUser?.email || "the selected user"
+        }. They must confirm to complete the transfer.`,
       });
-      setIsLoading(false);
-      if (!changeRequest.success) {
-        ErrorToast({
-          title: "Error",
-          content: changeRequest.error ?? "Error Occurred",
-        });
-        return;
-      }
-      SuccessToast({ title: "Success", content: "Transfer Complete" });
+      setSuccess(
+        `Ownership transfer invitation sent to ${
+          selectedUser?.email || "the selected user"
+        }. They must confirm to complete the transfer.`
+      );
       invalidateOwnersQuery();
       setIsChanging(false);
       setToBeAdd(undefined);
     } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : (err as string);
+      ErrorToast({
+        title: "Error",
+        content: errorMessage || "Failed to send ownership transfer invitation",
+      });
+      setError(errorMessage || "Failed to send ownership transfer invitation");
+    } finally {
       setIsLoading(false);
-      setError(
-        err instanceof Error ? err.message : "Failed to transfer ownership"
-      );
     }
-  }, [invalidateOwnersQuery, formId, isChanging, toBeAdd]);
+  }, [invalidateOwnersQuery, formId, isChanging, toBeAdd, owners, editors]);
+
+  const handleCancelOwnershipTransfer = useCallback(async () => {
+    if (!formId) {
+      setError("Form ID is required");
+      return;
+    }
+
+    if (
+      !confirm(
+        "Are you sure you want to cancel the pending ownership transfer?"
+      )
+    ) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await formOwnerService.cancelOwnershipTransfer(formId);
+      setSuccess("Ownership transfer cancelled successfully");
+      SuccessToast({
+        title: "Success",
+        content: "Ownership transfer cancelled successfully",
+      });
+      invalidateOwnersQuery();
+    } catch (err) {
+      const errorMessage = err as string;
+      setError(errorMessage || "Failed to cancel ownership transfer");
+      ErrorToast({
+        title: "Error",
+        content: errorMessage || "Failed to cancel ownership transfer",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [formId, invalidateOwnersQuery]);
 
   const handleAction = useCallback(
     async (key: ActionType) => {
@@ -395,7 +467,8 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
       case ActionType.remove:
         return !!isCreator && !!toBeAdd && !isChanging;
       case ActionType.transfer:
-        return !!isCreator && !isChanging;
+        // Don't show transfer button if there's already a pending transfer
+        return !!isCreator && !isChanging && !pendingOwnershipTransfer;
       default:
         return true;
     }
@@ -482,13 +555,71 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
 
                 {isChanging && (
                   <AlertMessage
-                    message="Select a collaborator to transfer ownership to, then click 'Save' to confirm."
+                    message="Select a collaborator to transfer ownership to, then click 'Save' to send them an email invitation. They must confirm to complete the transfer."
                     type="info"
                   />
                 )}
 
+                {/* Pending Ownership Transfer Section */}
+                {pendingOwnershipTransfer && isCreator && !isChanging && (
+                  <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <svg
+                          className="w-6 h-6 text-purple-600 dark:text-purple-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-purple-800 dark:text-purple-200">
+                          Pending Ownership Transfer
+                        </h4>
+                        <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+                          Waiting for{" "}
+                          <strong>
+                            {pendingOwnershipTransfer.toUser.email}
+                          </strong>{" "}
+                          to accept the ownership transfer.
+                        </p>
+                        {pendingOwnershipTransfer.isExpired ? (
+                          <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                            ⚠️ This invitation has expired.
+                          </p>
+                        ) : (
+                          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                            Expires:{" "}
+                            {new Date(
+                              pendingOwnershipTransfer.expireIn
+                            ).toLocaleString()}
+                          </p>
+                        )}
+                        <Button
+                          size="sm"
+                          color="danger"
+                          variant="flat"
+                          className="mt-3"
+                          onPress={handleCancelOwnershipTransfer}
+                          disabled={isLoading}
+                        >
+                          {isLoading ? "Cancelling..." : "Cancel Transfer"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-6 p-2">
-                  {owners.length > 0 && !isChanging && (
+                  {/* Show owners section - also show when in transfer mode for selection */}
+                  {owners.length > 0 && (
                     <CollaboratorSection
                       title={`Owners (${owners.length})`}
                       data={owners}
@@ -501,13 +632,17 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
                       showRole
                       isSelectable={isChanging}
                       isCreator={isCreator}
-                      onRemove={handleCardRemove}
+                      onRemove={isChanging ? undefined : handleCardRemove}
                       isLoading={isLoading}
                       currentUserId={currentUser?._id}
+                      excludeUserIds={
+                        isChanging && currentUser?._id ? [currentUser._id] : []
+                      }
                     />
                   )}
 
-                  {editors.length > 0 && !isChanging && (
+                  {/* Show editors section - also show when in transfer mode for selection */}
+                  {editors.length > 0 && (
                     <CollaboratorSection
                       title={`Editors (${editors.length})`}
                       data={editors}
@@ -520,9 +655,12 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
                       showRole
                       isSelectable={isChanging}
                       isCreator={isCreator}
-                      onRemove={handleCardRemove}
+                      onRemove={isChanging ? undefined : handleCardRemove}
                       isLoading={isLoading}
                       currentUserId={currentUser?._id}
+                      excludeUserIds={
+                        isChanging && currentUser?._id ? [currentUser._id] : []
+                      }
                     />
                   )}
 
