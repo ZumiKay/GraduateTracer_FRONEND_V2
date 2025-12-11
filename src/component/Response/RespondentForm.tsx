@@ -837,27 +837,30 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     }
 
     if (success) {
-      const submissionData =
-        formState?.submittedResult ??
+      // Use submissionResult as the primary source for score data
+      const scoreData =
         submissionResult ??
+        formState?.submittedResult ??
         formState?.isResponsed;
+
+      // hasScore should be true when we have valid score data and the form is scoreable (not isNonScore)
+      // Note: totalScore >= 0 is valid (user could score 0 points)
       const hasScore =
-        submissionData &&
-        submissionResult &&
-        !submissionData.isNonScore &&
-        typeof submissionResult.totalScore === "number" &&
-        submissionResult.totalScore > 0;
+        scoreData &&
+        !scoreData.isNonScore &&
+        typeof scoreData.totalScore === "number" &&
+        typeof scoreData.maxScore === "number" &&
+        scoreData.maxScore > 0;
+
       const scorePercentage =
-        hasScore && submissionData.maxScore
-          ? Math.round(
-              (submissionData.totalScore! / submissionData.maxScore) * 100
-            )
+        hasScore && scoreData.maxScore
+          ? Math.round((scoreData.totalScore / scoreData.maxScore) * 100)
           : null;
 
       let subMessage = "";
       if (formState?.type === "QUIZ") {
         if (hasScore) {
-          subMessage = `Your score: ${submissionResult.totalScore}/${submissionResult.maxScore}`;
+          subMessage = `Your score: ${scoreData.totalScore}/${scoreData.maxScore}`;
           if (scorePercentage !== null) {
             subMessage += ` (${scorePercentage}%)`;
           }
@@ -876,13 +879,13 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             message="Thank you for your response. Your submission has been recorded."
             subMessage={subMessage || undefined}
           />
-          {hasScore && (
+          {hasScore && scoreData && (
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="font-medium text-green-800">Your Score</h4>
                   <p className="text-2xl font-bold text-green-600">
-                    {submissionResult.totalScore} / {submissionResult.maxScore}
+                    {scoreData.totalScore} / {scoreData.maxScore}
                   </p>
                   {scorePercentage !== null && (
                     <p className="text-sm text-green-600">
@@ -891,23 +894,22 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
                   )}
                 </div>
                 <div className="w-full h-fit flex flex-col justify-center">
-                  {submissionResult.message && (
+                  {scoreData.message && (
                     <div className="flex items-center text-amber-600 text-sm mt-1">
                       <span className="mr-1">📝</span>
-                      <span>{submissionResult.message}</span>
+                      <span>{scoreData.message}</span>
                     </div>
                   )}
-                  {submissionResult.responseId &&
-                    submissionResult.respondentEmail && (
-                      <Button
-                        className="responseCopy font-bold text-white"
-                        variant="bordered"
-                        color="default"
-                        onPress={() => handleSendACopy()}
-                      >
-                        {`Send a copy of the response`}
-                      </Button>
-                    )}
+                  {scoreData.responseId && scoreData.respondentEmail && (
+                    <Button
+                      className="responseCopy font-bold text-white"
+                      variant="bordered"
+                      color="default"
+                      onPress={() => handleSendACopy()}
+                    >
+                      {`Send a copy of the response`}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -919,201 +921,205 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     if (!formState) return null;
 
     return (
-      <div className="max-w-4xl mx-auto p-6 min-h-screen respondent-form">
-        {/* User Activity Status Indicator */}
-        {accessMode !== "login" && !isUserActive && (
-          <div className="mb-4 p-3 bg-amber-100 border border-amber-400 rounded-lg text-amber-800">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">⚠️ Session Inactive</span>
-              <span className="text-sm">
-                Your progress is not being saved. Please reactivate your session
-                to continue.
-              </span>
-            </div>
-          </div>
-        )}
-
-        <div className="mb-4 text-center">
-          <small className="text-gray-500 italic">
-            {progressLoaded ? (
-              accessMode === "guest" || isUserActive ? (
-                "✓ Your progress is automatically saved as you fill out the form"
-              ) : (
-                "⚠️ Progress saving is paused due to inactive session"
-              )
-            ) : (
-              <span className="flex items-center justify-center gap-2">
-                <Spinner size="sm" />
-                Loading saved progress...
-              </span>
-            )}
-          </small>
-        </div>
-
-        {formState && (
-          <FormHeader
-            title={formState?.title}
-            currentPage={currentPage ?? 1}
-            totalPages={totalPages}
-          />
-        )}
-
-        {formState && formState._id && currentPage === 1 && formSessionInfo && (
-          <RespondentInfo
-            respondentInfo={respondentInfo}
-            onRespondentInfoChange={handleRespondentInfoChange}
-          />
-        )}
-
-        <div className="space-y-6">
-          {/* Debug info for conditional questions in development */}
-          {import.meta.env.DEV && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
-              <h3 className="text-sm font-medium text-blue-800 mb-2">
-                Debug: Paginated Form Status
-              </h3>
-              <div className="text-xs text-blue-600 space-y-1">
-                <p>
-                  Total questions: {questions.length} | Current page:{" "}
-                  {currentPage}/{totalPages} | Loading:{" "}
-                  {isLoading ? "Yes" : "No"} | Current page questions:{" "}
-                  {getCurrentPageQuestions().length} | Unique IDs:{" "}
-                  {new Set(questions.map((q) => q._id)).size} | Responses with
-                  values:{" "}
-                  {
-                    responses.filter(
-                      (r) =>
-                        r.response !== "" &&
-                        r.response !== null &&
-                        r.response !== undefined
-                    ).length
-                  }
-                </p>
-                {/* Duplicate detection warning */}
-                {questions.length !==
-                  new Set(questions.map((q) => q._id)).size && (
-                  <p className="text-red-600 font-bold">
-                    ⚠️ DUPLICATES DETECTED:{" "}
-                    {questions.length -
-                      new Set(questions.map((q) => q._id)).size}{" "}
-                    duplicate question(s) found!
-                  </p>
-                )}
-                {questions
-                  .filter((q) => q.require)
-                  .map((q) => {
-                    const isVisible = checkIfQuestionShouldShow(q, responses);
-                    const response = responses.find(
-                      (r) => r.question === q._id
-                    );
-                    const hasValidResponse =
-                      response &&
-                      response.response !== "" &&
-                      response.response !== null &&
-                      response.response !== undefined;
-                    const title =
-                      typeof q.title === "string" ? q.title : String(q.title);
-
-                    return (
-                      <div
-                        key={q._id}
-                        className={`p-1 rounded ${
-                          isVisible && q.require && !hasValidResponse
-                            ? "bg-red-100"
-                            : "bg-green-100"
-                        }`}
-                      >
-                        <strong>{title.substring(0, 30)}...</strong> | Visible:{" "}
-                        {isVisible ? "✓" : "✗"} | Required:{" "}
-                        {q.require ? "✓" : "✗"} | Has Response:{" "}
-                        {hasValidResponse ? "✓" : "✗"} | Value:{" "}
-                      </div>
-                    );
-                  })}
+      <>
+        <div className="max-w-4xl mx-auto p-6 min-h-screen respondent-form">
+          {/* User Activity Status Indicator */}
+          {accessMode !== "login" && !isUserActive && (
+            <div className="mb-4 p-3 bg-amber-100 border border-amber-400 rounded-lg text-amber-800">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">⚠️ Session Inactive</span>
+                <span className="text-sm">
+                  Your progress is not being saved. Please reactivate your
+                  session to continue.
+                </span>
               </div>
             </div>
           )}
 
-          {/* Page loading indicator */}
-          {isLoading && (
-            <div className="flex justify-center items-center py-8">
-              <Spinner size="lg" aria-label="Loading form data" />
-              <span className="ml-3 text-gray-600">Loading form data...</span>
-            </div>
+          <div className="mb-4 text-center">
+            <small className="text-gray-500 italic">
+              {progressLoaded ? (
+                accessMode === "guest" || isUserActive ? (
+                  "✓ Your progress is automatically saved as you fill out the form"
+                ) : (
+                  "⚠️ Progress saving is paused due to inactive session"
+                )
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <Spinner size="sm" />
+                  Loading saved progress...
+                </span>
+              )}
+            </small>
+          </div>
+
+          {formState && (
+            <FormHeader
+              title={formState?.title}
+              currentPage={currentPage ?? 1}
+              totalPages={totalPages}
+            />
           )}
 
-          {!isLoading &&
-            currentQuestions
-              .map((question, index) => {
-                // Safety check: ensure question has required properties
-                if (!question._id) {
-                  console.error("Question missing ID:", question);
-                  return null;
-                }
+          {formState &&
+            formState._id &&
+            currentPage === 1 &&
+            formSessionInfo && (
+              <RespondentInfo
+                respondentInfo={respondentInfo}
+                onRespondentInfoChange={handleRespondentInfoChange}
+              />
+            )}
 
-                const currentResponse = responses.find(
-                  (r) => r.question === question._id
-                );
+          <div className="space-y-6">
+            {/* Debug info for conditional questions in development */}
+            {import.meta.env.DEV && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                <h3 className="text-sm font-medium text-blue-800 mb-2">
+                  Debug: Paginated Form Status
+                </h3>
+                <div className="text-xs text-blue-600 space-y-1">
+                  <p>
+                    Total questions: {questions.length} | Current page:{" "}
+                    {currentPage}/{totalPages} | Loading:{" "}
+                    {isLoading ? "Yes" : "No"} | Current page questions:{" "}
+                    {getCurrentPageQuestions().length} | Unique IDs:{" "}
+                    {new Set(questions.map((q) => q._id)).size} | Responses with
+                    values:{" "}
+                    {
+                      responses.filter(
+                        (r) =>
+                          r.response !== "" &&
+                          r.response !== null &&
+                          r.response !== undefined
+                      ).length
+                    }
+                  </p>
+                  {/* Duplicate detection warning */}
+                  {questions.length !==
+                    new Set(questions.map((q) => q._id)).size && (
+                    <p className="text-red-600 font-bold">
+                      ⚠️ DUPLICATES DETECTED:{" "}
+                      {questions.length -
+                        new Set(questions.map((q) => q._id)).size}{" "}
+                      duplicate question(s) found!
+                    </p>
+                  )}
+                  {questions
+                    .filter((q) => q.require)
+                    .map((q) => {
+                      const isVisible = checkIfQuestionShouldShow(q, responses);
+                      const response = responses.find(
+                        (r) => r.question === q._id
+                      );
+                      const hasValidResponse =
+                        response &&
+                        response.response !== "" &&
+                        response.response !== null &&
+                        response.response !== undefined;
+                      const title =
+                        typeof q.title === "string" ? q.title : String(q.title);
 
-                return (
-                  <div key={question._id} className="question-wrapper">
-                    <ConditionalIndicator
-                      question={question}
-                      questions={questions}
-                    />
+                      return (
+                        <div
+                          key={q._id}
+                          className={`p-1 rounded ${
+                            isVisible && q.require && !hasValidResponse
+                              ? "bg-red-100"
+                              : "bg-green-100"
+                          }`}
+                        >
+                          <strong>{title.substring(0, 30)}...</strong> |
+                          Visible: {isVisible ? "✓" : "✗"} | Required:{" "}
+                          {q.require ? "✓" : "✗"} | Has Response:{" "}
+                          {hasValidResponse ? "✓" : "✗"} | Value:{" "}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
-                    {question.type === QuestionType.CheckBox ? (
-                      <CheckboxQuestion
+            {/* Page loading indicator */}
+            {isLoading && (
+              <div className="flex justify-center items-center py-8">
+                <Spinner size="lg" aria-label="Loading form data" />
+                <span className="ml-3 text-gray-600">Loading form data...</span>
+              </div>
+            )}
+
+            {!isLoading &&
+              currentQuestions
+                .map((question, index) => {
+                  // Safety check: ensure question has required properties
+                  if (!question._id) {
+                    console.error("Question missing ID:", question);
+                    return null;
+                  }
+
+                  const currentResponse = responses.find(
+                    (r) => r.question === question._id
+                  );
+
+                  return (
+                    <div key={question._id} className="question-wrapper">
+                      <ConditionalIndicator
                         question={question}
-                        currentResponse={currentResponse?.response as never}
-                        updateResponse={updateResponse}
+                        questions={questions}
                       />
-                    ) : question.type === QuestionType.MultipleChoice ? (
-                      <MultipleChoiceQuestion
-                        question={question}
-                        currentResponse={currentResponse?.response as never}
-                        updateResponse={updateResponse}
-                      />
-                    ) : (
-                      <div className="p-6 bg-white rounded-lg border shadow-sm">
-                        <Respondant_Question_Card
-                          content={{
-                            ...question,
-                            idx: index,
-                            answer:
-                              currentResponse?.response !== undefined &&
-                              currentResponse.response !== null
-                                ? ({
-                                    answer: currentResponse.response,
-                                  } as AnswerKey)
-                                : undefined,
-                          }}
-                          color={formState?.setting?.qcolor}
-                          ty="form"
-                          idx={index}
-                          onSelectAnswer={(answer) =>
-                            handleQuestionAnswer(question._id || "", answer)
-                          }
-                          isDisable={false}
+
+                      {question.type === QuestionType.CheckBox ? (
+                        <CheckboxQuestion
+                          question={question}
+                          currentResponse={currentResponse?.response as never}
+                          updateResponse={updateResponse}
                         />
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-              .filter(Boolean)}
+                      ) : question.type === QuestionType.MultipleChoice ? (
+                        <MultipleChoiceQuestion
+                          question={question}
+                          currentResponse={currentResponse?.response as never}
+                          updateResponse={updateResponse}
+                        />
+                      ) : (
+                        <div className="p-6 bg-white rounded-lg border shadow-sm">
+                          <Respondant_Question_Card
+                            content={{
+                              ...question,
+                              idx: index,
+                              answer:
+                                currentResponse?.response !== undefined &&
+                                currentResponse.response !== null
+                                  ? ({
+                                      answer: currentResponse.response,
+                                    } as AnswerKey)
+                                  : undefined,
+                            }}
+                            color={formState?.setting?.qcolor}
+                            ty="form"
+                            idx={index}
+                            onSelectAnswer={(answer) =>
+                              handleQuestionAnswer(question._id || "", answer)
+                            }
+                            isDisable={false}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+                .filter(Boolean)}
+          </div>
+
+          {error && (
+            <Alert
+              color="danger"
+              className="mt-4"
+              aria-label="Form submission error"
+            >
+              {error}
+            </Alert>
+          )}
         </div>
-
-        {error && (
-          <Alert
-            color="danger"
-            className="mt-4"
-            aria-label="Form submission error"
-          >
-            {error}
-          </Alert>
-        )}
-
         {currentQuestions && (
           <Navigation
             currentPage={currentPage ?? 1}
@@ -1126,7 +1132,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             onSubmit={handleSubmit}
           />
         )}
-      </div>
+      </>
     );
   }
 );

@@ -39,7 +39,7 @@ export const AuthContainer: React.FC<AuthContainerProps> = ({
   onRememberMeChange,
 }) => {
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="w-full min-h-screen  dark:bg-gray-700 light:bg-gradient-to-br light:from-slate-50 light:via-blue-50 light:to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Card className="backdrop-blur-sm bg-white/95 shadow-xl border-0">
           <CardHeader className="text-center pb-4 pt-8">

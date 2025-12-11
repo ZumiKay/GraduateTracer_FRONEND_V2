@@ -66,6 +66,8 @@ const formstore = createSlice({
     pauseAutoSave: false,
     debounceQuestion: null as ContentType | null,
     showLinkedQuestions: null as Array<ShowLinkedQuestionType> | null,
+    revalidateContent: false,
+    testQuestonState: undefined as Array<ContentType> | undefined,
   },
   reducers: {
     setformstate: (state, action: PayloadAction<FormDataType>) => {
@@ -94,6 +96,58 @@ const formstore = createSlice({
     setprevallquestion: (state, action: PayloadAction<Array<ContentType>>) => {
       state.prevAllQuestion = action.payload;
     },
+    // Atomically sync both allquestion and prevAllQuestion after a successful save
+    syncQuestionsAfterSave: (
+      state,
+      action: PayloadAction<{
+        savedData: Array<ContentType>;
+      }>
+    ) => {
+      const { savedData } = action.payload;
+      const currentQuestions = state.allquestion as Array<ContentType>;
+
+      if (!savedData || savedData.length === 0) {
+        // No new data from save, just sync prevAllQuestion to current allquestion
+        state.prevAllQuestion = [...currentQuestions];
+        return;
+      }
+
+      // Check if there are any questions without _id that got new IDs from saved data
+      let hasNewIds = false;
+
+      // Update questions with new IDs from saved data
+      const updatedQuestions = currentQuestions.map((existingQ) => {
+        // If existing question already has an _id, keep it as-is
+        if (existingQ._id) {
+          return existingQ;
+        }
+
+        // For questions without _id, try to find matching saved version by qIdx and page
+        const matchingSaved = savedData.find(
+          (s) => s.qIdx === existingQ.qIdx && s.page === existingQ.page && s._id
+        );
+
+        if (matchingSaved) {
+          hasNewIds = true;
+          // Merge: keep existing question data but add the new _id
+          return {
+            ...existingQ,
+            _id: matchingSaved._id,
+          };
+        }
+
+        return existingQ;
+      });
+
+      // Only update allquestion if there are new IDs assigned
+      if (hasNewIds) {
+        state.allquestion = updatedQuestions;
+        state.prevAllQuestion = [...updatedQuestions];
+      } else {
+        // No new IDs, just sync prevAllQuestion to current allquestion
+        state.prevAllQuestion = [...currentQuestions];
+      }
+    },
     setpage: (state, action: PayloadAction<number>) => {
       state.page = action.payload;
     },
@@ -115,6 +169,15 @@ const formstore = createSlice({
     ) => {
       state.showLinkedQuestions = action.payload;
     },
+    setRevalidateContent: (state, action: PayloadAction<boolean>) => {
+      state.revalidateContent = action.payload;
+    },
+    settTestQuestionState: (
+      state,
+      action: PayloadAction<ContentType[] | undefined>
+    ) => {
+      state.testQuestonState = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(AsyncSaveForm.fulfilled, (state) => {
@@ -134,10 +197,13 @@ export const {
   setallformstate,
   setpage,
   setprevallquestion,
+  syncQuestionsAfterSave,
   setfetchloading,
   setreloaddata,
   setpauseAutoSave,
   setdisbounceQuestion,
   setshowLinkedQuestion,
+  setRevalidateContent,
+  settTestQuestionState,
 } = formstore.actions;
 export default formstore;

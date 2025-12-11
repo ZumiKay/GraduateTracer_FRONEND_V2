@@ -2,7 +2,11 @@ import { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { RootState } from "../../../redux/store";
 import { QuestionLoading } from "../../Loading/ContainerLoading";
-import { setallquestion, setdisbounceQuestion } from "../../../redux/formstore";
+import {
+  setallquestion,
+  setdisbounceQuestion,
+  setRevalidateContent,
+} from "../../../redux/formstore";
 import { ContentType, FormValidationSummary } from "../../../types/Form.types";
 import ApiRequest from "../../../hooks/ApiHook";
 import useFormValidation from "../../../hooks/ValidationHook";
@@ -67,6 +71,9 @@ const Solution_Tab = memo(() => {
   );
   const returnScore = useSelector(
     (root: RootState) => root.allform.formstate.setting?.returnscore
+  );
+  const revalidateContent = useSelector(
+    (root: RootState) => root.allform.revalidateContent
   );
 
   const [validationSummary, setValidationSummary] =
@@ -192,6 +199,19 @@ const Solution_Tab = memo(() => {
       });
     }
   }, [formId, validateForm, refetchTotal, showValidationErrors]);
+
+  //Trigger Revalidate Solution Content
+  useEffect(() => {
+    if (revalidateContent) {
+      handleValidateAll();
+    }
+
+    //Reset state
+    return () => {
+      dispatch(setRevalidateContent(false));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revalidateContent]);
 
   // Select answer handler
   const handleSelectAnswer = useCallback(

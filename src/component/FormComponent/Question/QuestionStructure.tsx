@@ -175,12 +175,12 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
       >
         <div className="space-y-2">
           {questionHierarchy.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500 dark:text-white">
               <div className="p-6 border border-dashed border-gray-300 rounded-lg bg-gray-50/50">
                 <p className="text-base font-medium">
                   No questions on this page
                 </p>
-                <p className="text-sm mt-2 text-gray-500">
+                <p className="text-sm mt-2 text-gray-500 dark:text-white">
                   {totalQuestionsOnPage > 0
                     ? "All questions are conditionally hidden"
                     : "Click the add button to create your first question"}

@@ -39,6 +39,7 @@ import {
   setpage,
   setreloaddata,
   setfetchloading,
+  setRevalidateContent,
 } from "../../redux/formstore";
 import NotificationSystem from "../Notification/NotificationSystem";
 import useImprovedAutoSave from "../../hooks/useImprovedAutoSave";
@@ -247,13 +248,16 @@ export default function Navigationbar() {
       const success = await manualSave();
       if (success) {
         setformHasChange(false); // Reset change state after successful save
+        //Revalidate solution content in solution tab
+
+        dispatch(setRevalidateContent(true));
       }
     } catch (error) {
       console.error("Manual save failed:", error);
     } finally {
       setsaveloading(false);
     }
-  }, [formData.formstate._id, manualSave]);
+  }, [dispatch, formData.formstate._id, manualSave]);
 
   // Keyboard shortcut for manual save (Ctrl+S / Cmd+S)
   useEffect(() => {

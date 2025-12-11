@@ -1034,7 +1034,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
               variant="light"
               size="sm"
               onPress={handleSwitchUser}
-              className="bg-white shadow-md"
+              className="bg-white shadow-md dark:bg-gray-700 dark:text-white font-bold"
               isLoading={signOut.isPending}
             >
               Switch user

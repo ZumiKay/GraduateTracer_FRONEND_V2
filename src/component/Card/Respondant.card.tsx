@@ -331,6 +331,9 @@ const Respondant_Question_Card = memo(
                 size="md"
                 radius="sm"
                 type="text"
+                classNames={{
+                  input: "dark:text-white",
+                }}
                 placeholder="Enter your answer"
                 value={String(answerKey?.answer || "")}
                 onChange={(e) => handleAnswer(e.target.value)}
@@ -450,7 +453,7 @@ const Respondant_Question_Card = memo(
               {content.require && (
                 <Chip
                   color="danger"
-                  size="sm"
+                  size="lg"
                   variant="flat"
                   aria-label="This question is required"
                 >
@@ -460,8 +463,9 @@ const Respondant_Question_Card = memo(
               {content.score && content.score > 0 ? (
                 <Chip
                   color="success"
-                  size="sm"
+                  size="lg"
                   variant="flat"
+                  className="font-bold dark:text-white"
                   aria-label={`This question is worth ${content.score} points`}
                 >
                   {content.score} pts

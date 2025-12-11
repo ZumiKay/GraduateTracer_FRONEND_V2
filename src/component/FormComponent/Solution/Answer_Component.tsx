@@ -38,7 +38,7 @@ export const ParagraphAnswer = (
   props: Omit<AnswerComponent_Props<string>, "choicety">
 ) => {
   return (
-    <div className="paragraph_answer w-full h-fit flex flex-col items-center border-2 border-gray-200 rounded-2xl">
+    <div className="paragraph_answer w-full h-fit flex flex-col items-center border-2 border-gray-200 rounded-2xl dark:text-white">
       <Textarea
         fullWidth
         color="default"
@@ -126,11 +126,11 @@ export const RangeNumberAnswer = (
       <div className="flex flex-col gap-2 w-full h-full max-w-md items-start justify-center">
         {questionRange && (
           <>
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-gray-600 dark:text-white mb-2">
               Available Range: {`${questionRange.start} - ${questionRange.end}`}
             </p>
             <Slider
-              className="w-full h-full"
+              className="w-full h-full dark:text-white"
               value={userSelection}
               onChange={setUserSelection}
               minValue={questionRange.start}
@@ -301,6 +301,9 @@ export const ShortAnswer = (props: AnswerComponent_Props<string>) => {
       fullWidth
       size="lg"
       variant="bordered"
+      classNames={{
+        input: "dark:text-white",
+      }}
       placeholder={props.placeholder ?? "Type your answer here"}
       onChange={(e) => props.onChange && props.onChange(e.target.value)}
       value={props.value}

@@ -31,7 +31,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             name="email"
             type="email"
             label="Email"
-            placeholder="Email / Name"
+            placeholder="Email"
             fullWidth
             value={loginData.email}
             onChange={onLoginChange}
@@ -40,7 +40,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             size="lg"
             className="w-full"
             classNames={{
-              input: "text-gray-700",
+              input: "text-gray-700 autofill:text-gray-700 autofill:bg-white",
               inputWrapper:
                 "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/50 transition-colors",
               label: "text-gray-600 font-medium",

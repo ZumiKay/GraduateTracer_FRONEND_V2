@@ -3,7 +3,7 @@ import { DashboardFilterType, SelectionType } from "../../types/Global.types";
 import Selection from "../FormComponent/Selection";
 import { SearchIcon } from "../svg/GeneralIcon";
 import { useSearchParams } from "react-router";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
 const orderOptions: Array<SelectionType<string>> = [
   {
@@ -97,8 +97,7 @@ export default function FilterSection({
   };
 
   // Get current selected order value for display
-  const getCurrentOrderValue = () => {
-    console.log({ Filterstate });
+  const getCurrentOrderValue = useCallback(() => {
     if (Filterstate.created) {
       return `created:${Filterstate.created}`;
     }
@@ -106,7 +105,7 @@ export default function FilterSection({
       return `updated:${Filterstate.updated}`;
     }
     return "";
-  };
+  }, [Filterstate.created, Filterstate.updated]);
 
   return (
     <div className="filtersection w-full h-fit relative inline-flex items-center gap-x-5">

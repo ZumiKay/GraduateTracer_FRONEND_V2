@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, memo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { RootState } from "../../../redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import { AnimatePresence, motion } from "framer-motion";
@@ -34,13 +34,14 @@ import {
   AsyncAutoSaveDeleteRequest,
   DeleteAndShift,
 } from "./Question_Tab_Helper";
+import { AddQuestionNumbering } from "../../../services/labelQuestionNumberingService";
+import { isConditonExist } from "../../../utils/questionMutataions";
 
 const QuestionTab = () => {
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const { setParams } = useSetSearchParam();
   const [showStructure, setShowStructure] = useState(true);
   const [isPageLoading, setIsPageLoading] = useState(false);
-
   const formState = useSelector((root: RootState) => root.allform.formstate);
   const page = useSelector((root: RootState) => root.allform.page);
   const fetchLoading = useSelector(
@@ -55,10 +56,9 @@ const QuestionTab = () => {
   const showLinkedQuestion = useSelector(
     (root: RootState) => root.allform.showLinkedQuestions
   );
-
   const dispatch = useDispatch();
 
-  const hasUnsavedQuestions = useCallback(() => {
+  const hasUnsavedQuestions = useMemo(() => {
     return checkUnsavedQuestions(allQuestion, prevAllQuestion, page);
   }, [allQuestion, prevAllQuestion, page]);
 
@@ -86,7 +86,10 @@ const QuestionTab = () => {
   );
 
   const handleAddQuestion = useCallback(async () => {
+    //Computed qIdx for newly created question
     const qIdx = (formState?.lastqIdx ?? 0) + (allQuestion.length + 1);
+
+    //Prepare data
     const updatedQuestions: Array<ContentType> = [
       ...(allQuestion ?? []),
       {
@@ -96,6 +99,7 @@ const QuestionTab = () => {
       },
     ];
 
+    //Autosave
     if (formState.setting?.autosave) {
       const createReq = AutoSaveQuestion({
         data: updatedQuestions,
@@ -121,7 +125,14 @@ const QuestionTab = () => {
         ])
       );
     } else {
-      dispatch(setallquestion(updatedQuestions));
+      dispatch(
+        setallquestion(
+          AddQuestionNumbering({
+            questions: updatedQuestions,
+            lastIdx: formState.lastqIdx,
+          })
+        )
+      );
     }
   }, [
     formState.lastqIdx,
@@ -132,65 +143,79 @@ const QuestionTab = () => {
     dispatch,
   ]);
 
-  //*Autosave helper to delete question
   const handleDeleteQuestion = useCallback(
     async (qidx: number) => {
       const questionToDelete = allQuestion[qidx];
+      //No Question Return
       if (!questionToDelete || !formState._id) return;
+
+      const subSaveQuestionState = () => {
+        const updatedQuestion = DeleteAndShift({
+          allquestion: allQuestion,
+          targetQuestion: questionToDelete.qIdx,
+          targetQuestionIdx: qidx,
+          lastIdx: formState.lastqIdx,
+        });
+
+        dispatch(setallquestion(updatedQuestion));
+        dispatch(setpauseAutoSave(false));
+      };
 
       // Pause autosave during delete operation
       dispatch(setpauseAutoSave(true));
 
+      //Delete Child Question (Conditioned Question Only)
       const hasConditionals =
         questionToDelete.conditional &&
-        questionToDelete.conditional?.length > 0;
+        questionToDelete.conditional?.length > 0 &&
+        isConditonExist({
+          conditions: questionToDelete.conditional,
+          allquestion: allQuestion,
+        });
 
-      if (
-        hasConditionals &&
-        questionToDelete._id &&
-        formState.setting?.autosave
-      ) {
+      if (hasConditionals && questionToDelete._id) {
         dispatch(
           setopenmodal({
             state: "confirm",
-
             value: {
               open: true,
-
               data: {
                 question: "All related conditioned question will be delete!",
                 onAgree: async () => {
-                  try {
-                    await AsyncAutoSaveDeleteRequest({
-                      formId: formState._id as string,
-                      qId: questionToDelete._id as string,
-                    });
-                  } catch (error) {
-                    ErrorToast({
-                      toastid: "DeleteQuestion",
-                      title: "Failed",
-                      content: (error as Error).message,
-                    });
+                  //*Autosave deleted content
+                  if (formState.setting?.autosave) {
+                    try {
+                      await AsyncAutoSaveDeleteRequest({
+                        formId: formState._id as string,
+                        qId: questionToDelete._id as string,
+                      });
+                    } catch (error) {
+                      ErrorToast({
+                        toastid: "DeleteQuestion",
+                        title: "Failed",
+                        content: (error as Error).message,
+                      });
+                    }
                   }
+
+                  subSaveQuestionState();
                 },
               },
             },
           })
         );
+        return;
       }
 
-      //*General Delete and Update State
-      const updatedQuestion = DeleteAndShift({
-        allquestion: allQuestion,
-        targetQuestion: questionToDelete.qIdx,
-        targetQuestionIdx: qidx,
-      });
-
-      dispatch(setallquestion(updatedQuestion));
-
-      dispatch(setpauseAutoSave(false));
+      subSaveQuestionState();
     },
-    [allQuestion, formState.setting?.autosave, formState._id, dispatch]
+    [
+      allQuestion,
+      formState._id,
+      formState.setting?.autosave,
+      formState.lastqIdx,
+      dispatch,
+    ]
   );
 
   const handleAddCondition = useCallback(
@@ -238,7 +263,6 @@ const QuestionTab = () => {
             //*Update other questions qIdx for the new appending qIdx
             for (let i = 0; i < prevQuestions.length; i++) {
               const currentQuestion = prevQuestions[i];
-
               if (i === questionIdx) {
                 // Update target question with new conditional
                 result.push({
@@ -297,7 +321,10 @@ const QuestionTab = () => {
               result.push(newChildQuestion);
             }
 
-            return result;
+            return AddQuestionNumbering({
+              questions: result,
+              lastIdx: formState.lastqIdx,
+            });
           })
         );
       } catch (error) {
@@ -310,7 +337,7 @@ const QuestionTab = () => {
         dispatch(setpauseAutoSave(false));
       }
     },
-    [allQuestion, page, dispatch]
+    [allQuestion, page, dispatch, formState.lastqIdx]
   );
 
   const removeConditionedQuestion = useCallback(
@@ -677,7 +704,8 @@ const QuestionTab = () => {
   const handlePage = useCallback(
     async (type: "add" | "delete", deletepage?: number) => {
       // Check for unsaved questions before proceeding
-      if (hasUnsavedQuestions()) {
+
+      if (hasUnsavedQuestions) {
         showSaveConfirmation(() => {
           handlePageInternal(type, deletepage);
         });
@@ -924,7 +952,7 @@ const QuestionTab = () => {
             {isPageLoading ? "Deleting..." : "Delete Page"}
           </Button>
           <Button
-            className="max-w-xs font-bold text-black border-x-0 border-t-0 transition-transform hover:translate-x-1"
+            className="max-w-xs font-bold text-black dark:text-white border-x-0 border-t-0 transition-transform hover:translate-x-1"
             radius="none"
             color="primary"
             variant="bordered"
@@ -949,4 +977,4 @@ const QuestionTab = () => {
   );
 };
 
-export default memo(QuestionTab);
+export default QuestionTab;

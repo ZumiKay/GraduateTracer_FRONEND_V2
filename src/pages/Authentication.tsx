@@ -42,7 +42,73 @@ import {
 import { useDispatch } from "react-redux";
 import { setUser } from "../redux/user.store";
 import { UserSessionData } from "../hooks/useUserSession";
+import { motion } from "framer-motion";
 type authenticationtype = "login" | "prelogin" | "signup" | "forgot";
+
+// Flying Logos Background Component
+const FlyingLogos = memo(() => {
+  const logoUrl =
+    "https://firebasestorage.googleapis.com/v0/b/sroksre-442c0.appspot.com/o/sideImage%2Fgraduation.png?alt=media&token=011e65f0-b57f-4c47-a1bf-3f1b070de4e4";
+
+  // Generate random positions and animation properties for each logo
+  const logos = useMemo(
+    () =>
+      Array.from({ length: 8 }, (_, i) => ({
+        id: i,
+        initialX: Math.random() * 100,
+        initialY: Math.random() * 100,
+        size: 30 + Math.random() * 40,
+        duration: 15 + Math.random() * 10,
+        delay: Math.random() * 5,
+        opacity: 0.08 + Math.random() * 0.07,
+      })),
+    []
+  );
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {logos.map((logo) => (
+        <motion.div
+          key={logo.id}
+          className="absolute"
+          style={{
+            left: `${logo.initialX}%`,
+            top: `${logo.initialY}%`,
+            width: logo.size,
+            height: logo.size,
+          }}
+          initial={{
+            x: 0,
+            y: 0,
+            rotate: 0,
+            opacity: logo.opacity,
+          }}
+          animate={{
+            x: [0, 50, -30, 20, 0],
+            y: [0, -40, 30, -20, 0],
+            rotate: [0, 15, -10, 5, 0],
+          }}
+          transition={{
+            duration: logo.duration,
+            delay: logo.delay,
+            repeat: Infinity,
+            repeatType: "loop",
+            ease: "easeInOut",
+          }}
+        >
+          <img
+            src={logoUrl}
+            alt=""
+            className="w-full h-full object-contain filter grayscale brightness-200"
+            style={{ opacity: logo.opacity }}
+          />
+        </motion.div>
+      ))}
+    </div>
+  );
+});
+
+FlyingLogos.displayName = "FlyingLogos";
 
 interface AuthFormProps {
   type: authenticationtype;
@@ -701,12 +767,12 @@ export default function AuthenticationPage() {
 
         // Check for pending redirect
         const pendingRedirect = getPendingRedirect();
-        if (pendingRedirect) {
+        if (pendingRedirect && pendingRedirect.length > 0) {
           clearPendingRedirect();
           window.location.href = pendingRedirect;
-        } else {
-          navigate("/dashboard", { replace: true });
+          return;
         }
+        navigate("/dashboard", { replace: true });
       } else if (page === "signup") {
         SuccessToast({
           title: "Account Created!",
@@ -816,6 +882,9 @@ export default function AuthenticationPage() {
 
         {/* Right Authentication Form */}
         <div className="authentication_page w-full md:w-[500px] bg-gradient-to-br from-primary via-primary-600 to-secondary flex flex-col items-center justify-center gap-y-8 p-8 relative overflow-hidden">
+          {/* Flying Logos Background */}
+          <FlyingLogos />
+
           {/* Background decoration */}
           <div className="absolute inset-0 bg-black/10" />
           <div className="absolute top-0 left-0 w-40 h-40 bg-white/5 rounded-full -translate-y-20 -translate-x-20" />

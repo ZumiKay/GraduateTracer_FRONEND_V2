@@ -4,7 +4,13 @@ import { RootState } from "../redux/store";
 import { ContentType } from "../types/Form.types";
 import { AutoSaveQuestion } from "../pages/FormPage.action";
 import { ErrorToast } from "../component/Modal/AlertModal";
-import { setallquestion, setpauseAutoSave } from "../redux/formstore";
+import {
+  setallquestion,
+  setpauseAutoSave,
+  setprevallquestion,
+  settTestQuestionState,
+} from "../redux/formstore";
+import { stripQuestionNumbering } from "../services/labelQuestionNumberingService";
 
 interface AutoSaveStatus {
   status: "idle" | "saving" | "saved" | "error" | "offline";
@@ -67,17 +73,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     );
   }, []);
 
-  //Update Allquestion State
-
-  const updateQuestionState = useCallback(
-    (saved: Array<ContentType>) => {
-      const savedDataOnly = [...saved.filter((i) => i._id)];
-      dispatch(setallquestion(savedDataOnly));
-    },
-
-    [dispatch]
-  );
-
   const hasDataChanged = useCallback(
     (newData: ContentType[]) => {
       const newHash = generateDataString(newData);
@@ -86,6 +81,21 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     [generateDataString, lastSavedHash]
   );
 
+  ///
+  const updateAllQuestionStates = useCallback(
+    ({ latestVal }: { latestVal: Array<ContentType> }) => {
+      //Conditions to update
+      const isChanged = hasDataChanged(latestVal);
+
+      if (isChanged) {
+        //Update to the latest state
+        dispatch(setallquestion(latestVal));
+        dispatch(setprevallquestion(latestVal));
+      }
+    },
+
+    [dispatch, hasDataChanged]
+  );
   // Enhanced save function with retry logic and range validation
   const performSave = useCallback(
     async (
@@ -102,8 +112,10 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           retryCount: attempt,
         }));
 
+        const strippedData = stripQuestionNumbering(dataToSave);
+
         const response = await AutoSaveQuestion({
-          data: dataToSave,
+          data: strippedData,
           page,
           formId: formstate._id,
           type: "save",
@@ -120,8 +132,13 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           });
           lastSaveAttemptRef.current = new Date();
 
-          //Instant Update State
-          updateQuestionState(response.data as Array<ContentType>);
+          //Instantly Update Allquestions state
+          if (response.data) {
+            updateAllQuestionStates({
+              latestVal: response.data as Array<ContentType>,
+            });
+          }
+
           return true;
         } else {
           throw new Error(response.message || "Save failed");
@@ -166,7 +183,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       pauseAutoSave,
       page,
       generateDataString,
-      updateQuestionState,
+      updateAllQuestionStates,
       retryAttempts,
       retryDelayMs,
       autoSaveStatus.lastSaved,
@@ -265,12 +282,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       const success = await performSave(allquestion);
 
       if (success) {
-        // SuccessToast({
-        //   title: "Saved",
-        //   content: "Form saved successfully",
-        //   toastid: "manual-save",
-        // });
-
         const newHash = generateDataString(allquestion);
         setLastSavedHash(newHash);
       }
@@ -279,7 +290,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
-
       setAutoSaveStatus((prev) => ({
         ...prev,
         status: "error",

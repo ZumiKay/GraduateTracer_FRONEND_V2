@@ -1,6 +1,6 @@
 import { Tab, Tabs } from "@heroui/react";
 import { useNavigate, useParams } from "react-router";
-import { useEffect, useState, useCallback, useMemo, memo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FormDataType } from "../types/Form.types";
 import { useDispatch, useSelector } from "react-redux";
@@ -51,8 +51,9 @@ function FormPage() {
   const dispatch = useDispatch();
   const userSession = useUserSession();
   const { fetchFormTab } = useFormAPI();
-  const { formstate, reloaddata, page, allquestion, prevAllQuestion } =
-    useSelector((root: RootState) => root.allform);
+  const { formstate, page, allquestion, prevAllQuestion } = useSelector(
+    (root: RootState) => root.allform
+  );
   const navigate = useNavigate();
   const { validateForm, showValidationWarnings } = useFormValidation();
 
@@ -69,7 +70,6 @@ function FormPage() {
   const { data, error, isLoading, isFetching } = useQuery({
     queryKey: ["FormInfo", formId, page, tab],
     queryFn: () => fetchFormTab({ tab, page, formId }),
-    staleTime: 30000,
     enabled: !!formId || !!userSession.error,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -134,34 +134,41 @@ function FormPage() {
         return;
       }
 
-      const shouldUpdateQuestions = tab === "question" || tab === "solution";
+      const currentTab = searchParam.get("tab") ?? "question";
+      const shouldUpdateQuestions =
+        currentTab === "question" || currentTab === "solution";
 
       dispatch(
         setformstate({
           ...result,
           contents: undefined,
-          totalscore: result.totalscore ?? formstate.totalscore,
-          totalpage: result.totalpage ?? formstate.totalpage,
+          totalscore: result.totalscore,
+          totalpage: result.totalpage,
         })
       );
 
       // Update questions only for question/solution tabs
       if (shouldUpdateQuestions && result.contents) {
+        const currentPage = Number(searchParam.get("page") ?? 1);
         const normalizedContents = (result.contents ?? []).map((q) => ({
           ...q,
-          page: q.page ?? page,
+          page: q.page ?? currentPage,
         }));
+
+        // Check unsaved directly using current allquestion/prevAllQuestion from store
+        // This avoids stale closure issues with isUnSavedQuestion memo
+        const hasUnsavedChanges = checkUnsavedQuestions(
+          allquestion,
+          prevAllQuestion,
+          currentPage
+        );
 
         // Only update both states if there are no unsaved changes or this is initial load
         // This prevents the "hasChange" state from resetting during refetch
-        if (!isUnSavedQuestion) {
+        if (!hasUnsavedChanges) {
           dispatch(setallquestion(normalizedContents));
           dispatch(setprevallquestion(normalizedContents));
         }
-      }
-
-      if (reloaddata) {
-        dispatch(setreloaddata(false));
       }
 
       dispatch(setfetchloading(false));
@@ -195,21 +202,11 @@ function FormPage() {
 
       navigate("/dashboard", { replace: true });
     }
-  }, [
-    data,
-    isLoading,
-    isFetching,
-    param.id,
-    reloaddata,
-    error,
-    navigate,
-    page,
-    tab,
-    formstate.totalscore,
-    formstate.totalpage,
-    dispatch,
-    isUnSavedQuestion,
-  ]);
+    // Dependencies intentionally limited to prevent infinite loops:
+    // - allquestion/prevAllQuestion are read but not watched to avoid re-triggering when we set them
+    // - searchParam is read directly inside for fresh values
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, isLoading, isFetching, param.id, error, navigate, dispatch]);
 
   const continueTabSwitching = useCallback(
     async (val: alltabs, proceedFunc: () => void) => {
@@ -219,8 +216,8 @@ function FormPage() {
           const validation = await validateForm(formId, "switch_tab");
           if (
             validation &&
-            validation.warnings &&
-            validation.warnings.length > 0
+            validation.validationResults.warnings &&
+            validation.validationResults.warnings.length > 0
           ) {
             showValidationWarnings(validation);
           }
@@ -440,4 +437,4 @@ function FormPage() {
 
 FormPage.displayName = "FormPage";
 
-export default memo(FormPage);
+export default FormPage;
