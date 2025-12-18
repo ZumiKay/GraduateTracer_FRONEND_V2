@@ -14,7 +14,6 @@ export interface ValidationHookReturn {
   ) => Promise<FormValidationSummary | null>;
   isValidating: boolean;
   showValidationWarnings: (validation: FormValidationSummary) => void;
-  showValidationErrors: (validation: FormValidationSummary) => void;
 }
 
 export const useFormValidation = (): ValidationHookReturn => {
@@ -136,24 +135,14 @@ export const useFormValidation = (): ValidationHookReturn => {
 
   const showValidationWarnings = useCallback(
     (validation: FormValidationSummary) => {
-      if (validation.warnings && validation.warnings.length > 0) {
+      if (
+        validation.validationResults.warnings &&
+        validation.validationResults.warnings.length > 0
+      ) {
         InfoToast({
           title: "Validation Warnings",
-          content: validation.warnings.join(", "),
+          content: validation.validationResults.warnings.join(", "),
           toastid: "validation-warnings",
-        });
-      }
-    },
-    []
-  );
-
-  const showValidationErrors = useCallback(
-    (validation: FormValidationSummary) => {
-      if (validation.errors && validation.errors.length > 0) {
-        ErrorToast({
-          title: "Validation Errors",
-          content: validation.errors.join(", "),
-          toastid: "validation-errors",
         });
       }
     },
@@ -166,7 +155,6 @@ export const useFormValidation = (): ValidationHookReturn => {
     validateFormSubmission,
     isValidating,
     showValidationWarnings,
-    showValidationErrors,
   };
 };
 

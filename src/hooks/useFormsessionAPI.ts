@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import ApiRequest, { ApiRequestReturnType } from "./ApiHook";
 import queryClient from "./ReactQueryClient";
 import { ErrorToast } from "../component/Modal/AlertModal";
+import { AxiosError } from "axios";
 
 // Global flag to suppress error toasts during user switch
 let isSwitchingUser = false;
@@ -127,20 +128,24 @@ export const useFormsessionAPI = () => {
           method: "GET",
           url: `/response/verifyformsession/${formId}`,
           cookie: true,
+          skipRefresh: true,
         });
 
         return handleApiResponse(response) as SessionVerificationResponse;
       },
       enabled,
       retry: false, // Disable retry to prevent multiple failed requests
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      refetchInterval: false, // Disable automatic refetching
-      refetchOnWindowFocus: false, // Disable refetch on window focus
+      staleTime: 5 * 60 * 1000, // 5 minutes of cached
+      refetchInterval: false,
+      refetchOnWindowFocus: true, // Disable refetch on window focus
       refetchOnReconnect: false, // Disable refetch on network reconnect
     });
   };
 
-  const useManuallySessionVeriftication = (formId?: string) => {
+  const useManuallySessionVeriftication = (
+    formId?: string,
+    handleSessionExpired?: () => void
+  ) => {
     return useMutation({
       mutationKey: ["manualSessionVerification", formId],
       mutationFn: async () => {
@@ -152,15 +157,18 @@ export const useFormsessionAPI = () => {
           method: "GET",
           url: `/response/verifyformsession/${formId}`,
           cookie: true,
+          skipRefresh: true,
+          reactQuery: true,
         });
 
-        return handleApiResponse(response);
+        return handleApiResponse(response) as SessionVerificationResponse;
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["sessionVerification"] });
       },
-      onError: (error: Error) => {
+      onError: (error: AxiosError) => {
         console.error("❌ Manual session verification failed:", error);
+
         // Skip showing error toast if user is switching
         if (!isSwitchingUser) {
           ErrorToast({
@@ -168,6 +176,9 @@ export const useFormsessionAPI = () => {
             title: "Verification Failed",
             content: error.message,
           });
+
+          //Show session renewal modal
+          if (handleSessionExpired) handleSessionExpired();
         }
         setError(error.message);
       },
@@ -284,22 +295,6 @@ export const useFormsessionAPI = () => {
   // 🔧 Utility functions
   const clearError = useCallback(() => setError(null), []);
 
-  const isAnyLoading = useCallback(() => {
-    return (
-      isLoading ||
-      respondentLogin.isPending ||
-      replaceSession.isPending ||
-      signOut.isPending ||
-      sendRemovalEmail.isPending
-    );
-  }, [
-    isLoading,
-    respondentLogin.isPending,
-    replaceSession.isPending,
-    signOut.isPending,
-    sendRemovalEmail.isPending,
-  ]);
-
   return {
     respondentLogin,
     replaceSession,
@@ -310,10 +305,8 @@ export const useFormsessionAPI = () => {
     refreshSession,
     clearSessionData,
     clearError,
-    isAnyLoading,
     isLoading,
     error,
-
     // Quick access
     isLoginLoading: respondentLogin.isPending,
     isSessionLoading: replaceSession.isPending,

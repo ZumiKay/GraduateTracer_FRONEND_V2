@@ -93,6 +93,8 @@ const ValidationStatusDisplay = memo(
   ({ validationSummary, formstate }: ValidationStatusDisplayProps) => {
     const [isErrorsExpanded, setIsErrorsExpanded] = useState(false);
     const [isWarningsExpanded, setIsWarningsExpanded] = useState(false);
+    const [isScoringAnalysisExpanded, setIsScoringAnalysisExpanded] =
+      useState(false);
 
     // Calculate validation progress
     const validationProgress = useMemo(() => {
@@ -423,6 +425,178 @@ const ValidationStatusDisplay = memo(
             <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
               Some Question Can Be Score Automically
             </span>
+          </div>
+        )}
+
+        {/* Scoring Analysis Section */}
+        {validationSummary.scoringAnalysis && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <button
+              onClick={() =>
+                setIsScoringAnalysisExpanded(!isScoringAnalysisExpanded)
+              }
+              className="w-full px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 flex items-center justify-between hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-900/30 dark:hover:to-purple-900/30 transition-colors"
+              aria-expanded={isScoringAnalysisExpanded}
+              aria-controls="scoring-analysis-content"
+            >
+              <div className="flex items-center gap-3">
+                <SparklesIcon />
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-800 dark:text-white">
+                    Scoring Analysis
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Breakdown of auto-scoring capabilities for this form
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Auto-scoreable status badge - always visible */}
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+                    validationSummary.scoringAnalysis.isAutoScoreable
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                  }`}
+                >
+                  {validationSummary.scoringAnalysis.isAutoScoreable ? (
+                    <>
+                      <CheckCircleIcon />
+                      Auto-Scoreable
+                    </>
+                  ) : (
+                    <>
+                      <WarningIcon />
+                      Manual Review Required
+                    </>
+                  )}
+                </span>
+                <ChevronDownIcon isOpen={isScoringAnalysisExpanded} />
+              </div>
+            </button>
+            {isScoringAnalysisExpanded && (
+              <div id="scoring-analysis-content" className="p-5">
+                {/* Scoring Stats Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600">
+                    <div className="text-xl font-bold text-gray-700 dark:text-gray-200">
+                      {validationSummary.scoringAnalysis.totalQuestions}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Total Questions
+                    </div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+                    <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                      {validationSummary.scoringAnalysis.scoredQuestions}
+                    </div>
+                    <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                      With Scores
+                    </div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800">
+                    <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {validationSummary.scoringAnalysis.autoScorableQuestions}
+                    </div>
+                    <div className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
+                      Auto-Scorable
+                    </div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800">
+                    <div className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                      {validationSummary.scoringAnalysis.manualGradingQuestions}
+                    </div>
+                    <div className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                      Manual Grading
+                    </div>
+                  </div>
+                </div>
+
+                {/* Auto-scorable status */}
+                <div
+                  className={`flex items-center gap-2 p-3 rounded-lg ${
+                    validationSummary.scoringAnalysis.isAutoScoreable
+                      ? "bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800"
+                      : "bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
+                  }`}
+                >
+                  {validationSummary.scoringAnalysis.isAutoScoreable ? (
+                    <>
+                      <CheckCircleIcon />
+                      <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                        This form is fully auto-scorable! All scored questions
+                        have answer keys.
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <WarningIcon />
+                      <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                        Some questions require manual grading or are missing
+                        answer keys.
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Missing Answer Keys */}
+                {validationSummary.scoringAnalysis.missingAnswerKeys.length >
+                  0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <ExclamationCircleIcon />
+                      Questions Missing Answer Keys (
+                      {
+                        validationSummary.scoringAnalysis.missingAnswerKeys
+                          .length
+                      }
+                      )
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {validationSummary.scoringAnalysis.missingAnswerKeys.map(
+                        (item, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+                          >
+                            Q{item.qIdx}: {item.title || item.type}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Unsupported Types for Auto-scoring */}
+                {validationSummary.scoringAnalysis.unsupportedTypes.length >
+                  0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <WarningIcon />
+                      Questions Requiring Manual Grading (
+                      {
+                        validationSummary.scoringAnalysis.unsupportedTypes
+                          .length
+                      }
+                      )
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {validationSummary.scoringAnalysis.unsupportedTypes.map(
+                        (item, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                          >
+                            Q{item.qIdx}: {item.title || item.type} ({item.type}
+                            )
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

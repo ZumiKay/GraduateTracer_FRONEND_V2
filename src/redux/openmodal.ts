@@ -22,6 +22,7 @@ const OpenModal = createSlice({
   initialState: {
     setting: false,
     createform: false,
+    expirationalert: false,
     confirm: {
       open: false,
     } as ConfirmModalDataType,

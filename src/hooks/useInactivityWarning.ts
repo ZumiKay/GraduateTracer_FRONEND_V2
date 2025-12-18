@@ -1,18 +1,23 @@
 import { useState, useEffect, useCallback } from "react";
-import { useSessionManager } from "../hooks/useSessionManager";
-import { RespondentSessionType } from "../component/Response/Response.type";
 import { accessModeType } from "../component/Response/hooks/usePaginatedFormData";
 
+interface SessionManagerReturn {
+  isSessionActive: boolean;
+  timeUntilAutoSignout: number;
+  warningMessage: string;
+  showInactivityAlert: boolean;
+  debugInfo: {
+    accessMode: accessModeType;
+    formsessionActive: boolean | undefined;
+    isFormRequiredSessionChecked: boolean;
+    lastActivity: string;
+  };
+  handleReactivateSession: () => void;
+}
+
 interface UseInactivityWarningProps {
-  formId?: string;
-  userEmail?: string;
   accessMode: accessModeType;
-  isFormRequiredSessionChecked: boolean;
-  formsession?: Partial<RespondentSessionType>;
-  setformsession: React.Dispatch<
-    React.SetStateAction<Partial<RespondentSessionType> | undefined>
-  >;
-  onAutoSignOut?: () => Promise<void>;
+  sessionManager: SessionManagerReturn;
 }
 
 interface UseInactivityWarningReturn {
@@ -41,7 +46,7 @@ interface UseInactivityWarningReturn {
 export const useInactivityWarning = (
   props: UseInactivityWarningProps
 ): UseInactivityWarningReturn => {
-  const sessionManager = useSessionManager(props);
+  const { sessionManager, accessMode } = props;
   const [showWarning, setShowWarning] = useState(false);
 
   // Extract session manager data
@@ -56,7 +61,7 @@ export const useInactivityWarning = (
 
   // Show warning when session manager indicates inactivity
   useEffect(() => {
-    if (props.accessMode === "authenticated" || props.accessMode === "guest") {
+    if (accessMode === "authenticated" || accessMode === "guest") {
       if (showInactivityAlert && !isSessionActive) {
         console.log("🚨 [InactivityWarning] Showing inactivity warning", {
           isSessionActive,
@@ -81,7 +86,7 @@ export const useInactivityWarning = (
     isSessionActive,
     timeUntilAutoSignout,
     warningMessage,
-    props.accessMode,
+    accessMode,
   ]);
 
   // Handle continue session action

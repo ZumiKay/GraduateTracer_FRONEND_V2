@@ -60,11 +60,45 @@ export const ParagraphAnswer = (
 };
 
 export const ChoiceAnswer = (props: AnswerComponent_Props<number>) => {
+  const isSelected = props.value === props.data?.value;
+
+  const baseCheckboxStyles = `
+    w-full h-fit p-4 rounded-xl transition-all duration-200 ease-in-out
+    border-2 
+    ${
+      isSelected
+        ? "border-primary-500 bg-primary-50 dark:bg-primary-900/30 shadow-sm"
+        : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/50"
+    }
+    hover:border-primary-400 dark:hover:border-primary-500
+    hover:shadow-md hover:scale-[1.01]
+    ${props.isDisable ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
+  `;
+
+  const baseRadioStyles = `
+    w-full h-fit p-4 mb-3 rounded-xl transition-all duration-200 ease-in-out
+    border-2 
+    border-gray-200 dark:border-gray-600 
+    bg-white dark:bg-gray-800/50
+    hover:border-primary-400 dark:hover:border-primary-500
+    hover:shadow-md hover:scale-[1.01]
+    data-[selected=true]:border-primary-500 
+    data-[selected=true]:bg-primary-50 dark:data-[selected=true]:bg-primary-900/30
+    data-[selected=true]:shadow-sm
+    ${props.isDisable ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
+  `;
+
+  const labelStyles = `
+    text-base font-medium leading-relaxed w-full h-full
+    text-gray-700 dark:text-gray-200
+    ${isSelected ? "text-primary-700 dark:text-primary-300" : ""}
+  `;
+
   return props.choicety === QuestionType.CheckBox ? (
     <Checkbox
       aria-label={props.name}
-      className="w-full h-fit p-3 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors duration-200"
-      checked={props.value === props.data?.value}
+      className={baseCheckboxStyles}
+      checked={isSelected}
       size="md"
       name={props.name}
       onValueChange={(val) =>
@@ -72,18 +106,16 @@ export const ChoiceAnswer = (props: AnswerComponent_Props<number>) => {
       }
       isDisabled={props.isDisable}
     >
-      <p className="text-base font-medium text-gray-800 w-full h-full leading-relaxed">
-        {props.data?.label}
-      </p>
+      <p className={labelStyles}>{props.data?.label}</p>
     </Checkbox>
   ) : (
     <Radio
-      className="w-full h-fit p-3 mb-3 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-colors duration-200"
+      className={baseRadioStyles}
       value={props.data?.value.toString() ?? ""}
       aria-label={props.name}
       isDisabled={props.isDisable}
     >
-      <p className="text-base font-medium text-gray-800 w-full h-full leading-relaxed">
+      <p className="text-base font-medium leading-relaxed w-full h-full text-gray-700 dark:text-gray-200">
         {props.data?.label}
       </p>
     </Radio>
@@ -95,31 +127,37 @@ export const RangeNumberAnswer = (
 ) => {
   const { value: questionRange, onChange, previousAnswer } = props;
 
-  const [userSelection, setUserSelection] = useState<SliderValue | undefined>(
-    () => {
-      if (previousAnswer) {
-        return [previousAnswer.start, previousAnswer.end];
-      }
-      return undefined;
-    }
-  );
+  const [userSelection, setUserSelection] = useState<SliderValue | undefined>();
 
+  // Initialize with previous answer only once
   useEffect(() => {
-    if (onChange && questionRange && userSelection) {
-      // Send back the user's selected range
-      const val = userSelection as number[];
-      if (val[0] < val[1]) {
-        onChange({ start: val[0], end: val[1] });
-      }
+    if (previousAnswer) {
+      setUserSelection([previousAnswer.start, previousAnswer.end]);
     }
-  }, [questionRange, userSelection, onChange]);
+  }, [previousAnswer]);
 
-  // Update selection when question range changes, but preserve user selection if they have one
+  // Initialize with question range only if no previous answer and no user selection
   useEffect(() => {
     if (questionRange && !previousAnswer && !userSelection) {
       setUserSelection([questionRange.start, questionRange.start]);
     }
   }, [questionRange, previousAnswer, userSelection]);
+
+  // Handle slider changes with callback to prevent excessive calls
+  const handleSliderChange = useCallback(
+    (val: SliderValue) => {
+      setUserSelection(val);
+
+      // Only call onChange if we have a valid range
+      if (onChange && val && Array.isArray(val)) {
+        const [start, end] = val as number[];
+        if (start <= end) {
+          onChange({ start, end });
+        }
+      }
+    },
+    [onChange]
+  );
 
   return (
     <div className="w-full h-fit flex flex-col items-center gap-y-3">
@@ -132,7 +170,7 @@ export const RangeNumberAnswer = (
             <Slider
               className="w-full h-full dark:text-white"
               value={userSelection}
-              onChange={setUserSelection}
+              onChange={handleSliderChange}
               minValue={questionRange.start}
               maxValue={questionRange.end}
               aria-label={props.name || "Range selector"}

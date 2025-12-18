@@ -44,12 +44,10 @@ import {
 import NotificationSystem from "../Notification/NotificationSystem";
 import useImprovedAutoSave from "../../hooks/useImprovedAutoSave";
 import { DefaultFormState } from "../../types/Form.types";
-// Memoized components for better performance
 const MemoizedProfileIcon = React.memo(ProfileIcon);
 const MemoizedAutoSaveForm = React.memo(AutoSaveForm);
 const MemoizedNotificationSystem = React.memo(NotificationSystem);
 
-// Memoized selector to prevent unnecessary re-renders
 const selectFormData = createSelector(
   (state: RootState) => state.allform.formstate,
   (state: RootState) => state.allform.allquestion,

@@ -85,7 +85,6 @@ export const InactivityWarning: React.FC<InactivityWarningProps> = ({
       isDismissable={false}
       isKeyboardDismissDisabled={true}
       hideCloseButton={true}
-      backdrop="blur"
       size="md"
       aria-label="inactive alert modal #1"
       className={`${className}`}

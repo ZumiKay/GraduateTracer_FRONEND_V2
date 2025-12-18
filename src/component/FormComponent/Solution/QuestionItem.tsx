@@ -1,4 +1,4 @@
-import { memo, useCallback } from "react";
+import { memo } from "react";
 import Respondant_Question_Card from "../../Card/Respondant.card";
 import SolutionInput from "./SolutionInput";
 import { ContentType } from "../../../types/Form.types";
@@ -25,18 +25,9 @@ const QuestionItem = memo(
     idx,
     formColor,
     onUpdateContent,
-    onSelectAnswer,
     parentScore,
-    updateTotalScore,
   }: QuestionItemProps) => {
     const isConditional = !!question.parentcontent;
-
-    const handleSelectAnswer = useCallback(
-      (answer: { answer: ContentAnswerType }) => {
-        onSelectAnswer(answer, idx);
-      },
-      [onSelectAnswer, idx]
-    );
 
     return (
       <div
@@ -54,7 +45,6 @@ const QuestionItem = memo(
         <Respondant_Question_Card
           idx={idx}
           content={question}
-          onSelectAnswer={handleSelectAnswer}
           color={formColor}
           isDisable={true}
         />

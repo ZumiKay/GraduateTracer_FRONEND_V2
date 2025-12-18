@@ -35,12 +35,6 @@ const fetchFormTotalSummary = async (
   return response.data as FormTotalSummary;
 };
 
-// Helper to calculate page score (excluding conditional questions)
-const calculatePageScore = (questions: ContentType[]) =>
-  questions
-    .filter((q) => !q.parentcontent)
-    .reduce((total, q) => total + (q.score ?? 0), 0);
-
 const Solution_Tab = memo(() => {
   const dispatch = useDispatch();
 
@@ -49,10 +43,7 @@ const Solution_Tab = memo(() => {
     (root: RootState) => root.allform.allquestion,
     shallowEqual
   );
-  const prevAllQuestion = useSelector(
-    (root: RootState) => root.allform.prevAllQuestion,
-    shallowEqual
-  );
+
   const fetchloading = useSelector(
     (root: RootState) => root.allform.fetchloading
   );
@@ -79,8 +70,7 @@ const Solution_Tab = memo(() => {
   const [validationSummary, setValidationSummary] =
     useState<FormValidationSummary | null>(null);
 
-  const { validateForm, isValidating, showValidationErrors } =
-    useFormValidation();
+  const { validateForm, isValidating } = useFormValidation();
 
   // Query for form summary
   const {
@@ -113,14 +103,6 @@ const Solution_Tab = memo(() => {
 
     return { parentScoreMap: scoreMap, parentQIdxMap: idxMap };
   }, [allquestion]);
-
-  // Real-time total score calculation
-  const calculatedTotalScore = useMemo(() => {
-    const currentPageScore = calculatePageScore(allquestion);
-    const originalPageScore = calculatePageScore(prevAllQuestion);
-    const scoreDifference = currentPageScore - originalPageScore;
-    return (formTotalScore ?? 0) + scoreDifference;
-  }, [allquestion, prevAllQuestion, formTotalScore]);
 
   // Conditional questions count
   const conditionalCount = useMemo(
@@ -181,7 +163,7 @@ const Solution_Tab = memo(() => {
         refetchTotal();
 
         if (validation.validationResults.errors?.length) {
-          showValidationErrors(validation);
+          console.log("Debug validation result", validation.validationResults);
         } else {
           InfoToast({
             title: "Validation Success",
@@ -198,7 +180,7 @@ const Solution_Tab = memo(() => {
         toastid: "validation-error",
       });
     }
-  }, [formId, validateForm, refetchTotal, showValidationErrors]);
+  }, [formId, validateForm, refetchTotal]);
 
   //Trigger Revalidate Solution Content
   useEffect(() => {
@@ -227,7 +209,7 @@ const Solution_Tab = memo(() => {
         loading={loading}
         isValidating={isValidating}
         totalsummerize={totalsummerize}
-        formTotalScore={calculatedTotalScore}
+        formTotalScore={formTotalScore}
         validationSummary={validationSummary}
         onValidateAll={handleValidateAll}
       />

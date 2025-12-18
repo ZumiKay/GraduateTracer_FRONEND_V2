@@ -13,9 +13,9 @@ interface UseSessionManagerProps {
   onAutoSignOut?: () => Promise<void>;
 }
 
-const INACTIVITY_WARNING_TIMEOUT = 30 * 60 * 1000; // 30 minute
-const AUTO_SIGNOUT_TIMEOUT = 60 * 60 * 1000; // 60 minutes
-const PAGE_VISIBILITY_ALERT_THRESHOLD = 15 * 60 * 1000; // 5 minutes
+const INACTIVITY_WARNING_TIMEOUT = 10 * 60 * 1000; // 10 minute
+const AUTO_SIGNOUT_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const PAGE_VISIBILITY_ALERT_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 const ACTIVITY_EVENTS = [
   "mousedown",
   "mousemove",
@@ -70,10 +70,6 @@ export const useSessionManager = ({
       autoSignoutTimeoutRef.current = null;
     }
 
-    // Reset warning states
-    setUserInactive(false);
-    setShowWarning(false);
-
     // Update last activity time
     const activityDate = new Date();
     setLastActivityTime(activityDate);
@@ -124,10 +120,36 @@ export const useSessionManager = ({
     resetActivityTimerRef.current();
   }, []);
 
-  // Helper function to reactivate session (alias for resetActivityTimer)
+  // Helper function to reactivate session
   const handleReactivateSession = useCallback(() => {
+    console.log("🔄 Reactivating session...");
+
+    // Reset the throttle timestamp to allow immediate reset
+    lastResetTimeRef.current = 0;
+
+    // Clear existing timers
+    if (activityTimeoutRef.current !== null) {
+      clearTimeout(activityTimeoutRef.current);
+      activityTimeoutRef.current = null;
+    }
+    if (autoSignoutTimeoutRef.current !== null) {
+      clearTimeout(autoSignoutTimeoutRef.current);
+      autoSignoutTimeoutRef.current = null;
+    }
+
+    // Reset all state
+    setUserInactive(false);
+    setShowWarning(false);
+    setformsession((prev) => ({
+      ...prev,
+      isActive: true,
+    }));
+
+    // Now reset the activity timer
     resetActivityTimerRef.current();
-  }, []);
+
+    console.log("✅ Session reactivated successfully");
+  }, [setformsession]);
 
   // Initialize timer when form loads - optimized with ref
   useEffect(() => {
@@ -150,7 +172,7 @@ export const useSessionManager = ({
     };
   }, [accessMode, isFormRequiredSessionChecked]);
 
-  // Event listeners - now stable since handleActivity has no dependencies
+  // Event listeners
   useEffect(() => {
     if (
       (accessMode === "authenticated" && isFormRequiredSessionChecked) ||

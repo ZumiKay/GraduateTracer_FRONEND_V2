@@ -127,7 +127,7 @@ export const useResponseScoring = ({
       if (!responseId) return;
 
       setPendingScores((prev) => {
-        const updated = { ...prev, [questionId]: score, comment };
+        const updated = { ...prev, [questionId]: score };
         setHasUnsavedChanges(Object.keys(updated).length > 0);
         return updated;
       });
@@ -151,15 +151,22 @@ export const useResponseScoring = ({
 
   // Handle save all scores (optimized batch save)
   const handleSaveAllScores = useCallback(async () => {
-    if (
-      !selectedResponse ||
-      !responseId ||
-      Object.keys(pendingScores).length === 0
-    )
-      return;
+    if (!selectedResponse || !responseId) return;
 
+    // Clear any pending debounce timers first
     Object.values(saveTimeoutRef.current).forEach(clearTimeout);
     saveTimeoutRef.current = {};
+
+    // Check if there are scores to save
+    if (Object.keys(pendingScores).length === 0) {
+      // No pending scores - already saved
+      setHasUnsavedChanges(false);
+      SuccessToast({
+        title: "Success",
+        content: "All scores are already saved",
+      });
+      return;
+    }
 
     const pendingCount = Object.keys(pendingScores).length;
 

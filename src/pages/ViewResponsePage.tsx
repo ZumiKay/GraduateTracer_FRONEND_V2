@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FormTypeEnum, QuestionType } from "../types/Form.types";
 import {
   ResponseDataType,
+  ScoringMethod,
   statusColor,
 } from "../component/Response/Response.type";
 import { getResponseDisplayName } from "../utils/respondentUtils";
@@ -208,10 +209,7 @@ const ViewResponsePage: React.FC = () => {
 
     return selectedResponse.responseset?.map((resp, index) => {
       const question = resp.question;
-      const isAutoScore = question
-        ? question.hasAnswer && question.score !== 0
-        : false;
-
+      const isAutoScore = resp.scoringMethod === ScoringMethod.AUTO;
       return {
         id: `${resp._id}-${index}`,
         response: resp,
@@ -232,6 +230,7 @@ const ViewResponsePage: React.FC = () => {
       // A question needs score if it's a quiz question and not a text type
       if (
         question &&
+        question.require &&
         question.type !== QuestionType.Text &&
         !question.parentcontent
       ) {
@@ -251,7 +250,7 @@ const ViewResponsePage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900">
+      <div className="flex items-center justify-center min-w-7xl min-h-screen bg-white dark:bg-gray-900">
         <CircularProgress size="lg" />
       </div>
     );

@@ -39,7 +39,7 @@ const App = memo(() => {
     data: sessionData,
     isFetching,
     isLoading,
-  } = useUserSession({ enabled: pathname !== "/" });
+  } = useUserSession({ enabled: !!["/", "/form-access"].includes(pathname) });
 
   // Memoize pathname checks for performance
   const shouldShowNavigation = useMemo(

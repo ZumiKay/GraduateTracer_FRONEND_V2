@@ -3,39 +3,21 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   memo,
   lazy,
 } from "react";
-import { Alert, Button, Spinner } from "@heroui/react";
-import ApiRequest, { ApiRequestReturnType } from "../../hooks/ApiHook";
+import { Alert, Spinner } from "@heroui/react";
 import {
-  FormTypeEnum,
   QuestionType,
   AnswerKey,
-  FormResponseType,
+  ContentType,
+  FormTypeEnum as FormTypeEnumImport,
 } from "../../types/Form.types";
+import { useSessionContext } from "../../context/SessionContext";
 
-const Respondant_Question_Card = lazy(() => import("../Card/Respondant.card"));
 const FormHeader = lazy(() =>
   import("./components/FormHeader").then((m) => ({ default: m.FormHeader }))
-);
-
-const ConditionalIndicator = lazy(() =>
-  import("./components/ConditionalIndicator").then((m) => ({
-    default: m.ConditionalIndicator,
-  }))
-);
-const CheckboxQuestion = lazy(() =>
-  import("./components/CheckboxQuestion").then((m) => ({
-    default: m.CheckboxQuestion,
-  }))
-);
-const MultipleChoiceQuestion = lazy(() =>
-  import("./components/MultipleChoiceQuestion").then((m) => ({
-    default: m.MultipleChoiceQuestion,
-  }))
 );
 const Navigation = lazy(() =>
   import("./components/Navigation").then((m) => ({ default: m.Navigation }))
@@ -46,24 +28,22 @@ const FormStateCard = lazy(() =>
   }))
 );
 
-import {
-  useFormResponses,
-  ResponseValue,
-  FormResponse,
-} from "./hooks/useFormResponses";
+import { useFormResponses, ResponseValue } from "./hooks/useFormResponses";
 import { useFormValidation } from "./hooks/useFormValidation";
 import { UseRespondentFormPaginationReturn } from "./hooks/usePaginatedFormData";
-import {
-  RespondentInfoType,
-  SaveProgressType,
-  SubmittionProcessionReturnType,
-} from "./Response.type";
-import { useMutation } from "@tanstack/react-query";
+import { RespondentInfoType } from "./Response.type";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
-import { generateStorageKey } from "../../helperFunc";
 import { RespondentInfo } from "./components/RespondentInfo";
 import { useDispatch } from "react-redux";
 import { setopenmodal } from "../../redux/openmodal";
+import { useProgressStorage } from "./hooks/useProgressStorage";
+import {
+  useFormSubmission,
+  useSendResponseCopy,
+} from "./hooks/useFormSubmission";
+import { SubmissionSuccessView } from "./components/SubmissionSuccessView";
+import { DebugPanel } from "./components/DebugPanel";
+import { QuestionRenderer } from "./components/QuestionRenderer";
 
 const uniqueToastId = "respondentFormUniqueToastId";
 
@@ -72,10 +52,8 @@ export interface RespondentFormProps {
   userId?: string;
   data: UseRespondentFormPaginationReturn;
   formSessionInfo: RespondentInfoType;
-  // New props to better integrate with PublicFormAccess
   accessMode?: "login" | "guest" | "authenticated";
   isUserActive?: boolean;
-  response?: Partial<FormResponseType>;
 }
 
 const LoadingFallback = memo(() => (
@@ -85,22 +63,6 @@ const LoadingFallback = memo(() => (
 ));
 
 LoadingFallback.displayName = "LoadingFallback";
-
-const useSendResponseCopy = (responseId?: string, recipitentEmail?: string) =>
-  useMutation({
-    mutationFn: async () => {
-      const req = await ApiRequest({
-        method: "POST",
-        url: "/response/send-card-email",
-        data: {
-          responseId,
-          recipitentEmail,
-        },
-      });
-
-      return req;
-    },
-  });
 
 const RespondentForm: React.FC<RespondentFormProps> = memo(
   ({
@@ -122,11 +84,12 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     } = data;
 
     const dispatch = useDispatch();
+    const { checkSession } = useSessionContext();
 
     const questions = useMemo(
       () => formState?.contents || [],
       [formState?.contents]
-    );
+    ) as ContentType<unknown>[];
 
     const {
       responses,
@@ -143,34 +106,64 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       checkIfQuestionShouldShow
     );
 
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
-    const [submissionResult, setSubmissionResult] =
-      useState<SubmittionProcessionReturnType | null>(null);
-    const [progressLoaded, setProgressLoaded] = useState(false);
     const [respondentInfo, setRespondentInfo] =
       useState<RespondentInfoType>(formSessionInfo);
 
-    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+      setRespondentInfo(formSessionInfo);
+    }, [formSessionInfo]);
+
+    // Use progress storage hook
+    const {
+      progressLoaded,
+      setProgressLoaded,
+      progressStorageKey,
+      saveProgressToStorage,
+      loadProgressFromStorage,
+    } = useProgressStorage({
+      formId: formState?._id,
+      respondentEmail: formSessionInfo.respondentEmail,
+      responses,
+      currentPage: currentPage ?? 1,
+      formSessionInfo,
+      success: false, // Will be updated after submission hook
+      accessMode,
+      isUserActive,
+      submitting: false, // Will be updated after submission hook
+    });
+
+    // Use form submission hook
+    const {
+      submitting,
+      error,
+      success,
+      setSuccess,
+      submissionResult,
+      handleSubmit,
+    } = useFormSubmission({
+      formId: formState?._id,
+      formType: formState?.type as FormTypeEnumImport | undefined,
+      progressStorageKey,
+      questions,
+      responses,
+      checkIfQuestionShouldShow: checkIfQuestionShouldShow as never,
+      validateForm: validateForm as never,
+      respondentInfo,
+      clearProgressState,
+    });
+
+    const scoreData = useMemo(() => {
+      return (
+        submissionResult ?? formState?.submittedResult ?? formState?.isResponsed
+      );
+    }, [formState?.isResponsed, formState?.submittedResult, submissionResult]);
 
     const sendResponse = useSendResponseCopy(
-      submissionResult?.responseId,
-      submissionResult?.respondentEmail
+      scoreData?.responseId,
+      scoreData?.respondentEmail
     );
 
-    //Progress Key
-    const progressStorageKey = useMemo(() => {
-      if (!formState || !formState._id) return null;
-
-      return generateStorageKey({
-        suffix: "progress",
-        formId: formState._id,
-        userKey: formSessionInfo?.respondentEmail,
-      });
-    }, [formState, formSessionInfo?.respondentEmail]);
-
-    //Check if the user already response
+    // Check if the user already responded
     useEffect(() => {
       if (formState?.setting?.submitonce && formState.isResponsed) {
         setSuccess(true);
@@ -180,223 +173,10 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       formState?.isResponsed,
       formState?.responses,
       formState?.setting?.submitonce,
+      setSuccess,
     ]);
-    useEffect(() => {
-      //Clear storage if form is submitted
-      if (success && progressStorageKey) {
-        window.localStorage.removeItem(progressStorageKey);
-      }
-    }, [clearProgressState, progressStorageKey, success]);
 
-    const saveProgressToStorage = useCallback(
-      (value?: Record<string, unknown>) => {
-        if (
-          !formState?._id ||
-          !progressLoaded ||
-          !progressStorageKey ||
-          success
-        ) {
-          return;
-        }
-
-        if (accessMode === "login" && !isUserActive) {
-          return;
-        }
-
-        try {
-          let previousStoredData: SaveProgressType | null = null;
-
-          //Get form progress
-          try {
-            const savedProgress = localStorage.getItem(progressStorageKey);
-            if (savedProgress) {
-              previousStoredData = JSON.parse(
-                savedProgress
-              ) as SaveProgressType;
-            }
-          } catch (parseError) {
-            console.warn(
-              "Failed to parse previously stored progress data:",
-              parseError
-            );
-          }
-
-          const nonNullResponses = responses.filter((r) => {
-            if (
-              r.response === null ||
-              r.response === undefined ||
-              r.response === ""
-            ) {
-              return false;
-            }
-            if (Array.isArray(r.response)) {
-              return r.response.length > 0;
-            }
-            return true;
-          });
-
-          let responsesSetUp;
-
-          if (
-            previousStoredData?.responses &&
-            previousStoredData.responses.length > 0 &&
-            nonNullResponses.length > 0
-          ) {
-            const mergedResponses = [...previousStoredData.responses];
-
-            nonNullResponses.forEach((meaningfulRes) => {
-              const existingIndex = mergedResponses.findIndex(
-                (prevRes) => prevRes.question === meaningfulRes.question
-              );
-
-              if (existingIndex !== -1) {
-                mergedResponses[existingIndex] = {
-                  ...mergedResponses[existingIndex],
-                  response: meaningfulRes.response,
-                };
-              } else {
-                mergedResponses.push(meaningfulRes);
-              }
-            });
-
-            responsesSetUp = mergedResponses;
-          } else {
-            if (
-              previousStoredData?.responses &&
-              previousStoredData.responses.length > 0
-            )
-              responsesSetUp = previousStoredData?.responses;
-            else responsesSetUp = nonNullResponses;
-          }
-
-          const progressData: SaveProgressType = {
-            currentPage: currentPage ?? 1,
-            responses: responsesSetUp,
-            respondentInfo: {
-              ...((previousStoredData?.respondentInfo ??
-                formSessionInfo) as RespondentInfoType),
-            },
-            timestamp: new Date().toISOString(),
-            formId: formState._id,
-            version: "1.0", // Add version for future compatibility
-            ...(value ?? {}),
-          };
-
-          localStorage.setItem(
-            progressStorageKey,
-            JSON.stringify(progressData)
-          );
-
-          // Clean up duplicate progress key without email if we're saving with email
-          if (formSessionInfo?.respondentEmail) {
-            const keyWithoutEmail = generateStorageKey({
-              suffix: "progress",
-              formId: formState._id,
-              userKey: undefined, // No email
-            });
-
-            // Remove the key without email if it exists and is different from current key
-            if (
-              keyWithoutEmail !== progressStorageKey &&
-              localStorage.getItem(keyWithoutEmail)
-            ) {
-              localStorage.removeItem(keyWithoutEmail);
-              if (import.meta.env.DEV) {
-                console.log(
-                  "Removed duplicate progress key without email:",
-                  keyWithoutEmail
-                );
-              }
-            }
-          }
-
-          if (import.meta.env.DEV) {
-            console.log("Progress saved to localStorage:", {
-              key: progressStorageKey,
-              responsesCount: responsesSetUp.length,
-              currentPage: progressData.currentPage,
-              timestamp: progressData.timestamp,
-            });
-          }
-        } catch (error) {
-          console.error("Failed to save progress to localStorage:", error);
-        }
-      },
-      [
-        formState?._id,
-        progressLoaded,
-        progressStorageKey,
-        success,
-        accessMode,
-        isUserActive,
-        responses,
-        currentPage,
-        formSessionInfo,
-      ]
-    );
-
-    const debouncedSaveProgress = useCallback(() => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-
-      saveTimeoutRef.current = setTimeout(() => {
-        saveProgressToStorage();
-      }, 1000);
-    }, [saveProgressToStorage]);
-
-    const loadProgressFromStorage = useCallback(() => {
-      if (!formState?._id || !progressStorageKey) {
-        return false;
-      }
-
-      try {
-        const savedProgress = localStorage.getItem(progressStorageKey);
-
-        if (savedProgress) {
-          const progressData = JSON.parse(savedProgress) as SaveProgressType;
-
-          if (progressData.formId === formState._id && progressData.version) {
-            if (progressData.responses && progressData.responses.length > 0) {
-              updateResponse(progressData.responses as never);
-            }
-
-            if (progressData.currentPage && progressData.currentPage > 0) {
-              //Restore saved page with time 1ms
-              setTimeout(() => {
-                goToPage(progressData.currentPage);
-                data.goToPage(progressData.currentPage);
-                setProgressLoaded(true);
-                if (import.meta.env.DEV) {
-                  console.log(
-                    "Restored current page:",
-                    progressData.currentPage
-                  );
-                }
-              }, 100);
-            } else {
-              setProgressLoaded(true);
-            }
-
-            return true;
-          }
-        } else {
-          if (import.meta.env.DEV) {
-            console.log("No saved progress found for key:", progressStorageKey);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load progress from localStorage:", error);
-
-        try {
-          localStorage.removeItem(progressStorageKey);
-        } catch (clearError) {
-          console.error("Failed to clear corrupted progress data:", clearError);
-        }
-      }
-      return false;
-    }, [formState?._id, progressStorageKey, updateResponse, goToPage, data]);
-
+    // Load progress from storage on mount
     useEffect(() => {
       if (questions.length > 0 && formState?._id) {
         const questionsWithoutIds = questions.filter((q) => !q._id);
@@ -405,8 +185,12 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         }
 
         const timer = setTimeout(() => {
-          const progressLoaded = loadProgressFromStorage();
-          if (progressLoaded && import.meta.env.DEV) {
+          const loaded = loadProgressFromStorage(
+            updateResponse,
+            goToPage,
+            data.goToPage
+          );
+          if (loaded && import.meta.env.DEV) {
             console.log("Progress successfully restored from localStorage");
           } else {
             setProgressLoaded(true);
@@ -420,66 +204,17 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           formId: formState?._id,
         });
       }
-    }, [formState?._id, loadProgressFromStorage, questions]);
-
-    useEffect(() => {
-      if (
-        formState?._id &&
-        questions.length > 0 &&
-        progressLoaded &&
-        (accessMode === "guest" || isUserActive)
-      ) {
-        debouncedSaveProgress();
-      }
     }, [
-      questions.length,
-      responses,
-      currentPage,
-      progressLoaded,
       formState?._id,
-      submitting,
-      debouncedSaveProgress,
-      accessMode,
-      isUserActive,
+      loadProgressFromStorage,
+      questions,
+      updateResponse,
+      goToPage,
+      data,
+      setProgressLoaded,
     ]);
 
-    // Cleanup timeout on unmount
-    useEffect(() => {
-      return () => {
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current);
-        }
-      };
-    }, []);
-
-    // Save progress when user leaves the page
-    useEffect(() => {
-      const handleBeforeUnload = () => {
-        saveProgressToStorage();
-      };
-
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === "hidden") {
-          saveProgressToStorage();
-        }
-      };
-
-      if (!submitting && !success) {
-        window.addEventListener("beforeunload", handleBeforeUnload);
-        document.addEventListener("visibilitychange", handleVisibilityChange);
-      }
-
-      return () => {
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange
-        );
-      };
-    }, [saveProgressToStorage, submitting, success]);
-
-    //Apply the style setting to the form
-
+    // Apply the style setting to the form
     useEffect(() => {
       if (formState?.setting) {
         const root = document.documentElement;
@@ -531,11 +266,29 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     const currentQuestions = getCurrentPageQuestions();
     const currentPageComplete = isPageComplete(currentQuestions, responses);
 
+    // Session check wrapper for page navigation
+    const withSessionCheck = useCallback(
+      async (action: () => void) => {
+        // Only check session for authenticated/guest modes
+        if (accessMode === "authenticated" || accessMode === "guest") {
+          const isValid = await checkSession();
+          if (!isValid) {
+            console.log("❌ Session expired, blocking navigation");
+            return;
+          }
+        }
+        action();
+      },
+      [accessMode, checkSession]
+    );
+
     const handlePageChange = useCallback(
       (newPage: number) => {
-        const proceed = () => {
-          saveProgressToStorage({ currentPage: newPage });
-          goToPage(newPage);
+        const proceed = async () => {
+          await withSessionCheck(() => {
+            saveProgressToStorage({ currentPage: newPage });
+            goToPage(newPage);
+          });
         };
 
         if (!currentPageComplete) {
@@ -560,27 +313,50 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
         proceed();
       },
-      [currentPageComplete, saveProgressToStorage, goToPage, dispatch]
+      [
+        currentPageComplete,
+        saveProgressToStorage,
+        goToPage,
+        dispatch,
+        withSessionCheck,
+      ]
     );
 
-    // Navigation handlers
-    const handleNext = useCallback(() => {
+    // Navigation handlers with session check
+    const handleNext = useCallback(async () => {
       if (canGoNext && currentPage) {
-        saveProgressToStorage({
-          currentPage: currentPage < totalPages ? currentPage + 1 : 1,
+        await withSessionCheck(() => {
+          saveProgressToStorage({
+            currentPage: currentPage < totalPages ? currentPage + 1 : 1,
+          });
+          handlePage("next");
         });
-        handlePage("next");
       }
-    }, [canGoNext, currentPage, saveProgressToStorage, totalPages, handlePage]);
+    }, [
+      canGoNext,
+      currentPage,
+      saveProgressToStorage,
+      totalPages,
+      handlePage,
+      withSessionCheck,
+    ]);
 
-    const handlePrevious = useCallback(() => {
+    const handlePrevious = useCallback(async () => {
       if (canGoPrev && currentPage) {
-        saveProgressToStorage({
-          currentPage: currentPage === 1 ? 1 : currentPage - 1,
+        await withSessionCheck(() => {
+          saveProgressToStorage({
+            currentPage: currentPage === 1 ? 1 : currentPage - 1,
+          });
+          handlePage("prev");
         });
-        handlePage("prev");
       }
-    }, [canGoPrev, currentPage, handlePage, saveProgressToStorage]);
+    }, [
+      canGoPrev,
+      currentPage,
+      handlePage,
+      saveProgressToStorage,
+      withSessionCheck,
+    ]);
 
     const handleQuestionAnswer = useCallback(
       (questionId: string, answer: Pick<AnswerKey, "answer">) => {
@@ -652,139 +428,12 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       []
     );
 
-    const handleSubmit = async () => {
-      if (!formState || !progressStorageKey) {
-        ErrorToast({
-          toastid: "SubmitError",
-          title: "Failed",
-          content: "Missing Parameter",
-        });
-        return;
-      }
-
-      //Load progress from storage
-      const savedData = localStorage.getItem(progressStorageKey);
-      const prevQuestion =
-        savedData && (JSON.parse(savedData) as SaveProgressType);
-
-      let ToSubmitQuestion: FormResponse[] = [];
-
-      if (
-        prevQuestion &&
-        prevQuestion.responses &&
-        prevQuestion.responses.length > 0
-      ) {
-        ToSubmitQuestion = prevQuestion.responses;
-      } else {
-        ToSubmitQuestion = responses;
-      }
-
-      //Ensure all question is valid
-      const allVisibleQuestions = questions.filter((question) => {
-        if (!question._id) {
-          console.error(
-            "Question found without ID during submission:",
-            question
-          );
-          return false;
-        }
-
-        try {
-          return checkIfQuestionShouldShow(question, responses);
-        } catch (error) {
-          console.error(
-            "Error checking question visibility during submission:",
-            error,
-            question
-          );
-          return false;
-        }
-      });
-
-      //Final Validation Question // Wrong format // Missing Required etc.
-      const validationError = validateForm(questions, ToSubmitQuestion);
-
-      if (validationError) {
-        setError(validationError);
-        return;
-      }
-
-      if (
-        formState?.type === FormTypeEnum.Quiz &&
-        !formSessionInfo?.respondentEmail
-      ) {
-        setError("Email is required for quiz forms");
-        return;
-      }
-
-      const visibleQuestionIds = new Set(allVisibleQuestions.map((q) => q._id));
-
-      //Check for required conditioned question
-      const filteredResponses = responses.filter((r) => {
-        const isVisible = visibleQuestionIds.has(r.question);
-        const hasValue =
-          r.response !== null && r.response !== undefined && r.response !== "";
-
-        if (Array.isArray(r.response)) {
-          return isVisible; // Include all array responses, even empty ones
-        }
-
-        return isVisible && hasValue;
-      });
-
-      if (
-        filteredResponses.length === 0 &&
-        allVisibleQuestions.some((q) => q.require)
-      ) {
-        setError(
-          "Please fill out at least the required fields before submitting"
-        );
-        return;
-      }
-
-      try {
-        setSubmitting(true);
-        setError(null);
-
-        const result = (await ApiRequest({
-          url: `response/submit-response/${formState._id}`,
-          method: "POST",
-          cookie: true,
-          data: {
-            responseSet: ToSubmitQuestion,
-            respondentEmail: respondentInfo?.respondentEmail,
-            respondentName: respondentInfo?.respondentName,
-          },
-        })) as ApiRequestReturnType;
-
-        if (result.success) {
-          // Store submission result data for display
-          if (result.data && typeof result.data === "object") {
-            const data = result.data as SubmittionProcessionReturnType;
-            setSubmissionResult(data);
-          }
-
-          setSuccess(true);
-          //Remove progressStorage
-          clearProgressState();
-          window.localStorage.removeItem(progressStorageKey);
-        } else {
-          setError(result.error || "Failed to submit form");
-        }
-      } catch (error) {
-        console.error("Error submitting form:", error);
-        setError("Failed to submit form");
-      } finally {
-        setSubmitting(false);
-      }
-    };
-
     const handleSendACopy = async () => {
-      if (!submissionResult?.responseId || !submissionResult.respondentEmail) {
+      if (!scoreData?.responseId || !scoreData.respondentEmail) {
         ErrorToast({
           toastid: uniqueToastId,
           title: "Invalid",
-          content: "Please submit response first",
+          content: "Unexpected Error",
         });
         return;
       }
@@ -837,84 +486,15 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     }
 
     if (success) {
-      // Use submissionResult as the primary source for score data
-      const scoreData =
-        submissionResult ??
-        formState?.submittedResult ??
-        formState?.isResponsed;
-
-      // hasScore should be true when we have valid score data and the form is scoreable (not isNonScore)
-      // Note: totalScore >= 0 is valid (user could score 0 points)
-      const hasScore =
-        scoreData &&
-        !scoreData.isNonScore &&
-        typeof scoreData.totalScore === "number" &&
-        typeof scoreData.maxScore === "number" &&
-        scoreData.maxScore > 0;
-
-      const scorePercentage =
-        hasScore && scoreData.maxScore
-          ? Math.round((scoreData.totalScore / scoreData.maxScore) * 100)
-          : null;
-
-      let subMessage = "";
-      if (formState?.type === "QUIZ") {
-        if (hasScore) {
-          subMessage = `Your score: ${scoreData.totalScore}/${scoreData.maxScore}`;
-          if (scorePercentage !== null) {
-            subMessage += ` (${scorePercentage}%)`;
-          }
-        } else {
-          subMessage =
-            "Results will be sent to your email address if scoring is enabled.";
-        }
-      }
-
       return (
-        <div className="max-w-2xl mx-auto p-6 respondent-form">
-          <FormStateCard
-            type="success"
-            icon="✓"
-            title="Form Submitted Successfully!"
-            message="Thank you for your response. Your submission has been recorded."
-            subMessage={subMessage || undefined}
-          />
-          {hasScore && scoreData && (
-            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium text-green-800">Your Score</h4>
-                  <p className="text-2xl font-bold text-green-600">
-                    {scoreData.totalScore} / {scoreData.maxScore}
-                  </p>
-                  {scorePercentage !== null && (
-                    <p className="text-sm text-green-600">
-                      ({scorePercentage}%)
-                    </p>
-                  )}
-                </div>
-                <div className="w-full h-fit flex flex-col justify-center">
-                  {scoreData.message && (
-                    <div className="flex items-center text-amber-600 text-sm mt-1">
-                      <span className="mr-1">📝</span>
-                      <span>{scoreData.message}</span>
-                    </div>
-                  )}
-                  {scoreData.responseId && scoreData.respondentEmail && (
-                    <Button
-                      className="responseCopy font-bold text-white"
-                      variant="bordered"
-                      color="default"
-                      onPress={() => handleSendACopy()}
-                    >
-                      {`Send a copy of the response`}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <SubmissionSuccessView
+          formType={formState?.type as FormTypeEnumImport | undefined}
+          submissionResult={submissionResult}
+          formSubmittedResult={formState?.submittedResult}
+          formIsResponsed={formState?.isResponsed}
+          onSendCopy={handleSendACopy}
+          isSendingCopy={sendResponse.isPending}
+        />
       );
     }
 
@@ -973,72 +553,14 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
           <div className="space-y-6">
             {/* Debug info for conditional questions in development */}
-            {import.meta.env.DEV && (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
-                <h3 className="text-sm font-medium text-blue-800 mb-2">
-                  Debug: Paginated Form Status
-                </h3>
-                <div className="text-xs text-blue-600 space-y-1">
-                  <p>
-                    Total questions: {questions.length} | Current page:{" "}
-                    {currentPage}/{totalPages} | Loading:{" "}
-                    {isLoading ? "Yes" : "No"} | Current page questions:{" "}
-                    {getCurrentPageQuestions().length} | Unique IDs:{" "}
-                    {new Set(questions.map((q) => q._id)).size} | Responses with
-                    values:{" "}
-                    {
-                      responses.filter(
-                        (r) =>
-                          r.response !== "" &&
-                          r.response !== null &&
-                          r.response !== undefined
-                      ).length
-                    }
-                  </p>
-                  {/* Duplicate detection warning */}
-                  {questions.length !==
-                    new Set(questions.map((q) => q._id)).size && (
-                    <p className="text-red-600 font-bold">
-                      ⚠️ DUPLICATES DETECTED:{" "}
-                      {questions.length -
-                        new Set(questions.map((q) => q._id)).size}{" "}
-                      duplicate question(s) found!
-                    </p>
-                  )}
-                  {questions
-                    .filter((q) => q.require)
-                    .map((q) => {
-                      const isVisible = checkIfQuestionShouldShow(q, responses);
-                      const response = responses.find(
-                        (r) => r.question === q._id
-                      );
-                      const hasValidResponse =
-                        response &&
-                        response.response !== "" &&
-                        response.response !== null &&
-                        response.response !== undefined;
-                      const title =
-                        typeof q.title === "string" ? q.title : String(q.title);
-
-                      return (
-                        <div
-                          key={q._id}
-                          className={`p-1 rounded ${
-                            isVisible && q.require && !hasValidResponse
-                              ? "bg-red-100"
-                              : "bg-green-100"
-                          }`}
-                        >
-                          <strong>{title.substring(0, 30)}...</strong> |
-                          Visible: {isVisible ? "✓" : "✗"} | Required:{" "}
-                          {q.require ? "✓" : "✗"} | Has Response:{" "}
-                          {hasValidResponse ? "✓" : "✗"} | Value:{" "}
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
+            <DebugPanel
+              questions={questions}
+              currentPage={currentPage ?? 1}
+              totalPages={totalPages}
+              isLoading={isLoading}
+              responses={responses}
+              checkIfQuestionShouldShow={checkIfQuestionShouldShow as never}
+            />
 
             {/* Page loading indicator */}
             {isLoading && (
@@ -1049,65 +571,20 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             )}
 
             {!isLoading &&
-              currentQuestions
-                .map((question, index) => {
-                  // Safety check: ensure question has required properties
-                  if (!question._id) {
-                    console.error("Question missing ID:", question);
-                    return null;
-                  }
-
-                  const currentResponse = responses.find(
+              currentQuestions.map((question, index) => (
+                <QuestionRenderer
+                  key={question._id}
+                  question={question}
+                  index={index}
+                  questions={questions}
+                  currentResponse={responses.find(
                     (r) => r.question === question._id
-                  );
-
-                  return (
-                    <div key={question._id} className="question-wrapper">
-                      <ConditionalIndicator
-                        question={question}
-                        questions={questions}
-                      />
-
-                      {question.type === QuestionType.CheckBox ? (
-                        <CheckboxQuestion
-                          question={question}
-                          currentResponse={currentResponse?.response as never}
-                          updateResponse={updateResponse}
-                        />
-                      ) : question.type === QuestionType.MultipleChoice ? (
-                        <MultipleChoiceQuestion
-                          question={question}
-                          currentResponse={currentResponse?.response as never}
-                          updateResponse={updateResponse}
-                        />
-                      ) : (
-                        <div className="p-6 bg-white rounded-lg border shadow-sm">
-                          <Respondant_Question_Card
-                            content={{
-                              ...question,
-                              idx: index,
-                              answer:
-                                currentResponse?.response !== undefined &&
-                                currentResponse.response !== null
-                                  ? ({
-                                      answer: currentResponse.response,
-                                    } as AnswerKey)
-                                  : undefined,
-                            }}
-                            color={formState?.setting?.qcolor}
-                            ty="form"
-                            idx={index}
-                            onSelectAnswer={(answer) =>
-                              handleQuestionAnswer(question._id || "", answer)
-                            }
-                            isDisable={false}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-                .filter(Boolean)}
+                  )}
+                  formQColor={formState?.setting?.qcolor}
+                  onAnswer={handleQuestionAnswer}
+                  updateResponse={updateResponse as never}
+                />
+              ))}
           </div>
 
           {error && (

@@ -421,7 +421,7 @@ function FormPage() {
       {/* Pagination */}
 
       {(tab === "question" || tab === "solution") && formstate.totalpage ? (
-        <div className="w-full h-fit grid place-content-center">
+        <div className="sticky bottom-0 left-0 right-0 w-full h-fit py-3 grid place-content-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
           <Pagination
             page={page}
             setPage={handlePage}

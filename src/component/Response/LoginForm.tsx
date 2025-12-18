@@ -35,16 +35,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             fullWidth
             value={loginData.email}
             onChange={onLoginChange}
-            variant="bordered"
             radius="lg"
             size="lg"
             className="w-full"
-            classNames={{
-              input: "text-gray-700 autofill:text-gray-700 autofill:bg-white",
-              inputWrapper:
-                "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/50 transition-colors",
-              label: "text-gray-600 font-medium",
-            }}
             startContent={<FiMail className="w-4 h-4 text-gray-400" />}
             isRequired
           />
@@ -58,16 +51,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             placeholder="Enter your password"
             value={loginData.password}
             onChange={onLoginChange}
-            variant="bordered"
             radius="lg"
             size="lg"
             className="w-full"
-            classNames={{
-              input: "text-gray-700",
-              inputWrapper:
-                "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/50 transition-colors",
-              label: "text-gray-600 font-medium",
-            }}
             isRequired
           />
         </div>

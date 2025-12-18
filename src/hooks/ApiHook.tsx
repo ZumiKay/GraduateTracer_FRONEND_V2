@@ -16,6 +16,7 @@ interface ApiRequestProps {
   encrypt?: boolean;
   timeout?: number;
   skipRefresh?: boolean; // Skip token refresh for this request
+  throwError?: boolean;
 }
 
 interface ErrorResponse {
@@ -56,6 +57,7 @@ export interface ApiRequestReturnType {
   };
   errors?: Array<{ message: string }>;
   details?: string;
+  errorResponses?: ErrorResponse;
 }
 
 interface EncryptedPathResponse {
@@ -438,6 +440,7 @@ const ApiRequest = async ({
       error: errorMessage,
       message: errorResponse?.message,
       reactQuery,
+      errorResponses: errorResponse,
     };
   }
 };

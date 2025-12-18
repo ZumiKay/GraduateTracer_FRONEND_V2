@@ -43,16 +43,9 @@ export const GuestForm: React.FC<GuestFormProps> = ({
             placeholder="Enter your full name"
             value={guestData.name}
             onChange={onGuestChange}
-            variant="bordered"
             radius="lg"
             size="lg"
             className="w-full"
-            classNames={{
-              input: "text-gray-700 dark:text-gray-200",
-              inputWrapper:
-                "border-gray-200 dark:border-gray-600 hover:border-emerald-400 dark:hover:border-emerald-500 focus-within:border-emerald-500 bg-white/50 dark:bg-gray-800/50 transition-colors",
-              label: "text-gray-600 dark:text-gray-400 font-medium",
-            }}
             startContent={
               <FiUser className="w-4 h-4 text-gray-400 dark:text-gray-500" />
             }
@@ -68,16 +61,9 @@ export const GuestForm: React.FC<GuestFormProps> = ({
             placeholder="Enter your email"
             value={guestData.email}
             onChange={onGuestChange}
-            variant="bordered"
             radius="lg"
             size="lg"
             className="w-full"
-            classNames={{
-              input: "text-gray-700 dark:text-gray-200",
-              inputWrapper:
-                "border-gray-200 dark:border-gray-600 hover:border-emerald-400 dark:hover:border-emerald-500 focus-within:border-emerald-500 bg-white/50 dark:bg-gray-800/50 transition-colors",
-              label: "text-gray-600 dark:text-gray-400 font-medium",
-            }}
             startContent={
               <FiMail className="w-4 h-4 text-gray-400 dark:text-gray-500" />
             }
@@ -92,7 +78,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({
             size="sm"
             radius="md"
             classNames={{
-              base: "data-[selected=true]:bg-blue-500",
+              base: "data-[selected=true]:bg-blue-100",
               wrapper: "border-gray-300 dark:border-gray-600",
             }}
           >
@@ -108,7 +94,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({
             variant="bordered"
             size="lg"
             radius="lg"
-            className="flex-1 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200"
+            className="flex-1 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-500 font-medium transition-all duration-200"
             onPress={onBackToLogin}
           >
             Back to Login

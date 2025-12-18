@@ -30,12 +30,12 @@ import {
 import { useSessionManager } from "../../hooks/useSessionManager";
 import { useInactivityWarning } from "../../hooks/useInactivityWarning";
 import { AuthContainer } from "./AuthContainer";
-import { InactivityAlert } from "./InactivityAlert";
 import { InactivityWarning } from "../InactivityWarning";
 import useFormsessionAPI, {
   setUserSwitching,
   isUserSwitching,
 } from "../../hooks/useFormsessionAPI";
+import { SessionProvider } from "../../context/SessionContext";
 
 /* ------------------------------ State Reducer ----------------------------- */
 interface FormState {
@@ -132,12 +132,10 @@ const useFormInitialization = ({
   formId,
   user,
   dispatch,
-  onSessionExpired,
 }: {
   formId: string | undefined;
   user: RootState["usersession"];
   dispatch: React.Dispatch<FormAction>;
-  onSessionExpired?: (data: GuestData) => void;
 }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -235,7 +233,6 @@ const useFormInitialization = ({
     verifiedSession.isFetching,
     verifiedSession.data,
     verifiedSession.error,
-    onSessionExpired,
   ]);
 
   return {
@@ -247,10 +244,6 @@ const useFormInitialization = ({
     sessionData: verifiedSession.data,
   };
 };
-
-const MemoizedAuthContainer = React.memo(AuthContainer);
-const MemoizedRespondentForm = React.memo(RespondentForm);
-const MemoizedInactivityAlert = React.memo(InactivityAlert);
 
 /* -------------------------------------------------------------------------- */
 /*                               Main Component                               */
@@ -270,18 +263,11 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     useState<GuestData | null>(null);
   const [showExpiredAlert, setShowExpiredAlert] = useState(false);
 
-  // Handler for expired session callback
-  const handleSessionExpired = useCallback((data: GuestData) => {
-    setExpiredSessionData(data);
-    setShowExpiredAlert(true);
-  }, []);
-
   // Initialize form state and track completion
   const { isInitialized, isInitializing } = useFormInitialization({
     formId,
     user,
     dispatch,
-    onSessionExpired: handleSessionExpired,
   });
 
   useEffect(() => {
@@ -293,38 +279,26 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   // API hooks
   const { respondentLogin, signOut, error, useManuallySessionVeriftication } =
     useFormsessionAPI();
-  const manuallyCheckSession = useManuallySessionVeriftication(formId);
 
-  const handleContinueSession = useCallback(async () => {
-    try {
-      const asyncContinueSession = await manuallyCheckSession.mutateAsync();
-
-      if (!asyncContinueSession.success) {
-        ErrorToast({
-          toastid: "session-continue-error",
-          title: "Session Verification Failed",
-          content:
-            asyncContinueSession.message ||
-            "Failed to verify session. Please try again.",
-        });
-        return;
-      }
-
-      // Session valid - dismiss expired alert and continue
-      setShowExpiredAlert(false);
-      setExpiredSessionData(null);
-    } catch (error) {
-      console.error("Session continuation error:", error);
-      ErrorToast({
-        toastid: "session-continue-exception",
-        title: "Error",
-        content:
-          error instanceof Error
-            ? error.message
-            : "An error occurred while verifying your session. Please try again.",
+  // Callback to show session expired alert
+  const handleSessionExpired = useCallback(() => {
+    const currentSessionData = formState.formsession?.respondentinfo;
+    if (currentSessionData) {
+      setExpiredSessionData({
+        name: currentSessionData.respondentName || "",
+        email: currentSessionData.respondentEmail || "",
+        rememberMe: false,
+        isActive: false,
+        timeStamp: Date.now(),
       });
+      setShowExpiredAlert(true);
     }
-  }, [manuallyCheckSession]);
+  }, [formState.formsession?.respondentinfo]);
+
+  const manuallyCheckSession = useManuallySessionVeriftication(
+    formId,
+    handleSessionExpired
+  );
 
   // Only enable form data fetching after initialization is complete
   const formDataEnabled = Boolean(isInitialized && formId);
@@ -451,15 +425,28 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   ]);
 
   const setFormsessionStable = useCallback(
-    (session: Partial<RespondentSessionType>) => {
-      dispatch({ type: "SET_FORMSESSION", payload: session });
+    (
+      sessionOrUpdater:
+        | Partial<RespondentSessionType>
+        | ((
+            prev: Partial<RespondentSessionType> | undefined
+          ) => Partial<RespondentSessionType>)
+    ) => {
+      if (typeof sessionOrUpdater === "function") {
+        // Handle functional updates - get current state and apply function
+        const currentSession = formState.formsession;
+        const newSession = sessionOrUpdater(currentSession);
+        dispatch({ type: "SET_FORMSESSION", payload: newSession });
+      } else {
+        dispatch({ type: "SET_FORMSESSION", payload: sessionOrUpdater });
+      }
     },
-    []
+    [formState.formsession]
   );
 
   /* --------------------------- Session Mangagement -------------------------- */
 
-  // Auto signout handler - simpler version for unauthenticated users
+  // Auto signout handler
   const handleAutoSignOut = useCallback(async () => {
     if (!formId) return;
     try {
@@ -490,9 +477,12 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       ErrorToast({
         toastid: "auto-signout",
         title: "Session Expired",
-        content:
-          "You have been automatically signed out due to inactivity (60 minutes).",
+        content: "You have been automatically signed out due to inactivity",
       });
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 200);
     } catch (error) {
       console.error("Auto signout error:", error);
       throw error;
@@ -508,16 +498,8 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   });
 
   const inactivityWarning = useInactivityWarning({
-    formId,
     accessMode: formState.accessMode,
-    userEmail:
-      formState.loginData.email !== ""
-        ? formState.loginData.email
-        : formState.formsession?.respondentinfo?.respondentEmail,
-    isFormRequiredSessionChecked,
-    formsession: formState.formsession,
-    setformsession: setFormsessionStable as never,
-    onAutoSignOut: handleAutoSignOut,
+    sessionManager,
   });
 
   const localFormSessionStateKey = useMemo(() => {
@@ -899,37 +881,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     ]
   );
 
-  const inactivityAlertProps = useMemo(
-    () => ({
-      showFloatingAlert: Boolean(
-        (sessionManager.showInactivityAlert || formReqData.showInactiveAlert) &&
-          formState.formsession?.isActive
-      ),
-      showFullScreenAlert: Boolean(
-        (sessionManager.showInactivityAlert || formReqData.showInactiveAlert) &&
-          !formState.formsession?.isActive
-      ),
-      isLoading: signOut.isPending,
-      accessMode:
-        formState.accessMode === "error" ? "login" : formState.accessMode,
-      onReactivateSession: sessionManager.handleReactivateSession,
-      onSwitchUser: handleSwitchUser,
-      showWarning: sessionManager.showWarning,
-      timeUntilAutoSignout: sessionManager.timeUntilAutoSignout,
-    }),
-    [
-      sessionManager.showInactivityAlert,
-      sessionManager.handleReactivateSession,
-      sessionManager.showWarning,
-      sessionManager.timeUntilAutoSignout,
-      formReqData.showInactiveAlert,
-      formState.formsession?.isActive,
-      formState.accessMode,
-      signOut.isPending,
-      handleSwitchUser,
-    ]
-  );
-
   // Loading state - unified and smooth transitions
   if (loadingState.isLoading) {
     const loadingMessages = {
@@ -989,35 +940,23 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
                 color="warning"
                 variant="faded"
                 title="Session Expired"
-                description={`Your guest session for "${expiredSessionData.name}" has expired. Would you like to continue with the current session or start fresh?`}
+                description={`Your session for "${expiredSessionData.name}" has expired. Please login again`}
                 className="mb-4"
                 aria-label="inactive alert"
               />
               <div className="flex gap-3 justify-end">
                 <Button
-                  variant="bordered"
-                  color="default"
-                  isLoading={manuallyCheckSession.isPending}
-                  isDisabled={signOut.isPending}
-                  onPress={handleContinueSession}
-                >
-                  Continue Session
-                </Button>
-                <Button
                   isDisabled={manuallyCheckSession.isPending}
                   color="warning"
                   isLoading={signOut.isPending}
-                  onPress={handleSwitchUser}
+                  onPress={() => window.location.reload()}
                 >
-                  Start Fresh
+                  To Login
                 </Button>
               </div>
             </div>
           </div>
         )}
-
-        {/* Inactivity Alert */}
-        <MemoizedInactivityAlert {...inactivityAlertProps} />
 
         {/* Enhanced Inactivity Warning Modal */}
         <InactivityWarning
@@ -1028,7 +967,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         />
 
         {/* Switch User Button */}
-        {!sessionManager.showInactivityAlert && (
+        {!inactivityWarning.showWarning && (
           <div className="fixed top-4 right-4 z-10">
             <Button
               variant="light"
@@ -1045,17 +984,27 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         {/* Render form based on user state */}
         {(formState.accessMode === "authenticated" ||
           formState.accessMode === "guest") &&
-          !sessionManager.showInactivityAlert &&
+          !inactivityWarning.showWarning &&
           isInitialized &&
           formState.formsession?.respondentinfo && (
-            <MemoizedRespondentForm {...respondentFormProps} />
+            <SessionProvider
+              manuallyCheckSession={manuallyCheckSession}
+              onSessionExpired={() => {
+                // Handle session expiration - show inactivity warning
+                inactivityWarning.handleContinueSession();
+              }}
+              checkOnVisibilityChange={true}
+              periodicCheckInterval={0} // Disable periodic checks, rely on page navigation
+            >
+              <RespondentForm {...respondentFormProps} />
+            </SessionProvider>
           )}
       </div>
     );
   }
 
   return !formReqData.isLoading && !formReqData.formState?.isAuthenticated ? (
-    <MemoizedAuthContainer {...authContainerProps} />
+    <AuthContainer {...authContainerProps} />
   ) : (
     <></>
   );

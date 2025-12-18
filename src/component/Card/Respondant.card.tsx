@@ -294,6 +294,7 @@ const Respondant_Question_Card = memo(
                 placeholder="Select Date"
                 onChange={handleAnswer}
                 readonly={isDisable}
+                isDisable={isDisable}
               />
             </div>
           );

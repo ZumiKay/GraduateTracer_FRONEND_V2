@@ -300,12 +300,23 @@ export interface CombinedValidationResults {
   wrongScores: string[];
 }
 
+export interface ScoringAnalysis {
+  isAutoScoreable: boolean;
+  totalQuestions: number;
+  scoredQuestions: number;
+  autoScorableQuestions: number;
+  manualGradingQuestions: number;
+  missingAnswerKeys: Array<{ qIdx: number; title: string; type: QuestionType }>;
+  unsupportedTypes: Array<{ qIdx: number; title: string; type: QuestionType }>;
+}
+
 export interface FormValidationSummary {
   canReturnScoreAutomatically: boolean;
   totalValidQuestions: number;
   totalInvalidQuestions: number;
   totalScore: number;
   validationResults: CombinedValidationResults;
+  scoringAnalysis?: ScoringAnalysis;
   canProceed?: boolean;
   canSubmit?: boolean;
   action?: string;
