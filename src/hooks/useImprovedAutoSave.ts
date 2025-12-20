@@ -8,7 +8,6 @@ import {
   setallquestion,
   setpauseAutoSave,
   setprevallquestion,
-  settTestQuestionState,
 } from "../redux/formstore";
 import { stripQuestionNumbering } from "../services/labelQuestionNumberingService";
 
@@ -28,7 +27,7 @@ interface AutoSaveConfig {
 
 const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const {
-    debounceMs = 1000,
+    debounceMs = 2000, // 2 seconds after user stops editing
     retryAttempts = 3,
     retryDelayMs = 2000,
     offlineQueueSize = 50,
@@ -48,11 +47,14 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const [offlineQueue, setOfflineQueue] = useState<ContentType[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastSavedHash, setLastSavedHash] = useState<string>("");
-
+  const lastSavedHashRef = useRef<string>("");
   const debounceTimeoutRef = useRef<number | null>(null);
   const retryTimeoutRef = useRef<number | null>(null);
   const lastSaveAttemptRef = useRef<Date | null>(null);
   const allQuestionRef = useRef<ContentType[]>(allquestion);
+  const stateUpdateTimeoutRef = useRef<number | null>(null);
+  const [autoSavedDataQueue, setautoSavedDataQueue] =
+    useState<Array<ContentType>>();
 
   // Keep ref in sync with current questions
   useEffect(() => {
@@ -88,7 +90,16 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       const isChanged = hasDataChanged(latestVal);
 
       if (isChanged) {
-        //Update to the latest state
+        //If question have no questionId critital error
+        if (latestVal.some((i) => !i.questionId)) {
+          ErrorToast({
+            toastid: "Save Question",
+            title: "Save Question",
+            content: "Unexpected Error",
+          });
+          return;
+        }
+
         dispatch(setallquestion(latestVal));
         dispatch(setprevallquestion(latestVal));
       }
@@ -96,11 +107,33 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
     [dispatch, hasDataChanged]
   );
+
+  //Manually Update AllQuestion State (called on blur)
+  const updateAllQueueData = useCallback(() => {
+    if (!autoSavedDataQueue || autoSavedDataQueue.length === 0) return;
+
+    dispatch(setallquestion(autoSavedDataQueue));
+    dispatch(setprevallquestion(autoSavedDataQueue));
+
+    // Update hash to match the new state so next comparison works correctly
+    const newHash = generateDataString(autoSavedDataQueue);
+    setLastSavedHash(newHash);
+    lastSavedHashRef.current = newHash;
+
+    console.log("[AutoSave] Queue data applied, hash synced", {
+      hashLength: newHash.length,
+    });
+
+    // Clear the queue after applying
+    setautoSavedDataQueue(undefined);
+  }, [autoSavedDataQueue, dispatch, generateDataString]);
+
   // Enhanced save function with retry logic and range validation
   const performSave = useCallback(
     async (
       dataToSave: ContentType[],
-      attempt: number = 0
+      attempt: number = 0,
+      autoSave?: boolean
     ): Promise<boolean> => {
       if (!formstate._id || pauseAutoSave) return false;
 
@@ -122,8 +155,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         });
 
         if (response.success) {
-          const newHash = generateDataString(dataToSave);
-          setLastSavedHash(newHash);
           setAutoSaveStatus({
             status: "saved",
             lastSaved: new Date(),
@@ -132,11 +163,26 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           });
           lastSaveAttemptRef.current = new Date();
 
-          //Instantly Update Allquestions state
+          // Always queue data for autosave, update state only on blur
           if (response.data) {
-            updateAllQuestionStates({
-              latestVal: response.data as Array<ContentType>,
-            });
+            if (autoSave) {
+              // Queue the data for later update on blur
+              // Hash will be updated when updateAllQueueData is called
+              setautoSavedDataQueue(response.data as Array<ContentType>);
+              console.log("[AutoSave] Auto save successful, data queued");
+            } else {
+              // Manual save updates immediately - update hash from response
+              const newHash = generateDataString(
+                response.data as Array<ContentType>
+              );
+              setLastSavedHash(newHash);
+              lastSavedHashRef.current = newHash;
+              console.log("[AutoSave] Manual save successful, hash updated");
+
+              updateAllQuestionStates({
+                latestVal: response.data as Array<ContentType>,
+              });
+            }
           }
 
           return true;
@@ -156,7 +202,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           }));
 
           retryTimeoutRef.current = window.setTimeout(() => {
-            performSave(dataToSave, attempt + 1);
+            performSave(dataToSave, attempt + 1, formstate.setting?.autosave);
           }, retryDelayMs * (attempt + 1)); // Exponential backoff
 
           return false;
@@ -180,6 +226,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     },
     [
       formstate._id,
+      formstate.setting?.autosave,
       pauseAutoSave,
       page,
       generateDataString,
@@ -226,19 +273,23 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
       processOfflineQueue();
     }
-    // Removed performSave from dependencies to prevent infinite loops
-    // performSave is stable within the component lifecycle
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline, offlineQueue.length]); // Use length instead of array reference
+  }, [isOnline, offlineQueue.length]);
 
-  // Debounced save function
+  // Debounced save function - saves 2s after user STOPS editing
+  // Timer resets on each edit to avoid too many requests
   const debouncedSave = useCallback(
     (data: ContentType) => {
+      // Clear existing timer and restart - this ensures save only happens
+      // 2 seconds after the LAST edit (true debounce)
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
 
-      debounceTimeoutRef.current = setTimeout(() => {
+      debounceTimeoutRef.current = window.setTimeout(() => {
+        // Clear the ref so we know no timer is running
+        debounceTimeoutRef.current = null;
+
         if (!isOnline) {
           setOfflineQueue((prev) => {
             const newQueue = [...prev, data];
@@ -247,14 +298,29 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           return;
         }
 
-        // Use ref to get current questions and avoid dependency issue
+        // Use ref to get the latest questions data
         const currentQuestions = allQuestionRef.current;
-        if (hasDataChanged(currentQuestions)) {
-          performSave(currentQuestions);
+
+        // Check if data has actually changed since last save
+        // Use ref to avoid stale closure issues with lastSavedHash
+        const currentHash = generateDataString(currentQuestions);
+        const dataChanged = currentHash !== lastSavedHashRef.current;
+
+        console.log("[AutoSave] Debounce triggered", {
+          dataChanged,
+          currentHash: currentHash.substring(0, 100) + "...",
+          lastSavedHash: lastSavedHashRef.current.substring(0, 100) + "...",
+          currentHashLength: currentHash.length,
+          lastSavedHashLength: lastSavedHashRef.current.length,
+        });
+
+        if (dataChanged) {
+          console.log("[AutoSave] Saving...");
+          performSave(currentQuestions, 0, true); // Pass autoSave=true
         }
       }, debounceMs);
     },
-    [isOnline, offlineQueueSize, hasDataChanged, performSave, debounceMs]
+    [isOnline, offlineQueueSize, performSave, debounceMs, generateDataString]
   );
 
   const manualSave = useCallback(async (): Promise<boolean> => {
@@ -279,7 +345,11 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         retryCount: 0,
       }));
 
-      const success = await performSave(allquestion);
+      const success = await performSave(
+        allquestion,
+        0,
+        false // Manual save always updates immediately, not queued
+      );
 
       if (success) {
         const newHash = generateDataString(allquestion);
@@ -309,32 +379,35 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     }
   }, [formstate._id, allquestion, dispatch, performSave, generateDataString]);
 
-  // Main autosave effect
+  // Main autosave effect - triggers debounced save when question changes
   useEffect(() => {
+    console.log("[AutoSave] Effect triggered", {
+      autosave: formstate.setting?.autosave,
+      hasDebounceQuestion: !!debounceQuestion,
+      pauseAutoSave,
+    });
     if (formstate.setting?.autosave && debounceQuestion && !pauseAutoSave) {
+      console.log("[AutoSave] Calling debouncedSave");
       debouncedSave(debounceQuestion);
     }
-
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-    };
-  }, [
-    debounceQuestion,
-    formstate.setting?.autosave,
-    pauseAutoSave,
-    debouncedSave,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounceQuestion, formstate.setting?.autosave, pauseAutoSave]);
 
   // Cleanup
   useEffect(() => {
+    const debounceTimeout = debounceTimeoutRef.current;
+    const retryTimeout = retryTimeoutRef.current;
+    const stateUpdateTimeout = stateUpdateTimeoutRef.current;
+
     return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
       }
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
+      if (stateUpdateTimeout) {
+        clearTimeout(stateUpdateTimeout);
       }
     };
   }, []);
@@ -356,6 +429,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     manualSave,
     isOnline,
     offlineQueueSize: offlineQueue.length,
+    updateAllQueueData,
   };
 };
 

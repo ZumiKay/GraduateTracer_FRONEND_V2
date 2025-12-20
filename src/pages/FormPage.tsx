@@ -202,9 +202,7 @@ function FormPage() {
 
       navigate("/dashboard", { replace: true });
     }
-    // Dependencies intentionally limited to prevent infinite loops:
-    // - allquestion/prevAllQuestion are read but not watched to avoid re-triggering when we set them
-    // - searchParam is read directly inside for fresh values
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, isLoading, isFetching, param.id, error, navigate, dispatch]);
 

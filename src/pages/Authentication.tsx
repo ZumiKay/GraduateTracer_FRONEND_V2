@@ -597,9 +597,35 @@ export default function AuthenticationPage() {
   const [page, setpage] = useState<authenticationtype>("login");
   const [forgot, setforgot] = useState<ForgotPasswordType>();
   const [loading, setloading] = useState(false);
-  const navigate = useNavigate();
   const recaptcha = RecaptchaButton();
   const [logindata, setlogindata] = useState<Logindatatype>(DefaultLoginState);
+
+  // Function to remove reCAPTCHA script
+  const removeRecaptchaScript = useCallback(() => {
+    // Remove the reCAPTCHA script
+    const scripts = document.querySelectorAll(
+      'script[src*="google.com/recaptcha"]'
+    );
+    scripts.forEach((script) => script.remove());
+
+    // Remove the reCAPTCHA badge
+    const badge = document.querySelector(".grecaptcha-badge");
+    if (badge) {
+      badge.remove();
+    }
+
+    // Remove any reCAPTCHA iframes
+    const iframes = document.querySelectorAll(
+      'iframe[src*="google.com/recaptcha"]'
+    );
+    iframes.forEach((iframe) => iframe.remove());
+
+    // Clean up the global grecaptcha object
+    const wins = window as unknown as { grecaptcha?: unknown };
+    if (wins.grecaptcha) {
+      delete wins.grecaptcha;
+    }
+  }, []);
 
   //Render google recaptcha script
   useEffect(() => {
@@ -765,6 +791,9 @@ export default function AuthenticationPage() {
           })
         );
 
+        // Remove reCAPTCHA script after successful login
+        removeRecaptchaScript();
+
         // Check for pending redirect
         const pendingRedirect = getPendingRedirect();
         if (pendingRedirect && pendingRedirect.length > 0) {
@@ -772,12 +801,17 @@ export default function AuthenticationPage() {
           window.location.href = pendingRedirect;
           return;
         }
-        navigate("/dashboard", { replace: true });
+
+        window.location.reload();
       } else if (page === "signup") {
         SuccessToast({
           title: "Account Created!",
           content: "Welcome to Graduate Tracer",
         });
+
+        // Remove reCAPTCHA script after successful signup
+        removeRecaptchaScript();
+
         setlogindata(DefaultLoginState);
         setpage("login");
       } else if (page === "forgot") {
@@ -804,7 +838,15 @@ export default function AuthenticationPage() {
         }
       }
     },
-    [dispatch, forgot?.code, forgot?.ty, logindata, navigate, page, recaptcha]
+    [
+      dispatch,
+      forgot?.code,
+      forgot?.ty,
+      logindata,
+      page,
+      recaptcha,
+      removeRecaptchaScript,
+    ]
   );
 
   const handleCancel = useCallback(() => {

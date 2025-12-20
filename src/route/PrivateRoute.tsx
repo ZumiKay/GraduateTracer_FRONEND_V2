@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useUserSession } from "../hooks/useUserSession";
 import { setPendingRedirect } from "../utils/authRedirect";
@@ -30,7 +30,11 @@ export const PublichRoute = () => {
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ redirectPath = "/" }) => {
   const location = useLocation();
   const { data: sessionData } = useUserSession();
-  const isAuthenticated = sessionData?.isAuthenticated ?? false;
+  const [isAuthenticated, setisAuthenticated] = useState(true);
+
+  useEffect(() => {
+    setisAuthenticated(sessionData?.isAuthenticated ?? false);
+  }, [isAuthenticated, sessionData?.isAuthenticated]);
 
   if (!isAuthenticated) {
     // Store the current URL (including search params) to redirect back after login

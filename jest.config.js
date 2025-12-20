@@ -9,6 +9,8 @@ export default {
           module: "ESNext",
           target: "ES2020",
           moduleResolution: "bundler",
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
         },
       },
     ], // Process TypeScript and JSX
@@ -22,4 +24,9 @@ export default {
   },
   // Mock import.meta for tests
   setupFiles: ["<rootDir>/src/test/jestSetup.js"],
+  globals: {
+    "ts-jest": {
+      useESM: true,
+    },
+  },
 };

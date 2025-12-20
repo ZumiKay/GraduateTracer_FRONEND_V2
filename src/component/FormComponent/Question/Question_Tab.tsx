@@ -114,15 +114,20 @@ const QuestionTab = () => {
       if (!process.success || !process.data) return;
       const savedData = process.data as Array<string>;
       dispatch(
-        setallquestion((prev) => [
-          ...prev,
-          {
-            ...DefaultContentType,
-            _id: savedData[0],
-            page,
-            qIdx,
-          },
-        ])
+        setallquestion((prev) =>
+          AddQuestionNumbering({
+            questions: [
+              ...prev,
+              {
+                ...DefaultContentType,
+                _id: savedData[0],
+                page,
+                qIdx,
+              },
+            ],
+            lastIdx: formState.lastqIdx,
+          })
+        )
       );
     } else {
       dispatch(

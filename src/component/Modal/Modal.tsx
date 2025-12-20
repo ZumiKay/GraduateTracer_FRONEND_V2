@@ -78,7 +78,12 @@ export const AddLinkModal = ({
 
     // Remove link if the URL is empty
     if (url === "") {
-      editorState.chain().focus().extendMarkRange("link").unsetLink().run();
+      editorState
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .unsetMark("link")
+        .run();
       return;
     }
 
@@ -101,7 +106,7 @@ export const AddLinkModal = ({
         .chain()
         .focus()
         .extendMarkRange("link")
-        .setLink({ href: url, target: "_blank" }) // Add target=_blank for external links
+        .setMark("link", { href: url, target: "_blank" }) // Add target=_blank for external links
         .run();
 
       // If `texttoshow` exists, replace selected text
@@ -117,7 +122,7 @@ export const AddLinkModal = ({
   };
 
   const handleRemoveLink = () => {
-    editorState?.chain().focus().unsetLink().run();
+    editorState?.chain().focus().unsetMark("link").run();
     setopen(false);
     setstate({ link: "", texttoshow: "" });
   };

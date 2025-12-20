@@ -34,12 +34,19 @@ const App = memo(() => {
   const { pathname } = useLocation();
   const redux = useSelector((selector: RootState) => selector.openmodal);
   const dispatch = useDispatch();
+  const isPublicRoute = useMemo(
+    () =>
+      pathname === "/" ||
+      pathname === "/form-access" ||
+      pathname.startsWith("/form-access/"),
+    [pathname]
+  );
 
   const {
     data: sessionData,
     isFetching,
     isLoading,
-  } = useUserSession({ enabled: !!["/", "/form-access"].includes(pathname) });
+  } = useUserSession({ enabled: !isPublicRoute });
 
   // Memoize pathname checks for performance
   const shouldShowNavigation = useMemo(

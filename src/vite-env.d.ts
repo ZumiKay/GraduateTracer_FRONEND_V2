@@ -8,3 +8,7 @@ interface ImportMetaEnv {
   VITE_RECAPTCHA_KEY: string;
   VITE_ENV: "DEV" | "PROD" | "TEST";
 }
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

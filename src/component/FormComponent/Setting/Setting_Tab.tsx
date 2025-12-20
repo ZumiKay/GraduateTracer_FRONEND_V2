@@ -277,21 +277,54 @@ const SettingTab = () => {
     {} as Record<string, typeof SettingOptions>
   );
 
-  const handleDeleteForm = () => {
+  const handleDeleteForm = useCallback(async () => {
+    try {
+      const deleteReq = await ApiRequest({
+        method: "DELETE",
+        url: "/deleteform",
+        cookie: true,
+        data: { ids: [formstate._id] },
+      });
+
+      if (!deleteReq.success) {
+        throw new Error(deleteReq.error ?? "Failed to delete form");
+      }
+
+      SuccessToast({
+        toastid: "DeleteForm",
+        title: "Success",
+        content: "Form deleted successfully",
+      });
+
+      // Redirect to dashboard after deletion
+      setTimeout(() => {
+        navigate("/", { replace: true });
+      }, 500);
+    } catch (error) {
+      ErrorToast({
+        toastid: "DeleteFormError",
+        title: "Error",
+        content:
+          error instanceof Error ? error.message : "Failed to delete form",
+      });
+    }
+  }, [formstate._id, navigate]);
+
+  const confirmDeleteForm = useCallback(() => {
     dispatch(
       setopenmodal({
         state: "confirm",
         value: {
           open: true,
           data: {
-            onAgree: async () => {
-              alert("Delete Form");
-            },
+            question:
+              "Are you sure you want to delete this form? This action cannot be undone and will permanently remove all responses.",
+            onAgree: handleDeleteForm,
           },
         },
       })
     );
-  };
+  }, [dispatch, handleDeleteForm]);
 
   const Settingitem = useCallback(
     ({ content, action }: { content: string; action?: ReactNode }) => {
@@ -376,16 +409,37 @@ const SettingTab = () => {
       ))}
 
       {formstate.isCreator && (
-        <div className="dangerous w-full h-full flex flex-row items-center justify-between">
-          <p className="text-lg font-bold dark:text-gray-100">Deletion</p>
-          <Button
-            color="danger"
-            variant="bordered"
-            className="font-bold max-w-sm"
-            onPress={() => handleDeleteForm()}
-          >
-            Delete
-          </Button>
+        <div className="dangerous w-full h-fit border-2 border-red-500/30 rounded-lg p-6 bg-red-50 dark:bg-red-950/20">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <p className="text-xl font-bold text-red-600 dark:text-red-400">
+                Danger Zone
+              </p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Once you delete this form, there is no going back. Please be
+                certain.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 p-4 bg-white dark:bg-gray-800 rounded-md border border-red-200 dark:border-red-800">
+              <div className="flex flex-col gap-1">
+                <p className="text-md font-semibold dark:text-gray-100">
+                  Delete this form
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  This will permanently delete the form and all its responses.
+                  This action cannot be undone.
+                </p>
+              </div>
+              <Button
+                color="danger"
+                variant="solid"
+                className="font-bold w-fit"
+                onPress={confirmDeleteForm}
+              >
+                Delete Form Permanently
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
