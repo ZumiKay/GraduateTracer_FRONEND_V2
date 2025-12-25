@@ -144,7 +144,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         }
 
         onUpdateContent({ answer: answerUpdate });
-        dispatch(setdisbounceQuestion({ ...content, answer: answerUpdate }));
       } catch (error) {
         console.error("Error handling answer change:", error);
         ErrorToast({
@@ -153,7 +152,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         });
       }
     },
-    [content, onUpdateContent, dispatch]
+    [content.answer, onUpdateContent]
   );
 
   /**
@@ -216,6 +215,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     (newScore: number) => {
       try {
         const scoreDiff = newScore - scoreBeforeEdit;
+
         if (scoreDiff !== 0) {
           const newTotalScore = (formstate.totalscore ?? 0) + scoreDiff;
           dispatch(

@@ -113,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
             } dark:bg-gray-600 dark:text-white`}
             onPress={onToggleVisibility}
           >
-            {showOnlyVisible ? "Show All" : "Visible Only"}
+            {showOnlyVisible ? "Show All" : "Visible Conditions Only"}
           </Button>
 
           <Button

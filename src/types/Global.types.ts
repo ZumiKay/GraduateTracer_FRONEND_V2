@@ -30,3 +30,11 @@ export interface ResponseDashboardFilterParam {
   status?: string;
   q?: string;
 }
+
+export type AllFormTabs =
+  | "question"
+  | "solution"
+  | "preview"
+  | "response"
+  | "analytics"
+  | "setting";

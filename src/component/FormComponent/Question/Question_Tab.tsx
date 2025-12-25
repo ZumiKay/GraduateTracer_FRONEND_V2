@@ -7,15 +7,13 @@ import {
   ContentType,
   DefaultContentType,
 } from "../../../types/Form.types";
-import { AutoSaveQuestion } from "../../../pages/FormPage.action";
-import { ErrorToast, PromiseToast } from "../../Modal/AlertModal";
+import { ErrorToast } from "../../Modal/AlertModal";
 import {
   setallquestion,
   setformstate,
   setpage,
   setprevallquestion,
   setreloaddata,
-  setshowLinkedQuestion,
   setpauseAutoSave,
 } from "../../../redux/formstore";
 import ApiRequest from "../../../hooks/ApiHook";
@@ -30,12 +28,10 @@ import { useSetSearchParam } from "../../../hooks/CustomHook";
 import QuestionStructure from "./QuestionStructure";
 import { checkUnsavedQuestions } from "../../../utils/formValidation";
 import { ConditionContentCopy } from "../../../helperFunc";
-import {
-  AsyncAutoSaveDeleteRequest,
-  DeleteAndShift,
-} from "./Question_Tab_Helper";
+import { DeleteAndShift } from "./Question_Tab_Helper";
 import { AddQuestionNumbering } from "../../../services/labelQuestionNumberingService";
 import { isConditonExist } from "../../../utils/questionMutataions";
+import useImprovedAutoSave from "../../../hooks/useImprovedAutoSave";
 
 const QuestionTab = () => {
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -44,6 +40,7 @@ const QuestionTab = () => {
   const [isPageLoading, setIsPageLoading] = useState(false);
   const formState = useSelector((root: RootState) => root.allform.formstate);
   const page = useSelector((root: RootState) => root.allform.page);
+  const [questionLoading, setquestionLoading] = useState<boolean>(false);
   const fetchLoading = useSelector(
     (root: RootState) => root.allform.fetchloading
   );
@@ -56,6 +53,8 @@ const QuestionTab = () => {
   const showLinkedQuestion = useSelector(
     (root: RootState) => root.allform.showLinkedQuestions
   );
+  const { manualSave } = useImprovedAutoSave();
+
   const dispatch = useDispatch();
 
   const hasUnsavedQuestions = useMemo(() => {
@@ -90,61 +89,44 @@ const QuestionTab = () => {
     const qIdx = (formState?.lastqIdx ?? 0) + (allQuestion.length + 1);
 
     //Prepare data
-    const updatedQuestions: Array<ContentType> = [
-      ...(allQuestion ?? []),
-      {
-        ...DefaultContentType,
-        qIdx,
-        page,
-      },
-    ];
+    const updatedQuestions: Array<ContentType> = AddQuestionNumbering({
+      questions: [
+        ...(allQuestion ?? []),
+        {
+          ...DefaultContentType,
+          qIdx,
+          page,
+        },
+      ],
+      lastIdx: formState.lastqIdx,
+    });
 
     //Autosave
     if (formState.setting?.autosave) {
-      const createReq = AutoSaveQuestion({
-        data: updatedQuestions,
-        formId: formState._id ?? "",
-        type: "save",
-        page,
+      setquestionLoading(true);
+      const process = await manualSave({
+        customQuestions: updatedQuestions,
       });
-      const process = await PromiseToast(
-        { promise: createReq },
-        { pending: "Creating", error: "Can't Create" }
-      );
-      if (!process.success || !process.data) return;
-      const savedData = process.data as Array<string>;
-      dispatch(
-        setallquestion((prev) =>
-          AddQuestionNumbering({
-            questions: [
-              ...prev,
-              {
-                ...DefaultContentType,
-                _id: savedData[0],
-                page,
-                qIdx,
-              },
-            ],
-            lastIdx: formState.lastqIdx,
-          })
-        )
-      );
-    } else {
-      dispatch(
-        setallquestion(
-          AddQuestionNumbering({
-            questions: updatedQuestions,
-            lastIdx: formState.lastqIdx,
-          })
-        )
-      );
+      setquestionLoading(false);
+      if (!process) {
+        ErrorToast({
+          toastid: "Question Creation",
+          title: "Error",
+          content: "Can't create a question",
+        });
+        return;
+      }
+    }
+    //Mnually Save
+    else {
+      dispatch(setallquestion(updatedQuestions));
     }
   }, [
     formState.lastqIdx,
     formState.setting?.autosave,
-    formState._id,
     allQuestion,
     page,
+    manualSave,
     dispatch,
   ]);
 
@@ -153,21 +135,6 @@ const QuestionTab = () => {
       const questionToDelete = allQuestion[qidx];
       //No Question Return
       if (!questionToDelete || !formState._id) return;
-
-      const subSaveQuestionState = () => {
-        const updatedQuestion = DeleteAndShift({
-          allquestion: allQuestion,
-          targetQuestion: questionToDelete.qIdx,
-          targetQuestionIdx: qidx,
-          lastIdx: formState.lastqIdx,
-        });
-
-        dispatch(setallquestion(updatedQuestion));
-        dispatch(setpauseAutoSave(false));
-      };
-
-      // Pause autosave during delete operation
-      dispatch(setpauseAutoSave(true));
 
       //Delete Child Question (Conditioned Question Only)
       const hasConditionals =
@@ -188,38 +155,66 @@ const QuestionTab = () => {
                 question: "All related conditioned question will be delete!",
                 onAgree: async () => {
                   //*Autosave deleted content
+                  const updatedQuestions = DeleteAndShift({
+                    allquestion: allQuestion,
+                    targetQuestion: questionToDelete.qIdx,
+                    targetQuestionIdx: qidx,
+                    lastIdx: formState.lastqIdx,
+                  });
                   if (formState.setting?.autosave) {
-                    try {
-                      await AsyncAutoSaveDeleteRequest({
-                        formId: formState._id as string,
-                        qId: questionToDelete._id as string,
-                      });
-                    } catch (error) {
+                    const isSave = await manualSave({
+                      customQuestions: updatedQuestions,
+                    });
+                    if (!isSave) {
                       ErrorToast({
-                        toastid: "DeleteQuestion",
-                        title: "Failed",
-                        content: (error as Error).message,
+                        toastid: "Delete question",
+                        title: "Error",
+                        content: "Can't Delete Question",
                       });
+                      return;
                     }
+                  } else {
+                    dispatch(setallquestion(updatedQuestions));
                   }
-
-                  subSaveQuestionState();
+                  //Manually Save
                 },
               },
             },
           })
         );
         return;
-      }
+      } else {
+        const updatedQuestions = DeleteAndShift({
+          allquestion: allQuestion,
+          targetQuestion: questionToDelete.qIdx,
+          targetQuestionIdx: qidx,
+          lastIdx: formState.lastqIdx,
+        });
 
-      subSaveQuestionState();
+        if (formState.setting?.autosave) {
+          const isSave = await manualSave({
+            customQuestions: updatedQuestions,
+          });
+          if (!isSave) {
+            ErrorToast({
+              toastid: "Delete Question",
+              title: "Error",
+              content: "Can't Delete",
+            });
+            return;
+          }
+        } else {
+          dispatch(setallquestion(updatedQuestions));
+        }
+      }
     },
     [
       allQuestion,
       formState._id,
-      formState.setting?.autosave,
       formState.lastqIdx,
+      formState.setting?.autosave,
       dispatch,
+      manualSave,
     ]
   );
 
@@ -237,6 +232,8 @@ const QuestionTab = () => {
       }
 
       dispatch(setpauseAutoSave(true));
+
+      let dataToBeSave: Array<ContentType> | undefined = undefined;
 
       try {
         dispatch(
@@ -326,12 +323,32 @@ const QuestionTab = () => {
               result.push(newChildQuestion);
             }
 
-            return AddQuestionNumbering({
+            //AutoSave
+            dataToBeSave = AddQuestionNumbering({
               questions: result,
               lastIdx: formState.lastqIdx,
             });
+
+            return dataToBeSave;
           })
         );
+
+        if (formState.setting?.autosave && dataToBeSave) {
+          //Direct save updatedQuestion
+          const isSaved = await manualSave({ customQuestions: dataToBeSave });
+
+          if (!isSaved) {
+            ErrorToast({
+              toastid: "Saving Error",
+              title: "Error",
+              content: "Error Saving",
+            });
+            return;
+          }
+        }
+
+        //Cleanup
+        dataToBeSave = undefined;
       } catch (error) {
         console.error("Error in handleAddCondition:", error);
         ErrorToast({
@@ -342,7 +359,14 @@ const QuestionTab = () => {
         dispatch(setpauseAutoSave(false));
       }
     },
-    [allQuestion, page, dispatch, formState.lastqIdx]
+    [
+      allQuestion,
+      dispatch,
+      formState.setting?.autosave,
+      formState.lastqIdx,
+      page,
+      manualSave,
+    ]
   );
 
   const removeConditionedQuestion = useCallback(
@@ -426,9 +450,22 @@ const QuestionTab = () => {
         return q;
       });
 
+      //Direct save for autosave
+      if (formState.setting?.autosave) {
+        const isSave = await manualSave({ customQuestions: finalQuestionList });
+        if (!isSave) {
+          ErrorToast({
+            toastid: "Save Error",
+            title: "Error",
+            content: "Can't Save",
+          });
+          return;
+        }
+      }
+
       dispatch(setallquestion(finalQuestionList));
     },
-    [allQuestion, dispatch]
+    [allQuestion, dispatch, formState.setting?.autosave, manualSave]
   );
 
   // Helper function to validate question structure
@@ -588,6 +625,21 @@ const QuestionTab = () => {
           return;
         }
 
+        //Direct Save
+        if (formState.setting?.autosave) {
+          const isSave = await manualSave({
+            customQuestions: updatedQuestions,
+          });
+          if (!isSave) {
+            ErrorToast({
+              toastid: "Save error",
+              title: "Error",
+              content: "Can't Save",
+            });
+            return;
+          }
+        }
+
         dispatch(setallquestion(updatedQuestions));
 
         console.log(
@@ -603,7 +655,13 @@ const QuestionTab = () => {
         });
       }
     },
-    [allQuestion, dispatch, validateQuestionStructure]
+    [
+      allQuestion,
+      dispatch,
+      formState.setting?.autosave,
+      manualSave,
+      validateQuestionStructure,
+    ]
   );
 
   const scrollToDiv = useCallback(
@@ -621,8 +679,6 @@ const QuestionTab = () => {
       const key = `${targetQuestionType.type}${
         targetQuestionType._id ?? questionIdx
       }`;
-
-      console.log({ key });
 
       const element = componentRefs.current[key];
       if (element) {
@@ -737,7 +793,6 @@ const QuestionTab = () => {
         questionData._id ??
         `temp-question-${allQuestion.indexOf(questionData)}`;
 
-      // Prevent infinite recursion by checking if we've already visited this question
       if (visited.has(questionId)) {
         return true; // Break the cycle by assuming visible
       }
@@ -793,30 +848,42 @@ const QuestionTab = () => {
     }
   }, []);
 
+  //Handle Child Question Visibility For (Question structrue / Question Tab)
   const handleToggleVisibility = useCallback(
     (questionId: string | number) => {
-      const currentState = showLinkedQuestion ?? [];
-      const existingIndex = currentState.findIndex(
-        (item) => item.question === questionId
+      const existingIndex = allQuestion.findIndex(
+        (item, idx) => item._id === questionId || idx === questionId
       );
 
-      const newState = [...currentState];
-      const currentVisibility =
-        existingIndex !== -1 ? currentState[existingIndex].show : true;
-      const newVisibility = !currentVisibility;
-
-      if (existingIndex !== -1) {
-        newState[existingIndex] = {
-          ...newState[existingIndex],
-          show: newVisibility,
-        };
-      } else {
-        newState.push({ question: questionId, show: newVisibility });
+      if (existingIndex === -1) {
+        ErrorToast({
+          toastid: "NoQuestion",
+          title: "Error",
+          content: "Unexpected Error",
+        });
+        return;
       }
 
-      dispatch(setshowLinkedQuestion(newState as never));
+      const rootQuestion = allQuestion[existingIndex];
+      const childIds = new Set();
+
+      rootQuestion.conditional?.forEach((i) =>
+        childIds.add(i.contentId || i.contentIdx)
+      );
+
+      const newState = allQuestion.map((i, idx) => {
+        if (idx === existingIndex) {
+          return { ...i, isChildVisibility: !i.isChildVisibility };
+        }
+        if (childIds.has(i._id ?? idx)) {
+          return { ...i, isVisible: !i.isVisible };
+        }
+        return i;
+      });
+
+      dispatch(setallquestion(newState));
     },
-    [showLinkedQuestion, dispatch]
+    [allQuestion, dispatch]
   );
 
   return (
@@ -862,7 +929,7 @@ const QuestionTab = () => {
           allQuestion.map((question, idx) => {
             const questionKey = `${question.type}${question._id ?? idx}`;
             const isChildCondition = question.parentcontent
-              ? shouldShowConditionedQuestion(question)
+              ? question.isVisible
               : true;
 
             // Create a stable isLinked function that depends on the question's conditional array
@@ -899,6 +966,7 @@ const QuestionTab = () => {
                       removeConditionedQuestion(answeridx, idx, ty)
                     }
                     onDuplication={() => handleDuplication(idx)}
+                    onShowLinkedQuestions={handleToggleVisibility}
                     scrollToCondition={(targetIdx) =>
                       scrollToDiv({ questionIdx: targetIdx })
                     }
@@ -912,6 +980,7 @@ const QuestionTab = () => {
           startContent={<PlusIcon width={"25px"} height={"25px"} />}
           className="w-[90%] h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
           onPress={handleAddQuestion}
+          isLoading={questionLoading}
           aria-label="Add new question"
         >
           New Question

@@ -24,7 +24,6 @@ interface QuestionCardProps {
   index: number;
   isExpanded: boolean;
   hasChildren: boolean;
-  isVisible: boolean;
   onQuestionClick: (question: ContentType, index: number) => void;
   onToggleVisibility: (question: ContentType) => void;
   onToggleExpanded: () => void;
@@ -37,12 +36,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   index,
   isExpanded,
   hasChildren,
-  isVisible,
   onQuestionClick,
   onToggleVisibility,
   onToggleExpanded,
 }) => {
   const isChild = level > 0;
+  const isChildVisibility = question.children.every((i) => i.isVisible);
   const levelColors = [
     "border-primary",
     "border-warning",
@@ -135,7 +134,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             >
               {canToggleVisibility(question) && (
                 <Tooltip
-                  content={isVisible ? "Hide question" : "Show question"}
+                  content={
+                    isChildVisibility ? "Hide question" : "Show question"
+                  }
                   placement="top"
                 >
                   <Button
@@ -144,12 +145,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     isIconOnly
                     onPress={() => onToggleVisibility(question)}
                     className={`rounded-full p-1 transition-colors ${
-                      isVisible
+                      isChildVisibility
                         ? "text-primary hover:bg-primary/10"
                         : "text-danger hover:bg-danger/10"
                     }`}
                   >
-                    {isVisible ? (
+                    {isChildVisibility ? (
                       <EyeIcon width="16" height="16" />
                     ) : (
                       <EyeSlashIcon width="16" height="16" />

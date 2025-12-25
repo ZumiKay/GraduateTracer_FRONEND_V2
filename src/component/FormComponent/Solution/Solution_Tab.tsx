@@ -32,6 +32,7 @@ const fetchFormTotalSummary = async (
     cookie: true,
     reactQuery: true,
   });
+
   return response.data as FormTotalSummary;
 };
 
@@ -135,21 +136,19 @@ const Solution_Tab = memo(() => {
   // Update question handler
   const updateQuestion = useCallback(
     (newVal: Partial<ContentType>, qIdx: number) => {
-      dispatch(
-        setallquestion((prevQuestions) => {
-          const updatedQuestions = prevQuestions.map((question, index) =>
-            index === qIdx ? { ...question, ...newVal } : question
-          );
+      const toUpdateQuestion = [
+        ...allquestion.map((ques, idx) => {
+          return idx === qIdx ? { ...ques, ...newVal } : ques;
+        }),
+      ];
 
-          if (autosaveEnabled) {
-            dispatch(setdisbounceQuestion(updatedQuestions[qIdx]));
-          }
-
-          return updatedQuestions;
-        })
-      );
+      //Autosaved
+      if (autosaveEnabled)
+        dispatch(setdisbounceQuestion(toUpdateQuestion[qIdx]));
+      //Update overallstate
+      dispatch(setallquestion(toUpdateQuestion));
     },
-    [dispatch, autosaveEnabled]
+    [allquestion, autosaveEnabled, dispatch]
   );
 
   // Validate all handler

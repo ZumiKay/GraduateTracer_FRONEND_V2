@@ -36,3 +36,46 @@ export const isConditonExist = ({
     return false;
   });
 };
+
+/**
+ * Check if all linked conditional questions are visible
+ * @param target - The target question ID or index
+ * @param allquestion - Array of all questions
+ * @returns Boolean - true if all linked conditional questions are visible
+ */
+export const isQuestionsLinkedVisible = ({
+  target,
+  allquestion,
+}: {
+  target: string | number;
+  allquestion: Array<ContentType>;
+}): boolean => {
+  // Find target question
+  const targetQuestion = allquestion.find(
+    (q) => q._id === target || q.qIdx === target
+  );
+
+  if (!targetQuestion?.conditional?.length) {
+    return false;
+  }
+
+  const questionMap = new Map<string | number, ContentType>();
+  allquestion.forEach((q, idx) => {
+    if (q._id) questionMap.set(q._id, q);
+    else questionMap.set(idx, q);
+  });
+
+  // Check visibility of all linked conditional questions
+  for (const condition of targetQuestion.conditional) {
+    const linkedQuestion =
+      (condition.contentId && questionMap.get(condition.contentId)) ||
+      (condition.contentIdx !== undefined &&
+        questionMap.get(condition.contentIdx));
+
+    if (linkedQuestion && !linkedQuestion.isVisible) {
+      return false;
+    }
+  }
+
+  return true;
+};

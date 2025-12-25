@@ -10,6 +10,7 @@ import {
   setprevallquestion,
 } from "../redux/formstore";
 import { stripQuestionNumbering } from "../services/labelQuestionNumberingService";
+import { AllFormTabs } from "../types/Global.types";
 
 interface AutoSaveStatus {
   status: "idle" | "saving" | "saved" | "error" | "offline";
@@ -23,6 +24,7 @@ interface AutoSaveConfig {
   retryAttempts?: number;
   retryDelayMs?: number;
   offlineQueueSize?: number;
+  tab?: AllFormTabs;
 }
 
 const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
@@ -31,6 +33,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     retryAttempts = 3,
     retryDelayMs = 2000,
     offlineQueueSize = 50,
+    tab = "question",
   } = config;
 
   const dispatch = useDispatch();
@@ -53,13 +56,19 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const lastSaveAttemptRef = useRef<Date | null>(null);
   const allQuestionRef = useRef<ContentType[]>(allquestion);
   const stateUpdateTimeoutRef = useRef<number | null>(null);
+  const isMountedRef = useRef<boolean>(true);
+  const autoSaveStatusRef = useRef<AutoSaveStatus>(autoSaveStatus);
   const [autoSavedDataQueue, setautoSavedDataQueue] =
     useState<Array<ContentType>>();
 
-  // Keep ref in sync with current questions
+  // Keep refs in sync with current state
   useEffect(() => {
     allQuestionRef.current = allquestion;
   }, [allquestion]);
+
+  useEffect(() => {
+    autoSaveStatusRef.current = autoSaveStatus;
+  }, [autoSaveStatus]);
 
   const generateDataString = useCallback((data: ContentType[]) => {
     return JSON.stringify(
@@ -135,15 +144,20 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       attempt: number = 0,
       autoSave?: boolean
     ): Promise<boolean> => {
-      if (!formstate._id || pauseAutoSave) return false;
+      if (!formstate._id || pauseAutoSave || !isMountedRef.current)
+        return false;
 
       try {
+        if (!isMountedRef.current) return false;
+
         setAutoSaveStatus((prev) => ({
           ...prev,
           status: "saving",
           error: null,
           retryCount: attempt,
         }));
+
+        if (!isMountedRef.current) return false;
 
         const strippedData = stripQuestionNumbering(dataToSave);
 
@@ -155,6 +169,8 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         });
 
         if (response.success) {
+          if (!isMountedRef.current) return false;
+
           setAutoSaveStatus({
             status: "saved",
             lastSaved: new Date(),
@@ -165,9 +181,8 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
           // Always queue data for autosave, update state only on blur
           if (response.data) {
-            if (autoSave) {
-              // Queue the data for later update on blur
-              // Hash will be updated when updateAllQueueData is called
+            //Only add queue saveing for question tab
+            if (autoSave && tab === "question") {
               setautoSavedDataQueue(response.data as Array<ContentType>);
               console.log("[AutoSave] Auto save successful, data queued");
             } else {
@@ -193,6 +208,10 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
 
+        console.log("Perform Save", error);
+
+        if (!isMountedRef.current) return false;
+
         if (attempt < retryAttempts) {
           setAutoSaveStatus((prev) => ({
             ...prev,
@@ -202,6 +221,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           }));
 
           retryTimeoutRef.current = window.setTimeout(() => {
+            if (!isMountedRef.current) return;
             performSave(dataToSave, attempt + 1, formstate.setting?.autosave);
           }, retryDelayMs * (attempt + 1)); // Exponential backoff
 
@@ -229,6 +249,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       formstate.setting?.autosave,
       pauseAutoSave,
       page,
+      tab,
       generateDataString,
       updateAllQuestionStates,
       retryAttempts,
@@ -290,6 +311,8 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         // Clear the ref so we know no timer is running
         debounceTimeoutRef.current = null;
 
+        if (!isMountedRef.current) return;
+
         if (!isOnline) {
           setOfflineQueue((prev) => {
             const newQueue = [...prev, data];
@@ -323,61 +346,68 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     [isOnline, offlineQueueSize, performSave, debounceMs, generateDataString]
   );
 
-  const manualSave = useCallback(async (): Promise<boolean> => {
-    if (!formstate._id) {
-      console.warn("Manual save failed: No form ID");
-      return false;
-    }
-
-    if (allquestion.length === 0) {
-      console.warn("Manual save failed: No questions to save");
-      return false;
-    }
-
-    try {
-      dispatch(setpauseAutoSave(true));
-
-      // Set status to saving
-      setAutoSaveStatus((prev) => ({
-        ...prev,
-        status: "saving",
-        error: null,
-        retryCount: 0,
-      }));
-
-      const success = await performSave(
-        allquestion,
-        0,
-        false // Manual save always updates immediately, not queued
-      );
-
-      if (success) {
-        const newHash = generateDataString(allquestion);
-        setLastSavedHash(newHash);
+  const manualSave = useCallback(
+    async ({
+      customQuestions,
+    }: {
+      customQuestions?: Array<ContentType>;
+    }): Promise<boolean> => {
+      if (!formstate._id) {
+        console.warn("Manual save failed: No form ID");
+        return false;
       }
 
-      return success;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      setAutoSaveStatus((prev) => ({
-        ...prev,
-        status: "error",
-        error: errorMessage,
-        retryCount: 0,
-      }));
+      if (allquestion.length === 0) {
+        console.warn("Manual save failed: No questions to save");
+        return false;
+      }
 
-      ErrorToast({
-        title: "Manual Save Failed",
-        content: errorMessage,
-        toastid: "manual-save-error",
-      });
+      try {
+        dispatch(setpauseAutoSave(true));
 
-      return false;
-    } finally {
-      dispatch(setpauseAutoSave(false));
-    }
-  }, [formstate._id, allquestion, dispatch, performSave, generateDataString]);
+        // Set status to saving
+        setAutoSaveStatus((prev) => ({
+          ...prev,
+          status: "saving",
+          error: null,
+          retryCount: 0,
+        }));
+
+        const success = await performSave(
+          customQuestions ?? allquestion,
+          0,
+          false // Manual save always updates immediately, not queued
+        );
+
+        if (success) {
+          const newHash = generateDataString(allquestion);
+          setLastSavedHash(newHash);
+        }
+
+        return success;
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        setAutoSaveStatus((prev) => ({
+          ...prev,
+          status: "error",
+          error: errorMessage,
+          retryCount: 0,
+        }));
+
+        ErrorToast({
+          title: "Manual Save Failed",
+          content: errorMessage,
+          toastid: "manual-save-error",
+        });
+
+        return false;
+      } finally {
+        dispatch(setpauseAutoSave(false));
+      }
+    },
+    [formstate._id, allquestion, dispatch, performSave, generateDataString]
+  );
 
   // Main autosave effect - triggers debounced save when question changes
   useEffect(() => {
@@ -390,24 +420,28 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       console.log("[AutoSave] Calling debouncedSave");
       debouncedSave(debounceQuestion);
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounceQuestion, formstate.setting?.autosave, pauseAutoSave]);
 
   // Cleanup
   useEffect(() => {
-    const debounceTimeout = debounceTimeoutRef.current;
-    const retryTimeout = retryTimeoutRef.current;
-    const stateUpdateTimeout = stateUpdateTimeoutRef.current;
+    isMountedRef.current = true;
 
     return () => {
-      if (debounceTimeout) {
-        clearTimeout(debounceTimeout);
+      isMountedRef.current = false;
+
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = null;
       }
-      if (retryTimeout) {
-        clearTimeout(retryTimeout);
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
       }
-      if (stateUpdateTimeout) {
-        clearTimeout(stateUpdateTimeout);
+      if (stateUpdateTimeoutRef.current) {
+        clearTimeout(stateUpdateTimeoutRef.current);
+        stateUpdateTimeoutRef.current = null;
       }
     };
   }, []);
@@ -415,14 +449,20 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   // Auto-save on page unload
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (autoSaveStatus.status === "saving" || hasDataChanged(allquestion)) {
+      // Use refs to avoid accessing revoked proxies
+      const currentStatus = autoSaveStatusRef.current.status;
+      const currentQuestions = allQuestionRef.current;
+      const currentHash = generateDataString(currentQuestions);
+      const dataChanged = currentHash !== lastSavedHashRef.current;
+
+      if (currentStatus === "saving" || dataChanged) {
         e.preventDefault();
       }
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [autoSaveStatus.status, hasDataChanged, allquestion]);
+  }, [generateDataString]);
 
   return {
     autoSaveStatus,

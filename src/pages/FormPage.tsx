@@ -153,6 +153,9 @@ function FormPage() {
         const normalizedContents = (result.contents ?? []).map((q) => ({
           ...q,
           page: q.page ?? currentPage,
+          isChildVisibility:
+            q.conditional && q.conditional.length > 0 ? true : undefined,
+          isVisible: q.parentcontent ? true : undefined,
         }));
 
         // Check unsaved directly using current allquestion/prevAllQuestion from store
@@ -167,7 +170,8 @@ function FormPage() {
         // This prevents the "hasChange" state from resetting during refetch
         if (!hasUnsavedChanges) {
           dispatch(setallquestion(normalizedContents));
-          dispatch(setprevallquestion(normalizedContents));
+          if (!result.setting?.autosave)
+            dispatch(setprevallquestion(normalizedContents));
         }
       }
 

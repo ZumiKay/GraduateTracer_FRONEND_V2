@@ -14,6 +14,7 @@ import { AutoSaveQuestion } from "../pages/FormPage.action";
 import useImprovedAutoSave from "./useImprovedAutoSave";
 import { ApiRequestReturnType } from "./ApiHook";
 import * as ReactRedux from "react-redux";
+import { ContentType, QuestionType } from "../types/Form.types";
 
 // Mock ApiHook to avoid import.meta issues
 jest.mock("../hooks/ApiHook", () => ({
@@ -141,11 +142,13 @@ describe("Auto function test", () => {
   });
 
   it("Offline queue saves when back online", async () => {
-    const mockQuestion = {
+    const mockQuestion: ContentType = {
       _id: "q1",
+      type: QuestionType.Number,
+      formId: "Offline_Form",
       questionId: "question-1",
       content: "Test Question Offline",
-      answer: {},
+      answer: undefined,
       qIdx: 0,
       page: 1,
       required: false,
@@ -189,13 +192,15 @@ describe("Auto function test", () => {
     expect(AutoSaveQuestion).not.toHaveBeenCalled();
     expect(result.current.offlineQueueSize).toBeGreaterThan(0);
 
-    // Now go back online
-    act(() => {
+    await act(async () => {
       Object.defineProperty(navigator, "onLine", {
         writable: true,
         value: true,
       });
       window.dispatchEvent(new Event("online"));
+
+      // Advance timers to allow state updates to process
+      jest.advanceTimersByTime(0);
     });
 
     // Wait for the hook to detect online status and process queue

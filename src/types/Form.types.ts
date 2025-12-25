@@ -165,6 +165,8 @@ export interface ContentType<t = unknown> {
   page?: number;
   hasAnswer?: boolean;
   isValidated?: boolean;
+  isVisible?: boolean;
+  isChildVisibility?: boolean;
   //Helper Field
   isFilled?: boolean;
   [key: string]: t | unknown;

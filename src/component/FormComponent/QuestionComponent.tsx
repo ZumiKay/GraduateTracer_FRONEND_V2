@@ -5,11 +5,7 @@ import Selection from "./Selection";
 import { Switch, Tooltip } from "@heroui/react";
 import { CopyIcon, ShowLinkedIcon, TrashIcon } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  setallquestion,
-  setdisbounceQuestion,
-  setshowLinkedQuestion,
-} from "../../redux/formstore";
+import { setallquestion, setdisbounceQuestion } from "../../redux/formstore";
 import { RootState } from "../../redux/store";
 import Tiptap from "./TipTabEditor";
 import { setopenmodal } from "../../redux/openmodal";
@@ -19,6 +15,7 @@ import {
   SelectionQuestionEdit,
 } from "./QuestionComponentAssets";
 import { DateRangePickerQuestionType } from "./Solution/Answer_Component";
+import { isQuestionsLinkedVisible } from "../../utils/questionMutataions";
 
 const QuestionTypeOptions: Array<SelectionType<QuestionType>> = [
   { label: "Multiple Choice", value: QuestionType.MultipleChoice },
@@ -44,15 +41,13 @@ interface QuestionComponentProps {
   removeCondition?: (answeridx: number, ty: "delete" | "unlink") => void;
   onDuplication: () => void;
   scrollToCondition?: (key: number) => void;
-  onShowLinkedQuestions?: (val: boolean) => void;
+  onShowLinkedQuestions?: (questionId: string | number) => void;
 }
 
 // Memoized selectors to prevent unnecessary re-renders
 const selectAllQuestions = (state: RootState) => state.allform.allquestion;
 const selectAutosave = (state: RootState) =>
   state.allform.formstate.setting?.autosave;
-const selectShowLinkedQuestions = (state: RootState) =>
-  state.allform.showLinkedQuestions;
 const selectFormSettings = (state: RootState) =>
   state.allform.formstate.setting;
 
@@ -67,12 +62,12 @@ const QuestionComponent = memo(
     removeCondition,
     scrollToCondition,
     onDuplication,
+    onShowLinkedQuestions,
   }: QuestionComponentProps) => {
     const dispatch = useDispatch();
 
     const allquestion = useSelector(selectAllQuestions);
     const autosave = useSelector(selectAutosave);
-    const allshowLinkedQuestions = useSelector(selectShowLinkedQuestions);
     const formSettings = useSelector(selectFormSettings);
 
     // Use qcolor from form settings, fallback to color prop
@@ -81,10 +76,8 @@ const QuestionComponent = memo(
       [formSettings?.qcolor, color]
     );
 
-    const questionId = useMemo(
-      () => value._id ?? `temp-question-${idx}`,
-      [idx, value._id]
-    );
+    //QuestionId included Array Idx
+    const questionId = useMemo(() => value._id ?? idx, [idx, value._id]);
 
     const conditionInfo = useMemo(
       () => value.parentcontent,
@@ -93,12 +86,11 @@ const QuestionComponent = memo(
     const isNotConditioned = conditionInfo?.qIdx === -1;
     const isNotTextType = value.type !== QuestionType.Text;
 
-    const currentShowState = useMemo(() => {
-      const linkedQuestion = allshowLinkedQuestions?.find(
-        (item) => item.question === questionId
-      );
-      return linkedQuestion?.show !== undefined ? linkedQuestion.show : true;
-    }, [allshowLinkedQuestions, questionId]);
+    //IsLinkedQuestionVisible
+    const currentShowState = useMemo(
+      () => isQuestionsLinkedVisible({ target: value._id ?? idx, allquestion }),
+      [allquestion, idx, value._id]
+    );
 
     const onUpdateState = useCallback(
       async (newVal: Partial<ContentType>) => {
@@ -240,27 +232,6 @@ const QuestionComponent = memo(
       [onUpdateState]
     );
 
-    const handleShowLinkedQuestions = useCallback(() => {
-      const currentState = allshowLinkedQuestions ?? [];
-      const existingIndex = currentState.findIndex(
-        (item) => item.question === questionId
-      );
-
-      const newState = [...currentState];
-      const newShowState = !currentShowState;
-
-      if (existingIndex !== -1) {
-        newState[existingIndex] = {
-          ...newState[existingIndex],
-          show: newShowState,
-        };
-      } else {
-        newState.push({ question: questionId, show: newShowState });
-      }
-
-      dispatch(setshowLinkedQuestion(newState as never));
-    }, [allshowLinkedQuestions, dispatch, questionId, currentShowState]);
-
     return (
       <div
         className="w-full h-fit flex flex-col rounded-xl bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-shadow duration-300 border-l-8 items-center gap-y-5 py-6 relative dark:border-gray-700"
@@ -313,7 +284,7 @@ const QuestionComponent = memo(
             {value.conditional && value.conditional.length > 0 && (
               <Tooltip placement="bottom" content="Show Linked Question">
                 <div
-                  onClick={handleShowLinkedQuestions}
+                  onClick={() => onShowLinkedQuestions?.(questionId)}
                   style={{
                     backgroundColor: currentShowState
                       ? themeColor + "20"

@@ -4,7 +4,6 @@ import { RootState } from "../../../redux/store";
 import { ContentType } from "../../../types/Form.types";
 import {
   getQuestionTitle,
-  canToggleVisibility,
   generateQuestionKey,
   filterQuestions,
 } from "./utils";
@@ -21,9 +20,6 @@ export const useQuestionStructure = () => {
   const allQuestion = useSelector(
     (root: RootState) => root.allform.allquestion
   );
-  const showLinkedQuestion = useSelector(
-    (root: RootState) => root.allform.showLinkedQuestions
-  );
   const formState = useSelector((root: RootState) => root.allform.formstate);
 
   // Check mobile view
@@ -38,18 +34,6 @@ export const useQuestionStructure = () => {
   const toggleSection = useCallback((sectionId: string) => {
     setExpandedSections((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }));
   }, []);
-
-  const isQuestionVisible = useCallback(
-    (question: ContentType, mapIdx: number) => {
-      if (!canToggleVisibility(question)) return true;
-      const questionId = question._id?.toString() || `temp-question-${mapIdx}`;
-      const linkedQuestion = showLinkedQuestion?.find(
-        (i) => i.question === questionId
-      );
-      return linkedQuestion?.show !== undefined ? linkedQuestion.show : true;
-    },
-    [showLinkedQuestion]
-  );
 
   const enhancedFilteredQuestions = useMemo(() => {
     if (!Array.isArray(allQuestion)) return [];
@@ -67,17 +51,11 @@ export const useQuestionStructure = () => {
     questions = filterQuestions.applyFilter(questions, selectedFilter);
 
     if (showOnlyVisible) {
-      questions = questions.filter((q, idx) => isQuestionVisible(q, idx));
+      questions = questions.filter((q) => q.isVisible);
     }
 
     return questions;
-  }, [
-    allQuestion,
-    searchQuery,
-    selectedFilter,
-    showOnlyVisible,
-    isQuestionVisible,
-  ]);
+  }, [allQuestion, searchQuery, selectedFilter, showOnlyVisible]);
 
   const buildQuestionHierarchy = useCallback(() => {
     if (!enhancedFilteredQuestions.length) return [];
@@ -106,8 +84,8 @@ export const useQuestionStructure = () => {
     const rootQuestions: Array<ContentType & { children: ContentType[] }> = [];
     const processedChildren = new Set<string | number>();
 
-    enhancedFilteredQuestions.forEach((question, index) => {
-      const questionId = question._id || `temp-question-${index}`;
+    enhancedFilteredQuestions.forEach((question, mapIdx) => {
+      const questionId = question._id || `temp-question-${mapIdx}`;
       const questionNode = questionMap.get(questionId);
 
       if (!questionNode) return;
@@ -135,12 +113,10 @@ export const useQuestionStructure = () => {
       }
 
       if (parentNode) {
-        // Check for circular reference before adding
         const wouldCreateCycle = (
           child: ContentType & { children: ContentType[] },
           targetParentId: string | number
         ): boolean => {
-          // Use BFS to check if adding this child would create a cycle
           const queue: Array<ContentType & { children?: ContentType[] }> = [
             ...child.children,
           ];
@@ -150,15 +126,12 @@ export const useQuestionStructure = () => {
             const current = queue.shift();
             if (!current) continue;
 
-            const currentId =
-              current._id ||
-              `temp-${allQuestion.indexOf(current as ContentType)}`;
-
+            const currentId = current._id || current.qIdx;
             if (visited.has(currentId)) continue;
             visited.add(currentId);
 
             if (currentId === targetParentId) {
-              return true; // Cycle detected
+              return true;
             }
 
             const children = (
@@ -172,10 +145,11 @@ export const useQuestionStructure = () => {
           return false;
         };
 
-        const parentIdToCheck = parentNode._id || `temp-question-${parentIdx}`;
+        const parentIdToCheck = parentNode._id || parentIdx;
 
         // Only add child if it doesn't create a cycle and hasn't been processed
         if (
+          parentIdToCheck &&
           !wouldCreateCycle(questionNode, parentIdToCheck) &&
           !processedChildren.has(questionId)
         ) {
@@ -191,21 +165,57 @@ export const useQuestionStructure = () => {
       }
     });
 
-    return rootQuestions;
-  }, [enhancedFilteredQuestions, allQuestion]);
+    return rootQuestions.map((i) => ({
+      ...i,
+      isChildVisibility:
+        i.children.length > 0 ? i.isChildVisibility ?? true : undefined,
+    }));
+  }, [enhancedFilteredQuestions]);
 
   const questionHierarchy = useMemo(
     () => buildQuestionHierarchy(),
     [buildQuestionHierarchy]
   );
 
+  // Initialize expandedSections
+  useEffect(() => {
+    const initializeExpandedSections = (
+      questions: Array<ContentType & { children: ContentType[] }>,
+      sections: Record<string, boolean> = {}
+    ): Record<string, boolean> => {
+      questions.forEach((question, index) => {
+        const key = generateQuestionKey(question, index);
+        if (!(key in sections)) {
+          sections[key] = true;
+        }
+        if (question.children.length > 0) {
+          initializeExpandedSections(
+            question.children as Array<
+              ContentType & { children: ContentType[] }
+            >,
+            sections
+          );
+        }
+      });
+      return sections;
+    };
+
+    setExpandedSections((prev) => {
+      const initialized = initializeExpandedSections(questionHierarchy, {
+        ...prev,
+      });
+      return initialized;
+    });
+  }, [questionHierarchy]);
+
+  //Count visible recursively
   const visibleQuestionsCount = useMemo(() => {
     const countVisible = (
       questions: Array<ContentType & { children: ContentType[] }>
     ): number => {
       let count = 0;
-      questions.forEach((question, idx) => {
-        if (isQuestionVisible(question, idx)) {
+      questions.forEach((question) => {
+        if (question.isVisible) {
           count += 1;
           if (question.children.length > 0) {
             count += countVisible(
@@ -219,7 +229,7 @@ export const useQuestionStructure = () => {
       return count;
     };
     return countVisible(questionHierarchy);
-  }, [questionHierarchy, isQuestionVisible]);
+  }, [questionHierarchy]);
 
   return {
     expandedSections,
@@ -237,7 +247,6 @@ export const useQuestionStructure = () => {
     setShowOnlyVisible,
     setExpandedSections,
     toggleSection,
-    isQuestionVisible,
     generateQuestionKey,
   };
 };
