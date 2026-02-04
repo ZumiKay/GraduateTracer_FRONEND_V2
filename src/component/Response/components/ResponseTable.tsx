@@ -431,6 +431,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
           aria-label="Response table"
         >
           <TableHeader>
+            <TableColumn>No</TableColumn>
             <TableColumn>RESPONDENT</TableColumn>
             <TableColumn>EMAIL</TableColumn>
             <TableColumn>STATUS</TableColumn>
@@ -438,13 +439,11 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
             <TableColumn>ACTIONS</TableColumn>
           </TableHeader>
           <TableBody emptyContent="No responses found">
-            {responses.filter(isResponseListItem).map((response) => (
+            {responses.filter(isResponseListItem).map((response, idx) => (
               <TableRow key={response._id}>
+                <TableCell>{idx + 1}</TableCell>
                 <TableCell>{getResponseDisplayName(response)}</TableCell>
-                <TableCell>
-                  {response.respondentEmail || "N/A"}
-                  {` (${response.respondentType})`}
-                </TableCell>
+                <TableCell>{response.respondentEmail || "N/A"}</TableCell>
                 <TableCell>
                   <Chip
                     color={getStatusColor(

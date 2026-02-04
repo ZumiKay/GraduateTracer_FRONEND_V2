@@ -6,6 +6,7 @@ import {
   ChoiceQuestionType,
   ContentType,
   DefaultContentType,
+  QuestionType,
 } from "../../../types/Form.types";
 import { ErrorToast } from "../../Modal/AlertModal";
 import {
@@ -257,6 +258,7 @@ const QuestionTab = () => {
                 qId: targetQuestion._id,
               },
               page,
+              isVisible: true,
             };
 
             const result: ContentType[] = [];
@@ -841,12 +843,25 @@ const QuestionTab = () => {
     [showLinkedQuestion, allQuestion]
   );
 
-  const handleQuestionClick = useCallback((questionKey: string) => {
-    const element = componentRefs.current[questionKey];
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, []);
+  const handleQuestionClick = useCallback(
+    ({
+      type,
+      questionId,
+    }: {
+      type: QuestionType;
+      questionId: string | number;
+    }) => {
+      const questionKey = `${type}${questionId}`;
+      const element = componentRefs.current[questionKey];
+      if (element) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    },
+    []
+  );
 
   //Handle Child Question Visibility For (Question structrue / Question Tab)
   const handleToggleVisibility = useCallback(

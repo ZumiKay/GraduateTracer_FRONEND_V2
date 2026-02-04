@@ -460,7 +460,9 @@ function Dashboard() {
         value: {
           open: true,
           data: {
-            onAgree: handleDeleteForm,
+            onAgree: async () => {
+              await handleDeleteForm();
+            },
           },
         },
       })

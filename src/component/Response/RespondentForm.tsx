@@ -544,7 +544,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           {formState &&
             formState._id &&
             currentPage === 1 &&
-            formSessionInfo && (
+            formSessionInfo &&
+            formState.setting?.email && (
               <RespondentInfo
                 respondentInfo={respondentInfo}
                 onRespondentInfoChange={handleRespondentInfoChange}

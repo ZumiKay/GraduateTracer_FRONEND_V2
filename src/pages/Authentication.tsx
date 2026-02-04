@@ -24,7 +24,6 @@ import { PasswordInput } from "../component/FormComponent/Input";
 import { ForgotPasswordType, Logindatatype } from "../types/Login.types";
 import PictureBreakAndCombine from "../component/Animation/LogoAnimated";
 import ApiRequest from "../hooks/ApiHook";
-import { useNavigate } from "react-router";
 import SuccessToast, {
   ErrorToast,
   InfoToast,

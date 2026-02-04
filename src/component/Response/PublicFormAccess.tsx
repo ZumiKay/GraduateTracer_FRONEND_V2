@@ -178,7 +178,10 @@ const useFormInitialization = ({
           }
         );
 
-        if (verifiedSession.data?.data) {
+        if (
+          verifiedSession.data?.data &&
+          !verifiedSession.data.data.isNormalForm
+        ) {
           const key = generateStorageKey({
             suffix: "state",
             userKey: verifiedSession.data.data.respondentEmail,
@@ -967,26 +970,29 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         />
 
         {/* Switch User Button */}
-        {!inactivityWarning.showWarning && (
-          <div className="fixed top-4 right-4 z-10">
-            <Button
-              variant="light"
-              size="sm"
-              onPress={handleSwitchUser}
-              className="bg-white shadow-md dark:bg-gray-700 dark:text-white font-bold"
-              isLoading={signOut.isPending}
-            >
-              Switch user
-            </Button>
-          </div>
-        )}
+        {!inactivityWarning.showWarning &&
+          formReqData.formState?.setting?.email && (
+            <div className="fixed top-4 right-4 z-10">
+              <Button
+                variant="light"
+                size="sm"
+                onPress={handleSwitchUser}
+                className="bg-white shadow-md dark:bg-gray-700 dark:text-white font-bold"
+                isLoading={signOut.isPending}
+              >
+                Switch user
+              </Button>
+            </div>
+          )}
 
         {/* Render form based on user state */}
         {(formState.accessMode === "authenticated" ||
           formState.accessMode === "guest") &&
           !inactivityWarning.showWarning &&
           isInitialized &&
-          formState.formsession?.respondentinfo && (
+          (formReqData.formState?.setting?.email
+            ? formState.respondentInfo
+            : true) && (
             <SessionProvider
               manuallyCheckSession={manuallyCheckSession}
               onSessionExpired={() => {

@@ -59,6 +59,7 @@ export interface SessionVerificationResponse extends ApiRequestReturnType {
     respondentEmail: string;
     respondentName: string;
     isGuest?: boolean;
+    isNormalForm?: boolean;
   };
 }
 

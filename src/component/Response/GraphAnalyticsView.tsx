@@ -81,6 +81,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
             <Card
               key={question.questionId}
               className="shadow-xl border border-gray-100 dark:border-gray-700"
+              aria-label="GraphView Card"
             >
               <CardHeader className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 pb-6">
                 <div className="w-full space-y-4">
@@ -93,6 +94,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                           variant="shadow"
                           color="primary"
                           className="font-semibold"
+                          aria-label="questionId"
                         >
                           Q{question.questionId}
                         </Chip>
@@ -101,6 +103,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                           variant="bordered"
                           color="default"
                           className="dark:text-gray-200 dark:border-gray-500"
+                          aria-label="questioType"
                         >
                           {question.questionType}
                         </Chip>
@@ -114,6 +117,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                           variant="flat"
                           color="secondary"
                           className="font-medium"
+                          aria-label="totalResponses"
                         >
                           📊 {question.totalResponses} responses
                         </Chip>
@@ -123,6 +127,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                             variant="flat"
                             color="success"
                             className="font-medium"
+                            aria-label="correctAnswerRate"
                           >
                             ✓ {analytics.correctAnswerRate.toFixed(1)}% accuracy
                           </Chip>
@@ -133,6 +138,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                             variant="flat"
                             color="warning"
                             className="font-medium"
+                            aria-label="averageScore"
                           >
                             ⭐ Avg: {analytics.averageScore.toFixed(2)}
                           </Chip>
@@ -279,13 +285,19 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                                     size="sm"
                                     variant="flat"
                                     color="success"
+                                    aria-label="correctChip"
                                   >
                                     ✓ Correct
                                   </Chip>
                                 )}
                               </div>
                               <div className="flex gap-3 items-center">
-                                <Chip size="sm" variant="flat" color="primary">
+                                <Chip
+                                  size="sm"
+                                  variant="flat"
+                                  color="primary"
+                                  aria-label="percentageCount"
+                                >
                                   {item.count} ({item.percentage.toFixed(1)}%)
                                 </Chip>
                               </div>
@@ -525,7 +537,12 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                         </h4>
                         <div className="flex flex-wrap gap-2">
                           {analytics.topWords.slice(0, 15).map((word, idx) => (
-                            <Chip key={idx} size="sm" variant="solid">
+                            <Chip
+                              aria-label={`wordCount ${idx}`}
+                              key={idx}
+                              size="sm"
+                              variant="solid"
+                            >
                               {word.word} ({word.count})
                             </Chip>
                           ))}

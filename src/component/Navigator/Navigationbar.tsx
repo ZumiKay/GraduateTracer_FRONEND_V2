@@ -10,13 +10,7 @@ import {
 } from "@heroui/react";
 import Logo from "../../assets/Logo.svg";
 import ProfileIcon from "./Profile";
-import {
-  ArchiveIcon,
-  DownArrow,
-  LogoutIcon,
-  SettingIcon,
-  ResponsesIcon,
-} from "../svg/GeneralIcon";
+import { DownArrow, LogoutIcon, SettingIcon } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../../redux/openmodal";
 import { RootState } from "../../redux/store";
@@ -243,11 +237,10 @@ export default function Navigationbar() {
 
     setsaveloading(true);
     try {
-      const success = await manualSave();
+      const success = await manualSave({});
       if (success) {
         setformHasChange(false); // Reset change state after successful save
         //Revalidate solution content in solution tab
-
         dispatch(setRevalidateContent(true));
       }
     } catch (error) {
@@ -453,7 +446,7 @@ export default function Navigationbar() {
                   variant="solid"
                   className="w-full h-fit"
                 >
-                  <ListboxSection showDivider>
+                  {/* <ListboxSection showDivider>
                     <ListboxItem startContent={<ArchiveIcon />}>
                       Achieve
                     </ListboxItem>
@@ -463,7 +456,7 @@ export default function Navigationbar() {
                     >
                       My Responses
                     </ListboxItem>
-                  </ListboxSection>
+                  </ListboxSection> */}
                   <ListboxSection showDivider>
                     <ListboxItem
                       onPress={handleSettingsPress}

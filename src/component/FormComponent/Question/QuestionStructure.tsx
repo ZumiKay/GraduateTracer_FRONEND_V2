@@ -1,14 +1,17 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback } from "react";
 import { Button, Divider, ScrollShadow } from "@heroui/react";
 import { motion } from "framer-motion";
-import { ContentType } from "../../../types/Form.types";
+import { ContentType, QuestionType } from "../../../types/Form.types";
 import { ChevronDownIcon } from "./icons";
 import { QuestionCard } from "./QuestionCard";
 import { Header } from "./Header";
 import { useQuestionStructure } from "./useQuestionStructure";
 
 interface QuestionStructureProps {
-  onQuestionClick: (questionKey: string) => void;
+  onQuestionClick: (props: {
+    questionId: string | number;
+    type: QuestionType;
+  }) => void;
   onToggleVisibility: (questionId: string | number) => void;
   currentPage: number;
   onClose?: () => void;
@@ -44,18 +47,6 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
     toggleSection,
     generateQuestionKey,
   } = useQuestionStructure();
-
-  useEffect(() => {
-    console.log({ questionHierarchy });
-  }, [questionHierarchy]);
-
-  const handleQuestionClick = useCallback(
-    (question: ContentType, idx: number) => {
-      const questionKey = `${question.type}${question._id ?? idx}`;
-      onQuestionClick(questionKey);
-    },
-    [onQuestionClick]
-  );
 
   const handleToggleVisibility = useCallback(
     (question: ContentType, idx: number) => {
@@ -138,7 +129,12 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
               index={index}
               isExpanded={isExpanded}
               hasChildren={hasChildren}
-              onQuestionClick={handleQuestionClick}
+              onQuestionClick={() =>
+                onQuestionClick({
+                  questionId: question._id || index,
+                  type: question.type,
+                })
+              }
               onToggleVisibility={(val) => handleToggleVisibility(val, index)}
               onToggleExpanded={() => toggleSection(questionKey)}
             />
@@ -185,7 +181,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
     [
       generateQuestionKey,
       expandedSections,
-      handleQuestionClick,
+      onQuestionClick,
       handleToggleVisibility,
       toggleSection,
     ]

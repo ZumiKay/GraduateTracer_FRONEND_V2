@@ -140,6 +140,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
           {availablePages.length > 0 && (
             <Select
               placeholder="All Pages"
+              aria-label="Response Analytics Pagintion"
               selectedKeys={selectedPage ? [selectedPage.toString()] : []}
               onSelectionChange={(keys) => {
                 const selected = Array.from(keys)[0] as string;
@@ -163,6 +164,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
           <Button
             size="sm"
             onPress={() => refetch()}
+            aria-label="Refresh Button"
             startContent={<FiRefreshCw />}
           >
             Refresh
@@ -175,12 +177,13 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
         selectedKey={activeTab}
         onSelectionChange={(key) => setActiveTab(key as string)}
         className="w-full"
+        aria-label="Analytics Tab"
       >
         <Tab key="overview" title="Overview">
           <div className="space-y-6">
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
+              <Card aria-label="Response Card">
                 <CardBody className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 rounded-lg">
@@ -196,7 +199,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
                 </CardBody>
               </Card>
 
-              <Card>
+              <Card aria-label="CompletionRate Card">
                 <CardBody className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-green-100 rounded-lg">
@@ -212,7 +215,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
                 </CardBody>
               </Card>
 
-              <Card>
+              <Card aria-label="AverageScore Card">
                 <CardBody className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-yellow-100 rounded-lg">
@@ -231,7 +234,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
                 </CardBody>
               </Card>
 
-              <Card>
+              <Card aria-label="CompletedResponses Card">
                 <CardBody className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-purple-100 rounded-lg">
@@ -251,7 +254,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
             </div>
 
             {/* Performance Overview */}
-            <Card>
+            <Card aria-label="PerformanceOverview Card">
               <CardHeader>
                 <h3 className="text-lg font-semibold">Performance Overview</h3>
               </CardHeader>
@@ -267,6 +270,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
                     value={analytics.formStats.completionRate}
                     className="h-2"
                     color="warning"
+                    aria-label="analytics progressBar"
                   />
                 </div>
 
@@ -290,6 +294,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
                     }
                     className="h-2"
                     color="success"
+                    aria-label="averageScore progressBar"
                   />
                 </div>
               </CardBody>
@@ -297,7 +302,11 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
           </div>
         </Tab>
 
-        <Tab key="questions" title="Question Analysis">
+        <Tab
+          key="questions"
+          title="Question Analysis"
+          aria-label="QuestionAnalysis Tab"
+        >
           <div className="space-y-6">
             {/* View Mode Toggle */}
             <div className="flex justify-between items-center">

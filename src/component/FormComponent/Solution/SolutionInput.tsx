@@ -380,7 +380,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         return (
           <div className="space-y-2">
             <p className="text-sm font-medium">Select correct answer(s):</p>
-            <div className="space-y-2 flex flex-col gap-y-5 bg-gray-600 p-2">
+            <div className="space-y-2 flex flex-col gap-y-5 dark:bg-gray-600 p-2">
               {content.checkbox?.map((option, index) => (
                 <Checkbox
                   key={`cb-${index}`}

@@ -1,6 +1,7 @@
 import { Button, Switch } from "@heroui/react";
 import {
   AsyncSaveForm,
+  setallformstate,
   setformstate,
   setreloaddata,
 } from "../../../redux/formstore";
@@ -131,7 +132,9 @@ const asyncRemoveSelfFromForm = async () => {
 };
 
 const SettingTab = () => {
-  const { formstate, loading } = useSelector((root: RootState) => root.allform);
+  const { formstate, loading, allformstate } = useSelector(
+    (root: RootState) => root.allform
+  );
   const dispatch = useDispatch();
   const [isEdit, setisEdit] = useState(false);
   const [showOwnerManager, setShowOwnerManager] = useState(false);
@@ -298,6 +301,12 @@ const SettingTab = () => {
 
       // Redirect to dashboard after deletion
       setTimeout(() => {
+        //Instantly Update State
+        dispatch(
+          setallformstate(
+            allformstate.filter((form) => form._id !== formstate._id)
+          )
+        );
         navigate("/", { replace: true });
       }, 500);
     } catch (error) {
@@ -308,7 +317,7 @@ const SettingTab = () => {
           error instanceof Error ? error.message : "Failed to delete form",
       });
     }
-  }, [formstate._id, navigate]);
+  }, [allformstate, dispatch, formstate._id, navigate]);
 
   const confirmDeleteForm = useCallback(() => {
     dispatch(
