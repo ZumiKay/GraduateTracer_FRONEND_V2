@@ -5,18 +5,18 @@ import { FormResponse } from "./useFormResponses";
 /**
  * Hook for validating form responses with comprehensive validation logic
  * - Validates required questions by type
- * - Return True If Usr Response is empty
+ * - Return True If User Response is empty
  */
 export const useFormValidation = (
   checkIfQuestionShouldShow?: (
     question: ContentType,
-    responses: FormResponse[]
-  ) => boolean
+    responses: FormResponse[],
+  ) => boolean,
 ) => {
   const isResponseEmpty = useCallback(
     (
       response: FormResponse | undefined,
-      questionType: QuestionType
+      questionType: QuestionType,
     ): boolean => {
       // No response object at all
       if (!response) return true;
@@ -28,12 +28,11 @@ export const useFormValidation = (
       // Type-specific validation
       switch (questionType) {
         case QuestionType.CheckBox:
-          return !Array.isArray(value) || value.length === 0;
-
         case QuestionType.MultipleChoice:
         case QuestionType.Selection:
-          return typeof value !== "number" || isNaN(value);
+          return !Array.isArray(value) || value.length === 0;
 
+        case QuestionType.Text:
         case QuestionType.ShortAnswer:
         case QuestionType.Paragraph:
           return typeof value !== "string" || value.trim() === "";
@@ -84,7 +83,7 @@ export const useFormValidation = (
           return true;
       }
     },
-    []
+    [],
   );
 
   const isPageComplete = useCallback(
@@ -107,7 +106,7 @@ export const useFormValidation = (
         return !isResponseEmpty(response, q.type);
       });
     },
-    [checkIfQuestionShouldShow, isResponseEmpty]
+    [checkIfQuestionShouldShow, isResponseEmpty],
   );
 
   const validateForm = useCallback(
@@ -127,21 +126,16 @@ export const useFormValidation = (
         return true;
       });
 
-      // Find questions with missing or invalid responses
       const missingResponses = requiredQuestions.filter((q) => {
         const response = responses.find((r) => r.question === q._id);
 
-        // Use the centralized validation logic
         return isResponseEmpty(response, q.type);
       });
 
-      // If there are missing responses, generate error message
       if (missingResponses.length > 0) {
         const questionTitles = missingResponses
           .map((q, index) => {
-            // Try to extract title from question
             if (typeof q.title === "string" && q.title.trim()) {
-              // Remove HTML tags and clean up the title
               const cleanTitle = q.title.replace(/<[^>]*>/g, "").trim();
               return cleanTitle || `Question ${index + 1}`;
             }
@@ -156,7 +150,7 @@ export const useFormValidation = (
 
       return null; // Validation passed
     },
-    [checkIfQuestionShouldShow, isResponseEmpty]
+    [checkIfQuestionShouldShow, isResponseEmpty],
   );
 
   return {

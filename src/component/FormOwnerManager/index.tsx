@@ -112,25 +112,25 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
   const owners = useMemo(() => ownersData?.owners ?? [], [ownersData?.owners]);
   const editors = useMemo(
     () => ownersData?.editors ?? [],
-    [ownersData?.editors]
+    [ownersData?.editors],
   );
   const pendingCollaborators: PendingCollaborator[] = useMemo(
     () => ownersData?.pendingCollaborators ?? [],
-    [ownersData?.pendingCollaborators]
+    [ownersData?.pendingCollaborators],
   );
   const pendingOwnershipTransfer: PendingOwnershipTransfer | null = useMemo(
     () => ownersData?.pendingOwnershipTransfer ?? null,
-    [ownersData?.pendingOwnershipTransfer]
+    [ownersData?.pendingOwnershipTransfer],
   );
 
   // Compute error message from fetch error or local error state
   const displayError = fetchError
     ? (fetchError as Error).message
     : !formId
-    ? "No form ID provided"
-    : !hasFormAccess
-    ? "You don't have access to view form owners"
-    : error;
+      ? "No form ID provided"
+      : !hasFormAccess
+        ? "You don't have access to view form owners"
+        : error;
 
   const invalidateOwnersQuery = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["formOwners", formId] });
@@ -173,7 +173,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
       const response = await formOwnerService.addFormOwner(
         formId,
         newOwnerEmail.trim(),
-        selectedRole
+        selectedRole,
       );
       if (response.message) {
         setSuccess(`${response.message} as a ${selectedRole}`);
@@ -197,8 +197,8 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
           !formId
             ? "Form ID is required"
             : !hasFormAccess
-            ? "You don't have access to modify this form"
-            : "Only the form creator can remove owners"
+              ? "You don't have access to modify this form"
+              : "Only the form creator can remove owners",
         );
         return;
       }
@@ -216,7 +216,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
         await formOwnerService.removeFormOwner(
           formId,
           isUser.email,
-          isUser.role
+          isUser.role,
         );
         setSuccess("Collaborator removed successfully");
 
@@ -225,31 +225,31 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
       } catch (err: unknown) {
         const error = err as { response?: { data?: { message?: string } } };
         setError(
-          error.response?.data?.message || "Failed to remove collaborator"
+          error.response?.data?.message || "Failed to remove collaborator",
         );
       } finally {
         setIsLoading(false);
       }
     },
-    [owners, formId, hasFormAccess, isCreator, invalidateOwnersQuery]
+    [owners, formId, hasFormAccess, isCreator, invalidateOwnersQuery],
   );
 
   const handleRemoveSelf = async () => {
     if (!formId || !hasFormAccess) {
       setError(
-        !formId ? "Form ID is required" : "You don't have access to this form"
+        !formId ? "Form ID is required" : "You don't have access to this form",
       );
       return;
     }
     if (isCreator) {
       setError(
-        "Form creators cannot remove themselves. Please transfer ownership first."
+        "Form creators cannot remove themselves. Please transfer ownership first.",
       );
       return;
     }
     if (
       !confirm(
-        "Are you sure you want to remove yourself from this form? You will lose access to it."
+        "Are you sure you want to remove yourself from this form? You will lose access to it.",
       )
     )
       return;
@@ -297,7 +297,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
       setSuccess(
         `Ownership transfer invitation sent to ${
           selectedUser?.email || "the selected user"
-        }. They must confirm to complete the transfer.`
+        }. They must confirm to complete the transfer.`,
       );
       invalidateOwnersQuery();
       setIsChanging(false);
@@ -322,7 +322,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
 
     if (
       !confirm(
-        "Are you sure you want to cancel the pending ownership transfer?"
+        "Are you sure you want to cancel the pending ownership transfer?",
       )
     ) {
       return;
@@ -376,7 +376,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
           break;
       }
     },
-    [toBeAdd, isChanging, handleRemoveOwner, handleChangeCreator]
+    [toBeAdd, isChanging, handleRemoveOwner, handleChangeCreator],
   );
 
   const handleCloseAdd = useCallback(() => {
@@ -391,13 +391,13 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
       const displayName = userName || userEmail?.split("@")[0] || "this user";
       if (
         confirm(
-          `Are you sure you want to remove ${displayName} from this form?`
+          `Are you sure you want to remove ${displayName} from this form?`,
         )
       ) {
         await handleRemoveOwner(userId, true);
       }
     },
-    [handleRemoveOwner]
+    [handleRemoveOwner],
   );
 
   const handleResendPending = useCallback(
@@ -422,7 +422,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
         setIsLoading(false);
       }
     },
-    [formId, invalidateOwnersQuery]
+    [formId, invalidateOwnersQuery],
   );
 
   const handleDeletePending = useCallback(
@@ -434,7 +434,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
 
       if (
         !confirm(
-          `Are you sure you want to delete the pending invitation for ${email}?`
+          `Are you sure you want to delete the pending invitation for ${email}?`,
         )
       ) {
         return;
@@ -455,7 +455,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
         setIsLoading(false);
       }
     },
-    [formId, invalidateOwnersQuery]
+    [formId, invalidateOwnersQuery],
   );
 
   const shouldShowAction = (action: ActionType): boolean => {
@@ -539,7 +539,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
                               ? "Saving..."
                               : action}
                           </Button>
-                        )
+                        ),
                     )}
                   {isChanging && (
                     <Button
@@ -598,7 +598,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
                           <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
                             Expires:{" "}
                             {new Date(
-                              pendingOwnershipTransfer.expireIn
+                              pendingOwnershipTransfer.expireIn,
                             ).toLocaleString()}
                           </p>
                         )}

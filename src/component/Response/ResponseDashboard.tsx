@@ -31,7 +31,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
 }) => {
   // Table view mode state (normal or grouped)
   const [tableViewMode, setTableViewMode] = useState<"normal" | "grouped">(
-    "normal"
+    "normal",
   );
 
   const [selectedResponse, setSelectedResponse] =
@@ -108,7 +108,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       if (!selectedResponse?._id || !formId) {
         throw new Error("Response ID and Form ID are required");
       }
-      return await fetchResponseDetails(selectedResponse._id);
+      return await fetchResponseDetails(selectedResponse._id, formId);
     },
     enabled: !!selectedResponse?._id && !!formId,
     staleTime: 30000,

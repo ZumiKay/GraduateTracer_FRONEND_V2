@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import ApiRequest from "./ApiHook";
+import ApiRequest from "./APIHook/ApiHook";
 import { ROLE } from "../types/User.types";
 
 export interface UserSessionData {

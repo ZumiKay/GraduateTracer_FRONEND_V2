@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useMutation } from "@tanstack/react-query";
-import ApiRequest from "../hooks/ApiHook";
+import ApiRequest from "../hooks/APIHook/ApiHook";
 import { CollaboratorType } from "../types/Form.types";
 
 interface ConfirmCollaboratorResponse {
@@ -18,7 +18,7 @@ const CollaboratorConfirmPage = () => {
   const [status, setStatus] = useState<ConfirmStatus>("loading");
   const [message, setMessage] = useState<string>("");
   const [formData, setFormData] = useState<ConfirmCollaboratorResponse | null>(
-    null
+    null,
   );
 
   const invite = searchParams.get("invite");
@@ -64,7 +64,7 @@ const CollaboratorConfirmPage = () => {
       } else if (errorMessage.includes("not for you")) {
         setStatus("error");
         setMessage(
-          "This invitation was sent to a different account. Please login with the correct account."
+          "This invitation was sent to a different account. Please login with the correct account.",
         );
       } else {
         setStatus("error");

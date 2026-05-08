@@ -19,7 +19,10 @@ import {
   FormTypeEnum,
   returnscore,
 } from "../../types/Form.types";
-import { createQueryFn, createMutationFn } from "../../hooks/ApiHook";
+import {
+  createQueryFn,
+  createMutationFn,
+} from "../../hooks/APIHook/ReactQueryHelper";
 import SuccessToast, { ErrorToast } from "./AlertModal";
 import { useNavigate } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -56,7 +59,7 @@ export default function CreateForm({
 }: CreateFormProps) {
   const [formtype, setformtype] = useState<FormTypeEnum>(FormTypeEnum.Normal);
   const [selectedReturnScore, setSelectedReturnScore] = useState<string>(
-    returnscore.manual
+    returnscore.manual,
   );
   const [requireEmail, setRequireEmail] = useState<boolean>(false);
   const formRef = useRef<HTMLFormElement>(null);

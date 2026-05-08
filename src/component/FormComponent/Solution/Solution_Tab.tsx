@@ -8,7 +8,7 @@ import {
   setRevalidateContent,
 } from "../../../redux/formstore";
 import { ContentType, FormValidationSummary } from "../../../types/Form.types";
-import ApiRequest from "../../../hooks/ApiHook";
+import ApiRequest from "../../../hooks/APIHook/ApiHook";
 import useFormValidation from "../../../hooks/ValidationHook";
 import { ErrorToast, InfoToast } from "../../Modal/AlertModal";
 import { useQuery } from "@tanstack/react-query";
@@ -24,7 +24,7 @@ interface FormTotalSummary {
 }
 
 const fetchFormTotalSummary = async (
-  formId: string
+  formId: string,
 ): Promise<FormTotalSummary> => {
   const response = await ApiRequest({
     url: `/filteredform?ty=total&q=${formId}`,
@@ -42,30 +42,30 @@ const Solution_Tab = memo(() => {
   // Selectors
   const allquestion = useSelector(
     (root: RootState) => root.allform.allquestion,
-    shallowEqual
+    shallowEqual,
   );
 
   const fetchloading = useSelector(
-    (root: RootState) => root.allform.fetchloading
+    (root: RootState) => root.allform.fetchloading,
   );
   const formId = useSelector((root: RootState) => root.allform.formstate._id);
   const formTotalScore = useSelector(
-    (root: RootState) => root.allform.formstate.totalscore
+    (root: RootState) => root.allform.formstate.totalscore,
   );
   const formType = useSelector(
-    (root: RootState) => root.allform.formstate.type
+    (root: RootState) => root.allform.formstate.type,
   );
   const formColor = useSelector(
-    (root: RootState) => root.allform.formstate.setting?.qcolor
+    (root: RootState) => root.allform.formstate.setting?.qcolor,
   );
   const autosaveEnabled = useSelector(
-    (root: RootState) => root.allform.formstate.setting?.autosave
+    (root: RootState) => root.allform.formstate.setting?.autosave,
   );
   const returnScore = useSelector(
-    (root: RootState) => root.allform.formstate.setting?.returnscore
+    (root: RootState) => root.allform.formstate.setting?.returnscore,
   );
   const revalidateContent = useSelector(
-    (root: RootState) => root.allform.revalidateContent
+    (root: RootState) => root.allform.revalidateContent,
   );
 
   const [validationSummary, setValidationSummary] =
@@ -89,7 +89,6 @@ const Solution_Tab = memo(() => {
     refetchOnReconnect: false,
   });
 
-  // Parent score/index maps for conditional questions
   const { parentScoreMap, parentQIdxMap } = useMemo(() => {
     const scoreMap = new Map<string, number>();
     const idxMap = new Map<string, number>();
@@ -108,7 +107,7 @@ const Solution_Tab = memo(() => {
   // Conditional questions count
   const conditionalCount = useMemo(
     () => allquestion.filter((q) => q.parentcontent).length,
-    [allquestion]
+    [allquestion],
   );
 
   // Initial validation on mount
@@ -148,7 +147,7 @@ const Solution_Tab = memo(() => {
       //Update overallstate
       dispatch(setallquestion(toUpdateQuestion));
     },
-    [allquestion, autosaveEnabled, dispatch]
+    [allquestion, autosaveEnabled, dispatch],
   );
 
   // Validate all handler
@@ -199,7 +198,7 @@ const Solution_Tab = memo(() => {
     (answerData: { answer: ContentAnswerType }, idx: number) => {
       updateQuestion({ answer: { answer: answerData.answer } }, idx);
     },
-    [updateQuestion]
+    [updateQuestion],
   );
 
   return (
@@ -214,13 +213,19 @@ const Solution_Tab = memo(() => {
       />
 
       <div className="question_card w-full h-fit flex flex-col items-center gap-20 pt-8 pb-20">
-        <ValidationStatusDisplay
-          validationSummary={validationSummary}
-          formstate={{
-            type: formType,
-            setting: { returnscore: returnScore },
-          }}
-        />
+        {!allquestion || allquestion.length === 0 ? (
+          <div className="emptyQuestion p-2 bg-red-300 w-[200px] h-[100px] grid place-content-center rounded-xl text-white font-bold">
+            {"Please Add Question"}
+          </div>
+        ) : (
+          <ValidationStatusDisplay
+            validationSummary={validationSummary}
+            formstate={{
+              type: formType,
+              setting: { returnscore: returnScore },
+            }}
+          />
+        )}
 
         {fetchloading ? (
           <QuestionLoading count={3} />

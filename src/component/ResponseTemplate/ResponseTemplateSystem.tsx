@@ -13,7 +13,7 @@ import {
   TrashIcon,
   DocumentDuplicateIcon,
 } from "@heroicons/react/24/outline";
-import ApiRequest from "../../hooks/ApiHook";
+import ApiRequest from "../../hooks/APIHook/ApiHook";
 import { ErrorToast } from "../Modal/AlertModal";
 import TemplateEditorModal from "./TemplateEditorModal";
 
@@ -147,14 +147,14 @@ const ResponseTemplateSystem: React.FC<ResponseTemplateSystemProps> = ({
             .toLowerCase()
             .includes(searchTerm.toLowerCase()) ||
           template.tags.some((tag) =>
-            tag.toLowerCase().includes(searchTerm.toLowerCase())
-          )
+            tag.toLowerCase().includes(searchTerm.toLowerCase()),
+          ),
       );
     }
 
     if (selectedCategory !== "all") {
       filtered = filtered.filter(
-        (template) => template.category === selectedCategory
+        (template) => template.category === selectedCategory,
       );
     }
 
@@ -274,7 +274,7 @@ const ResponseTemplateSystem: React.FC<ResponseTemplateSystemProps> = ({
   };
 
   const getTypeColor = (
-    type: string
+    type: string,
   ): "primary" | "secondary" | "success" | "warning" | "danger" | "default" => {
     switch (type) {
       case "survey":

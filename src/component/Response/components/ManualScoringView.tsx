@@ -35,7 +35,7 @@ interface ManualScoringViewProps {
   onScoreUpdate: (
     responseId: string,
     questionId: string,
-    score: number
+    score: number,
   ) => void;
 }
 
@@ -61,7 +61,7 @@ const ManualScoringView: React.FC<ManualScoringViewProps> = ({
 
   const { responseData, isLoading, error } = useResponseById({
     formId,
-    respondentEmail: selectedRespondentEmail,
+    resId: selectedRespondentEmail,
     page: currentPage,
   });
 
@@ -82,7 +82,7 @@ const ManualScoringView: React.FC<ManualScoringViewProps> = ({
       }));
       onScoreUpdate(responseId, questionId, score);
     },
-    [onScoreUpdate]
+    [onScoreUpdate],
   );
 
   // Navigation functions
@@ -160,7 +160,7 @@ const ManualScoringView: React.FC<ManualScoringViewProps> = ({
           );
       }
     },
-    []
+    [],
   );
 
   const getQuestionById = (questionId: string) => {
@@ -513,12 +513,12 @@ const ManualScoringView: React.FC<ManualScoringViewProps> = ({
                         onChange={(e) => {
                           const score = Math.max(
                             0,
-                            Math.min(maxScore, parseInt(e.target.value) || 0)
+                            Math.min(maxScore, parseInt(e.target.value) || 0),
                           );
                           handleScoreUpdate(
                             currentResponse._id,
                             resp.question._id || "",
-                            score
+                            score,
                           );
                         }}
                         className="w-20"
@@ -571,7 +571,7 @@ const ManualScoringView: React.FC<ManualScoringViewProps> = ({
                 /
                 {
                   currentResponse.responseset.filter((resp) =>
-                    canBeScored(resp.question.type)
+                    canBeScored(resp.question.type),
                   ).length
                 }
               </p>
@@ -585,12 +585,12 @@ const ManualScoringView: React.FC<ManualScoringViewProps> = ({
                   return hasScore && isScoreable;
                 }).length ===
                 currentResponse.responseset.filter((resp) =>
-                  canBeScored(resp.question.type)
+                  canBeScored(resp.question.type),
                 ).length
                   ? "All scoreable questions have been scored"
                   : `${
                       currentResponse.responseset.filter((resp) =>
-                        canBeScored(resp.question.type)
+                        canBeScored(resp.question.type),
                       ).length -
                       currentResponse.responseset.filter((resp) => {
                         const scoreKey = `${currentResponse._id}-${resp.question._id}`;
@@ -613,7 +613,7 @@ const ManualScoringView: React.FC<ManualScoringViewProps> = ({
                   ? Math.round(
                       (calculateCurrentScore(currentResponse) /
                         getTotalPossibleScore(currentResponse)) *
-                        100
+                        100,
                     )
                   : 0}
                 %

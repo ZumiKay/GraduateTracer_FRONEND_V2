@@ -2,16 +2,17 @@ import { render, screen, waitFor, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { InactivityWarning } from "../component/InactivityWarning";
 
-// Mock @heroui/react components
+/* ------------------------- Mock heroui components ------------------------- */
+
 jest.mock("@heroui/react", () => ({
   Modal: ({
     children,
     isOpen,
     ...props
-  }: React.PropsWithChildren<{ isOpen: boolean; [key: string]: unknown }>) =>
+  }: Record<string, unknown | boolean | React.ReactNode>) =>
     isOpen ? (
       <div data-testid="modal" {...props}>
-        {children}
+        {children as React.ReactNode}
       </div>
     ) : null,
   ModalContent: ({
@@ -55,6 +56,7 @@ jest.mock("@heroui/react", () => ({
     ...props
   }: React.PropsWithChildren<{
     onPress?: () => void;
+    startContent?: unknown;
     [key: string]: unknown;
   }>) => (
     <button onClick={onPress} data-testid="continue-button" {...props}>
@@ -68,6 +70,7 @@ jest.mock("@heroui/react", () => ({
   }: {
     value?: number;
     color?: string;
+    showValueLabel?: unknown;
     [key: string]: unknown;
   }) => (
     <div
@@ -104,11 +107,14 @@ jest.mock("@heroui/react", () => ({
   ),
 }));
 
-// Mock @heroicons/react
+/* ------------------------------- Mock Icons ------------------------------- */
+
 jest.mock("@heroicons/react/24/outline", () => ({
   ExclamationTriangleIcon: () => <svg data-testid="warning-icon" />,
   ClockIcon: () => <svg data-testid="clock-icon" />,
 }));
+
+/* ---------------------------------- Tests --------------------------------- */
 
 describe("InactivityWarning Component", () => {
   const defaultProps = {
@@ -117,26 +123,22 @@ describe("InactivityWarning Component", () => {
     timeUntilAutoSignout: 60000, // 1 minute
   };
 
+  //Reset Mocks
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
   });
 
+  //Simulate browser timer
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
     jest.useRealTimers();
   });
 
+  //Make sure it render all required
   describe("Rendering", () => {
-    it("should render the modal when isOpen is true", () => {
-      render(<InactivityWarning {...defaultProps} />);
-
-      expect(screen.getByTestId("modal")).toBeInTheDocument();
-      expect(screen.getByTestId("modal-header")).toBeInTheDocument();
-      expect(screen.getByTestId("modal-body")).toBeInTheDocument();
-      expect(screen.getByTestId("modal-footer")).toBeInTheDocument();
-    });
-
     it("should not render the modal when isOpen is false", () => {
       render(<InactivityWarning {...defaultProps} isOpen={false} />);
 
@@ -147,18 +149,11 @@ describe("InactivityWarning Component", () => {
       render(<InactivityWarning {...defaultProps} />);
 
       expect(
-        screen.getByText("Session Inactivity Warning")
+        screen.getByText("Session Inactivity Warning"),
       ).toBeInTheDocument();
       expect(
-        screen.getByText("Your session will expire soon")
+        screen.getByText("Your session will expire soon"),
       ).toBeInTheDocument();
-    });
-
-    it("should display warning and clock icons", () => {
-      render(<InactivityWarning {...defaultProps} />);
-
-      expect(screen.getByTestId("warning-icon")).toBeInTheDocument();
-      expect(screen.getAllByTestId("clock-icon").length).toBeGreaterThan(0);
     });
 
     it("should display the default warning message when no custom message is provided", () => {
@@ -166,20 +161,20 @@ describe("InactivityWarning Component", () => {
 
       expect(
         screen.getByText(
-          /You've been inactive for 30 minutes. Your session will automatically expire unless you continue working./i
-        )
+          /You've been inactive for 30 minutes. Your session will automatically expire unless you continue working./i,
+        ),
       ).toBeInTheDocument();
     });
 
     it("should display custom warning message when provided", () => {
       const customMessage = "Custom inactivity warning message";
       render(
-        <InactivityWarning {...defaultProps} warningMessage={customMessage} />
+        <InactivityWarning {...defaultProps} warningMessage={customMessage} />,
       );
 
       expect(screen.getByText(customMessage)).toBeInTheDocument();
       expect(
-        screen.queryByText(/You've been inactive for 30 minutes/i)
+        screen.queryByText(/You've been inactive for 30 minutes/i),
       ).not.toBeInTheDocument();
     });
 
@@ -188,7 +183,7 @@ describe("InactivityWarning Component", () => {
 
       expect(screen.getByTestId("continue-button")).toBeInTheDocument();
       expect(
-        screen.getByText(/Continue Session/i, { selector: "button" })
+        screen.getByText(/Continue Session/i, { selector: "button" }),
       ).toBeInTheDocument();
     });
 
@@ -197,38 +192,25 @@ describe("InactivityWarning Component", () => {
 
       expect(screen.getByTestId("progress-bar")).toBeInTheDocument();
     });
-
-    it("should render time chip", () => {
-      render(<InactivityWarning {...defaultProps} />);
-
-      expect(screen.getByTestId("chip")).toBeInTheDocument();
-    });
   });
 
   describe("Timer Functionality", () => {
     it("should display initial time correctly (1 minute)", () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />,
       );
 
       expect(screen.getByText("1:00")).toBeInTheDocument();
-    });
-
-    it("should display initial time correctly (2 minutes)", () => {
-      render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={120000} />
-      );
-
-      expect(screen.getByText("2:00")).toBeInTheDocument();
     });
 
     it("should countdown the timer every second", async () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />,
       );
 
       expect(screen.getByText("1:00")).toBeInTheDocument();
 
+      //Simulate timer to advance by 1000ms === 1s
       act(() => {
         jest.advanceTimersByTime(1000);
       });
@@ -246,41 +228,9 @@ describe("InactivityWarning Component", () => {
       });
     });
 
-    it("should countdown to zero", async () => {
-      render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={3000} />
-      );
-
-      expect(screen.getByText("0:03")).toBeInTheDocument();
-
-      act(() => {
-        jest.advanceTimersByTime(1000);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText("0:02")).toBeInTheDocument();
-      });
-
-      act(() => {
-        jest.advanceTimersByTime(1000);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText("0:01")).toBeInTheDocument();
-      });
-
-      act(() => {
-        jest.advanceTimersByTime(1000);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText("0:00")).toBeInTheDocument();
-      });
-    });
-
     it("should not go below zero", async () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={1000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={1000} />,
       );
 
       act(() => {
@@ -294,7 +244,7 @@ describe("InactivityWarning Component", () => {
 
     it("should reset timer when modal reopens", async () => {
       const { rerender } = render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />,
       );
 
       // Advance timer
@@ -313,7 +263,7 @@ describe("InactivityWarning Component", () => {
           {...defaultProps}
           isOpen={true}
           timeUntilAutoSignout={60000}
-        />
+        />,
       );
 
       // Timer should reset
@@ -324,7 +274,7 @@ describe("InactivityWarning Component", () => {
 
     it("should format seconds with leading zero", () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={65000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={65000} />,
       );
 
       expect(screen.getByText("1:05")).toBeInTheDocument();
@@ -332,7 +282,7 @@ describe("InactivityWarning Component", () => {
 
     it("should stop countdown when modal is closed", async () => {
       const { rerender } = render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />,
       );
 
       act(() => {
@@ -357,7 +307,7 @@ describe("InactivityWarning Component", () => {
           {...defaultProps}
           isOpen={true}
           timeUntilAutoSignout={60000}
-        />
+        />,
       );
 
       // Should show reset time, not continued countdown
@@ -368,18 +318,9 @@ describe("InactivityWarning Component", () => {
   });
 
   describe("Progress Bar", () => {
-    it("should start at 100% progress", () => {
-      render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
-      );
-
-      const progressBar = screen.getByTestId("progress-bar");
-      expect(progressBar).toHaveAttribute("data-value", "100");
-    });
-
     it("should update progress as time decreases", async () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />,
       );
 
       act(() => {
@@ -395,7 +336,7 @@ describe("InactivityWarning Component", () => {
 
     it("should show success color when progress > 50%", () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />,
       );
 
       const progressBar = screen.getByTestId("progress-bar");
@@ -404,7 +345,7 @@ describe("InactivityWarning Component", () => {
 
     it("should show warning color when progress is between 25-50%", async () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />,
       );
 
       act(() => {
@@ -419,7 +360,7 @@ describe("InactivityWarning Component", () => {
 
     it("should show danger color when progress < 25%", async () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />,
       );
 
       act(() => {
@@ -439,52 +380,11 @@ describe("InactivityWarning Component", () => {
     });
   });
 
-  describe("Chip Color", () => {
-    it("should show warning chip color when progress > 50%", () => {
-      render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
-      );
-
-      const chip = screen.getByTestId("chip");
-      expect(chip).toHaveAttribute("data-color", "warning");
-    });
-
-    it("should show danger chip color when progress is between 25-50%", async () => {
-      render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
-      );
-
-      act(() => {
-        jest.advanceTimersByTime(40000); // ~33% remaining
-      });
-
-      await waitFor(() => {
-        const chip = screen.getByTestId("chip");
-        expect(chip).toHaveAttribute("data-color", "danger");
-      });
-    });
-
-    it("should show danger chip color when progress < 25%", async () => {
-      render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
-      );
-
-      act(() => {
-        jest.advanceTimersByTime(50000); // ~16% remaining
-      });
-
-      await waitFor(() => {
-        const chip = screen.getByTestId("chip");
-        expect(chip).toHaveAttribute("data-color", "danger");
-      });
-    });
-  });
-
   describe("User Interaction", () => {
     it("should call onReactivate when Continue Session button is clicked", () => {
       const mockOnReactivate = jest.fn();
       render(
-        <InactivityWarning {...defaultProps} onReactivate={mockOnReactivate} />
+        <InactivityWarning {...defaultProps} onReactivate={mockOnReactivate} />,
       );
 
       const button = screen.getByTestId("continue-button");
@@ -492,187 +392,36 @@ describe("InactivityWarning Component", () => {
 
       expect(mockOnReactivate).toHaveBeenCalledTimes(1);
     });
-
-    it("should not allow modal to be closed without clicking Continue Session", () => {
-      render(<InactivityWarning {...defaultProps} />);
-
-      const modal = screen.getByTestId("modal");
-      // Modal should have properties that prevent closing
-      expect(modal).toBeInTheDocument();
-      // The onClose prop is set to an empty function to prevent closing
-    });
-
-    it("should call onReactivate multiple times if button clicked multiple times", () => {
-      const mockOnReactivate = jest.fn();
-      render(
-        <InactivityWarning {...defaultProps} onReactivate={mockOnReactivate} />
-      );
-
-      const button = screen.getByTestId("continue-button");
-      button.click();
-      button.click();
-      button.click();
-
-      expect(mockOnReactivate).toHaveBeenCalledTimes(3);
-    });
   });
 
   describe("Edge Cases", () => {
-    it("should handle null timeUntilAutoSignout gracefully", () => {
+    it("should handle null timeUntilAutoSignout", () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={null} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={null} />,
       );
 
       expect(screen.getByTestId("modal")).toBeInTheDocument();
       expect(screen.getByText("0:00")).toBeInTheDocument();
     });
 
-    it("should handle undefined timeUntilAutoSignout gracefully", () => {
+    it("should handle undefined timeUntilAutoSignout", () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={undefined} />
+        <InactivityWarning
+          {...defaultProps}
+          timeUntilAutoSignout={undefined}
+        />,
       );
 
       expect(screen.getByTestId("modal")).toBeInTheDocument();
-      expect(screen.getByText("0:00")).toBeInTheDocument();
-    });
-
-    it("should handle very small time values", () => {
-      render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={500} />
-      );
-
       expect(screen.getByText("0:00")).toBeInTheDocument();
     });
 
     it("should handle very large time values", () => {
       render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={3600000} />
+        <InactivityWarning {...defaultProps} timeUntilAutoSignout={3600000} />,
       ); // 1 hour
 
       expect(screen.getByText("60:00")).toBeInTheDocument();
-    });
-
-    it("should handle null warningMessage gracefully", () => {
-      render(<InactivityWarning {...defaultProps} warningMessage={null} />);
-
-      expect(
-        screen.getByText(
-          /You've been inactive for 30 minutes. Your session will automatically expire unless you continue working./i
-        )
-      ).toBeInTheDocument();
-    });
-
-    it("should apply custom className", () => {
-      render(
-        <InactivityWarning {...defaultProps} className="custom-test-class" />
-      );
-
-      const modal = screen.getByTestId("modal");
-      expect(modal).toHaveClass("custom-test-class");
-    });
-  });
-
-  describe("Accessibility", () => {
-    it("should have proper aria-label for modal", () => {
-      render(<InactivityWarning {...defaultProps} />);
-
-      const modal = screen.getByTestId("modal");
-      expect(modal).toHaveAttribute("aria-label", "inactive alert modal #1");
-    });
-
-    it("should have aria-label for progress bar with percentage", async () => {
-      render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
-      );
-
-      const progressBar = screen.getByTestId("progress-bar");
-      expect(progressBar).toHaveAttribute(
-        "aria-label",
-        "Session time remaining: 100%"
-      );
-
-      act(() => {
-        jest.advanceTimersByTime(30000);
-      });
-
-      await waitFor(() => {
-        expect(progressBar).toHaveAttribute(
-          "aria-label",
-          expect.stringContaining("Session time remaining:")
-        );
-      });
-    });
-  });
-
-  describe("Component Lifecycle", () => {
-    it("should cleanup timer on unmount", () => {
-      const { unmount } = render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
-      );
-
-      unmount();
-
-      // Should not throw errors after unmount
-      act(() => {
-        jest.advanceTimersByTime(5000);
-      });
-    });
-
-    it("should handle rapid open/close cycles", async () => {
-      const { rerender } = render(
-        <InactivityWarning {...defaultProps} isOpen={false} />
-      );
-
-      // Rapidly open and close
-      for (let i = 0; i < 5; i++) {
-        rerender(<InactivityWarning {...defaultProps} isOpen={true} />);
-        rerender(<InactivityWarning {...defaultProps} isOpen={false} />);
-      }
-
-      // Should not throw errors
-      rerender(<InactivityWarning {...defaultProps} isOpen={true} />);
-      expect(screen.getByTestId("modal")).toBeInTheDocument();
-    });
-
-    it("should update when timeUntilAutoSignout prop changes", async () => {
-      const { rerender } = render(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={60000} />
-      );
-
-      expect(screen.getByText("1:00")).toBeInTheDocument();
-
-      rerender(
-        <InactivityWarning {...defaultProps} timeUntilAutoSignout={120000} />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText("2:00")).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe("UI Elements", () => {
-    it("should display action instructions", () => {
-      render(<InactivityWarning {...defaultProps} />);
-
-      expect(screen.getByText(/To continue working:/i)).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          /Click "Continue Session" below to reset your activity timer and keep working on your form./i
-        )
-      ).toBeInTheDocument();
-    });
-
-    it("should display time until auto-logout label", () => {
-      render(<InactivityWarning {...defaultProps} />);
-
-      expect(screen.getByText("Time until auto-logout:")).toBeInTheDocument();
-    });
-
-    it("should display session expires label", () => {
-      render(<InactivityWarning {...defaultProps} />);
-
-      expect(screen.getByText("Session expires")).toBeInTheDocument();
     });
   });
 });

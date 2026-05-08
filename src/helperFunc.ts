@@ -81,11 +81,11 @@ export const hasArrayChange = (arr1: Array<object>, arr2: Array<object>) => {
 export const FormatDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
     2,
-    "0"
+    "0",
   )}-${String(date.getDate()).padStart(2, "0")}`;
 export const CalculateNewIdx = (
   delIndexes: number,
-  currentIdx: number
+  currentIdx: number,
 ): number => Math.abs(currentIdx - delIndexes);
 
 //Copy content with condition with nested child question
@@ -93,11 +93,11 @@ export const CalculateNewIdx = (
 //Get Last QIdx
 const getLastQIdx = (
   allQuestions: Array<ContentType>,
-  targetContent: ContentType
+  targetContent: ContentType,
 ): number => {
   const findMaxQIdxInConditionals = (
     content: ContentType,
-    visited: Set<string> = new Set()
+    visited: Set<string> = new Set(),
   ): number => {
     let localMaxQIdx = content.qIdx || 0;
 
@@ -116,7 +116,7 @@ const getLastQIdx = (
             (q) =>
               q._id &&
               condition.contentId &&
-              q._id.toString() === condition.contentId.toString()
+              q._id.toString() === condition.contentId.toString(),
           );
         } else if (condition.contentIdx !== undefined) {
           childContent = allQuestions[condition.contentIdx];
@@ -126,7 +126,7 @@ const getLastQIdx = (
           // Get the max qIdx from this child and its nested conditionals
           const childMaxQIdx = findMaxQIdxInConditionals(
             childContent,
-            new Set(visited)
+            new Set(visited),
           );
           localMaxQIdx = Math.max(localMaxQIdx, childMaxQIdx);
         }
@@ -168,7 +168,7 @@ export const ConditionContentCopy = ({
 
   const processConditionalContent = (
     parentContent: ContentType,
-    parentChain: string[] = []
+    parentChain: string[] = [],
   ): Array<ContentType> => {
     const results: Array<ContentType> = [];
 
@@ -202,7 +202,7 @@ export const ConditionContentCopy = ({
           (q) =>
             q._id &&
             condition.contentId &&
-            q._id.toString() === condition.contentId.toString()
+            q._id.toString() === condition.contentId.toString(),
         );
       } else if (condition.contentIdx !== undefined) {
         childContent = allquestion[condition.contentIdx];
@@ -269,7 +269,7 @@ export const ConditionContentCopy = ({
  * Utility function to validate conditional content structure
  */
 export const validateConditionalStructure = (
-  content: Array<ContentType>
+  content: Array<ContentType>,
 ): {
   isValid: boolean;
   errors: string[];
@@ -291,13 +291,13 @@ export const validateConditionalStructure = (
         // Check if referenced content exists
         if (cond.contentId && !contentMap.has(cond.contentId.toString())) {
           errors.push(
-            `Item ${index}: Conditional ${condIndex} references non-existent content ID ${cond.contentId}`
+            `Item ${index}: Conditional ${condIndex} references non-existent content ID ${cond.contentId}`,
           );
         }
 
         if (cond.contentIdx !== undefined && !content[cond.contentIdx]) {
           errors.push(
-            `Item ${index}: Conditional ${condIndex} references invalid content index ${cond.contentIdx}`
+            `Item ${index}: Conditional ${condIndex} references invalid content index ${cond.contentIdx}`,
           );
         }
       });
@@ -307,7 +307,7 @@ export const validateConditionalStructure = (
     if (item.parentcontent) {
       if (item.parentcontent.qId && !contentMap.has(item.parentcontent.qId)) {
         errors.push(
-          `Item ${index}: Parent content references non-existent ID ${item.parentcontent.qId}`
+          `Item ${index}: Parent content references non-existent ID ${item.parentcontent.qId}`,
         );
       }
     }
@@ -323,7 +323,7 @@ export const validateConditionalStructure = (
  * Utility function to flatten nested conditional content structure
  */
 export const flattenConditionalContent = (
-  content: Array<ContentType>
+  content: Array<ContentType>,
 ): Array<ContentType> => {
   const flattened: Array<ContentType> = [];
   const processed = new Set<string>();
@@ -344,7 +344,7 @@ export const flattenConditionalContent = (
           (c) =>
             (cond.contentId &&
               c._id?.toString() === cond.contentId.toString()) ||
-            (cond.contentIdx !== undefined && content[cond.contentIdx] === c)
+            (cond.contentIdx !== undefined && content[cond.contentIdx] === c),
         );
 
         if (childContent) {
@@ -364,11 +364,11 @@ export const flattenConditionalContent = (
 
 export const getConditionalDepth = (
   content: ContentType,
-  allContent: Array<ContentType>
+  allContent: Array<ContentType>,
 ): number => {
   const calculateDepth = (
     item: ContentType,
-    currentDepth: number = 0
+    currentDepth: number = 0,
   ): number => {
     if (!item.conditional || currentDepth > 10) return currentDepth;
 
@@ -378,7 +378,7 @@ export const getConditionalDepth = (
       const childContent = allContent.find(
         (c) =>
           (cond.contentId && c._id?.toString() === cond.contentId.toString()) ||
-          (cond.contentIdx !== undefined && allContent[cond.contentIdx] === c)
+          (cond.contentIdx !== undefined && allContent[cond.contentIdx] === c),
       );
 
       if (childContent) {
@@ -420,7 +420,7 @@ export const generateStorageKey = ({
 };
 
 export const extractStorageKeyComponents = (
-  storageKey: string
+  storageKey: string,
 ): {
   formId: string | null;
   userKey: string | null;
@@ -677,7 +677,7 @@ export const getLocalStorageStats = (): {
 };
 
 export const cleanupOldLocalStorage = (
-  maxAgeMs: number = 7 * 24 * 60 * 60 * 1000 // Default: 7 days
+  maxAgeMs: number = 7 * 24 * 60 * 60 * 1000, // Default: 7 days
 ): {
   deletedCount: number;
   deletedKeys: string[];
@@ -721,7 +721,7 @@ export const cleanupOldLocalStorage = (
 };
 
 export const listLocalStorageItems = (
-  filterPrefix: string = "form_progress_"
+  filterPrefix: string = "form_progress_",
 ): Array<{
   key: string;
   size: number;
@@ -799,7 +799,7 @@ export function saveFormStateToLocalStorage<PartialDataType>({
   localStorage.setItem(
     key,
     JSON.stringify(
-      replace ? data : { ...(isStored && { ...JSON.parse(isStored) }), data }
-    )
+      replace ? data : { ...(isStored && { ...JSON.parse(isStored) }), data },
+    ),
   );
 }

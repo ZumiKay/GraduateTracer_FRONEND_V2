@@ -21,7 +21,7 @@ import { hasObjectChanged } from "../../../helperFunc";
 import Selection from "../Selection";
 import { CustomizeColorPicker } from "./Setting_component";
 import FormOwnerManager from "../../FormOwnerManager";
-import ApiRequest from "../../../hooks/ApiHook";
+import ApiRequest from "../../../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../../Modal/AlertModal";
 import { useNavigate } from "react-router-dom";
 
@@ -133,7 +133,7 @@ const asyncRemoveSelfFromForm = async () => {
 
 const SettingTab = () => {
   const { formstate, loading, allformstate } = useSelector(
-    (root: RootState) => root.allform
+    (root: RootState) => root.allform,
   );
   const dispatch = useDispatch();
   const [isEdit, setisEdit] = useState(false);
@@ -149,7 +149,7 @@ const SettingTab = () => {
           data: {
             onAgree: () => {
               const defaultSettings = getDefaultFormSetting(
-                formstate.type as FormTypeEnum
+                formstate.type as FormTypeEnum,
               );
               dispatch(
                 AsyncSaveForm({
@@ -160,14 +160,14 @@ const SettingTab = () => {
                       setformstate({
                         ...formstate,
                         setting: defaultSettings,
-                      })
+                      }),
                     ),
-                }) as never
+                }) as never,
               );
             },
           },
         },
-      })
+      }),
     );
   };
 
@@ -190,7 +190,7 @@ const SettingTab = () => {
     }
 
     const settingKeys = new Set<keyof SettingType>(
-      Object.keys(formstate.setting ?? {}) as (keyof SettingType)[]
+      Object.keys(formstate.setting ?? {}) as (keyof SettingType)[],
     );
     if (!settingKeys.has("acceptResponses")) settingKeys.add("acceptResponses");
 
@@ -202,14 +202,14 @@ const SettingTab = () => {
         ...(formstate.setting ?? {}),
         ...Object.fromEntries(
           Object.entries(newVal).filter(([key]) =>
-            settingKeys.has(key as keyof SettingType)
-          )
+            settingKeys.has(key as keyof SettingType),
+          ),
         ),
       },
       ...Object.fromEntries(
         Object.entries(newVal).filter(
-          ([key]) => !settingKeys.has(key as keyof SettingType)
-        )
+          ([key]) => !settingKeys.has(key as keyof SettingType),
+        ),
       ),
     };
 
@@ -277,7 +277,7 @@ const SettingTab = () => {
       otheracc.push(option as never);
       return acc;
     },
-    {} as Record<string, typeof SettingOptions>
+    {} as Record<string, typeof SettingOptions>,
   );
 
   const handleDeleteForm = useCallback(async () => {
@@ -304,8 +304,8 @@ const SettingTab = () => {
         //Instantly Update State
         dispatch(
           setallformstate(
-            allformstate.filter((form) => form._id !== formstate._id)
-          )
+            allformstate.filter((form) => form._id !== formstate._id),
+          ),
         );
         navigate("/", { replace: true });
       }, 500);
@@ -331,7 +331,7 @@ const SettingTab = () => {
             onAgree: handleDeleteForm,
           },
         },
-      })
+      }),
     );
   }, [dispatch, handleDeleteForm]);
 
@@ -344,7 +344,7 @@ const SettingTab = () => {
         </div>
       );
     },
-    []
+    [],
   );
 
   return (
@@ -401,7 +401,7 @@ const SettingTab = () => {
                           {...(formstate.setting
                             ? {
                                 isSelected: handleChangeSetting(
-                                  setting.state
+                                  setting.state,
                                 ) as boolean,
                               }
                             : {})}
@@ -412,7 +412,7 @@ const SettingTab = () => {
                     )
                   }
                 />
-              )
+              ),
           )}
         </div>
       ))}
@@ -522,7 +522,7 @@ const SettingTab = () => {
                   _id: formstate._id,
                 },
                 onSuccess: () => setisEdit(false),
-              }) as never
+              }) as never,
             )
           }
           className="text-white font-bold"

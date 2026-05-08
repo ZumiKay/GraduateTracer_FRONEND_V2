@@ -24,7 +24,7 @@ describe("useFormValidation with conditional questions", () => {
     type: QuestionType.Text,
     require: true,
     title: "Conditional Question",
-    parentcontent: { qId: "parent1", optIdx: 0 }, // Only shows when parent = "Yes" (index 0)
+    parentcontent: { qId: "parent1", optIdx: 0 },
   };
 
   const alwaysVisibleQuestion: ContentType = {
@@ -45,12 +45,12 @@ describe("useFormValidation with conditional questions", () => {
   // Mock visibility checker: child1 shows only when parent1 = 0
   const mockCheckIfQuestionShouldShow = (
     question: ContentType,
-    responses: FormResponse[]
+    responses: FormResponse[],
   ): boolean => {
     if (!question.parentcontent) return true;
 
     const parentResponse = responses.find(
-      (r) => r.question === question.parentcontent!.qId
+      (r) => r.question === question.parentcontent!.qId,
     );
     if (!parentResponse) return false;
 
@@ -59,7 +59,7 @@ describe("useFormValidation with conditional questions", () => {
 
   test("validates required conditional question when it should be visible", () => {
     const { result } = renderHook(() =>
-      useFormValidation(mockCheckIfQuestionShouldShow)
+      useFormValidation(mockCheckIfQuestionShouldShow),
     );
 
     const responses: FormResponse[] = [
@@ -74,7 +74,7 @@ describe("useFormValidation with conditional questions", () => {
 
   test("ignores required conditional question when it should be hidden", () => {
     const { result } = renderHook(() =>
-      useFormValidation(mockCheckIfQuestionShouldShow)
+      useFormValidation(mockCheckIfQuestionShouldShow),
     );
 
     const responses: FormResponse[] = [
@@ -89,7 +89,7 @@ describe("useFormValidation with conditional questions", () => {
 
   test("isPageComplete ignores hidden conditional questions", () => {
     const { result } = renderHook(() =>
-      useFormValidation(mockCheckIfQuestionShouldShow)
+      useFormValidation(mockCheckIfQuestionShouldShow),
     );
 
     const responses: FormResponse[] = [
@@ -104,7 +104,7 @@ describe("useFormValidation with conditional questions", () => {
 
   test("isPageComplete requires visible conditional questions", () => {
     const { result } = renderHook(() =>
-      useFormValidation(mockCheckIfQuestionShouldShow)
+      useFormValidation(mockCheckIfQuestionShouldShow),
     );
 
     const responses: FormResponse[] = [
@@ -114,6 +114,6 @@ describe("useFormValidation with conditional questions", () => {
     ];
 
     const isComplete = result.current.isPageComplete(questions, responses);
-    expect(isComplete).toBe(false); // Should be incomplete since child1 is required and visible
+    expect(isComplete).toBe(false);
   });
 });

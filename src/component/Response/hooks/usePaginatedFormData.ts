@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { FormDataType } from "../../../types/Form.types";
 import { useQuery } from "@tanstack/react-query";
-import ApiRequest, { ApiRequestReturnType } from "../../../hooks/ApiHook";
+import ApiRequest, {
+  ApiRequestReturnType,
+} from "../../../hooks/APIHook/ApiHook";
 import { useNavigate } from "react-router";
 import {
   RespondentInfoType,
@@ -42,7 +44,6 @@ export type UseRespondentFormPaginationReturn = {
 type useRespondentFormPaginationProps = {
   formId?: string;
   initialVerify?: boolean;
-  //Response Info for verify initital form state
   respondentInfo?: RespondentInfoType;
   formsessioncheck?: SessionVerificationResponse;
   user?: SessionState;
@@ -71,7 +72,6 @@ const useRespondentFormPaginaition = ({
   const accessModeRef = useRef(accessMode);
   accessModeRef.current = accessMode;
 
-  // Memoize storage key to avoid recalculation
   const storageKey = useMemo(
     () =>
       formId && formsession?.respondentinfo?.respondentEmail
@@ -81,10 +81,9 @@ const useRespondentFormPaginaition = ({
             userKey: formsession.respondentinfo.respondentEmail,
           })
         : null,
-    [formId, formsession?.respondentinfo?.respondentEmail]
+    [formId, formsession?.respondentinfo?.respondentEmail],
   );
 
-  // Memoize localStorage retrieval
   const savedPageData = useMemo(() => {
     if (!storageKey) return null;
     try {
@@ -105,7 +104,6 @@ const useRespondentFormPaginaition = ({
     }
   }, [savedPageData]);
 
-  // Debounce formsession updates to prevent rapid changes
   const stableFormsession = useMemo(() => {
     if (
       formsession &&
@@ -118,7 +116,6 @@ const useRespondentFormPaginaition = ({
 
   useEffect(() => {
     if (stableFormsession && stableFormsession !== localformsession) {
-      // Add a small delay to prevent rapid updates
       const timer = setTimeout(() => {
         setlocalformsession(stableFormsession);
       }, 100);
@@ -136,7 +133,6 @@ const useRespondentFormPaginaition = ({
       ty: fetchtype;
       formId?: string;
     }): Promise<FetchContentReturnType | null> => {
-      // Validate required parameters early
       if (!formId) {
         return Promise.reject(new Error("FormId is missing"));
       }
@@ -145,7 +141,6 @@ const useRespondentFormPaginaition = ({
         return Promise.reject(new Error("Invalid page number"));
       }
 
-      // Build URL with query parameters
       const params = new URLSearchParams({
         p: page.toString(),
         ty,
@@ -161,20 +156,15 @@ const useRespondentFormPaginaition = ({
 
         if (!getData.success) {
           if (getData.status === 401) {
-            ErrorToast({ title: "Session", content: "Unauthenticated" });
+            if (accessModeRef.current !== "login") {
+              ErrorToast({ title: "Session", content: "Unauthenticated" });
+            }
             console.log("Unauthenticated - user session expired");
             return { ...getData, isAuthenicated: false };
           }
 
-          // Log error details for debugging
-          console.error("Fetch content error:", {
-            status: getData.status,
-            formId,
-            page,
-            ty,
-          });
           return Promise.reject(
-            new Error(`Failed to fetch form data: ${getData.status}`)
+            new Error(`Failed to fetch form data: ${getData.status}`),
           );
         }
 
@@ -184,7 +174,7 @@ const useRespondentFormPaginaition = ({
         return Promise.reject(error);
       }
     },
-    []
+    [],
   );
 
   const stableQueryParams = useMemo(
@@ -195,16 +185,15 @@ const useRespondentFormPaginaition = ({
       user,
       formsession: localformsession,
     }),
-    [formId, currentPage, fetchType, user, localformsession]
+    [formId, currentPage, fetchType, user, localformsession],
   );
 
   const queryFn = useCallback(
     () => fetchContent(stableQueryParams),
-    [fetchContent, stableQueryParams]
+    [fetchContent, stableQueryParams],
   );
 
   const stableQueryKey = useMemo(() => {
-    // Only include parameters that affect the query result
     return ["respondent-form", formId, currentPage, fetchType];
   }, [formId, currentPage, fetchType]);
 
@@ -233,20 +222,6 @@ const useRespondentFormPaginaition = ({
     return data?.data as GetFormStateResponseType | undefined;
   }, [data]);
 
-  // Log errors for debugging when query fails
-  useEffect(() => {
-    if (error) {
-      console.error("Form pagination query failed:", {
-        error: error.message,
-        formId,
-        currentPage,
-        fetchType,
-        accessMode,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }, [error, formId, currentPage, fetchType, accessMode]);
-
   useEffect(() => {
     if (
       (accessMode === "authenticated" || accessMode === "guest") &&
@@ -265,7 +240,7 @@ const useRespondentFormPaginaition = ({
 
   const totalPages = useMemo(
     () => formState?.totalpage ?? 1,
-    [formState?.totalpage]
+    [formState?.totalpage],
   );
 
   const handlePage = useCallback(
@@ -280,7 +255,7 @@ const useRespondentFormPaginaition = ({
         }
       });
     },
-    [totalPages]
+    [totalPages],
   );
 
   const goToPage = useCallback(
@@ -290,11 +265,11 @@ const useRespondentFormPaginaition = ({
         setcurrentPage(page);
       } else {
         console.warn(
-          `Invalid page number: ${page}. Valid range: 1-${totalPages}`
+          `Invalid page number: ${page}. Valid range: 1-${totalPages}`,
         );
       }
     },
-    [totalPages]
+    [totalPages],
   );
 
   const navigationState = useMemo(
@@ -302,7 +277,7 @@ const useRespondentFormPaginaition = ({
       canGoNext: currentPage ? currentPage < totalPages : undefined,
       canGoPrev: currentPage ? currentPage > 1 : undefined,
     }),
-    [currentPage, totalPages]
+    [currentPage, totalPages],
   );
 
   return useMemo(
@@ -330,7 +305,7 @@ const useRespondentFormPaginaition = ({
       navigationState.canGoPrev,
       error,
       totalPages,
-    ]
+    ],
   );
 };
 

@@ -24,10 +24,16 @@ export type ResponseValue =
   | choiceResponseType
   | choiceResponseType[];
 
+/**Hook for conditionallly render the question base on user respones
+ * @param questions
+ * @param formId
+ * @param userKey
+ * @returns object
+ */
 export const useFormResponses = (
   questions: ContentType[],
   formId: string,
-  userKey?: string
+  userKey?: string,
 ) => {
   const [responses, setResponses] = useState<FormResponse[]>([]);
 
@@ -39,23 +45,29 @@ export const useFormResponses = (
     return map;
   }, [questions]);
 
-  // Memoize question type checks
   const isEmptyResponse = useCallback(
     (response: ResponseValue | null | undefined): boolean => {
-      return (
-        response === null ||
-        response === undefined ||
-        response === "" ||
-        (Array.isArray(response) && response.length === 0)
-      );
+      if (response === null || response === undefined || response === "") {
+        return true;
+      }
+      if (Array.isArray(response)) {
+        return response.length === 0;
+      }
+      // Handle {key, val} object format (checkbox/choice responses)
+      if (typeof response === "object" && "key" in (response as object)) {
+        const key = (response as { key: number | number[] }).key;
+        if (Array.isArray(key)) return key.length === 0;
+        return key === null || key === undefined;
+      }
+      return false;
     },
-    []
+    [],
   );
 
   const checkIfQuestionShouldShow = useCallback(
     (
       question: ContentType,
-      responseList: FormResponse[] | Map<string, ResponseValue | null>
+      responseList: FormResponse[] | Map<string, ResponseValue | null>,
     ): boolean => {
       //If no condition exit
       if (!question.parentcontent) {
@@ -63,7 +75,7 @@ export const useFormResponses = (
       }
 
       const parentQuestion = questionsMap.get(
-        question.parentcontent?.qId || ""
+        question.parentcontent?.qId || "",
       );
 
       if (!parentQuestion) {
@@ -77,7 +89,7 @@ export const useFormResponses = (
         parentResponse = responseList.get(parentQuestion._id ?? "");
       } else {
         const found = responseList.find(
-          (r) => r.question === parentQuestion._id
+          (r) => r.question === parentQuestion._id,
         );
         parentResponse = found?.response;
       }
@@ -92,29 +104,53 @@ export const useFormResponses = (
         parentQuestion.type === QuestionType.MultipleChoice ||
         parentQuestion.type === QuestionType.Selection
       ) {
-        // MultipleChoice response should be a number
-        if (typeof parentResponse !== "number") {
-          return false;
+        const expectedAnswerNum = Number(expectedAnswer);
+
+        if (Array.isArray(parentResponse)) {
+          return (parentResponse as (number | string)[]).some((v) =>
+            typeof v === "number"
+              ? v === expectedAnswerNum
+              : Number(v) === expectedAnswerNum,
+          );
         }
 
-        // Check if responseValue matches expectedAnswer
-        return (
-          parentResponse === expectedAnswer ||
-          parentResponse === Number(expectedAnswer)
-        );
+        if (typeof parentResponse === "number") {
+          return parentResponse === expectedAnswerNum;
+        }
+
+        return false;
       }
 
       if (parentQuestion.type === QuestionType.CheckBox) {
-        // CheckBox response can be a number or number[]
         let selectedIndices: number[] = [];
 
-        if (Array.isArray(parentResponse)) {
+        let normalizedResponse: ResponseValue | null | undefined =
+          parentResponse;
+        if (
+          parentResponse !== null &&
+          parentResponse !== undefined &&
+          !Array.isArray(parentResponse) &&
+          typeof parentResponse === "object" &&
+          "key" in (parentResponse as object)
+        ) {
+          const key = (parentResponse as { key: number | number[] }).key;
+          normalizedResponse = Array.isArray(key) ? key : [key];
+        }
+
+        if (Array.isArray(normalizedResponse)) {
           // Filter only numeric values
-          selectedIndices = parentResponse.filter(
-            (val) => typeof val === "number"
+          selectedIndices = (normalizedResponse as (number | string)[]).filter(
+            (val) => typeof val === "number",
           ) as number[];
-        } else if (typeof parentResponse === "number") {
-          selectedIndices = [parentResponse];
+
+          if (selectedIndices.length === 0) {
+            const stringValues = (
+              normalizedResponse as (number | string)[]
+            ).filter((val) => typeof val === "string") as string[];
+            return stringValues.includes(String(expectedAnswer));
+          }
+        } else if (typeof normalizedResponse === "number") {
+          selectedIndices = [normalizedResponse];
         } else {
           // Invalid response type for checkbox
           return false;
@@ -128,7 +164,7 @@ export const useFormResponses = (
 
       return parentResponse === expectedAnswer;
     },
-    [questionsMap, isEmptyResponse]
+    [questionsMap, isEmptyResponse],
   );
 
   //Update Response Helper
@@ -148,14 +184,14 @@ export const useFormResponses = (
         toUpdateData = {
           ...toUpdateData,
           responses: toUpdateData.responses.filter(
-            (q) => q.question !== question
+            (q) => q.question !== question,
           ),
         };
 
         localStorage.setItem(storageKey, JSON.stringify(toUpdateData));
       }
     },
-    [formId, userKey]
+    [formId, userKey],
   );
 
   const updateResponse = useCallback(
@@ -163,7 +199,7 @@ export const useFormResponses = (
       questionIdOrUpdates:
         | string
         | Array<{ question: string; response: ResponseValue }>,
-      value?: ResponseValue
+      value?: ResponseValue,
     ) => {
       setResponses((prev) => {
         // Initialize responses from questions if empty
@@ -192,7 +228,7 @@ export const useFormResponses = (
             if (!isQuestion) return;
 
             const existingIndex = updated.findIndex(
-              (i) => i.question === question
+              (i) => i.question === question,
             );
 
             if (existingIndex !== -1) {
@@ -227,7 +263,7 @@ export const useFormResponses = (
           if (!isQuestion || value === undefined) return prev;
 
           const existingIndex = updated.findIndex(
-            (i) => i.question === questionId
+            (i) => i.question === questionId,
           );
 
           if (existingIndex !== -1) {
@@ -252,7 +288,7 @@ export const useFormResponses = (
         }
 
         const handleConditionalUpdates = (
-          responses: FormResponse[]
+          responses: FormResponse[],
         ): FormResponse[] => {
           let hasChanges = false;
           const updatedResponses: FormResponse[] = [];
@@ -294,7 +330,7 @@ export const useFormResponses = (
         return handleConditionalUpdates(updated);
       });
     },
-    [questions, questionsMap, RemoveSavedQuestion, checkIfQuestionShouldShow]
+    [questions, questionsMap, RemoveSavedQuestion, checkIfQuestionShouldShow],
   );
 
   const clearProgressState = () => {

@@ -7,7 +7,10 @@ import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../redux/openmodal";
 import { RootState } from "../redux/store";
 import CreateForm from "../component/Modal/Form.modal";
-import { createQueryFn, createMutationFn } from "../hooks/ApiHook";
+import {
+  createQueryFn,
+  createMutationFn,
+} from "../hooks/APIHook/ReactQueryHelper";
 import { setallformstate } from "../redux/formstore";
 import { FormDataType } from "../types/Form.types";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
@@ -68,7 +71,7 @@ const HeaderSection = memo(
         )}
       </div>
     </div>
-  )
+  ),
 );
 
 const FormGrid = memo(
@@ -117,10 +120,10 @@ const FormGrid = memo(
                   onClick={() => onCardClick(form._id ?? "")}
                   isSelect={selectedCard.has(form._id)}
                 />
-              ))
+              )),
           )}
     </div>
-  )
+  ),
 );
 
 const FormTypeSelect = ({
@@ -215,7 +218,7 @@ function Dashboard() {
         ...(Filterstate.created && { created: Filterstate.created }),
         ...(Filterstate.updated && { updated: Filterstate.updated }),
       }),
-    [Filterstate.created, Filterstate.q, Filterstate.updated, limit, page, tab]
+    [Filterstate.created, Filterstate.q, Filterstate.updated, limit, page, tab],
   );
 
   const {
@@ -248,8 +251,8 @@ function Dashboard() {
 
       dispatch(
         setallformstate(
-          allformstate.filter((form) => !selectedcard.has(form._id ?? ""))
-        )
+          allformstate.filter((form) => !selectedcard.has(form._id ?? "")),
+        ),
       );
       setselectedcard(new Set());
       setisManage(false);
@@ -289,7 +292,7 @@ function Dashboard() {
         }
       }
     },
-    [isManage, navigate, allformstate]
+    [isManage, navigate, allformstate],
   );
 
   const handleManageToggle = useCallback(() => {
@@ -306,7 +309,7 @@ function Dashboard() {
       OpenModal.actions.setopenmodal({
         state: "createform",
         value: true,
-      })
+      }),
     );
   }, [dispatch]);
 
@@ -337,7 +340,7 @@ function Dashboard() {
       };
 
       dispatch(
-        setallformstate(responseData.data.userForms ?? responseData.data ?? [])
+        setallformstate(responseData.data.userForms ?? responseData.data ?? []),
       );
 
       if (responseData.pagination) {
@@ -465,7 +468,7 @@ function Dashboard() {
             },
           },
         },
-      })
+      }),
     );
   }, [dispatch, handleDeleteForm]);
 
@@ -474,7 +477,7 @@ function Dashboard() {
       OpenModal.actions.setopenmodal({
         state: "createform",
         value: false,
-      })
+      }),
     );
   }, [dispatch]);
 

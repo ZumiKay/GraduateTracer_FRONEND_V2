@@ -7,7 +7,7 @@ import {
   ClockIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
-import ApiRequest from "../../hooks/ApiHook";
+import ApiRequest from "../../hooks/APIHook/ApiHook";
 import { formatDistanceToNow } from "date-fns";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
@@ -86,7 +86,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
     //Debug
     console.log(
       "[SSE] Establishing connection to:",
-      `${apiUrl}/notifications/stream`
+      `${apiUrl}/notifications/stream`,
     );
 
     const eventSource = new EventSource(`${apiUrl}/notifications/stream`, {
@@ -153,8 +153,8 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
         prev.map((notification) =>
           notification._id === notificationId
             ? { ...notification, isRead: true }
-            : notification
-        )
+            : notification,
+        ),
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
@@ -172,7 +172,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
       });
 
       setNotifications((prev) =>
-        prev.map((notification) => ({ ...notification, isRead: true }))
+        prev.map((notification) => ({ ...notification, isRead: true })),
       );
       setUnreadCount(0);
     } catch (error) {
@@ -189,7 +189,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
       });
 
       setNotifications((prev) =>
-        prev.filter((notification) => notification._id !== notificationId)
+        prev.filter((notification) => notification._id !== notificationId),
       );
     } catch (error) {
       console.error("Failed to delete notification:", error);
@@ -232,7 +232,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
   };
 
   const getPriorityColor = (
-    priority: string
+    priority: string,
   ): "danger" | "warning" | "success" | "default" => {
     switch (priority) {
       case "high":
@@ -423,7 +423,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
                             new Date(notification.createdAt),
                             {
                               addSuffix: true,
-                            }
+                            },
                           )}
                         </span>
 

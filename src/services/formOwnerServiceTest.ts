@@ -1,4 +1,4 @@
-import ApiRequest from "../hooks/ApiHook";
+import ApiRequest from "../hooks/APIHook/ApiHook";
 
 // Test script to verify form owner endpoints
 export const testFormOwnerEndpoints = async (formId: string) => {

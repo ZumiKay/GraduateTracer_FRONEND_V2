@@ -1,4 +1,5 @@
 import { formOwnerService } from "../services/formOwnerService";
+import { CollaboratorType } from "../types/Form.types";
 
 // Debug function to check form access
 export const debugFormAccess = async (formId: string) => {
@@ -16,9 +17,14 @@ export const debugFormAccess = async (formId: string) => {
       console.log("Form Owners Result:", ownersResult);
 
       if (ownersResult?.data) {
-        console.log("Primary Owner:", ownersResult.data.primaryOwner);
-        console.log("Additional Owners:", ownersResult.data.additionalOwners);
-        console.log("Total Owners:", ownersResult.data.totalOwners);
+        const ownersData = ownersResult.data as {
+          primaryOwner?: unknown;
+          additionalOwners?: unknown;
+          totalOwners?: unknown;
+        };
+        console.log("Primary Owner:", ownersData.primaryOwner);
+        console.log("Additional Owners:", ownersData.additionalOwners);
+        console.log("Total Owners:", ownersData.totalOwners);
       }
     } else {
       console.log("❌ User does not have access to this form");
@@ -33,7 +39,7 @@ export const debugFormAccess = async (formId: string) => {
 // Function to test form owner management
 export const testFormOwnerManagement = async (
   formId: string,
-  testEmail: string
+  testEmail: string,
 ) => {
   console.log("=== Testing Form Owner Management ===");
 
@@ -57,7 +63,8 @@ export const testFormOwnerManagement = async (
       try {
         const addResult = await formOwnerService.addFormOwner(
           formId,
-          testEmail
+          testEmail,
+          CollaboratorType.editor,
         );
         console.log("✅ Add owner success:", addResult);
       } catch (error) {

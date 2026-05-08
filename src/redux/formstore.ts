@@ -4,7 +4,7 @@ import {
   DefaultFormState,
   FormDataType,
 } from "../types/Form.types";
-import ApiRequest from "../hooks/ApiHook";
+import ApiRequest from "../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 import { ShowLinkedQuestionType } from "../types/Global.types";
 
@@ -19,7 +19,7 @@ export const AsyncSaveForm = createAsyncThunk(
       type: "save" | "edit";
       page?: number;
     },
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     const url = data.type === "save" ? "/savecontent" : "/editform";
     try {
@@ -45,7 +45,7 @@ export const AsyncSaveForm = createAsyncThunk(
       console.log("Save Form", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 const searchParams = new URLSearchParams(window.location.search);
@@ -83,7 +83,7 @@ const formstore = createSlice({
       state,
       action: PayloadAction<
         Array<ContentType> | ((prev: Array<ContentType>) => Array<ContentType>)
-      >
+      >,
     ) => {
       if (typeof action.payload === "function") {
         const newQuestions = action.payload(state.allquestion as ContentType[]);
@@ -101,7 +101,7 @@ const formstore = createSlice({
       state,
       action: PayloadAction<{
         savedData: Array<ContentType>;
-      }>
+      }>,
     ) => {
       const { savedData } = action.payload;
       const currentQuestions = state.allquestion as Array<ContentType>;
@@ -124,7 +124,8 @@ const formstore = createSlice({
 
         // For questions without _id, try to find matching saved version by qIdx and page
         const matchingSaved = savedData.find(
-          (s) => s.qIdx === existingQ.qIdx && s.page === existingQ.page && s._id
+          (s) =>
+            s.qIdx === existingQ.qIdx && s.page === existingQ.page && s._id,
         );
 
         if (matchingSaved) {
@@ -165,7 +166,7 @@ const formstore = createSlice({
     },
     setshowLinkedQuestion: (
       state,
-      action: PayloadAction<Array<ShowLinkedQuestionType>>
+      action: PayloadAction<Array<ShowLinkedQuestionType>>,
     ) => {
       state.showLinkedQuestions = action.payload;
     },
@@ -174,7 +175,7 @@ const formstore = createSlice({
     },
     settTestQuestionState: (
       state,
-      action: PayloadAction<ContentType[] | undefined>
+      action: PayloadAction<ContentType[] | undefined>,
     ) => {
       state.testQuestonState = action.payload;
     },

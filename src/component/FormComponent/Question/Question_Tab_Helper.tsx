@@ -1,4 +1,4 @@
-import ApiRequest from "../../../hooks/ApiHook";
+import ApiRequest from "../../../hooks/APIHook/ApiHook";
 import { AddQuestionNumbering } from "../../../services/labelQuestionNumberingService";
 import { ContentType } from "../../../types/Form.types";
 
@@ -79,15 +79,15 @@ export const DeleteAndShift = ({
 
     // Calculate how many deleted questions are before this one
     const deletedBeforeCount = deletedQIdxList.filter(
-      (deletedQIdx) => deletedQIdx < question.qIdx
+      (deletedQIdx) => deletedQIdx < question.qIdx,
     ).length;
 
     // Check if conditional needs filtering or updating
     const hasConditionalToFilter = question.conditional?.some((c) =>
-      deletedQIdxList.includes(c.contentIdx as number)
+      deletedQIdxList.includes(c.contentIdx as number),
     );
     const hasConditionalToUpdate = question.conditional?.some(
-      (c) => c.contentIdx && c.contentIdx > targetQuestionIdx
+      (c) => c.contentIdx && c.contentIdx > targetQuestionIdx,
     );
     const hasConditionalUpdate =
       hasConditionalToFilter || hasConditionalToUpdate;
@@ -96,7 +96,7 @@ export const DeleteAndShift = ({
     const hasParentUpdate =
       question.parentcontent?.qIdx !== undefined &&
       deletedQIdxList.some(
-        (deletedQIdx) => question.parentcontent!.qIdx! > deletedQIdx
+        (deletedQIdx) => question.parentcontent!.qIdx! > deletedQIdx,
       );
 
     // If no updates needed, keep question as-is
@@ -110,7 +110,7 @@ export const DeleteAndShift = ({
     if (hasConditionalUpdate && question.conditional) {
       // Filter out conditions referencing any deleted question
       updatedConditional = question.conditional.filter(
-        (cond) => !deletedQIdxList.includes(cond.contentIdx as number)
+        (cond) => !deletedQIdxList.includes(cond.contentIdx as number),
       );
 
       // Update indices for remaining conditions
@@ -120,7 +120,7 @@ export const DeleteAndShift = ({
 
           // Count how many deleted questions are before this conditional's contentIdx
           const deletedBeforeConditional = deletedQIdxList.filter(
-            (deletedQIdx) => deletedQIdx < qCond.contentIdx!
+            (deletedQIdx) => deletedQIdx < qCond.contentIdx!,
           ).length;
 
           return {
@@ -135,7 +135,7 @@ export const DeleteAndShift = ({
     let updatedParentContent = question.parentcontent;
     if (question.parentcontent?.qIdx !== undefined) {
       const deletedBeforeParent = deletedQIdxList.filter(
-        (deletedQIdx) => deletedQIdx < question.parentcontent!.qIdx!
+        (deletedQIdx) => deletedQIdx < question.parentcontent!.qIdx!,
       ).length;
 
       if (deletedBeforeParent > 0) {

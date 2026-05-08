@@ -9,7 +9,7 @@ import {
   FiCheckCircle,
 } from "react-icons/fi";
 import { useMutation } from "@tanstack/react-query";
-import ApiRequest from "../hooks/ApiHook";
+import ApiRequest from "../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 import { generateStorageKey } from "../helperFunc";
 import { useSelector } from "react-redux";
@@ -34,7 +34,7 @@ interface ReplaceSessionPageParamsType {
 // Memoized async function to prevent recreations
 const asyncReplaceSession = async (
   code: string,
-  isSkipLogin?: number
+  isSkipLogin?: number,
 ): Promise<ReplaceSessionResponse> => {
   const url = isSkipLogin
     ? `/response/sessionremoval/${code}?skiplogin=${isSkipLogin}`
@@ -67,12 +67,12 @@ const ReplaceSessionPage = () => {
       decodedCode: decodeURIComponent(code),
       decodedFormId: decodeURIComponent(formId),
     }),
-    [code, formId]
+    [code, formId],
   );
 
   // Get user data from Redux store with memoized selector
   const userEmail = useSelector(
-    (state: RootState) => state.usersession?.user?.email
+    (state: RootState) => state.usersession?.user?.email,
   );
 
   // Memoized navigation URLs
@@ -81,7 +81,7 @@ const ReplaceSessionPage = () => {
       formAccessURL: `/form-access/${decodedFormId}`,
       notFoundURL: "/notfound",
     }),
-    [decodedFormId]
+    [decodedFormId],
   );
 
   // Memoized callbacks to prevent unnecessary re-renders
@@ -91,7 +91,7 @@ const ReplaceSessionPage = () => {
         navigate(formAccessURL, { replace: true });
       }, delay);
     },
-    [navigate, formAccessURL]
+    [navigate, formAccessURL],
   );
 
   const handleNavigateToNotFound = useCallback(
@@ -100,7 +100,7 @@ const ReplaceSessionPage = () => {
         navigate(notFoundURL, { replace: true });
       }, delay);
     },
-    [navigate, notFoundURL]
+    [navigate, notFoundURL],
   );
 
   // Separate mutation for terminate and login

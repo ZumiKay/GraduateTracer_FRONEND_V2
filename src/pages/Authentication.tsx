@@ -23,7 +23,7 @@ import {
 import { PasswordInput } from "../component/FormComponent/Input";
 import { ForgotPasswordType, Logindatatype } from "../types/Login.types";
 import PictureBreakAndCombine from "../component/Animation/LogoAnimated";
-import ApiRequest from "../hooks/ApiHook";
+import ApiRequest from "../hooks/APIHook/ApiHook";
 import SuccessToast, {
   ErrorToast,
   InfoToast,
@@ -61,7 +61,7 @@ const FlyingLogos = memo(() => {
         delay: Math.random() * 5,
         opacity: 0.08 + Math.random() * 0.07,
       })),
-    []
+    [],
   );
 
   return (
@@ -126,7 +126,7 @@ interface AuthFormProps {
 
 // Enhanced Password validation with strength indicator
 const validatePasswordStrength = (
-  password: string
+  password: string,
 ): { isValid: boolean; message: string; strength: number } => {
   let strength = 0;
   const checks = [
@@ -191,7 +191,7 @@ const PrivacyPolicyModal = memo(
         </ModalFooter>
       </ModalContent>
     </Modal>
-  )
+  ),
 );
 
 // Enhanced Password Strength Indicator - Memoized for performance
@@ -259,7 +259,7 @@ const ForgotPasswordActions = memo(
         Cancel
       </Button>
     </div>
-  )
+  ),
 );
 
 ForgotPasswordActions.displayName = "ForgotPasswordActions";
@@ -295,7 +295,7 @@ const AuthForm = memo(
         setPasswordStrength(strength.strength);
         onChange(e);
       },
-      [onChange]
+      [onChange],
     );
 
     const forgotPasswordContent = useMemo(() => {
@@ -369,7 +369,7 @@ const AuthForm = memo(
     const passwordValidation = useMemo(
       () => (e: string) =>
         e !== logindata.password ? "Passwords do not match" : null,
-      [logindata.password]
+      [logindata.password],
     );
 
     const formActions = useCallback(() => {
@@ -442,8 +442,8 @@ const AuthForm = memo(
             type === "signup"
               ? "Sign up"
               : type === "forgot"
-              ? "Password reset"
-              : "Sign in"
+                ? "Password reset"
+                : "Sign in"
           } form`}
         >
           {type === "signup" && (
@@ -579,7 +579,7 @@ const AuthForm = memo(
         <PrivacyPolicyModal isOpen={isPolicyOpen} onClose={onPolicyClose} />
       </>
     );
-  }
+  },
 );
 
 AuthForm.displayName = "AuthForm";
@@ -603,7 +603,7 @@ export default function AuthenticationPage() {
   const removeRecaptchaScript = useCallback(() => {
     // Remove the reCAPTCHA script
     const scripts = document.querySelectorAll(
-      'script[src*="google.com/recaptcha"]'
+      'script[src*="google.com/recaptcha"]',
     );
     scripts.forEach((script) => script.remove());
 
@@ -615,7 +615,7 @@ export default function AuthenticationPage() {
 
     // Remove any reCAPTCHA iframes
     const iframes = document.querySelectorAll(
-      'iframe[src*="google.com/recaptcha"]'
+      'iframe[src*="google.com/recaptcha"]',
     );
     iframes.forEach((iframe) => iframe.remove());
 
@@ -648,7 +648,7 @@ export default function AuthenticationPage() {
         setpage(type);
       }
     },
-    [page]
+    [page],
   );
 
   const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
@@ -657,7 +657,7 @@ export default function AuthenticationPage() {
   }, []);
 
   const handleForgotChange = useCallback((code: string) => {
-    setforgot((prev) => ({ ...prev, code } as never));
+    setforgot((prev) => ({ ...prev, code }) as never);
   }, []);
 
   const handleAgreeChange = useCallback((val: boolean) => {
@@ -728,14 +728,14 @@ export default function AuthenticationPage() {
               forgot?.ty === "vfy"
                 ? { ty: "vfy", email: logindata.email, html }
                 : forgot?.ty === "confirm"
-                ? { ty: "confirm", email: logindata.email, code: forgot.code }
-                : forgot?.ty === "change"
-                ? {
-                    ty: "change",
-                    email: logindata.email,
-                    password: logindata.password,
-                  }
-                : {};
+                  ? { ty: "confirm", email: logindata.email, code: forgot.code }
+                  : forgot?.ty === "change"
+                    ? {
+                        ty: "change",
+                        email: logindata.email,
+                        password: logindata.password,
+                      }
+                    : {};
             return {
               ...baseConfig,
               method: "PUT",
@@ -787,7 +787,7 @@ export default function AuthenticationPage() {
           setUser({
             isAuthenticated: true,
             user: AuthenticationRequest.data as UserSessionData,
-          })
+          }),
         );
 
         // Remove reCAPTCHA script after successful login
@@ -845,7 +845,7 @@ export default function AuthenticationPage() {
       page,
       recaptcha,
       removeRecaptchaScript,
-    ]
+    ],
   );
 
   const handleCancel = useCallback(() => {
@@ -951,8 +951,8 @@ export default function AuthenticationPage() {
                   {forgot?.ty === "confirm"
                     ? "Enter the verification code sent to your email"
                     : forgot?.ty === "change"
-                    ? "Create a strong new password for your account"
-                    : "We'll send a verification code to your email"}
+                      ? "Create a strong new password for your account"
+                      : "We'll send a verification code to your email"}
                 </p>
               )}
             </div>

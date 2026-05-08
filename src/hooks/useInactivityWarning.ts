@@ -44,7 +44,7 @@ interface UseInactivityWarningReturn {
 }
 
 export const useInactivityWarning = (
-  props: UseInactivityWarningProps
+  props: UseInactivityWarningProps,
 ): UseInactivityWarningReturn => {
   const { sessionManager, accessMode } = props;
   const [showWarning, setShowWarning] = useState(false);
@@ -63,21 +63,8 @@ export const useInactivityWarning = (
   useEffect(() => {
     if (accessMode === "authenticated" || accessMode === "guest") {
       if (showInactivityAlert && !isSessionActive) {
-        console.log("🚨 [InactivityWarning] Showing inactivity warning", {
-          isSessionActive,
-          showInactivityAlert,
-          timeUntilAutoSignout,
-          warningMessage,
-        });
         setShowWarning(true);
       } else if (isSessionActive) {
-        console.log(
-          "✅ [InactivityWarning] Session reactivated, hiding warning",
-          {
-            isSessionActive,
-            showInactivityAlert,
-          }
-        );
         setShowWarning(false);
       }
     }
@@ -91,31 +78,21 @@ export const useInactivityWarning = (
 
   // Handle continue session action
   const handleContinueSession = useCallback(() => {
-    console.log("🔄 [InactivityWarning] User requested to continue session");
-
     try {
-      // Call the session manager's reactivate function
       if (handleReactivateSession) {
         handleReactivateSession();
       }
 
-      // Hide the warning
       setShowWarning(false);
-
-      console.log("✅ [InactivityWarning] Session continuation successful");
     } catch (error) {
-      console.error("❌ [InactivityWarning] Error continuing session:", error);
-      // Keep warning visible if reactivation failed
+      console.error("Error continuing session:", error);
     }
   }, [handleReactivateSession]);
 
-  // Manual dismiss (for testing purposes)
   const dismissWarning = useCallback(() => {
-    console.log("🔕 [InactivityWarning] Warning manually dismissed");
     setShowWarning(false);
   }, []);
 
-  // Create formatted time display for the UI
   const formatTimeDisplay = useCallback(
     (timeMs: number | null): string | null => {
       if (!timeMs || timeMs <= 0) return null;
@@ -128,7 +105,7 @@ export const useInactivityWarning = (
       }
       return `${seconds}s`;
     },
-    []
+    [],
   );
 
   return {

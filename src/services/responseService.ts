@@ -1,4 +1,4 @@
-import ApiRequest from "../hooks/ApiHook";
+import ApiRequest from "../hooks/APIHook/ApiHook";
 import { ResponseDataType } from "../component/Response/Response.type";
 
 export enum responseCompletionStatus {
@@ -145,7 +145,7 @@ export const fetchUserResponse = async (data: {
 
 export const fetchResponseDetails = async (
   responseId: string,
-  formId: string
+  formId: string,
 ): Promise<ResponseDataType> => {
   const result = await ApiRequest({
     url: `response/getresponseById/${responseId}/${formId}`,
@@ -160,7 +160,7 @@ export const fetchResponseDetails = async (
 export const updateResponseScores = async (
   responseId: string,
   scores: Array<{ questionId: string; score: number }>,
-  sendEmail: boolean = false
+  sendEmail: boolean = false,
 ) => {
   const result = await ApiRequest({
     url: "/updateresponsescore",
@@ -188,7 +188,7 @@ export const deleteResponse = async (responseId: string) => {
 
 export const bulkDeleteResponses = async (
   responseIds: string[],
-  formId: string
+  formId: string,
 ) => {
   const result = await ApiRequest({
     url: "/bulkdeleteresponses",

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useMutation } from "@tanstack/react-query";
-import ApiRequest from "../hooks/ApiHook";
+import ApiRequest from "../hooks/APIHook/ApiHook";
 
 interface ConfirmOwnershipResponse {
   formId: string;
@@ -17,7 +17,7 @@ const OwnershipConfirmPage = () => {
   const [status, setStatus] = useState<ConfirmStatus>("loading");
   const [message, setMessage] = useState<string>("");
   const [formData, setFormData] = useState<ConfirmOwnershipResponse | null>(
-    null
+    null,
   );
 
   const invite = searchParams.get("invite");
@@ -34,7 +34,7 @@ const OwnershipConfirmPage = () => {
 
       if (!response.success) {
         throw new Error(
-          response.error || "Failed to confirm ownership transfer"
+          response.error || "Failed to confirm ownership transfer",
         );
       }
 
@@ -44,7 +44,7 @@ const OwnershipConfirmPage = () => {
       setFormData(data);
       setStatus("success");
       setMessage(
-        `You are now the primary owner of "${data.formTitle}". The previous owner has been moved to the owners list.`
+        `You are now the primary owner of "${data.formTitle}". The previous owner has been moved to the owners list.`,
       );
 
       // Redirect to form after 3 seconds
@@ -58,7 +58,7 @@ const OwnershipConfirmPage = () => {
       if (errorMessage.includes("expired")) {
         setStatus("expired");
         setMessage(
-          "This ownership transfer invitation has expired. Please request a new one from the current owner."
+          "This ownership transfer invitation has expired. Please request a new one from the current owner.",
         );
       } else if (
         errorMessage.includes("not found") ||
@@ -67,12 +67,12 @@ const OwnershipConfirmPage = () => {
       ) {
         setStatus("invalid");
         setMessage(
-          "This ownership transfer invitation is invalid or has already been completed."
+          "This ownership transfer invitation is invalid or has already been completed.",
         );
       } else if (errorMessage.includes("not for you")) {
         setStatus("error");
         setMessage(
-          "This ownership transfer invitation was sent to a different account. Please login with the correct account."
+          "This ownership transfer invitation was sent to a different account. Please login with the correct account.",
         );
       } else {
         setStatus("error");

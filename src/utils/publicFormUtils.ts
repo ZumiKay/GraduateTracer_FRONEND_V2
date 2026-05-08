@@ -1,6 +1,6 @@
 export const generatePublicFormURL = (
   formId: string,
-  token?: string
+  token?: string,
 ): string => {
   const baseURL = window.location.origin;
   if (token) {
@@ -10,7 +10,7 @@ export const generatePublicFormURL = (
 };
 
 export const parsePublicFormURL = (
-  url: string
+  url: string,
 ): { formId: string; token?: string } => {
   const urlParts = url.split("/");
   const formAccessIndex = urlParts.findIndex((part) => part === "form-access");
@@ -36,8 +36,9 @@ export const isValidEmail = (email: string): boolean => {
 
 export interface GuestData {
   name: string;
-  email: string;
+  email?: string;
   timestamp?: number;
+  remmember
 }
 
 export const storeGuestData = (guestData: GuestData): void => {

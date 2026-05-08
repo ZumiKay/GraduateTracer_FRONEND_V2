@@ -79,7 +79,6 @@ export const useSessionManager = ({
     activityTimeoutRef.current = window.setTimeout(() => {
       if (!isMountedRef.current) return;
 
-      console.log("⚠️ User inactive - showing warning");
       setUserInactive(true);
       setShowWarning(true);
 
@@ -93,9 +92,7 @@ export const useSessionManager = ({
       autoSignoutTimeoutRef.current = window.setTimeout(async () => {
         if (!isMountedRef.current) return;
 
-        console.log("🚪 Auto signout due to inactivity");
         try {
-          // Use callback directly from closure - it's stable
           if (onAutoSignOut) {
             await onAutoSignOut();
           }
@@ -106,28 +103,20 @@ export const useSessionManager = ({
     }, INACTIVITY_WARNING_TIMEOUT);
   }, [setformsession, onAutoSignOut]);
 
-  // Use ref for activity handler to avoid recreating listeners
   const resetActivityTimerRef = useRef(resetActivityTimer);
 
-  // Keep ref updated
   useEffect(() => {
     resetActivityTimerRef.current = resetActivityTimer;
   }, [resetActivityTimer]);
 
-  // Activity event handler - stable reference using ref
   const handleActivity = useCallback(() => {
     if (!isMountedRef.current) return;
     resetActivityTimerRef.current();
   }, []);
 
-  // Helper function to reactivate session
   const handleReactivateSession = useCallback(() => {
-    console.log("🔄 Reactivating session...");
-
-    // Reset the throttle timestamp to allow immediate reset
     lastResetTimeRef.current = 0;
 
-    // Clear existing timers
     if (activityTimeoutRef.current !== null) {
       clearTimeout(activityTimeoutRef.current);
       activityTimeoutRef.current = null;
@@ -137,7 +126,6 @@ export const useSessionManager = ({
       autoSignoutTimeoutRef.current = null;
     }
 
-    // Reset all state
     setUserInactive(false);
     setShowWarning(false);
     setformsession((prev) => ({
@@ -145,20 +133,15 @@ export const useSessionManager = ({
       isActive: true,
     }));
 
-    // Now reset the activity timer
+    //reset the activity timer
     resetActivityTimerRef.current();
-
-    console.log("✅ Session reactivated successfully");
   }, [setformsession]);
 
-  // Initialize timer when form loads - optimized with ref
   useEffect(() => {
     if (
       (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
       accessMode === "guest"
     ) {
-      console.log(`🚀 Initialize timer for ${accessMode}`);
-      // Reset throttle on initialization to allow immediate execution
       lastResetTimeRef.current = 0;
       resetActivityTimerRef.current();
     }
@@ -172,7 +155,6 @@ export const useSessionManager = ({
     };
   }, [accessMode, isFormRequiredSessionChecked]);
 
-  // Event listeners
   useEffect(() => {
     if (
       (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
@@ -190,7 +172,6 @@ export const useSessionManager = ({
     }
   }, [accessMode, isFormRequiredSessionChecked, handleActivity]);
 
-  // Visibility change handler - optimized with ref
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!isMountedRef.current) return;
@@ -208,7 +189,7 @@ export const useSessionManager = ({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []); // No dependencies needed - all stable
+  }, []);
 
   // Show page visibility alert
   useEffect(() => {

@@ -42,12 +42,11 @@ export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
       <div className="flex justify-between items-center">
         <p className="text-sm font-medium text-gray-600">Select one option:</p>
 
-        {currentResponse !== null &&
-        currentResponse !== undefined &&
-        currentResponse !== "" ? (
+        {Array.isArray(currentResponse) &&
+        (currentResponse as number[]).length > 0 ? (
           <button
             type="button"
-            onClick={() => question._id && updateResponse(question._id, "")}
+            onClick={() => question._id && updateResponse(question._id, [])}
             className="clear-button"
           >
             Clear Selection
@@ -58,7 +57,10 @@ export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
       </div>
       <div className="space-y-3">
         {question.multiple?.map((choice, choiceIdx) => {
-          const isSelected = currentResponse === choice.idx;
+          const choiceValue = choice.idx ?? choiceIdx;
+          const isSelected =
+            Array.isArray(currentResponse) &&
+            (currentResponse as number[]).includes(choiceValue);
 
           return (
             <label
@@ -70,7 +72,7 @@ export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
                 name={`radio-${question._id}`}
                 checked={isSelected}
                 onChange={() => {
-                  updateResponse(question._id ?? "", choice.idx ?? choiceIdx);
+                  updateResponse(question._id ?? "", [choiceValue]);
                 }}
                 className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2"
                 disabled={false}

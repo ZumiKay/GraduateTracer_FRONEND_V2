@@ -23,7 +23,7 @@ import {
   FiTrendingUp,
 } from "react-icons/fi";
 import { useQuery } from "@tanstack/react-query";
-import { createQueryFn } from "../hooks/ApiHook";
+import { createQueryFn } from "../hooks/APIHook/ReactQueryHelper";
 import { FormDataType, FormTypeEnum, QuestionType } from "../types/Form.types";
 import {
   ResponseCompletionStatus,
@@ -138,7 +138,7 @@ const FilledFormPage: React.FC = () => {
         }
       });
     },
-    [responseData?.userResponses?.length]
+    [responseData?.userResponses?.length],
   );
 
   const handleResponseSelect = useCallback((responseIndex: string) => {
@@ -431,7 +431,7 @@ const FilledFormPage: React.FC = () => {
                   questionNumber={index + 1}
                   isQuiz={isQuiz}
                 />
-              )
+              ),
             )
           )}
         </div>
@@ -570,7 +570,7 @@ const FilledFormPage: React.FC = () => {
                           ? Math.round(
                               (currentResponse.totalScore /
                                 formData.totalscore) *
-                                100
+                                100,
                             )
                           : 0}
                         %
@@ -789,7 +789,7 @@ const ResponseDisplayCard: React.FC<ResponseDisplayCardProps> = React.memo(
         // Default: return as string
         return <span>{String(response)}</span>;
       },
-      [formatDate]
+      [formatDate],
     );
 
     return (
@@ -813,8 +813,8 @@ const ResponseDisplayCard: React.FC<ResponseDisplayCardProps> = React.memo(
                         isCorrectAnswer === true
                           ? "success"
                           : isCorrectAnswer === false
-                          ? "danger"
-                          : "warning"
+                            ? "danger"
+                            : "warning"
                       }
                       variant="flat"
                       size="md"
@@ -860,7 +860,7 @@ const ResponseDisplayCard: React.FC<ResponseDisplayCardProps> = React.memo(
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-3 sm:p-4 rounded-xl border-l-4 border-blue-500 dark:border-blue-400 shadow-sm">
                 {renderResponseValue(
                   responseSet.response,
-                  responseSet.question
+                  responseSet.question,
                 )}
               </div>
             </div>
@@ -889,7 +889,7 @@ const ResponseDisplayCard: React.FC<ResponseDisplayCardProps> = React.memo(
                   <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-3 sm:p-4 rounded-xl border-l-4 border-green-500 dark:border-green-400 shadow-sm">
                     {renderResponseValue(
                       (answerKey as { answer: unknown }).answer,
-                      responseSet.question
+                      responseSet.question,
                     )}
                   </div>
                 </div>
@@ -909,7 +909,7 @@ const ResponseDisplayCard: React.FC<ResponseDisplayCardProps> = React.memo(
         </CardBody>
       </Card>
     );
-  }
+  },
 );
 
 ResponseDisplayCard.displayName = "ResponseDisplayCard";

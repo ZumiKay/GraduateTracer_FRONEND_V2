@@ -1,5 +1,5 @@
 import { RangeValue } from "@heroui/react";
-import { AnswerKey, QuestionType } from "../types/Form.types";
+import { QuestionType } from "../types/Form.types";
 import {
   AnswerKeyPairValueType,
   ResponseValueType,
@@ -10,7 +10,7 @@ import {
  */
 export const isResponseEmpty = (
   response: ResponseValueType,
-  qType?: QuestionType
+  qType?: QuestionType,
 ): boolean => {
   if (response === undefined || response === null || response === "") {
     return true;

@@ -26,27 +26,27 @@ const mkCheckbox = (formId = "f1"): ContentType => ({
   ],
 });
 
+const globalFormId = "f1";
+
 describe("useFormResponses checkbox/multiple conditional logic", () => {
   test("shows child when parent multiple choice matches expected option index", () => {
     const parent = mkMultiple();
     const child: ContentType = {
       _id: "child1",
-      formId: "f1",
+      formId: globalFormId,
       qIdx: 1,
       type: QuestionType.Text,
       parentcontent: { qId: parent._id!, optIdx: 1 },
     };
 
     const questions = [parent, child];
-    const { result } = renderHook(() => useFormResponses(questions));
-
-    act(() => {
-      result.current.initializeResponses();
-    });
+    const { result } = renderHook(() =>
+      useFormResponses(questions, globalFormId),
+    );
 
     // initially hidden (no response yet)
     expect(
-      result.current.checkIfQuestionShouldShow(child, result.current.responses)
+      result.current.checkIfQuestionShouldShow(child, result.current.responses),
     ).toBe(false);
 
     // select option index 1
@@ -55,7 +55,7 @@ describe("useFormResponses checkbox/multiple conditional logic", () => {
     });
 
     expect(
-      result.current.checkIfQuestionShouldShow(child, result.current.responses)
+      result.current.checkIfQuestionShouldShow(child, result.current.responses),
     ).toBe(true);
   });
 
@@ -77,11 +77,9 @@ describe("useFormResponses checkbox/multiple conditional logic", () => {
     };
 
     const questions = [parent, childIdx1, childIdx2];
-    const { result } = renderHook(() => useFormResponses(questions));
-
-    act(() => {
-      result.current.initializeResponses();
-    });
+    const { result } = renderHook(() =>
+      useFormResponses(questions, globalFormId),
+    );
 
     // Select multiple options [0, 2]
     act(() => {
@@ -91,32 +89,30 @@ describe("useFormResponses checkbox/multiple conditional logic", () => {
     expect(
       result.current.checkIfQuestionShouldShow(
         childIdx1,
-        result.current.responses
-      )
+        result.current.responses,
+      ),
     ).toBe(true);
     expect(
       result.current.checkIfQuestionShouldShow(
         childIdx2,
-        result.current.responses
-      )
+        result.current.responses,
+      ),
     ).toBe(true);
   });
 
   test("supports content-based matching for checkbox parent when expected optIdx is a string content", () => {
-    const parent = mkCheckbox();
+    const parent = mkCheckbox(globalFormId);
     const childContent: ContentType = {
       _id: "child4",
-      formId: "f1",
+      formId: globalFormId,
       type: QuestionType.Text,
       parentcontent: { qId: parent._id!, optIdx: "CB" as unknown as number },
     } as ContentType;
 
     const questions = [parent, childContent];
-    const { result } = renderHook(() => useFormResponses(questions));
-
-    act(() => {
-      result.current.initializeResponses();
-    });
+    const { result } = renderHook(() =>
+      useFormResponses(questions, globalFormId),
+    );
 
     // simulate legacy responses storing content strings
     act(() => {
@@ -126,8 +122,8 @@ describe("useFormResponses checkbox/multiple conditional logic", () => {
     expect(
       result.current.checkIfQuestionShouldShow(
         childContent,
-        result.current.responses
-      )
+        result.current.responses,
+      ),
     ).toBe(true);
   });
 });

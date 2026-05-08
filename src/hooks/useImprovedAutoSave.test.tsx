@@ -12,12 +12,12 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { AutoSaveQuestion } from "../pages/FormPage.action";
 import useImprovedAutoSave from "./useImprovedAutoSave";
-import { ApiRequestReturnType } from "./ApiHook";
+import { ApiRequestReturnType } from "./APIHook/ApiHook";
 import * as ReactRedux from "react-redux";
 import { ContentType, QuestionType } from "../types/Form.types";
 
-// Mock ApiHook to avoid import.meta issues
-jest.mock("../hooks/ApiHook", () => ({
+/* ------------------------- Mock Modules and Helper ------------------------ */
+jest.mock("../hooks/APIHook/ApiHook.tsx", () => ({
   __esModule: true,
   default: jest.fn(() => Promise.resolve({ success: true, data: {} })),
 }));
@@ -34,7 +34,7 @@ jest.mock("react-redux", () => ({
         pauseAutoSave: false,
         prevAllQuestion: [],
       },
-    })
+    }),
   ),
 }));
 
@@ -54,6 +54,8 @@ const mockedApiRequestReturn: ApiRequestReturnType = {
   success: true,
   data: {},
 };
+
+/* ---------------------------------- Tests --------------------------------- */
 
 describe("Auto function test", () => {
   beforeEach(() => {
@@ -79,7 +81,7 @@ describe("Auto function test", () => {
     };
 
     expect(result.current.autoSaveStatus).toStrictEqual(
-      expectInititlaizeStatus
+      expectInititlaizeStatus,
     );
   });
 
@@ -107,11 +109,11 @@ describe("Auto function test", () => {
             pauseAutoSave: false,
             prevAllQuestion: [],
           },
-        })
+        }),
     );
 
     const { result } = renderHook(() =>
-      useImprovedAutoSave({ debounceMs: 1500 })
+      useImprovedAutoSave({ debounceMs: 1500 }),
     );
 
     // Initially status should be idle
@@ -173,11 +175,11 @@ describe("Auto function test", () => {
             pauseAutoSave: false,
             prevAllQuestion: [],
           },
-        })
+        }),
     );
 
     const { result } = renderHook(() =>
-      useImprovedAutoSave({ debounceMs: 1500 })
+      useImprovedAutoSave({ debounceMs: 1500 }),
     );
 
     // Initially should be offline

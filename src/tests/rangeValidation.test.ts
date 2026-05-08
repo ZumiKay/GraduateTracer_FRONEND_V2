@@ -91,13 +91,13 @@ describe("Range Validation Tests", () => {
       expect(errors[0].questionTitle).toBe("Invalid range number");
       expect(errors[0].questionType).toBe(QuestionType.RangeNumber);
       expect(errors[0].errorMessage).toContain(
-        "End value (5) must be greater than or equal to start value (10)"
+        "End value (5) must be greater than or equal to start value (10)",
       );
     });
 
     test("should pass for valid range date questions", () => {
-      const startDate = parseDate("2024-01-01");
-      const endDate = parseDate("2024-12-31");
+      const startDate = parseDate("2024-01-01").toString();
+      const endDate = parseDate("2024-12-31").toString();
 
       const questions: ContentType[] = [
         {
@@ -116,8 +116,8 @@ describe("Range Validation Tests", () => {
     });
 
     test("should fail for invalid range date questions", () => {
-      const startDate = parseDate("2024-12-31");
-      const endDate = parseDate("2024-01-01");
+      const startDate = parseDate("2024-12-31").toString();
+      const endDate = parseDate("2024-01-01").toString();
 
       const questions: ContentType[] = [
         {
@@ -136,7 +136,7 @@ describe("Range Validation Tests", () => {
       expect(errors[0].questionTitle).toBe("Invalid range date");
       expect(errors[0].questionType).toBe(QuestionType.RangeDate);
       expect(errors[0].errorMessage).toContain(
-        "End date must be after or equal to start date"
+        "End date must be after or equal to start date",
       );
     });
 
@@ -202,7 +202,7 @@ describe("Range Validation Tests", () => {
 
       const summary = getRangeValidationSummary(errors);
       expect(summary).toBe(
-        "Test Question: End value must be greater than start value"
+        "Test Question: End value must be greater than start value",
       );
     });
 
@@ -225,10 +225,10 @@ describe("Range Validation Tests", () => {
       const summary = getRangeValidationSummary(errors);
       expect(summary).toContain("2 questions have invalid ranges:");
       expect(summary).toContain(
-        "• Question 1: End value must be greater than start value"
+        "• Question 1: End value must be greater than start value",
       );
       expect(summary).toContain(
-        "• Question 2: End date must be after start date"
+        "• Question 2: End date must be after start date",
       );
     });
   });

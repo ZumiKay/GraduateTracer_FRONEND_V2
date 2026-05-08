@@ -80,7 +80,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           ...c,
           contentIdx: undefined,
         })),
-      }))
+      })),
     );
   }, []);
 
@@ -89,10 +89,9 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       const newHash = generateDataString(newData);
       return newHash !== lastSavedHash;
     },
-    [generateDataString, lastSavedHash]
+    [generateDataString, lastSavedHash],
   );
 
-  ///
   const updateAllQuestionStates = useCallback(
     ({ latestVal }: { latestVal: Array<ContentType> }) => {
       //Conditions to update
@@ -114,7 +113,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       }
     },
 
-    [dispatch, hasDataChanged]
+    [dispatch, hasDataChanged],
   );
 
   //Manually Update AllQuestion State (called on blur)
@@ -142,7 +141,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     async (
       dataToSave: ContentType[],
       attempt: number = 0,
-      autoSave?: boolean
+      autoSave?: boolean,
     ): Promise<boolean> => {
       if (!formstate._id || pauseAutoSave || !isMountedRef.current)
         return false;
@@ -188,7 +187,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
             } else {
               // Manual save updates immediately - update hash from response
               const newHash = generateDataString(
-                response.data as Array<ContentType>
+                response.data as Array<ContentType>,
               );
               setLastSavedHash(newHash);
               lastSavedHashRef.current = newHash;
@@ -220,10 +219,13 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
             error: `Retrying... (${attempt + 1}/${retryAttempts})`,
           }));
 
-          retryTimeoutRef.current = window.setTimeout(() => {
-            if (!isMountedRef.current) return;
-            performSave(dataToSave, attempt + 1, formstate.setting?.autosave);
-          }, retryDelayMs * (attempt + 1)); // Exponential backoff
+          retryTimeoutRef.current = window.setTimeout(
+            () => {
+              if (!isMountedRef.current) return;
+              performSave(dataToSave, attempt + 1, formstate.setting?.autosave);
+            },
+            retryDelayMs * (attempt + 1),
+          ); // Exponential backoff
 
           return false;
         } else {
@@ -255,7 +257,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       retryAttempts,
       retryDelayMs,
       autoSaveStatus.lastSaved,
-    ]
+    ],
   );
 
   // Online/offline detection
@@ -325,7 +327,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         const currentQuestions = allQuestionRef.current;
 
         // Check if data has actually changed since last save
-        // Use ref to avoid stale closure issues with lastSavedHash
         const currentHash = generateDataString(currentQuestions);
         const dataChanged = currentHash !== lastSavedHashRef.current;
 
@@ -343,7 +344,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         }
       }, debounceMs);
     },
-    [isOnline, offlineQueueSize, performSave, debounceMs, generateDataString]
+    [isOnline, offlineQueueSize, performSave, debounceMs, generateDataString],
   );
 
   const manualSave = useCallback(
@@ -376,7 +377,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         const success = await performSave(
           customQuestions ?? allquestion,
           0,
-          false // Manual save always updates immediately, not queued
+          false, // Manual save always updates immediately, not queued
         );
 
         if (success) {
@@ -406,7 +407,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         dispatch(setpauseAutoSave(false));
       }
     },
-    [formstate._id, allquestion, dispatch, performSave, generateDataString]
+    [formstate._id, allquestion, dispatch, performSave, generateDataString],
   );
 
   // Main autosave effect - triggers debounced save when question changes

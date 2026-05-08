@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { generateStorageKey } from "../helperFunc";
-import ApiRequest from "./ApiHook";
+import ApiRequest from "./APIHook/ApiHook";
 import { LoginData } from "../types/PublicFormAccess.types";
 
 // Login hook
@@ -70,7 +70,7 @@ export const useSwitchUser = () => {
 // Check respondent session hook
 export const useCheckRespondentSession = (
   formId: string | undefined,
-  userEmail: string | undefined
+  userEmail: string | undefined,
 ) => {
   return useMutation({
     mutationFn: async () => {

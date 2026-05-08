@@ -9,7 +9,7 @@ interface AuthContainerProps {
   formTitle?: string;
   showGuestForm: boolean;
   loginData: LoginData;
-  guestData: GuestData;
+  guestData?: GuestData;
   isLoginLoading: boolean;
   user: { user: Record<string, unknown> | null; isAuthenticated: boolean };
   onLoginChange: (e: React.ChangeEvent<HTMLInputElement>) => void;

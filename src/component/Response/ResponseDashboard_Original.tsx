@@ -34,7 +34,7 @@ import {
   FiBarChart,
 } from "react-icons/fi";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import ApiRequest from "../../hooks/ApiHook";
+import ApiRequest from "../../hooks/APIHook/ApiHook";
 import {
   FormDataType,
   FormTypeEnum,
@@ -96,7 +96,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     searchTerm: "",
   });
   const [selectedResponse, setSelectedResponse] = useState<ResponseData | null>(
-    null
+    null,
   );
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailList, setEmailList] = useState("");
@@ -180,14 +180,14 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
           (response.guest?.email &&
             response.guest.email
               .toLowerCase()
-              .includes(filters.searchTerm.toLowerCase()))
+              .includes(filters.searchTerm.toLowerCase())),
       );
     }
 
     // Filter by  status
     if (filters.status) {
       filtered = filtered.filter(
-        (response) => response.completionStatus === filters.status
+        (response) => response.completionStatus === filters.status,
       );
     }
 
@@ -447,7 +447,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
           return "default";
       }
     },
-    []
+    [],
   );
 
   // Filter handlers
@@ -455,7 +455,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setFilters((prev) => ({ ...prev, searchTerm: e.target.value }));
     },
-    []
+    [],
   );
 
   const handleStatusChange = useCallback((keys: SharedSelection) => {
@@ -487,7 +487,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
     (questionId: string) => {
       return form.contents?.find((q: ContentType) => q._id === questionId);
     },
-    [form.contents]
+    [form.contents],
   );
 
   // Extract question text from title
@@ -523,7 +523,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         score,
       });
     },
-    [updateQuestionScoreMutation]
+    [updateQuestionScoreMutation],
   );
 
   // Modal handlers
@@ -532,7 +532,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   const handleCloseLinkModal = useCallback(() => setLinkModalOpen(false), []);
   const handleOpenAnalytics = useCallback(
     () => window.open(`/analytics/${formId}`, "_blank"),
-    [formId]
+    [formId],
   );
 
   return (
@@ -681,7 +681,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                       <Chip
                         size="sm"
                         color={getStatusColor(
-                          response.completionStatus || "default"
+                          response.completionStatus || "default",
                         )}
                         variant="flat"
                       >
@@ -787,7 +787,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                       {response.responseset.map(
                         (resp: ResponseSetType, index: number) => {
                           const question = getQuestionById(
-                            resp.questionId || ""
+                            resp.questionId || "",
                           );
                           const isAutoScore = question
                             ? isAutoScoreable(question.type)
@@ -832,7 +832,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                                     handleManualScoreUpdate(
                                       response._id,
                                       resp.questionId || "",
-                                      score
+                                      score,
                                     );
                                   }}
                                   className="w-20"
@@ -844,7 +844,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                               </div>
                             </div>
                           );
-                        }
+                        },
                       )}
                     </div>
                   </Card>
@@ -964,7 +964,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                         <Chip
                           size="sm"
                           color={getStatusColor(
-                            selectedResponse.completionStatus || "default"
+                            selectedResponse.completionStatus || "default",
                           )}
                           variant="flat"
                         >
@@ -1060,7 +1060,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                             </div>
                           </Card>
                         );
-                      }
+                      },
                     )}
                   </div>
                 </div>
@@ -1113,7 +1113,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                     onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === "Enter") {
                         const newScore = parseInt(
-                          (e.target as HTMLInputElement).value
+                          (e.target as HTMLInputElement).value,
                         );
                         updateScoreMutation.mutate({
                           responseId: selectedResponse._id,
@@ -1136,7 +1136,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
               disabled={updateScoreMutation.isPending}
               onClick={() => {
                 const input = document.querySelector(
-                  'input[type="number"]'
+                  'input[type="number"]',
                 ) as HTMLInputElement;
                 if (input && selectedResponse) {
                   const newScore = parseInt(input.value);
@@ -1262,12 +1262,12 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                                     onChange={(e) => {
                                       const score = Math.min(
                                         parseInt(e.target.value) || 0,
-                                        maxScore
+                                        maxScore,
                                       );
                                       handleManualScoreUpdate(
                                         selectedResponse._id,
                                         resp.questionId || "",
-                                        score
+                                        score,
                                       );
                                     }}
                                     className="w-20"
@@ -1289,7 +1289,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
                           </div>
                         </Card>
                       );
-                    }
+                    },
                   )}
                 </div>
               </div>

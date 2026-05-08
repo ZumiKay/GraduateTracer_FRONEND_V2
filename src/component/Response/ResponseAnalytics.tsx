@@ -1,30 +1,21 @@
 import React, { useState, memo } from "react";
 import {
   Card,
-  CardHeader,
   CardBody,
   Button,
   Select,
   SelectItem,
-  Progress,
   Tabs,
   Tab,
 } from "@heroui/react";
-import {
-  FiBarChart,
-  FiTrendingUp,
-  FiUsers,
-  FiClock,
-  FiTarget,
-  FiRefreshCw,
-  FiPieChart,
-} from "react-icons/fi";
+import { FiBarChart, FiRefreshCw, FiPieChart } from "react-icons/fi";
 import { useQuery } from "@tanstack/react-query";
-import ApiRequest from "../../hooks/ApiHook";
+import ApiRequest from "../../hooks/APIHook/ApiHook";
 import { FormDataType } from "../../types/Form.types";
 import GraphAnalyticsView from "./GraphAnalyticsView";
 import DefaultAnalyticsView from "./DefaultAnalyticsView";
 import { AnalyticsData } from "./ResponseAnalytics.types";
+import OverviewAnayticsTabs from "./components/OverviewAnalytics";
 
 interface ResponseAnalyticsProps {
   formId: string;
@@ -38,7 +29,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
   const [activeTab, setActiveTab] = useState("overview");
   const [viewMode, setViewMode] = useState<"default" | "graph">("graph");
   const [selectedPage, setSelectedPage] = useState<number | undefined>(
-    undefined
+    undefined,
   );
 
   // Get unique pages from form contents
@@ -47,8 +38,8 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
         new Set(
           form.contents
             .map((c) => c.page)
-            .filter((p): p is number => p !== undefined && p !== null)
-        )
+            .filter((p): p is number => p !== undefined && p !== null),
+        ),
       ).sort((a, b) => a - b)
     : [];
 
@@ -145,7 +136,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
               onSelectionChange={(keys) => {
                 const selected = Array.from(keys)[0] as string;
                 setSelectedPage(
-                  selected === "all" ? undefined : Number(selected)
+                  selected === "all" ? undefined : Number(selected),
                 );
               }}
               className="w-32"
@@ -180,126 +171,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
         aria-label="Analytics Tab"
       >
         <Tab key="overview" title="Overview">
-          <div className="space-y-6">
-            {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card aria-label="Response Card">
-                <CardBody className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <FiUsers className="text-blue-600 text-xl" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Total Responses</p>
-                      <p className="text-2xl font-bold">
-                        {analytics.formStats.totalResponses}
-                      </p>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-
-              <Card aria-label="CompletionRate Card">
-                <CardBody className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <FiTarget className="text-green-600 text-xl" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Completion Rate</p>
-                      <p className="text-2xl font-bold">
-                        {analytics.formStats.completionRate.toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-
-              <Card aria-label="AverageScore Card">
-                <CardBody className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <FiTrendingUp className="text-yellow-600 text-xl" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Average Score</p>
-                      <p className="text-2xl font-bold">
-                        {analytics.formStats.averageScore.toFixed(1)}
-                        <span className="text-sm text-gray-500">
-                          /{analytics.formStats.maxPossibleScore}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-
-              <Card aria-label="CompletedResponses Card">
-                <CardBody className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <FiClock className="text-purple-600 text-xl" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        Completed Responses
-                      </p>
-                      <p className="text-2xl font-bold">
-                        {analytics.formStats.completedResponses}
-                      </p>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            </div>
-
-            {/* Performance Overview */}
-            <Card aria-label="PerformanceOverview Card">
-              <CardHeader>
-                <h3 className="text-lg font-semibold">Performance Overview</h3>
-              </CardHeader>
-              <CardBody className="space-y-4">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm">Completion Rate</span>
-                    <span className="text-sm font-semibold">
-                      {analytics.formStats.completionRate.toFixed(1)}%
-                    </span>
-                  </div>
-                  <Progress
-                    value={analytics.formStats.completionRate}
-                    className="h-2"
-                    color="warning"
-                    aria-label="analytics progressBar"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm">Average Score</span>
-                    <span className="text-sm font-semibold">
-                      {(
-                        (analytics.formStats.averageScore /
-                          (analytics.formStats.maxPossibleScore || 1)) *
-                        100
-                      ).toFixed(1)}
-                      %
-                    </span>
-                  </div>
-                  <Progress
-                    value={
-                      (analytics.formStats.averageScore /
-                        (analytics.formStats.maxPossibleScore || 1)) *
-                      100
-                    }
-                    className="h-2"
-                    color="success"
-                    aria-label="averageScore progressBar"
-                  />
-                </div>
-              </CardBody>
-            </Card>
-          </div>
+          <OverviewAnayticsTabs analytics={analytics} formId={formId} />
         </Tab>
 
         <Tab

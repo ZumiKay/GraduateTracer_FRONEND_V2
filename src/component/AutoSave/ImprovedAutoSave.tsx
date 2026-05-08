@@ -102,7 +102,7 @@ const ImprovedAutoSave: React.FC<ImprovedAutoSaveProps> = ({
   };
 
   const handleManualSave = async () => {
-    await manualSave();
+    await manualSave({});
   };
 
   return (

@@ -29,5 +29,11 @@ export const initialFormState: FormState = {
   accessMode: "login",
   showGuestForm: false,
   loginData: { email: "", password: "", rememberMe: false },
-  guestData: { name: "", email: "", rememberMe: false, isActive: false },
+  guestData: {
+    name: "",
+    email: "",
+    rememberMe: false,
+    isActive: false,
+    timeStamp: 0,
+  },
 };

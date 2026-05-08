@@ -6,7 +6,7 @@ import React, {
   useEffect,
 } from "react";
 import { UseMutationResult } from "@tanstack/react-query";
-import { ApiRequestReturnType } from "../hooks/ApiHook";
+import { ApiRequestReturnType } from "../hooks/APIHook/ApiHook";
 
 interface SessionContextType {
   // Manual session check function
@@ -100,7 +100,7 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
         const hiddenDuration = Date.now() - lastCheckTimeRef.current;
         if (hiddenDuration > 60000) {
           console.log(
-            "👁️ [SessionContext] Tab became visible, checking session..."
+            "👁️ [SessionContext] Tab became visible, checking session...",
           );
           checkSession();
         }

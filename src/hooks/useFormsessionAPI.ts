@@ -1,11 +1,10 @@
 import { useState, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import ApiRequest, { ApiRequestReturnType } from "./ApiHook";
+import ApiRequest, { ApiRequestReturnType } from "./APIHook/ApiHook";
 import queryClient from "./ReactQueryClient";
 import { ErrorToast } from "../component/Modal/AlertModal";
 import { AxiosError } from "axios";
 
-// Global flag to suppress error toasts during user switch
 let isSwitchingUser = false;
 
 export const setUserSwitching = (value: boolean) => {
@@ -84,7 +83,7 @@ export const useFormsessionAPI = () => {
   const respondentLogin = useMutation({
     mutationKey: ["respondentLogin"],
     mutationFn: async (
-      props: RespondentLoginProps
+      props: RespondentLoginProps,
     ): Promise<FormsessionResponse> => {
       setIsLoading(true);
       setError(null);
@@ -100,7 +99,6 @@ export const useFormsessionAPI = () => {
       return handleApiResponse(response) as FormsessionResponse;
     },
     onSuccess: () => {
-      //Make sure all data up to date
       queryClient.invalidateQueries({ queryKey: ["sessionVerification"] });
       queryClient.invalidateQueries({ queryKey: ["formsession"] });
     },
@@ -116,7 +114,7 @@ export const useFormsessionAPI = () => {
 
   const useSessionVerification = (
     enabled: boolean = false,
-    formId: string = ""
+    formId: string = "",
   ) => {
     return useQuery({
       queryKey: ["sessionVerification"],
@@ -145,7 +143,7 @@ export const useFormsessionAPI = () => {
 
   const useManuallySessionVeriftication = (
     formId?: string,
-    handleSessionExpired?: () => void
+    handleSessionExpired?: () => void,
   ) => {
     return useMutation({
       mutationKey: ["manualSessionVerification", formId],
@@ -168,8 +166,6 @@ export const useFormsessionAPI = () => {
         queryClient.invalidateQueries({ queryKey: ["sessionVerification"] });
       },
       onError: (error: AxiosError) => {
-        console.error("❌ Manual session verification failed:", error);
-
         // Skip showing error toast if user is switching
         if (!isSwitchingUser) {
           ErrorToast({
@@ -189,7 +185,7 @@ export const useFormsessionAPI = () => {
   const replaceSession = useMutation({
     mutationKey: ["replaceSession"],
     mutationFn: async (
-      params: ReplaceSessionParams
+      params: ReplaceSessionParams,
     ): Promise<FormsessionResponse> => {
       setIsLoading(true);
       setError(null);
@@ -212,7 +208,6 @@ export const useFormsessionAPI = () => {
       queryClient.removeQueries({ queryKey: ["sessionVerification"] });
     },
     onError: (error: Error) => {
-      console.error("❌ Session replacement failed:", error);
       setError(error.message);
     },
   });
@@ -241,7 +236,6 @@ export const useFormsessionAPI = () => {
       localStorage.removeItem("accessToken");
     },
     onError: (error: Error) => {
-      console.error("❌ Sign out failed:", error);
       setError(error.message);
     },
   });
@@ -249,7 +243,7 @@ export const useFormsessionAPI = () => {
   const sendRemovalEmail = useMutation({
     mutationKey: ["sendRemovalEmail"],
     mutationFn: async (
-      props: SendRemovalEmailProps
+      props: SendRemovalEmailProps,
     ): Promise<FormsessionResponse> => {
       setIsLoading(true);
       setError(null);
@@ -267,7 +261,6 @@ export const useFormsessionAPI = () => {
       }
     },
     onError: (error: Error) => {
-      console.error("❌ Send removal email failed:", error);
       setError(error.message);
     },
   });
@@ -280,7 +273,7 @@ export const useFormsessionAPI = () => {
       });
       await queryClient.refetchQueries({ queryKey: ["sessionVerification"] });
     } catch (error) {
-      console.error("❌ Session refresh failed:", error);
+      console.error("Session refresh failed:", error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -293,7 +286,6 @@ export const useFormsessionAPI = () => {
     localStorage.removeItem("formsession");
   }, []);
 
-  // 🔧 Utility functions
   const clearError = useCallback(() => setError(null), []);
 
   return {

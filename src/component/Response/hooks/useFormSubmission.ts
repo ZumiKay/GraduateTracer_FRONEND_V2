@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
-import ApiRequest, { ApiRequestReturnType } from "../../../hooks/ApiHook";
+import ApiRequest, {
+  ApiRequestReturnType,
+} from "../../../hooks/APIHook/ApiHook";
 import { ErrorToast } from "../../Modal/AlertModal";
 import { FormResponse } from "./useFormResponses";
 import { ContentType, FormTypeEnum } from "../../../types/Form.types";
@@ -9,6 +11,7 @@ import {
   SaveProgressType,
   SubmittionProcessionReturnType,
 } from "../Response.type";
+import { deleteFormLocalStorage } from "../../../helperFunc";
 
 type QuestionType = ContentType<unknown>;
 
@@ -20,11 +23,11 @@ interface UseFormSubmissionProps {
   responses: FormResponse[];
   checkIfQuestionShouldShow: (
     question: QuestionType,
-    responses: FormResponse[]
+    responses: FormResponse[],
   ) => boolean;
   validateForm: (
     questions: QuestionType[],
-    responses: FormResponse[]
+    responses: FormResponse[],
   ) => string | null;
   respondentInfo: RespondentInfoType;
   clearProgressState: () => void;
@@ -32,7 +35,6 @@ interface UseFormSubmissionProps {
 
 export const useFormSubmission = ({
   formId,
-  formType,
   progressStorageKey,
   questions,
   responses,
@@ -87,7 +89,7 @@ export const useFormSubmission = ({
         console.error(
           "Error checking question visibility during submission:",
           error,
-          question
+          question,
         );
         return false;
       }
@@ -98,11 +100,6 @@ export const useFormSubmission = ({
 
     if (validationError) {
       setError(validationError);
-      return;
-    }
-
-    if (formType === FormTypeEnum.Quiz && !respondentInfo?.respondentEmail) {
-      setError("Email is required for quiz forms");
       return;
     }
 
@@ -126,7 +123,7 @@ export const useFormSubmission = ({
       allVisibleQuestions.some((q) => q.require)
     ) {
       setError(
-        "Please fill out at least the required fields before submitting"
+        "Please fill out at least the required fields before submitting",
       );
       return;
     }
@@ -154,9 +151,10 @@ export const useFormSubmission = ({
 
         setSuccess(true);
         clearProgressState();
-        if (progressStorageKey) {
-          window.localStorage.removeItem(progressStorageKey);
-        }
+        deleteFormLocalStorage({
+          formId,
+          userKey: respondentInfo?.respondentEmail,
+        });
       } else {
         setError(result.error || "Failed to submit form");
       }
@@ -173,7 +171,6 @@ export const useFormSubmission = ({
     questions,
     checkIfQuestionShouldShow,
     validateForm,
-    formType,
     respondentInfo,
     clearProgressState,
   ]);
@@ -190,7 +187,7 @@ export const useFormSubmission = ({
 
 export const useSendResponseCopy = (
   responseId?: string,
-  recipientEmail?: string
+  recipientEmail?: string,
 ) =>
   useMutation({
     mutationFn: async () => {

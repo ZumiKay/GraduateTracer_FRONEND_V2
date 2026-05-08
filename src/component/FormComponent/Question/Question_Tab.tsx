@@ -17,7 +17,7 @@ import {
   setreloaddata,
   setpauseAutoSave,
 } from "../../../redux/formstore";
-import ApiRequest from "../../../hooks/ApiHook";
+import ApiRequest from "../../../hooks/APIHook/ApiHook";
 import QuestionComponent from "../QuestionComponent";
 import { Button, Image } from "@heroui/react";
 import { PlusIcon } from "../../svg/GeneralIcon";
@@ -43,16 +43,16 @@ const QuestionTab = () => {
   const page = useSelector((root: RootState) => root.allform.page);
   const [questionLoading, setquestionLoading] = useState<boolean>(false);
   const fetchLoading = useSelector(
-    (root: RootState) => root.allform.fetchloading
+    (root: RootState) => root.allform.fetchloading,
   );
   const allQuestion = useSelector(
-    (root: RootState) => root.allform.allquestion
+    (root: RootState) => root.allform.allquestion,
   );
   const prevAllQuestion = useSelector(
-    (root: RootState) => root.allform.prevAllQuestion
+    (root: RootState) => root.allform.prevAllQuestion,
   );
   const showLinkedQuestion = useSelector(
-    (root: RootState) => root.allform.showLinkedQuestions
+    (root: RootState) => root.allform.showLinkedQuestions,
   );
   const { manualSave } = useImprovedAutoSave();
 
@@ -79,10 +79,10 @@ const QuestionTab = () => {
               },
             },
           },
-        })
+        }),
       );
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleAddQuestion = useCallback(async () => {
@@ -181,7 +181,7 @@ const QuestionTab = () => {
                 },
               },
             },
-          })
+          }),
         );
         return;
       } else {
@@ -216,7 +216,7 @@ const QuestionTab = () => {
       formState.setting?.autosave,
       dispatch,
       manualSave,
-    ]
+    ],
   );
 
   const handleAddCondition = useCallback(
@@ -332,7 +332,7 @@ const QuestionTab = () => {
             });
 
             return dataToBeSave;
-          })
+          }),
         );
 
         if (formState.setting?.autosave && dataToBeSave) {
@@ -368,20 +368,20 @@ const QuestionTab = () => {
       formState.lastqIdx,
       page,
       manualSave,
-    ]
+    ],
   );
 
   const removeConditionedQuestion = useCallback(
     async (
       ansidx: number,
       qidx: number,
-      ty: "unlink" | "delete"
+      ty: "unlink" | "delete",
     ): Promise<void> => {
       const questionToUpdate = allQuestion[qidx];
       if (!questionToUpdate) return;
 
       const questionConditionContent = questionToUpdate.conditional?.find(
-        (con) => con.key === ansidx
+        (con) => con.key === ansidx,
       );
 
       const updatedQuestion = {
@@ -390,7 +390,7 @@ const QuestionTab = () => {
           ?.filter(
             (con) =>
               con.contentId !== questionConditionContent?.contentId ||
-              con.contentIdx !== questionConditionContent?.contentIdx
+              con.contentIdx !== questionConditionContent?.contentIdx,
           )
           .map((cond) => {
             // Adjust both contentIdx (question index) and key (option index) after deletion
@@ -426,7 +426,7 @@ const QuestionTab = () => {
           updatedQuestion[updatedQuestion.type] as Array<ChoiceQuestionType>
         )
           .filter((i, idx) =>
-            i.idx !== undefined ? i.idx !== ansidx : idx !== ansidx
+            i.idx !== undefined ? i.idx !== ansidx : idx !== ansidx,
           )
           .map((option, newIdx) => ({
             ...option,
@@ -437,7 +437,7 @@ const QuestionTab = () => {
       const updatedAllQuestion = allQuestion.filter((q, idx) =>
         q._id
           ? q._id !== questionConditionContent?.contentId
-          : idx !== questionConditionContent?.contentIdx
+          : idx !== questionConditionContent?.contentIdx,
       );
 
       const finalQuestionList = updatedAllQuestion.map((q, idx) => {
@@ -467,7 +467,7 @@ const QuestionTab = () => {
 
       dispatch(setallquestion(finalQuestionList));
     },
-    [allQuestion, dispatch, formState.setting?.autosave, manualSave]
+    [allQuestion, dispatch, formState.setting?.autosave, manualSave],
   );
 
   // Helper function to validate question structure
@@ -480,7 +480,7 @@ const QuestionTab = () => {
         // Check for duplicate qIdx values
         if (qIdxSet.has(question.qIdx)) {
           errors.push(
-            `Duplicate qIdx ${question.qIdx} found at position ${index}`
+            `Duplicate qIdx ${question.qIdx} found at position ${index}`,
           );
         }
         qIdxSet.add(question.qIdx);
@@ -489,11 +489,11 @@ const QuestionTab = () => {
           question.conditional.forEach((cond, condIndex) => {
             if (cond.contentIdx !== undefined) {
               const referencedQuestion = questions.find(
-                (q) => q.qIdx === cond.contentIdx
+                (q) => q.qIdx === cond.contentIdx,
               );
               if (!referencedQuestion) {
                 errors.push(
-                  `Question ${index}: Conditional ${condIndex} references non-existent qIdx ${cond.contentIdx}`
+                  `Question ${index}: Conditional ${condIndex} references non-existent qIdx ${cond.contentIdx}`,
                 );
               }
             }
@@ -505,11 +505,11 @@ const QuestionTab = () => {
           question.parentcontent.qIdx !== undefined
         ) {
           const parentQuestion = questions.find(
-            (q) => q.qIdx === question.parentcontent!.qIdx
+            (q) => q.qIdx === question.parentcontent!.qIdx,
           );
           if (!parentQuestion) {
             errors.push(
-              `Question ${index}: Parent content references non-existent qIdx ${question.parentcontent.qIdx}`
+              `Question ${index}: Parent content references non-existent qIdx ${question.parentcontent.qIdx}`,
             );
           }
         }
@@ -520,7 +520,7 @@ const QuestionTab = () => {
         errors,
       };
     },
-    []
+    [],
   );
 
   const handleDuplication = useCallback(
@@ -586,10 +586,9 @@ const QuestionTab = () => {
         // Calculate the offset needed for subsequent questions
         const duplicatedCount = duplicatedContent.length;
 
-        // Update subsequent questions' indices and references
         const updateQuestionIndices = (
           question: ContentType,
-          offset: number
+          offset: number,
         ): ContentType => ({
           ...question,
           qIdx: question.qIdx + offset,
@@ -601,24 +600,20 @@ const QuestionTab = () => {
 
         // Build the new questions array
         const updatedQuestions: Array<ContentType> = [
-          // Questions before the duplicated question (unchanged)
           ...allQuestion.slice(0, idx + 1),
-          // The duplicated content
           ...duplicatedContent,
-          // Questions after the duplicated question (with updated indices)
           ...allQuestion
             .slice(idx + 1)
             .map((question) =>
-              updateQuestionIndices(question, duplicatedCount)
+              updateQuestionIndices(question, duplicatedCount),
             ),
         ];
 
-        // Validate the new structure before applying
         const validation = validateQuestionStructure(updatedQuestions);
         if (!validation.isValid) {
           console.warn(
             "Question structure validation failed:",
-            validation.errors
+            validation.errors,
           );
           ErrorToast({
             title: "Duplication Failed",
@@ -647,7 +642,7 @@ const QuestionTab = () => {
         console.log(
           `Successfully duplicated ${duplicatedCount} question${
             duplicatedCount > 1 ? "s" : ""
-          }`
+          }`,
         );
       } catch (error) {
         console.error("Error during duplication:", error);
@@ -663,7 +658,7 @@ const QuestionTab = () => {
       formState.setting?.autosave,
       manualSave,
       validateQuestionStructure,
-    ]
+    ],
   );
 
   const scrollToDiv = useCallback(
@@ -687,7 +682,7 @@ const QuestionTab = () => {
         element.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     },
-    [allQuestion]
+    [allQuestion],
   );
 
   const handlePageInternal = useCallback(
@@ -761,7 +756,7 @@ const QuestionTab = () => {
         }
       }
     },
-    [formState, setParams, dispatch, allQuestion, page]
+    [formState, setParams, dispatch, allQuestion, page],
   );
 
   const handlePage = useCallback(
@@ -777,18 +772,18 @@ const QuestionTab = () => {
 
       handlePageInternal(type, deletepage);
     },
-    [handlePageInternal, hasUnsavedQuestions, showSaveConfirmation]
+    [handlePageInternal, hasUnsavedQuestions, showSaveConfirmation],
   );
 
   const questionColor = useMemo(
     () => formState.setting?.qcolor as string,
-    [formState.setting?.qcolor]
+    [formState.setting?.qcolor],
   );
 
   const shouldShowConditionedQuestion = useCallback(
     (
       questionData: ContentType,
-      visited: Set<string | number> = new Set()
+      visited: Set<string | number> = new Set(),
     ): boolean => {
       // Get the question ID early to check for cycles
       const questionId =
@@ -816,7 +811,7 @@ const QuestionTab = () => {
           const parentLinkedQuestion = showLinkedQuestion?.find(
             (i) =>
               i.question ===
-              (parentQuestion._id ?? `temp-question-${parentQuestionIndex}`)
+              (parentQuestion._id ?? `temp-question-${parentQuestionIndex}`),
           );
           const parentVisibility =
             parentLinkedQuestion?.show !== undefined
@@ -833,14 +828,14 @@ const QuestionTab = () => {
 
       // If no parent is visible, check this question's own visibility
       const linkedQuestion = showLinkedQuestion?.find(
-        (i) => i.question === questionId
+        (i) => i.question === questionId,
       );
       const currentVisibility =
         linkedQuestion?.show !== undefined ? linkedQuestion.show : true;
 
       return currentVisibility;
     },
-    [showLinkedQuestion, allQuestion]
+    [showLinkedQuestion, allQuestion],
   );
 
   const handleQuestionClick = useCallback(
@@ -860,14 +855,14 @@ const QuestionTab = () => {
         });
       }
     },
-    []
+    [],
   );
 
   //Handle Child Question Visibility For (Question structrue / Question Tab)
   const handleToggleVisibility = useCallback(
     (questionId: string | number) => {
       const existingIndex = allQuestion.findIndex(
-        (item, idx) => item._id === questionId || idx === questionId
+        (item, idx) => item._id === questionId || idx === questionId,
       );
 
       if (existingIndex === -1) {
@@ -883,7 +878,7 @@ const QuestionTab = () => {
       const childIds = new Set();
 
       rootQuestion.conditional?.forEach((i) =>
-        childIds.add(i.contentId || i.contentIdx)
+        childIds.add(i.contentId || i.contentIdx),
       );
 
       const newState = allQuestion.map((i, idx) => {
@@ -898,7 +893,7 @@ const QuestionTab = () => {
 
       dispatch(setallquestion(newState));
     },
-    [allQuestion, dispatch]
+    [allQuestion, dispatch],
   );
 
   return (
@@ -1023,7 +1018,7 @@ const QuestionTab = () => {
                       onAgree: () => handlePage("delete", page),
                     },
                   },
-                })
+                }),
               );
             }}
             startContent={

@@ -14,7 +14,6 @@ interface PaginationState {
   shouldShowRightDots: boolean;
 }
 
-// Style constants for better maintainability
 const BUTTON_STYLES = {
   base: "inline-flex items-center justify-center min-w-9 h-9 rounded-lg font-semibold text-sm transition-all duration-200 border",
   active:
@@ -68,11 +67,9 @@ const PageItem = ({
   );
 };
 
-// Configuration
-const SIBLING = 1; // Show 1 page on each side of current page
-const MAX_LEFT = 1; // Always show first page
-const MAX_RIGHT = 1; // Always show last page
-
+const SIBLING = 1;
+const MAX_LEFT = 1;
+const MAX_RIGHT = 1;
 const Pagination = ({
   totalPage,
   page,
@@ -81,33 +78,24 @@ const Pagination = ({
 }: PaginationProps) => {
   const [inputValue, setInputValue] = useState<string>(String(page));
 
-  // Sync input value when page prop changes
   useEffect(() => {
     setInputValue(String(page));
   }, [page]);
 
-  /**
-   * Calculate which pages to display with correct sibling logic
-   * Shows: [first page(s)] ... [left siblings] [current] [right siblings] ... [last page(s)]
-   */
   const paginationRange = useMemo((): PaginationState => {
-    // Left siblings: pages to the left of current page
     const leftSiblings = Array.from(
       { length: Math.min(page - 1, SIBLING) },
-      (_, i) => page - SIBLING + i
+      (_, i) => page - SIBLING + i,
     );
 
-    // Right siblings: pages to the right of current page
     const rightSiblings = Array.from(
       { length: Math.min(totalPage - page, SIBLING) },
-      (_, i) => page + 1 + i
+      (_, i) => page + 1 + i,
     );
 
-    // Determine if we need left dots (gap between first page and left siblings)
     const leftSiblingStart = Math.max(1, page - SIBLING);
     const shouldShowLeftDots = leftSiblingStart > MAX_LEFT + 1;
 
-    // Determine if we need right dots (gap between right siblings and last page)
     const rightSiblingEnd = Math.min(totalPage, page + SIBLING);
     const shouldShowRightDots = rightSiblingEnd < totalPage - MAX_RIGHT;
 
@@ -125,44 +113,37 @@ const Pagination = ({
         setPage(newPage);
       }
     },
-    [setPage, isDisable, totalPage]
+    [setPage, isDisable, totalPage],
   );
 
   // Build the pagination array
   const pageNumbers = useMemo(() => {
     const pages: (number | string)[] = [];
 
-    // Add first page(s)
     for (let i = 1; i <= Math.min(MAX_LEFT, totalPage); i++) {
       pages.push(i);
     }
 
-    // Add left dots if needed
     if (paginationRange.shouldShowLeftDots) {
       pages.push("...");
     }
 
-    // Add left siblings
     paginationRange.leftSiblings.forEach((p) => {
       if (!pages.includes(p)) pages.push(p);
     });
 
-    // Add current page
     if (!pages.includes(page)) {
       pages.push(page);
     }
 
-    // Add right siblings
     paginationRange.rightSiblings.forEach((p) => {
       if (!pages.includes(p)) pages.push(p);
     });
 
-    // Add right dots if needed
     if (paginationRange.shouldShowRightDots) {
       pages.push("...");
     }
 
-    // Add last page(s)
     for (let i = Math.max(totalPage - MAX_RIGHT + 1, 1); i <= totalPage; i++) {
       if (!pages.includes(i)) {
         pages.push(i);
@@ -211,7 +192,7 @@ const Pagination = ({
                 isDisabled={isDisable}
                 onPress={() => handlePageChange(pageNum)}
               />
-            )
+            ),
           )}
         </div>
 

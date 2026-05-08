@@ -22,7 +22,7 @@ import {
   QuestionType,
   RangeType,
 } from "../../../types/Form.types";
-import { setdisbounceQuestion, setformstate } from "../../../redux/formstore";
+import { setformstate } from "../../../redux/formstore";
 import { DateValue, parseAbsoluteToLocal } from "@internationalized/date";
 import { RootState } from "../../../redux/store";
 import { ErrorToast } from "../../Modal/AlertModal";
@@ -61,10 +61,10 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
   const [localAnswer, setLocalAnswer] = useState<LocalAnswerType>();
   const [localScore, setLocalScore] = useState<number>(content.score || 0);
   const [scoreInputValue, setScoreInputValue] = useState<string>(
-    String(content.score || 0)
+    String(content.score || 0),
   );
   const [scoreBeforeEdit, setScoreBeforeEdit] = useState<number>(
-    content.score || 0
+    content.score || 0,
   );
   const [errorMess, setErrorMess] = useState<string>();
 
@@ -85,7 +85,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         return null;
       }
     },
-    []
+    [],
   );
 
   /**
@@ -152,7 +152,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         });
       }
     },
-    [content.answer, onUpdateContent]
+    [content.answer, onUpdateContent],
   );
 
   /**
@@ -205,7 +205,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
       onUpdateContent,
       parentScore,
       scoreBeforeEdit,
-    ]
+    ],
   );
 
   /**
@@ -222,7 +222,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
             setformstate({
               ...formstate,
               totalscore: newTotalScore,
-            })
+            }),
           );
           setScoreBeforeEdit(newScore);
         }
@@ -230,7 +230,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         console.error("Error updating total score:", error);
       }
     },
-    [scoreBeforeEdit, dispatch, formstate]
+    [scoreBeforeEdit, dispatch, formstate],
   );
 
   /**
@@ -296,7 +296,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
 
       return { isValid: true, message: "" };
     },
-    [content.rangedate, safeParseDateValue]
+    [content.rangedate, safeParseDateValue],
   );
 
   /**
@@ -338,7 +338,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
 
       return { isValid: true, message: "" };
     },
-    [content.rangenumber]
+    [content.rangenumber],
   );
 
   /**
@@ -442,7 +442,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
             onChange={(dateValue) => {
               if (dateValue) {
                 const dateString = convertDateValueToString(
-                  dateValue as DateValue
+                  dateValue as DateValue,
                 );
                 handleAnswerChange(dateString);
               }
@@ -515,7 +515,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
                       start: convertDateValueToString(dateValue as DateValue),
                       end: currentRange?.end
                         ? convertDateValueToString(
-                            currentRange.end as DateValue
+                            currentRange.end as DateValue,
                           )
                         : null,
                     };

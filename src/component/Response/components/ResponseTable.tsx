@@ -38,7 +38,7 @@ import {
   GroupResponseListItemType,
 } from "../../../services/responseService";
 import { useMutation } from "@tanstack/react-query";
-import ApiRequest from "../../../hooks/ApiHook";
+import ApiRequest from "../../../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../../Modal/AlertModal";
 
 const uniqueToastId = "ResponseTableUniqueErrorToastId";
@@ -57,7 +57,7 @@ interface ResponseTableProps {
   onDeleteResponse: (id: string) => void;
   onBulkDelete: (ids: string[]) => void;
   getStatusColor: (
-    status: string
+    status: string,
   ) => "success" | "warning" | "danger" | "default";
 }
 
@@ -138,7 +138,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
 
   // Type guard to check if response is ResponseListItem
   const isResponseListItem = (
-    response: ResponseListItem | GroupResponseListItemType
+    response: ResponseListItem | GroupResponseListItemType,
   ): response is ResponseListItem => {
     return "_id" in response;
   };
@@ -155,7 +155,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
           // For grouped view, use email or index as key
           const allKeys = responses
             .filter(
-              (r): r is GroupResponseListItemType => !isResponseListItem(r)
+              (r): r is GroupResponseListItemType => !isResponseListItem(r),
             )
             .map((r, index) => r.respondentEmail || `group-${index}`);
           setSelectedKeys(new Set(allKeys));
@@ -164,7 +164,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
         setSelectedKeys(keys);
       }
     },
-    [responses, viewMode]
+    [responses, viewMode],
   );
 
   const handleViewResponse = useCallback(
@@ -178,7 +178,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
             `/response/${formId}/${
               response.responseIds[0]
             }?${queryParams.toString()}`,
-            "_blank"
+            "_blank",
           );
         }
       } else if (isResponseListItem(response)) {
@@ -186,14 +186,14 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
         window.open(`/response/${formId}/${response._id}`, "_blank");
       }
     },
-    [formId, viewMode]
+    [formId, viewMode],
   );
 
   const handleEditScore = useCallback(
     (response: ResponseListItem) => {
       onEditScore(response);
     },
-    [onEditScore]
+    [onEditScore],
   );
 
   const exportPDFMutation = useMutation({
@@ -210,7 +210,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
             "Content-Type": "application/json",
           },
           credentials: "include",
-        }
+        },
       );
 
       if (!fetchResponse.ok) {
@@ -250,7 +250,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     (response: ResponseListItem) => {
       exportPDFMutation.mutate(response);
     },
-    [exportPDFMutation]
+    [exportPDFMutation],
   );
 
   const handleSingleDelete = useCallback(
@@ -258,7 +258,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
       setDeleteItem(response);
       onDeleteOpen();
     },
-    [onDeleteOpen]
+    [onDeleteOpen],
   );
 
   const handleConfirmDelete = useCallback(() => {
@@ -287,7 +287,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
       setReturnItem(response);
       onReturnModalOpen();
     },
-    [onReturnModalOpen]
+    [onReturnModalOpen],
   );
 
   const handleConfirmReturn = useCallback(async () => {
@@ -353,7 +353,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     // Open in new tab with query parameters
     window.open(
       `/response/${formId}/${firstResponseId}?${queryParams.toString()}`,
-      "_blank"
+      "_blank",
     );
   }, [selectedKeys, formId]);
 
@@ -447,7 +447,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
                 <TableCell>
                   <Chip
                     color={getStatusColor(
-                      response.completionStatus || "default"
+                      response.completionStatus || "default",
                     )}
                     variant="flat"
                     size="sm"
@@ -546,7 +546,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
           <TableBody emptyContent="No grouped responses found">
             {responses
               .filter(
-                (r): r is GroupResponseListItemType => !isResponseListItem(r)
+                (r): r is GroupResponseListItemType => !isResponseListItem(r),
               )
               .map((response, index) => {
                 // Use email as key since grouped items don't have _id

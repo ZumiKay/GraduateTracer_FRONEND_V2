@@ -1,4 +1,4 @@
-import { memo, useState, useMemo } from "react";
+import { memo, useState } from "react";
 import { FormValidationSummary } from "../../../types/Form.types";
 
 interface ValidationFormState {
@@ -13,7 +13,8 @@ interface ValidationStatusDisplayProps {
   formstate: ValidationFormState;
 }
 
-// Icon components for better visuals
+/* ---------------------------------- Icons --------------------------------- */
+
 const CheckCircleIcon = () => (
   <svg
     className="w-5 h-5"
@@ -89,43 +90,19 @@ const SparklesIcon = () => (
   </svg>
 );
 
+/* ----------------------------- Main Component ----------------------------- */
+
 const ValidationStatusDisplay = memo(
   ({ validationSummary, formstate }: ValidationStatusDisplayProps) => {
-    const [isErrorsExpanded, setIsErrorsExpanded] = useState(false);
     const [isWarningsExpanded, setIsWarningsExpanded] = useState(false);
     const [isScoringAnalysisExpanded, setIsScoringAnalysisExpanded] =
       useState(false);
 
-    // Calculate validation progress
-    const validationProgress = useMemo(() => {
-      if (!validationSummary) return 0;
-      const total =
-        validationSummary.totalValidQuestions +
-        validationSummary.totalInvalidQuestions;
-      if (total === 0) return 100;
-      return Math.round((validationSummary.totalValidQuestions / total) * 100);
-    }, [validationSummary]);
-
-    // Determine overall status
-    const overallStatus = useMemo(() => {
-      if (!validationSummary) return "loading";
-      const { errors, warnings } = validationSummary.validationResults || {};
-      if (errors && errors.length > 0) {
-        return "error";
-      }
-      if (warnings && warnings.length > 0) {
-        return "warning";
-      }
-      return "success";
-    }, [validationSummary]);
-
     if (!validationSummary) return null;
 
-    // Destructure validation results for easier access
-    const { errors, warnings, missingAnswers, missingScores, wrongScores } =
+    const { warnings, missingAnswers, missingScores, wrongScores } =
       validationSummary.validationResults || {};
 
-    const hasErrors = errors && errors.length > 0;
     const hasWarnings = warnings && warnings.length > 0;
     const hasMissingAnswers = missingAnswers && missingAnswers.length > 0;
     const hasMissingScores = missingScores && missingScores.length > 0;
@@ -133,161 +110,6 @@ const ValidationStatusDisplay = memo(
 
     return (
       <div className="w-full max-w-4xl space-y-4 animate-in fade-in duration-300">
-        {/* Overall Status Banner */}
-        <div
-          className={`rounded-xl p-4 border-2 transition-all duration-300 ${
-            overallStatus === "success"
-              ? "bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200 dark:from-emerald-900/20 dark:to-green-900/20 dark:border-emerald-700"
-              : overallStatus === "warning"
-              ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200 dark:from-amber-900/20 dark:to-yellow-900/20 dark:border-amber-700"
-              : "bg-gradient-to-r from-red-50 to-rose-50 border-red-200 dark:from-red-900/20 dark:to-rose-900/20 dark:border-red-700"
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className={`flex-shrink-0 p-2 rounded-full ${
-                overallStatus === "success"
-                  ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-800 dark:text-emerald-300"
-                  : overallStatus === "warning"
-                  ? "bg-amber-100 text-amber-600 dark:bg-amber-800 dark:text-amber-300"
-                  : "bg-red-100 text-red-600 dark:bg-red-800 dark:text-red-300"
-              }`}
-            >
-              {overallStatus === "success" ? (
-                <CheckCircleIcon />
-              ) : overallStatus === "warning" ? (
-                <WarningIcon />
-              ) : (
-                <ExclamationCircleIcon />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3
-                className={`font-semibold text-lg ${
-                  overallStatus === "success"
-                    ? "text-emerald-800 dark:text-emerald-200"
-                    : overallStatus === "warning"
-                    ? "text-amber-800 dark:text-amber-200"
-                    : "text-red-800 dark:text-red-200"
-                }`}
-              >
-                {overallStatus === "success"
-                  ? "All Validations Passed!"
-                  : overallStatus === "warning"
-                  ? "Validation Complete with Warnings"
-                  : "Action Required"}
-              </h3>
-              <p
-                className={`text-sm mt-0.5 ${
-                  overallStatus === "success"
-                    ? "text-emerald-600 dark:text-emerald-300"
-                    : overallStatus === "warning"
-                    ? "text-amber-600 dark:text-amber-300"
-                    : "text-red-600 dark:text-red-300"
-                }`}
-              >
-                {overallStatus === "success"
-                  ? "Your form is ready for submission."
-                  : overallStatus === "warning"
-                  ? "Review the warnings below before proceeding."
-                  : `${errors?.length || 0} issue${
-                      (errors?.length || 0) > 1 ? "s" : ""
-                    } need${
-                      (errors?.length || 0) === 1 ? "s" : ""
-                    } to be fixed.`}
-              </p>
-            </div>
-            {/* Progress Ring */}
-            <div className="flex-shrink-0 hidden sm:block">
-              <div className="relative w-14 h-14">
-                <svg className="w-14 h-14 transform -rotate-90">
-                  <circle
-                    cx="28"
-                    cy="28"
-                    r="24"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                    className="text-gray-200 dark:text-gray-600"
-                  />
-                  <circle
-                    cx="28"
-                    cy="28"
-                    r="24"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                    strokeDasharray={`${validationProgress * 1.51} 151`}
-                    strokeLinecap="round"
-                    className={`transition-all duration-500 ${
-                      overallStatus === "success"
-                        ? "text-emerald-500"
-                        : overallStatus === "warning"
-                        ? "text-amber-500"
-                        : "text-red-500"
-                    }`}
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700 dark:text-gray-200">
-                  {validationProgress}%
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Errors Section */}
-        {hasErrors && (
-          <div className="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden bg-white dark:bg-gray-800 shadow-sm">
-            <button
-              onClick={() => setIsErrorsExpanded(!isErrorsExpanded)}
-              className="w-full flex items-center justify-between p-4 text-left hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              aria-expanded={isErrorsExpanded}
-              aria-controls="errors-list"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-1.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400">
-                  <ExclamationCircleIcon />
-                </div>
-                <div>
-                  <span className="font-medium text-red-800 dark:text-red-200">
-                    {errors?.length} Error
-                    {(errors?.length || 0) > 1 ? "s" : ""} Found
-                  </span>
-                  <span className="text-sm text-red-600 dark:text-red-400 ml-2">
-                    — Must be fixed before submission
-                  </span>
-                </div>
-              </div>
-              <ChevronDownIcon isOpen={isErrorsExpanded} />
-            </button>
-            {isErrorsExpanded && (
-              <div
-                id="errors-list"
-                className="border-t border-red-100 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10"
-              >
-                <ul className="divide-y divide-red-100 dark:divide-red-800">
-                  {errors?.map((error, index) => (
-                    <li
-                      key={index}
-                      className="flex items-start gap-3 p-3 text-sm"
-                    >
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-300 flex items-center justify-center text-xs font-medium">
-                        {index + 1}
-                      </span>
-                      <span className="text-red-700 dark:text-red-300">
-                        {error}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Warning Section */}
         {hasWarnings && (
           <div className="rounded-lg border border-amber-200 dark:border-amber-800 overflow-hidden bg-white dark:bg-gray-800 shadow-sm">
@@ -451,7 +273,6 @@ const ValidationStatusDisplay = memo(
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {/* Auto-scoreable status badge - always visible */}
                 <span
                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
                     validationSummary.scoringAnalysis.isAutoScoreable
@@ -476,7 +297,6 @@ const ValidationStatusDisplay = memo(
             </button>
             {isScoringAnalysisExpanded && (
               <div id="scoring-analysis-content" className="p-5">
-                {/* Scoring Stats Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   <div className="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600">
                     <div className="text-xl font-bold text-gray-700 dark:text-gray-200">
@@ -512,7 +332,6 @@ const ValidationStatusDisplay = memo(
                   </div>
                 </div>
 
-                {/* Auto-scorable status */}
                 <div
                   className={`flex items-center gap-2 p-3 rounded-lg ${
                     validationSummary.scoringAnalysis.isAutoScoreable
@@ -561,13 +380,12 @@ const ValidationStatusDisplay = memo(
                           >
                             Q{item.qIdx}: {item.title || item.type}
                           </span>
-                        )
+                        ),
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Unsupported Types for Auto-scoring */}
                 {validationSummary.scoringAnalysis.unsupportedTypes.length >
                   0 && (
                   <div className="mt-4">
@@ -590,7 +408,7 @@ const ValidationStatusDisplay = memo(
                             Q{item.qIdx}: {item.title || item.type} ({item.type}
                             )
                           </span>
-                        )
+                        ),
                       )}
                     </div>
                   </div>
@@ -600,7 +418,6 @@ const ValidationStatusDisplay = memo(
           </div>
         )}
 
-        {/* Quiz Configuration Details */}
         {formstate.type === "QUIZ" && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -663,42 +480,12 @@ const ValidationStatusDisplay = memo(
                   </div>
                 </div>
               </div>
-
-              {/* Progress Bar */}
-              <div className="mt-5">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Validation Progress
-                  </span>
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                    {validationProgress}% Complete
-                  </span>
-                </div>
-                <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ease-out ${
-                      validationProgress === 100
-                        ? "bg-gradient-to-r from-emerald-400 to-green-500"
-                        : validationProgress >= 75
-                        ? "bg-gradient-to-r from-blue-400 to-cyan-500"
-                        : validationProgress >= 50
-                        ? "bg-gradient-to-r from-amber-400 to-yellow-500"
-                        : "bg-gradient-to-r from-red-400 to-rose-500"
-                    }`}
-                    style={{ width: `${validationProgress}%` }}
-                    role="progressbar"
-                    aria-valuenow={validationProgress}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  />
-                </div>
-              </div>
             </div>
           </div>
         )}
       </div>
     );
-  }
+  },
 );
 
 ValidationStatusDisplay.displayName = "ValidationStatusDisplay";

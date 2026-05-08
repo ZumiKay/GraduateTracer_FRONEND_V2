@@ -93,6 +93,7 @@ export interface RespondentSessionType {
   session_id?: string;
   alert?: boolean;
   respondentinfo?: RespondentInfoType;
+  isSwitchedUser?: boolean;
 }
 
 export interface SubmittionProcessionReturnType {

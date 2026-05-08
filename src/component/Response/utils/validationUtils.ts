@@ -14,15 +14,17 @@ export interface ValidationSummary {
 export const createValidationSummary = (
   questions: ContentType[],
   visibleQuestions: ContentType[],
-  responses: FormResponse[]
+  responses: FormResponse[],
 ): ValidationSummary => {
   const requiredQuestions = visibleQuestions.filter((q) => q.require);
   const completedRequired = requiredQuestions.filter((q) => {
-    const response = responses.find((r) => r.questionId === q._id);
+    const response = responses.find((r) => r.question === q._id);
     if (!response) return false;
 
     switch (q.type) {
       case QuestionType.CheckBox:
+      case QuestionType.MultipleChoice:
+      case QuestionType.Selection:
         return Array.isArray(response.response) && response.response.length > 0;
 
       case QuestionType.ShortAnswer:
