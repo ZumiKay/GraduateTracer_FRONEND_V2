@@ -8,6 +8,21 @@ import {
   filterQuestions,
 } from "./utils";
 
+/**
+ * useQuestionStructure
+ * @description Build question structure on Question Tab for a quick navigation
+ * @function
+ * 1. Build Question Hierarchy (Parent and Childs)
+ * 2. Group Questions
+ * 3. Quick Filter questions
+ * 4. Responsive
+ * @example
+ * Q1 (Child = c1 , c2 has child (D1) , c3)
+ * ---> C1,C2,D1,C3
+ * Q2
+ * Q3
+ */
+
 export const useQuestionStructure = () => {
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
@@ -18,7 +33,7 @@ export const useQuestionStructure = () => {
   const [showOnlyVisible, setShowOnlyVisible] = useState(false);
 
   const allQuestion = useSelector(
-    (root: RootState) => root.allform.allquestion
+    (root: RootState) => root.allform.allquestion,
   );
   const formState = useSelector((root: RootState) => root.allform.formstate);
 
@@ -35,11 +50,12 @@ export const useQuestionStructure = () => {
     setExpandedSections((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }));
   }, []);
 
-  const enhancedFilteredQuestions = useMemo(() => {
+  const filteredQuestions = useMemo(() => {
     if (!Array.isArray(allQuestion)) return [];
 
     let questions = [...allQuestion];
 
+    //Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       questions = questions.filter((q) => {
@@ -58,34 +74,27 @@ export const useQuestionStructure = () => {
   }, [allQuestion, searchQuery, selectedFilter, showOnlyVisible]);
 
   const buildQuestionHierarchy = useCallback(() => {
-    if (!enhancedFilteredQuestions.length) return [];
+    if (!filteredQuestions.length) return [];
 
-    // Create a map for quick lookup
-    const questionMap = new Map<
-      string | number,
-      ContentType & { children: ContentType[] }
-    >();
+    //Process question
+    const questionMap = new Map<string | number, ContentType>();
 
-    // Initialize all questions with empty children array
-    enhancedFilteredQuestions.forEach((question, index) => {
-      const questionId = question._id || `temp-question-${index}`;
+    // Initialize all questions with empty children array for stability
+    filteredQuestions.forEach((question) => {
+      const questionId = question._id || question.qIdx;
       questionMap.set(questionId, {
-        ...question,
-        children: [],
-      });
-      // Also map by index if available
-      questionMap.set(index, {
         ...question,
         children: [],
       });
     });
 
     // Build parent-child relationships
-    const rootQuestions: Array<ContentType & { children: ContentType[] }> = [];
+    let rootQuestions: Array<ContentType> = [];
     const processedChildren = new Set<string | number>();
 
-    enhancedFilteredQuestions.forEach((question, mapIdx) => {
-      const questionId = question._id || `temp-question-${mapIdx}`;
+    filteredQuestions.forEach((question) => {
+      //if it has no _id, mark as temp question
+      const questionId = question._id || question.qIdx;
       const questionNode = questionMap.get(questionId);
 
       if (!questionNode) return;
@@ -96,48 +105,51 @@ export const useQuestionStructure = () => {
         return;
       }
 
-      // Find parent and add this as a child
+      // Find parent
       const parentId = question.parentcontent.qId;
       const parentIdx = question.parentcontent.qIdx;
 
-      let parentNode: (ContentType & { children: ContentType[] }) | undefined;
+      let parentQuestion: ContentType | undefined;
 
-      // Try to find parent by ID first
+      //Add saved parent question
       if (parentId) {
-        parentNode = questionMap.get(parentId);
+        parentQuestion = questionMap.get(parentId);
+      } else if (parentIdx !== undefined) {
+        parentQuestion = questionMap.get(parentIdx);
       }
 
-      // Try to find parent by index if ID lookup failed
-      if (!parentNode && parentIdx !== undefined) {
-        parentNode = questionMap.get(parentIdx);
-      }
-
-      if (parentNode) {
+      //Process parent questions
+      if (parentQuestion) {
+        // Verify no duplicate question in the hirerachy
         const wouldCreateCycle = (
-          child: ContentType & { children: ContentType[] },
-          targetParentId: string | number
+          child: ContentType,
+          targetParentId: string | number,
         ): boolean => {
-          const queue: Array<ContentType & { children?: ContentType[] }> = [
-            ...child.children,
-          ];
+          //Create queue with childs questions
+          const queue: Array<ContentType> = [...(child?.children ?? [])];
+
           const visited = new Set<string | number>();
 
           while (queue.length > 0) {
+            //Extract item from queue
             const current = queue.shift();
+
             if (!current) continue;
 
             const currentId = current._id || current.qIdx;
+
+            //If alr process skip
             if (visited.has(currentId)) continue;
             visited.add(currentId);
 
+            //Duplicate detected
             if (currentId === targetParentId) {
               return true;
             }
 
-            const children = (
-              current as ContentType & { children?: ContentType[] }
-            ).children;
-            if (Array.isArray(children) && children.length > 0) {
+            //If it has childs add to queue
+            const children = current.children;
+            if (children && Array.isArray(children) && children.length > 0) {
               queue.push(...children);
             }
           }
@@ -145,19 +157,28 @@ export const useQuestionStructure = () => {
           return false;
         };
 
-        const parentIdToCheck = parentNode._id || parentIdx;
+        const parentIdToCheck = parentId || parentIdx;
 
-        // Only add child if it doesn't create a cycle and hasn't been processed
+        // Add verified child question
         if (
           parentIdToCheck &&
           !wouldCreateCycle(questionNode, parentIdToCheck) &&
-          !processedChildren.has(questionId)
+          !processedChildren.has(questionId) &&
+          parentQuestion.children
         ) {
-          parentNode.children.push(questionNode);
+          parentQuestion.children.push(questionNode);
+          rootQuestions = rootQuestions.map((question) =>
+            (
+              question._id
+                ? question._id === parentId
+                : question.qIdx === parentIdx
+            )
+              ? { ...parentQuestion }
+              : question,
+          );
           processedChildren.add(questionId);
         }
       } else {
-        // Parent not found, treat as root
         if (!processedChildren.has(questionId)) {
           rootQuestions.push(questionNode);
           processedChildren.add(questionId);
@@ -167,34 +188,32 @@ export const useQuestionStructure = () => {
 
     return rootQuestions.map((i) => ({
       ...i,
+
       isChildVisibility:
-        i.children.length > 0 ? i.isChildVisibility ?? true : undefined,
+        i.children && i.children.length > 0
+          ? (i.isChildVisibility ?? true)
+          : undefined,
     }));
-  }, [enhancedFilteredQuestions]);
+  }, [filteredQuestions]);
 
   const questionHierarchy = useMemo(
     () => buildQuestionHierarchy(),
-    [buildQuestionHierarchy]
+    [buildQuestionHierarchy],
   );
 
   // Initialize expandedSections
   useEffect(() => {
     const initializeExpandedSections = (
-      questions: Array<ContentType & { children: ContentType[] }>,
-      sections: Record<string, boolean> = {}
+      questions: Array<ContentType>,
+      sections: Record<string, boolean> = {},
     ): Record<string, boolean> => {
-      questions.forEach((question, index) => {
-        const key = generateQuestionKey(question, index);
+      questions.forEach((question, idx) => {
+        const key = generateQuestionKey(question, idx);
         if (!(key in sections)) {
           sections[key] = true;
         }
-        if (question.children.length > 0) {
-          initializeExpandedSections(
-            question.children as Array<
-              ContentType & { children: ContentType[] }
-            >,
-            sections
-          );
+        if (question.children && question.children.length > 0) {
+          initializeExpandedSections(question.children, sections);
         }
       });
       return sections;
@@ -208,20 +227,18 @@ export const useQuestionStructure = () => {
     });
   }, [questionHierarchy]);
 
-  //Count visible recursively
+  //Count visible
   const visibleQuestionsCount = useMemo(() => {
-    const countVisible = (
-      questions: Array<ContentType & { children: ContentType[] }>
-    ): number => {
+    const countVisible = (questions: Array<ContentType>): number => {
       let count = 0;
       questions.forEach((question) => {
         if (question.isVisible) {
           count += 1;
-          if (question.children.length > 0) {
+          if (question.children && question.children.length > 0) {
             count += countVisible(
               question.children as Array<
                 ContentType & { children: ContentType[] }
-              >
+              >,
             );
           }
         }

@@ -41,7 +41,7 @@ export const canToggleVisibility = (question: ContentType): boolean => {
 
 export const generateQuestionKey = (
   question: ContentType,
-  index: number = 0
+  index: number = 0,
 ): string => {
   if (question._id) return question._id.toString();
 
@@ -50,7 +50,7 @@ export const generateQuestionKey = (
       ? question.title.slice(0, 10)
       : JSON.stringify(question.title).slice(0, 20);
 
-  return `${question.type}-${index}-${titleHash.replace(/[^a-zA-Z0-9]/g, "")}`;
+  return `${question.type}-${index}-${titleHash.replace(/[^a-zA-Z0-9]/g, "")}`; //Generate with removed space title
 };
 
 export const filterQuestions = {
@@ -70,7 +70,7 @@ export const filterQuestions = {
         return questions.filter((q) => q.require);
       case "conditional":
         return questions.filter(
-          (q) => q.conditional && q.conditional.length > 0
+          (q) => q.conditional && q.conditional.length > 0,
         );
       case "multiple":
         return questions.filter((q) => q.type === QuestionType.MultipleChoice);
@@ -80,15 +80,15 @@ export const filterQuestions = {
             QuestionType.Text,
             QuestionType.ShortAnswer,
             QuestionType.Paragraph,
-          ].includes(q.type)
+          ].includes(q.type),
         );
       case "number":
         return questions.filter((q) =>
-          [QuestionType.Number, QuestionType.RangeNumber].includes(q.type)
+          [QuestionType.Number, QuestionType.RangeNumber].includes(q.type),
         );
       case "date":
         return questions.filter((q) =>
-          [QuestionType.Date, QuestionType.RangeDate].includes(q.type)
+          [QuestionType.Date, QuestionType.RangeDate].includes(q.type),
         );
       default:
         return questions;

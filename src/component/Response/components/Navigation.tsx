@@ -25,7 +25,6 @@ export const Navigation: React.FC<NavigationProps> = ({
 }) => {
   return (
     <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 p-4 rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
-      {/* Previous Button */}
       <Button
         variant="flat"
         startContent={<FiChevronLeft className="w-4 h-4" />}
@@ -64,7 +63,6 @@ export const Navigation: React.FC<NavigationProps> = ({
         ))}
       </div>
 
-      {/* Next/Submit Button */}
       {currentPage < totalPages ? (
         <Button
           color="primary"

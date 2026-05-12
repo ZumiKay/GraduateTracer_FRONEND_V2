@@ -30,8 +30,6 @@ import {
 import { SelectionType } from "../../../types/Global.types";
 import Selection from "../../FormComponent/Selection";
 
-/* ---------------------------------- Types --------------------------------- */
-
 interface OverviewAnalyticsTabsPropsType {
   analytics: AnalyticsData;
   formId: string;
@@ -58,7 +56,7 @@ const CHART_COLORS = {
   danger: "#ef4444",
 };
 
-/* ----------------------------- Sub-components ----------------------------- */
+/* ----------------------------- Assets ----------------------------- */
 
 const ChartTooltip = ({
   active,
@@ -100,8 +98,6 @@ const OverviewAnayticsTabs = memo(
       setPeriod(val);
     }, []);
 
-    /* ----------------------------- Data Fetching ----------------------------- */
-
     const {
       data: perfData,
       isLoading: isPerfLoading,
@@ -124,8 +120,6 @@ const OverviewAnayticsTabs = memo(
       staleTime: 5 * 60 * 1000,
       retry: 1,
     });
-
-    /* ------------------------------ Derived data ------------------------------ */
 
     const completionRatePct = analytics.formStats.completionRate;
     const avgScorePct = useMemo(
@@ -156,8 +150,6 @@ const OverviewAnayticsTabs = memo(
         })) ?? [],
       [perfData],
     );
-
-    /* -------------------------------- Render ---------------------------------- */
 
     return (
       <div className="space-y-6">
@@ -271,7 +263,7 @@ const OverviewAnayticsTabs = memo(
 
         {/* Details Performance Analytics */}
         <div className="DetailPerformanceContainer w-full space-y-4">
-          {/* Controls */}
+          {/* Filter Section */}
           <div className="flex flex-wrap items-center gap-3">
             <Selection
               items={PerformanceGraphsViewOptions}
@@ -478,7 +470,7 @@ const OverviewAnayticsTabs = memo(
                     bg: "bg-blue-50",
                   },
                   {
-                    label: "Avg Score",
+                    label: "Avg.Score",
                     value: perfData.averageScore.toFixed(2),
                     color: "text-green-600",
                     bg: "bg-green-50",
@@ -490,7 +482,7 @@ const OverviewAnayticsTabs = memo(
                     bg: "bg-purple-50",
                   },
                   {
-                    label: "Avg Completion Time",
+                    label: "Avg.Completion Time",
                     value: `${perfData.averageCompletionTime} min`,
                     color: "text-yellow-600",
                     bg: "bg-yellow-50",

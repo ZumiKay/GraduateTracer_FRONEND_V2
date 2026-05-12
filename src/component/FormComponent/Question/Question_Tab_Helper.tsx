@@ -31,13 +31,6 @@ export const AsyncAutoSaveDeleteRequest = async ({
   return true;
 };
 
-/**
- * Optimized function to delete a question, its child questions, and shift indices
- * Removes the target question and any questions that have it as a parent
- * Updates all indices in a single pass
- * @params targetQ Num , targetQIdx Num, allQ: ContentTypes[]
- * @returns ContentType[]
- */
 export const DeleteAndShift = ({
   targetQuestion,
   targetQuestionIdx,
@@ -49,10 +42,8 @@ export const DeleteAndShift = ({
   allquestion: Array<ContentType>;
   lastIdx?: number;
 }): Array<ContentType> => {
-  // First, find all questions to delete (parent and all its children recursively)
   const questionsToDelete = new Set<number>();
 
-  // Add the target question
   questionsToDelete.add(targetQuestion);
 
   // Find all child questions recursively
@@ -72,17 +63,16 @@ export const DeleteAndShift = ({
   const result: Array<ContentType> = [];
 
   for (const question of allquestion) {
-    // Skip all questions marked for deletion
+    // Skip all questions to be delete
     if (questionsToDelete.has(question.qIdx)) {
       continue;
     }
 
-    // Calculate how many deleted questions are before this one
     const deletedBeforeCount = deletedQIdxList.filter(
       (deletedQIdx) => deletedQIdx < question.qIdx,
     ).length;
 
-    // Check if conditional needs filtering or updating
+    // Verify conditional
     const hasConditionalToFilter = question.conditional?.some((c) =>
       deletedQIdxList.includes(c.contentIdx as number),
     );
@@ -92,14 +82,12 @@ export const DeleteAndShift = ({
     const hasConditionalUpdate =
       hasConditionalToFilter || hasConditionalToUpdate;
 
-    // Check if parent needs update (parent is before a deleted question)
     const hasParentUpdate =
       question.parentcontent?.qIdx !== undefined &&
       deletedQIdxList.some(
         (deletedQIdx) => question.parentcontent!.qIdx! > deletedQIdx,
       );
 
-    // If no updates needed, keep question as-is
     if (deletedBeforeCount === 0 && !hasConditionalUpdate && !hasParentUpdate) {
       result.push(question);
       continue;
@@ -108,12 +96,12 @@ export const DeleteAndShift = ({
     // Process conditional updates
     let updatedConditional = question.conditional;
     if (hasConditionalUpdate && question.conditional) {
-      // Filter out conditions referencing any deleted question
+      // Filter out conditions for any deleted question
       updatedConditional = question.conditional.filter(
         (cond) => !deletedQIdxList.includes(cond.contentIdx as number),
       );
 
-      // Update indices for remaining conditions
+      // Update indices
       if (hasConditionalToUpdate) {
         updatedConditional = updatedConditional.map((qCond) => {
           if (!qCond.contentIdx) return qCond;
@@ -156,6 +144,5 @@ export const DeleteAndShift = ({
     result.push(updatedQuestion);
   }
 
-  //Return result with new numbering
   return AddQuestionNumbering({ questions: result, lastIdx });
 };

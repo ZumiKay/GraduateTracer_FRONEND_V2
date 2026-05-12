@@ -15,7 +15,7 @@ interface ResponseListSectionProps {
   isLoading: boolean;
   isQuizForm: boolean;
   formId: string;
-  form: FormDataType;
+  form?: FormDataType;
   tableViewMode: TableViewMode;
   onTableViewModeChange: (mode: TableViewMode) => void;
   onEditScore: (response: ResponseListItem) => void;
@@ -36,7 +36,6 @@ export const ResponseListSection: React.FC<ResponseListSectionProps> = ({
   isLoading,
   isQuizForm,
   formId,
-  form,
   tableViewMode,
   onTableViewModeChange,
   onEditScore,
@@ -63,7 +62,6 @@ export const ResponseListSection: React.FC<ResponseListSectionProps> = ({
           formId={formId}
           viewMode={tableViewMode}
           onViewModeChange={onTableViewModeChange}
-          showGroupToggle={form?.setting?.email === true}
           onEditScore={onEditScore}
           onDeleteResponse={onDeleteResponse}
           onBulkDelete={onBulkDelete}

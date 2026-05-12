@@ -33,19 +33,16 @@ export default function FilterSection({
 }) {
   const [param, setparam] = useSearchParams();
 
-  // Verify and clean up search parameters on mount and when params change
   useEffect(() => {
     const verifySearchParams = () => {
       const hasCreated = param.has("created");
       const hasUpdated = param.has("updated");
 
-      // If both created and updated parameters exist, remove them
       if (hasCreated && hasUpdated) {
         param.delete("created");
         param.delete("updated");
         setparam(param);
 
-        // Also reset the filter state
         setFilterstate((prev) => ({
           ...prev,
           created: "",
@@ -53,7 +50,7 @@ export default function FilterSection({
         }));
 
         console.warn(
-          "Both created and updated parameters found. Removing both to avoid conflicts."
+          "Both created and updated parameters found. Removing both to avoid conflicts.",
         );
       }
     };
@@ -78,7 +75,6 @@ export default function FilterSection({
 
     const [orderType, orderValue] = value.split(":");
 
-    // Reset both order states first
     setFilterstate((prev) => ({
       ...prev,
       created: orderType === "created" ? orderValue : "",

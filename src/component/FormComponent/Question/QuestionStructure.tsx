@@ -2,10 +2,10 @@ import React, { useCallback } from "react";
 import { Button, Divider, ScrollShadow } from "@heroui/react";
 import { motion } from "framer-motion";
 import { ContentType, QuestionType } from "../../../types/Form.types";
-import { ChevronDownIcon } from "./icons";
 import { QuestionCard } from "./QuestionCard";
 import { Header } from "./Header";
 import { useQuestionStructure } from "./useQuestionStructure";
+import { ChevronDownIcon } from "./Assets";
 
 interface QuestionStructureProps {
   onQuestionClick: (props: {
@@ -17,7 +17,7 @@ interface QuestionStructureProps {
   onClose?: () => void;
 }
 interface StackItem {
-  question: ContentType & { children: ContentType[] };
+  question: ContentType;
   index: number;
   level: number;
   parentQuestion?: ContentType;
@@ -30,6 +30,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
   currentPage,
   onClose,
 }) => {
+  //Build Question Structure with nested or non-nested question Hook
   const {
     expandedSections,
     isMobile,
@@ -55,67 +56,72 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
       //Update Question Card
       onToggleVisibility(questionId);
     },
-    [onToggleVisibility]
+    [onToggleVisibility],
   );
 
-  const renderQuestionsIteratively = useCallback(
-    (rootQuestions: Array<ContentType & { children: ContentType[] }>) => {
-      const stack: StackItem[] = rootQuestions
-        .map((q, i) => ({
-          question: q,
-          index: i,
-          level: 0,
-          parentQuestion: undefined,
-        }))
-        .reverse();
+  //Render question method
+  const renderQuestions = useCallback(
+    (rootQuestions: Array<ContentType>) => {
+      //Initialize the stacks
+      const stack: StackItem[] = [
+        ...rootQuestions
+          .map((q, i) => ({
+            question: q,
+            index: i,
+            level: 0,
+            parentQuestion: undefined,
+          }))
+          .reverse(), //Reverse to last one first
+      ];
 
       const processed = new Map<string, JSX.Element>();
-      const renderOrder: string[] = [];
 
-      //Loops render question component
+      //Loop through stack
       while (stack.length > 0) {
         const item = stack[stack.length - 1];
-        const { question, index, level, parentQuestion } = item;
+        const { question, level, parentQuestion, index } = item;
         const questionKey = generateQuestionKey(question, index);
         const isExpanded = expandedSections[questionKey] !== false;
-        const hasChildren = question.children.length > 0;
+        const hasChildren = question.children && question.children.length > 0;
 
         //Condition question procession
         const shouldRenderChildren = hasChildren && isExpanded;
 
-        //If reach depth of the nested question
-        if (shouldRenderChildren && !item.children) {
-          item.children = [];
-          for (let i = question.children.length - 1; i >= 0; i--) {
-            stack.push({
-              question: question.children[i] as ContentType & {
-                children: ContentType[];
-              },
-              index: i,
-              level: level + 1,
-              parentQuestion: question,
-            });
+        //Process childs question
+        if (shouldRenderChildren && !processed.has(questionKey)) {
+          const childs = question.children as Array<ContentType>;
+          const allChildrenProcessed = childs.every((child, i) =>
+            processed.has(generateQuestionKey(child, i)),
+          );
+
+          if (!allChildrenProcessed) {
+            // Push unprocessed children onto the stack in reverse order as stack is LIFO
+            for (let i = childs.length - 1; i >= 0; i--) {
+              const childItem = childs[i];
+              const childKey = generateQuestionKey(childItem, i);
+              if (!processed.has(childKey)) {
+                stack.push({
+                  question: childItem,
+                  index: i,
+                  level: level + 1,
+                  parentQuestion: question,
+                });
+              }
+            }
+            continue;
           }
-          continue;
         }
 
-        //Processed question - only mark as processed after collecting children
-        if (processed.has(questionKey)) {
-          stack.pop();
-          renderOrder.push(questionKey);
-          continue;
-        }
-
+        //Collecting child elements in order
         const childrenElements: JSX.Element[] = [];
-
-        //If still have children
-        if (shouldRenderChildren && item.children) {
-          for (let i = question.children.length - 1; i >= 0; i--) {
-            const child = question.children[i];
-            const childKey = generateQuestionKey(child, i);
+        if (shouldRenderChildren) {
+          const childs = question.children as Array<ContentType>;
+          for (let i = 0; i < childs.length; i++) {
+            const childItem = childs[i];
+            const childKey = generateQuestionKey(childItem, i);
             const childElement = processed.get(childKey);
             if (childElement) {
-              childrenElements.unshift(childElement);
+              childrenElements.push(childElement);
             }
           }
         }
@@ -126,31 +132,30 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
               question={question}
               level={level}
               parentQuestion={parentQuestion}
-              index={index}
               isExpanded={isExpanded}
               hasChildren={hasChildren}
               onQuestionClick={() =>
                 onQuestionClick({
-                  questionId: question._id || index,
+                  questionId: question._id || question.qIdx,
                   type: question.type,
                 })
               }
-              onToggleVisibility={(val) => handleToggleVisibility(val, index)}
+              onToggleVisibility={(val) =>
+                handleToggleVisibility(val, question.qIdx)
+              }
               onToggleExpanded={() => toggleSection(questionKey)}
             />
 
-            {question.isChildVisibility &&
-              hasChildren &&
-              isExpanded &&
-              childrenElements.length > 0 && (
-                <div className="space-y-2 pl-2 transition-all duration-300 ease-in-out">
-                  {childrenElements}
-                </div>
-              )}
+            {shouldRenderChildren && childrenElements.length > 0 && (
+              <div className="space-y-2 pl-2 transition-all duration-300 ease-in-out">
+                {childrenElements}
+              </div>
+            )}
 
             {question.isVisible &&
               hasChildren &&
               !isExpanded &&
+              question.children &&
               question.children.length > 0 && (
                 <div
                   className="ml-8 my-1 py-1 px-2 text-xs text-gray-500 bg-gray-100 rounded-md inline-block cursor-pointer hover:bg-gray-200 transition-colors"
@@ -184,7 +189,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
       onQuestionClick,
       handleToggleVisibility,
       toggleSection,
-    ]
+    ],
   );
 
   return (
@@ -255,7 +260,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
                   staggerChildren: 0.1,
                 }}
               >
-                {renderQuestionsIteratively(questionHierarchy)}
+                {renderQuestions(questionHierarchy)}
               </motion.div>
               {questionHierarchy.length > 1 && (
                 <motion.div

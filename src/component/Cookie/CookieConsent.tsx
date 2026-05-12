@@ -28,7 +28,6 @@ import {
 } from "../../redux/cookieConsent.store";
 
 export interface CookieConsentProps {
-  // Optional props for customization
   className?: string;
   position?: "bottom" | "top" | "bottom-left" | "bottom-right";
   companyName?: string;
@@ -60,16 +59,14 @@ const CookieConsent: React.FC<CookieConsentProps> = ({
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [showBanner, setShowBanner] = useState(false);
 
-  // Handle modal open/close from Redux state
   useEffect(() => {
     if (isModalOpen && !isOpen) {
-      setTimeout(() => onOpen(), 100); // Small delay to ensure proper rendering
+      setTimeout(() => onOpen(), 100);
     } else if (!isModalOpen && isOpen) {
       onClose();
     }
   }, [isModalOpen, isOpen, onOpen, onClose]);
 
-  // Custom close handler to update Redux state
   const handleModalClose = () => {
     console.log("Modal closing via handleModalClose");
     dispatch(closeCookieModal());
@@ -81,7 +78,6 @@ const CookieConsent: React.FC<CookieConsentProps> = ({
       dispatch(setCookieConsent(consentData.hasConsent));
       dispatch(setConsentPreferences(consentData.preferences));
     } else {
-      // Show banner if no consent has been given
       setShowBanner(true);
     }
   }, [dispatch]);
@@ -126,13 +122,13 @@ const CookieConsent: React.FC<CookieConsentProps> = ({
   };
 
   const handleTogglePreference = (category: CookieCategory) => {
-    if (category === "necessary") return; // Necessary cookies cannot be disabled
+    if (category === "necessary") return;
 
     dispatch(
       updateConsentPreferences({
         ...preferences,
         [category]: !preferences[category],
-      })
+      }),
     );
   };
 
@@ -243,7 +239,6 @@ const CookieConsent: React.FC<CookieConsentProps> = ({
         </div>
       )}
 
-      {/* Cookie Preferences Modal - Always render so it can be opened from footer */}
       <Modal
         isOpen={isOpen}
         onClose={handleModalClose}

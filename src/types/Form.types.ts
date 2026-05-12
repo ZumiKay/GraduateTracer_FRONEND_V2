@@ -169,6 +169,7 @@ export interface ContentType<t = unknown> {
   isChildVisibility?: boolean;
   //Helper Field
   isFilled?: boolean;
+  children?: Array<ContentType>;
   [key: string]: t | unknown;
 }
 

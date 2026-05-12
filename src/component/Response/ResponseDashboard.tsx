@@ -241,7 +241,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         isLoading={isLoading}
         isQuizForm={isQuizForm}
         formId={formId}
-        form={form}
         tableViewMode={tableViewMode}
         onTableViewModeChange={setTableViewMode}
         onEditScore={(response) => {

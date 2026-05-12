@@ -136,23 +136,19 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     onClose: onReturnModalClose,
   } = useDisclosure();
 
-  // Type guard to check if response is ResponseListItem
   const isResponseListItem = (
     response: ResponseListItem | GroupResponseListItemType,
   ): response is ResponseListItem => {
     return "_id" in response;
   };
 
-  // Handle selection change - convert "all" to actual IDs
   const handleSelectionChange = useCallback(
     (keys: Selection) => {
       if (keys === "all") {
-        // When "all" is selected, convert to actual IDs
         if (viewMode === "normal") {
           const allIds = responses.filter(isResponseListItem).map((r) => r._id);
           setSelectedKeys(new Set(allIds));
         } else {
-          // For grouped view, use email or index as key
           const allKeys = responses
             .filter(
               (r): r is GroupResponseListItemType => !isResponseListItem(r),
@@ -170,7 +166,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
   const handleViewResponse = useCallback(
     (response: ResponseListItem | GroupResponseListItemType) => {
       if (viewMode === "grouped" && !isResponseListItem(response)) {
-        // For grouped items, open with all responseIds in the group
+        // For grouped items open with all responseIds in the group
         if (response.responseIds && response.responseIds.length > 0) {
           const queryParams = new URLSearchParams();
           queryParams.set("responseIds", response.responseIds.join(","));
@@ -182,7 +178,7 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
           );
         }
       } else if (isResponseListItem(response)) {
-        // For normal items, open single response
+        // For normal items open single response
         window.open(`/response/${formId}/${response._id}`, "_blank");
       }
     },

@@ -937,7 +937,7 @@ const QuestionTab = () => {
           <QuestionLoading count={3} />
         ) : (
           allQuestion.map((question, idx) => {
-            const questionKey = `${question.type}${question._id ?? idx}`;
+            const questionKey = `${question.type}${question._id ?? question.qIdx}`;
             const isChildCondition = question.parentcontent
               ? question.isVisible
               : true;

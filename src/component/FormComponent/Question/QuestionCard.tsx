@@ -2,29 +2,28 @@ import React from "react";
 import { Card, CardBody, Chip, Tooltip, Button } from "@heroui/react";
 import { ContentType } from "../../../types/Form.types";
 import {
-  EyeIcon,
-  EyeSlashIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
-  ConnectionIcon,
-  FolderIcon,
-  QuestionIcon,
-  DocumentTextIcon,
-} from "./icons";
-import {
   getQuestionTypeLabel,
   getQuestionTitle,
   canToggleVisibility,
 } from "./utils";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ConnectionIcon,
+  DocumentTextIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  FolderIcon,
+  QuestionIcon,
+} from "./Assets";
 
 interface QuestionCardProps {
-  question: ContentType & { children: ContentType[] };
+  question: ContentType;
   level: number;
   parentQuestion?: ContentType;
-  index: number;
   isExpanded: boolean;
-  hasChildren: boolean;
-  onQuestionClick: (question: ContentType, index: number) => void;
+  hasChildren?: boolean;
+  onQuestionClick: (question: ContentType) => void;
   onToggleVisibility: (question: ContentType) => void;
   onToggleExpanded: () => void;
 }
@@ -33,7 +32,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   question,
   level,
   parentQuestion,
-  index,
   isExpanded,
   hasChildren,
   onQuestionClick,
@@ -41,7 +39,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onToggleExpanded,
 }) => {
   const isChild = level > 0;
-  const isChildVisibility = question.children.every((i) => i.isVisible);
+  const isChildVisibility =
+    question.children && question.children.every((i) => i.isVisible);
   const levelColors = [
     "border-primary",
     "border-warning",
@@ -68,7 +67,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       >
         <CardBody
           className="p-3 sm:p-4"
-          onClick={() => onQuestionClick(question, index)}
+          onClick={() => onQuestionClick(question)}
         >
           {/* Parent indicator */}
           {isChild && parentQuestion && (
@@ -104,8 +103,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     level === 1
                       ? "secondary"
                       : level === 2
-                      ? "warning"
-                      : "primary"
+                        ? "warning"
+                        : "primary"
                   }
                   variant="flat"
                 >
@@ -213,7 +212,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               ) : (
                 <></>
               )}
-              {hasChildren && (
+              {hasChildren && question.children && (
                 <Chip size="sm" color="warning" variant="dot">
                   {question.children.length}{" "}
                   {question.children.length === 1 ? "child" : "children"}

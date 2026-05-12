@@ -52,7 +52,7 @@ const ManualScoringView: React.FC<ManualScoringViewProps> = ({
     Record<string, ScoringMethod>
   >({});
 
-  // Get unique respondents using the hook
+  // Get unique respondents
   const {
     uniqueRespondents,
     isLoading: isLoadingRespondents,
@@ -85,7 +85,6 @@ const ManualScoringView: React.FC<ManualScoringViewProps> = ({
     [onScoreUpdate],
   );
 
-  // Navigation functions
   const goToPreviousResponse = useCallback(() => {
     if (currentPage > 1) {
       setCurrentPage((prev) => prev - 1);
