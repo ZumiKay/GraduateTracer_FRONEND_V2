@@ -13,7 +13,6 @@ type alltabs =
 
 /**
  * Hook for fetching form tab data
- * Reusable across multiple components
  */
 export const useFormAPI = () => {
   /**

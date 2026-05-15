@@ -202,3 +202,26 @@ export const bulkDeleteResponses = async (
 
   return result;
 };
+
+export interface ResponseSummary {
+  toScore: number;
+  completed: number;
+  submitted: number;
+}
+
+export const fetchResponseSummary = async (
+  formId: string,
+): Promise<ResponseSummary | null> => {
+  const result = await ApiRequest({
+    url: `/response/getResponseSummary/${formId}`,
+    method: "GET",
+    cookie: true,
+    reactQuery: true,
+  });
+
+  if (!result.success) {
+    throw new Error(result.error ?? "Failed to fetch response summary");
+  }
+
+  return (result.data as ResponseSummary) ?? null;
+};

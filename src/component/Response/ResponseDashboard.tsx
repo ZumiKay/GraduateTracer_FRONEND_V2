@@ -17,6 +17,7 @@ import { FilterBar } from "./components/FilterBar";
 import { FilterModal } from "./components/FilterModal";
 import { EmailModal, LinkModal } from "./components/FormLinkModals";
 import { ResponseListSection } from "./components/ResponseListSection";
+import { ResponseSummarySection } from "./components/ResponseSummarySection";
 
 interface ResponseDashboardProps {
   formId: string;
@@ -222,6 +223,8 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         formId={formId}
         isGeneratingLink={generateLinkMutation.isPending}
       />
+
+      <ResponseSummarySection formId={formId} isQuizForm={isQuizForm} />
 
       <FilterBar
         filterValue={filterValue}

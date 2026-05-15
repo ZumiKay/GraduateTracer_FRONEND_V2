@@ -37,7 +37,6 @@ type alltabs =
   | "analytics"
   | "setting";
 
-// Define error type for React Query
 interface ApiError extends Error {
   status?: number;
   response?: {
@@ -52,17 +51,16 @@ function FormPage() {
   const userSession = useUserSession();
   const { fetchFormTab } = useFormAPI();
   const { formstate, page, allquestion, prevAllQuestion } = useSelector(
-    (root: RootState) => root.allform
+    (root: RootState) => root.allform,
   );
   const navigate = useNavigate();
   const { validateForm, showValidationWarnings } = useFormValidation();
 
   const { searchParam, setParams } = useSetSearchParam();
   const [tab, setTab] = useState<alltabs>(
-    (searchParam.get("tab") ?? "question") as alltabs
+    (searchParam.get("tab") ?? "question") as alltabs,
   );
 
-  // Compute reliable form ID
   const formId = useMemo(() => {
     return param.id || formstate._id || "";
   }, [param.id, formstate._id]);
@@ -86,7 +84,7 @@ function FormPage() {
 
   const isUnSavedQuestion = useMemo(
     () => checkUnsavedQuestions(allquestion, prevAllQuestion, page),
-    [allquestion, page, prevAllQuestion]
+    [allquestion, page, prevAllQuestion],
   );
 
   //Initiallize Page
@@ -144,7 +142,7 @@ function FormPage() {
           contents: undefined,
           totalscore: result.totalscore,
           totalpage: result.totalpage,
-        })
+        }),
       );
 
       // Update questions only for question/solution tabs
@@ -163,7 +161,7 @@ function FormPage() {
         const hasUnsavedChanges = checkUnsavedQuestions(
           allquestion,
           prevAllQuestion,
-          currentPage
+          currentPage,
         );
 
         // Only update both states if there are no unsaved changes or this is initial load
@@ -232,7 +230,7 @@ function FormPage() {
       // Required validation should only apply to respondent forms, not admin form builder
       proceedFunc();
     },
-    [formId, validateForm, showValidationWarnings]
+    [formId, validateForm, showValidationWarnings],
   );
 
   const handleTabs = useCallback(
@@ -247,7 +245,7 @@ function FormPage() {
 
       continueTabSwitching(val, proceedFunc);
     },
-    [continueTabSwitching, setParams, dispatch]
+    [continueTabSwitching, setParams, dispatch],
   );
 
   const handlePageChange = useCallback(
@@ -258,7 +256,7 @@ function FormPage() {
       dispatch(setreloaddata(true));
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [dispatch, setParams]
+    [dispatch, setParams],
   );
 
   const handlePage = useCallback(
@@ -286,7 +284,7 @@ function FormPage() {
                 },
               },
             },
-          })
+          }),
         );
 
         return;
@@ -294,12 +292,12 @@ function FormPage() {
 
       handlePageChange(val);
     },
-    [isUnSavedQuestion, handlePageChange, dispatch, page]
+    [isUnSavedQuestion, handlePageChange, dispatch, page],
   );
 
   const selectedKey = useMemo(
     () => searchParam.get("tab") ?? "question",
-    [searchParam]
+    [searchParam],
   );
 
   // Tab animation variants
