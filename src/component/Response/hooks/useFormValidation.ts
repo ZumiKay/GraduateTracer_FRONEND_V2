@@ -18,14 +18,12 @@ export const useFormValidation = (
       response: FormResponse | undefined,
       questionType: QuestionType,
     ): boolean => {
-      // No response object at all
       if (!response) return true;
 
       const value = response.response;
 
       if (value === null || value === undefined) return true;
 
-      // Type-specific validation
       switch (questionType) {
         case QuestionType.CheckBox:
         case QuestionType.MultipleChoice:
@@ -78,7 +76,6 @@ export const useFormValidation = (
           return false;
         }
 
-        //Wrong question type
         default:
           return true;
       }
@@ -89,7 +86,7 @@ export const useFormValidation = (
   const isPageComplete = useCallback(
     (questions: ContentType[], responses: FormResponse[]): boolean => {
       return questions.every((q) => {
-        // Skip hidden questions (conditional questions not shown)
+        // Skip hidden questions (Hidden conditional questions)
         if (
           checkIfQuestionShouldShow &&
           !checkIfQuestionShouldShow(q, responses)
@@ -115,12 +112,12 @@ export const useFormValidation = (
       const requiredQuestions = questions.filter((q) => {
         if (!q.require) return false;
 
-        // Skip questions that should not be shown (conditional questions)
+        // Skip hidden questions
         if (
           checkIfQuestionShouldShow &&
           !checkIfQuestionShouldShow(q, responses)
         ) {
-          return false; // Don't include hidden questions in validation
+          return false;
         }
 
         return true;

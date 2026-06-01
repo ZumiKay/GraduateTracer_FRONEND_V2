@@ -4,6 +4,7 @@ import { ContentType, QuestionType } from "../types/Form.types";
 import { FormResponse } from "../component/Response/hooks/useFormResponses";
 
 describe("useFormValidation with conditional questions", () => {
+  /* ------------------------------ Mock contents ------------------------------ */
   const parentQuestion: ContentType = {
     _id: "parent1",
     formId: "f1",
@@ -78,9 +79,8 @@ describe("useFormValidation with conditional questions", () => {
     );
 
     const responses: FormResponse[] = [
-      { question: "parent1", response: 1 }, // Makes child1 hidden
+      { question: "parent1", response: [1] }, // Makes child1 hidden (array required by MultipleChoice)
       { question: "always1", response: "filled" },
-      // child1 is missing but should be ignored since it's hidden
     ];
 
     const validationError = result.current.validateForm(questions, responses);
@@ -93,7 +93,7 @@ describe("useFormValidation with conditional questions", () => {
     );
 
     const responses: FormResponse[] = [
-      { question: "parent1", response: 1 }, // Makes child1 hidden
+      { question: "parent1", response: [1] }, // Makes child1 hidden (array required by MultipleChoice)
       { question: "always1", response: "filled" },
       // child1 is missing but hidden
     ];

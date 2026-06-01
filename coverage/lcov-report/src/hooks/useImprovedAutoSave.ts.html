@@ -539,7 +539,8 @@
 <a name='L474'></a><a href='#L474'>474</a>
 <a name='L475'></a><a href='#L475'>475</a>
 <a name='L476'></a><a href='#L476'>476</a>
-<a name='L477'></a><a href='#L477'>477</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L477'></a><a href='#L477'>477</a>
+<a name='L478'></a><a href='#L478'>478</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -633,7 +634,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -762,8 +762,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -864,7 +867,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -1097,7 +1099,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
           ...c,
           contentIdx: undefined,
         })),
-      }))
+      })),
     );
   }, []);
 &nbsp;
@@ -1106,10 +1108,9 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
       const newHash = <span class="cstat-no" title="statement not covered" >generateDataString(newData);</span>
 <span class="cstat-no" title="statement not covered" >      return newHash !== lastSavedHash;</span>
     },
-    [generateDataString, lastSavedHash]
+    [generateDataString, lastSavedHash],
   );
 &nbsp;
-  ///
   const updateAllQuestionStates = useCallback(
 <span class="fstat-no" title="function not covered" >    ({</span> latestVal }: { latestVal: Array&lt;ContentType&gt; }) =&gt; {
       //Conditions to update
@@ -1131,7 +1132,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
       }
     },
 &nbsp;
-    [dispatch, hasDataChanged]
+    [dispatch, hasDataChanged],
   );
 &nbsp;
   //Manually Update AllQuestion State (called on blur)
@@ -1159,7 +1160,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
     async (
       dataToSave: ContentType[],
       attempt: number = 0,
-      autoSave?: boolean
+      autoSave?: boolean,
     ): Promise&lt;boolean&gt; =&gt; {
       <span class="missing-if-branch" title="if path not taken" >I</span>if (!formstate._id || pauseAutoSave || !isMountedRef.current)
 <span class="cstat-no" title="statement not covered" >        return false;</span>
@@ -1205,7 +1206,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
             } else {
               // Manual save updates immediately - update hash from response
               const newHash = generateDataString(
-                response.data as Array&lt;ContentType&gt;
+                response.data as Array&lt;ContentType&gt;,
               );
 <span class="cstat-no" title="statement not covered" >              setLastSavedHash(newHash);</span>
 <span class="cstat-no" title="statement not covered" >              lastSavedHashRef.current = newHash;</span>
@@ -1237,10 +1238,13 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
             error: `Retrying... (${attempt + 1}/${retryAttempts})`,
           }));
 &nbsp;
-          retryTimeoutRef.current = window.setTimeout(() =&gt; {
-            <span class="missing-if-branch" title="if path not taken" >I</span>if (!isMountedRef.current) <span class="cstat-no" title="statement not covered" >return;</span>
-            performSave(dataToSave, attempt + 1, formstate.setting?.autosave);
-          }, retryDelayMs * (attempt + 1)); // Exponential backoff
+          retryTimeoutRef.current = window.setTimeout(
+            () =&gt; {
+              <span class="missing-if-branch" title="if path not taken" >I</span>if (!isMountedRef.current) <span class="cstat-no" title="statement not covered" >return;</span>
+              performSave(dataToSave, attempt + 1, formstate.setting?.autosave);
+            },
+            retryDelayMs * (attempt + 1),
+          ); // Exponential backoff
 &nbsp;
           return false;
         } else <span class="missing-if-branch" title="else path not taken" >E</span>{
@@ -1272,7 +1276,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
       retryAttempts,
       retryDelayMs,
       autoSaveStatus.lastSaved,
-    ]
+    ],
   );
 &nbsp;
   // Online/offline detection
@@ -1342,7 +1346,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
         const currentQuestions = allQuestionRef.current;
 &nbsp;
         // Check if data has actually changed since last save
-        // Use ref to avoid stale closure issues with lastSavedHash
         const currentHash = generateDataString(currentQuestions);
         const dataChanged = currentHash !== lastSavedHashRef.current;
 &nbsp;
@@ -1360,7 +1363,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
         }
       }, debounceMs);
     },
-    [isOnline, offlineQueueSize, performSave, debounceMs, generateDataString]
+    [isOnline, offlineQueueSize, performSave, debounceMs, generateDataString],
   );
 &nbsp;
   const manualSave = useCallback(
@@ -1393,7 +1396,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
         const success = <span class="cstat-no" title="statement not covered" >await performSave(</span>
           customQuestions ?? allquestion,
           0,
-          false // Manual save always updates immediately, not queued
+          false, // Manual save always updates immediately, not queued
         );
 &nbsp;
 <span class="cstat-no" title="statement not covered" >        <span class="missing-if-branch" title="if path not taken" >I</span>if (success) {</span>
@@ -1423,7 +1426,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) =&gt; {
 <span class="cstat-no" title="statement not covered" >        dispatch(setpauseAutoSave(false));</span>
       }
     },
-    [formstate._id, allquestion, dispatch, performSave, generateDataString]
+    [formstate._id, allquestion, dispatch, performSave, generateDataString],
   );
 &nbsp;
   // Main autosave effect - triggers debounced save when question changes
@@ -1498,7 +1501,7 @@ export default useImprovedAutoSave;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-29T14:32:12.239Z
+                at 2026-05-25T09:47:42.509Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

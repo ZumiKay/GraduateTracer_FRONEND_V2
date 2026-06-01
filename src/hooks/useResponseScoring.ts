@@ -149,11 +149,10 @@ export const useResponseScoring = ({
     [responseId, updateQuestionScoreMutation],
   );
 
-  // Handle save all scores (optimized batch save)
+  // Handle save all scores
   const handleSaveAllScores = useCallback(async () => {
     if (!selectedResponse || !responseId) return;
 
-    // Clear any pending debounce timers first
     Object.values(saveTimeoutRef.current).forEach(clearTimeout);
     saveTimeoutRef.current = {};
 

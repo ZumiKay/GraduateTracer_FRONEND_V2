@@ -15,7 +15,7 @@ export default {
       },
     ], // Process TypeScript and JSX
   },
-  setupFilesAfterEnv: ["<rootDir>/src/test/setupTests.tsx"],
+  setupFilesAfterEnv: ["<rootDir>/src/tests/setupTests.tsx"],
   testMatch: ["**/?(*.)+(spec|test).[tj]s?(x)"], // Match test files
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"], // Supported file extensions
   moduleNameMapper: {
@@ -23,7 +23,7 @@ export default {
     "^.+\\.svg$": "jest-transformer-svg",
   },
   // Mock import.meta for tests
-  setupFiles: ["<rootDir>/src/test/jestSetup.js"],
+  setupFiles: ["<rootDir>/src/tests/jestSetup.js"],
   globals: {
     "ts-jest": {
       useESM: true,
