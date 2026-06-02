@@ -38,9 +38,11 @@ import {
 import NotificationSystem from "../Notification/NotificationSystem";
 import useImprovedAutoSave from "../../hooks/useImprovedAutoSave";
 import { DefaultFormState } from "../../types/Form.types";
-const MemoizedProfileIcon = React.memo(ProfileIcon);
-const MemoizedAutoSaveForm = React.memo(AutoSaveForm);
-const MemoizedNotificationSystem = React.memo(NotificationSystem);
+
+//Memorize Component
+const ProfileIconContainer = React.memo(ProfileIcon);
+const AutoSaveContainer = React.memo(AutoSaveForm);
+const NotificationContainer = React.memo(NotificationSystem);
 
 const selectFormData = createSelector(
   (state: RootState) => state.allform.formstate,
@@ -54,7 +56,7 @@ const selectFormData = createSelector(
     prevAllQuestion,
     fetchloading,
     page,
-  })
+  }),
 );
 
 export default function Navigationbar() {
@@ -80,21 +82,21 @@ export default function Navigationbar() {
   // Memoized values
   const currentTab = useMemo(
     () => searchParam.get("tab") || "question",
-    [searchParam]
+    [searchParam],
   );
   const isSettingTab = useMemo(() => currentTab === "setting", [currentTab]);
   const isDashboard = useMemo(
     () => location.pathname === "/dashboard",
-    [location.pathname]
+    [location.pathname],
   );
   const isAutosaveDisabled = useMemo(
     () => !formData.formstate.setting?.autosave,
-    [formData.formstate.setting?.autosave]
+    [formData.formstate.setting?.autosave],
   );
 
   const canSaveTabs = useMemo(
     () => ["question", "solution", "response"].includes(currentTab),
-    [currentTab]
+    [currentTab],
   );
 
   // Only show save button for tabs that have saveable content and when autosave is disabled
@@ -104,7 +106,7 @@ export default function Navigationbar() {
       !formData.fetchloading &&
       isAutosaveDisabled &&
       !isDashboard,
-    [canSaveTabs, formData.fetchloading, isAutosaveDisabled, isDashboard]
+    [canSaveTabs, formData.fetchloading, isAutosaveDisabled, isDashboard],
   );
 
   // Enhanced save button status based on autosave status
@@ -178,7 +180,7 @@ export default function Navigationbar() {
   const isPopoverOpen = useMemo(
     () =>
       Object.values(openmodal).some((i) => i === true) ? false : undefined,
-    [openmodal]
+    [openmodal],
   );
 
   const { allquestion, prevAllQuestion } = formData;
@@ -229,7 +231,7 @@ export default function Navigationbar() {
       // Prevent event bubbling to avoid triggering navigation
       e.stopPropagation();
     },
-    []
+    [],
   );
 
   const handleManuallySave = useCallback(async () => {
@@ -285,7 +287,7 @@ export default function Navigationbar() {
           setformstate({
             ...formData.formstate,
             title: newTitle,
-          })
+          }),
         );
       }
     }
@@ -303,7 +305,7 @@ export default function Navigationbar() {
       OpenModal.actions.setopenmodal({
         state: "setting",
         value: true,
-      })
+      }),
     );
   }, [dispatch]);
 
@@ -383,12 +385,12 @@ export default function Navigationbar() {
                     autoSaveStatus.status === "error"
                       ? "text-red-500"
                       : autoSaveStatus.status === "saving"
-                      ? "text-blue-500"
-                      : autoSaveStatus.status === "saved"
-                      ? "text-green-500"
-                      : !isOnline
-                      ? "text-orange-500"
-                      : "text-gray-500"
+                        ? "text-blue-500"
+                        : autoSaveStatus.status === "saved"
+                          ? "text-green-500"
+                          : !isOnline
+                            ? "text-orange-500"
+                            : "text-gray-500"
                   }`}
                 >
                   {autoSaveStatusText}
@@ -399,19 +401,19 @@ export default function Navigationbar() {
 
           {!isSettingTab && !formData.fetchloading && !isAutosaveDisabled && (
             <div className="flex flex-col items-end gap-1">
-              <MemoizedAutoSaveForm />
+              <AutoSaveContainer />
               {autoSaveStatusText && (
                 <span
                   className={`text-xs ${
                     autoSaveStatus.status === "error"
                       ? "text-red-500"
                       : autoSaveStatus.status === "saving"
-                      ? "text-blue-500"
-                      : autoSaveStatus.status === "saved"
-                      ? "text-green-500"
-                      : !isOnline
-                      ? "text-orange-500"
-                      : "text-gray-500"
+                        ? "text-blue-500"
+                        : autoSaveStatus.status === "saved"
+                          ? "text-green-500"
+                          : !isOnline
+                            ? "text-orange-500"
+                            : "text-gray-500"
                   }`}
                 >
                   {autoSaveStatusText}
@@ -420,16 +422,17 @@ export default function Navigationbar() {
             </div>
           )}
 
-          <MemoizedNotificationSystem
+          <NotificationContainer
             userId={userSession?.user?._id || ""}
             className="mr-2"
           />
 
-          <MemoizedProfileIcon
+          <ProfileIconContainer
             label={userSession.user?.name ?? "User"}
             color="lime"
           />
 
+          {/* Account Pop Menu */}
           <Popover isOpen={isPopoverOpen} offset={20} placement="bottom">
             <PopoverTrigger>
               <span className="w-fit h-full hover:rounded-md hover:bg-gray-200 flex flex-row items-center justify-center">
@@ -446,17 +449,6 @@ export default function Navigationbar() {
                   variant="solid"
                   className="w-full h-fit"
                 >
-                  {/* <ListboxSection showDivider>
-                    <ListboxItem startContent={<ArchiveIcon />}>
-                      Achieve
-                    </ListboxItem>
-                    <ListboxItem
-                      onPress={() => navigate("/my-responses")}
-                      startContent={<ResponsesIcon />}
-                    >
-                      My Responses
-                    </ListboxItem>
-                  </ListboxSection> */}
                   <ListboxSection showDivider>
                     <ListboxItem
                       onPress={handleSettingsPress}

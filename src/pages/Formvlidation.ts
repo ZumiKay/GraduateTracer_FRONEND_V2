@@ -1,15 +1,21 @@
 import { ContentType } from "../types/Form.types";
 
 /**
- * Optimized check for unsaved questions using O(1) lookups and early exits.
- * Detects changes in question title, type, options, ranges, answers, and conditionals.
+ * Check for unsaved questions.
+ * Validates: ID existence, title, type, options, ranges, answers, conditionals, scores.
+ * Steps:
+ * 1. Check if questions have IDs
+ * 2. Create Map for O(1) lookups
+ * 3. Compare primitive fields first (fast path)
+ * 4. Compare complex nested objects (deep path)
  */
-export const checkUnsavedQuestions = (
-  currentQuestion: ContentType[],
-  prevQuestion: ContentType[],
-  page?: number,
-): boolean => {
-  void page;
+export const checkUnsavedQuestion = ({
+  prevQuestion,
+  currentQuestion,
+}: {
+  prevQuestion: ContentType[];
+  currentQuestion: ContentType[];
+}): boolean => {
   const hasId = currentQuestion.some((i) => i._id);
 
   if (!hasId) return true;
@@ -27,20 +33,21 @@ export const checkUnsavedQuestions = (
 
     if (!isQuestion) return true;
 
-    // Fast path: check primitives first
+    // Fast path: check primitives and simple fields first
     if (currQ.type !== isQuestion.type) return true;
     if (currQ.score !== isQuestion.score) return true;
 
-    // Deep comparison for complex objects
+    // Helper for deep JSON comparison
     const jsonCheck = <T = unknown>(val1?: T, val2?: T): boolean => {
       return JSON.stringify(val1) !== JSON.stringify(val2);
     };
 
+    // Deep check for complex nested objects
     if (jsonCheck(currQ.title, isQuestion.title)) return true;
     if (jsonCheck(currQ.conditional, isQuestion.conditional)) return true;
     if (jsonCheck(currQ.parentcontent, isQuestion.parentcontent)) return true;
 
-    // Check question-specific fields
+    // Check choice-based questions (checkbox, multiple)
     const hasCheckbox = currQ.checkbox || isQuestion.checkbox;
     if (hasCheckbox && jsonCheck(currQ.checkbox, isQuestion.checkbox))
       return true;
@@ -49,6 +56,7 @@ export const checkUnsavedQuestions = (
     if (hasMultiple && jsonCheck(currQ.multiple, isQuestion.multiple))
       return true;
 
+    // Check range-based questions
     const hasRangeDate = currQ.rangedate || isQuestion.rangedate;
     if (hasRangeDate && jsonCheck(currQ.rangedate, isQuestion.rangedate))
       return true;
@@ -57,10 +65,10 @@ export const checkUnsavedQuestions = (
     if (hasRangeNumber && jsonCheck(currQ.rangenumber, isQuestion.rangenumber))
       return true;
 
-    // Check answer key
+    // Check answer key changes
     if (jsonCheck(currQ.answer, isQuestion.answer)) return true;
 
-    // All checks passed
+    // No changes detected
     return false;
   });
 

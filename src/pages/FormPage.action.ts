@@ -2,6 +2,7 @@ import { ErrorToast } from "../component/Modal/AlertModal";
 import ApiRequest from "../hooks/APIHook/ApiHook";
 import { ContentType } from "../types/Form.types";
 
+/**Saving request for both manual and auto save function */
 export const AutoSaveQuestion = async (data: {
   data: Array<ContentType> | object;
   formId: string;

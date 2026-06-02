@@ -108,6 +108,8 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           return;
         }
 
+        //Update allquestion states
+
         dispatch(setallquestion(latestVal));
         dispatch(setprevallquestion(latestVal));
       }
@@ -128,15 +130,11 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     setLastSavedHash(newHash);
     lastSavedHashRef.current = newHash;
 
-    console.log("[AutoSave] Queue data applied, hash synced", {
-      hashLength: newHash.length,
-    });
-
     // Clear the queue after applying
     setautoSavedDataQueue(undefined);
   }, [autoSavedDataQueue, dispatch, generateDataString]);
 
-  // Enhanced save function with retry logic and range validation
+  // Save function with to be save data validations
   const performSave = useCallback(
     async (
       dataToSave: ContentType[],
@@ -180,18 +178,15 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
           // Always queue data for autosave, update state only on blur
           if (response.data) {
-            //Only add queue saveing for question tab
+            //Only add queue saving for question tab
             if (autoSave && tab === "question") {
               setautoSavedDataQueue(response.data as Array<ContentType>);
-              console.log("[AutoSave] Auto save successful, data queued");
             } else {
-              // Manual save updates immediately - update hash from response
               const newHash = generateDataString(
                 response.data as Array<ContentType>,
               );
               setLastSavedHash(newHash);
               lastSavedHashRef.current = newHash;
-              console.log("[AutoSave] Manual save successful, hash updated");
 
               updateAllQuestionStates({
                 latestVal: response.data as Array<ContentType>,
@@ -206,8 +201,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
-
-        console.log("Perform Save", error);
 
         if (!isMountedRef.current) return false;
 
@@ -299,12 +292,10 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline, offlineQueue.length]);
 
-  // Debounced save function - saves 2s after user STOPS editing
   // Timer resets on each edit to avoid too many requests
   const debouncedSave = useCallback(
     (data: ContentType) => {
       // Clear existing timer and restart - this ensures save only happens
-      // 2 seconds after the LAST edit (true debounce)
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
@@ -323,24 +314,14 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           return;
         }
 
-        // Use ref to get the latest questions data
         const currentQuestions = allQuestionRef.current;
 
         // Check if data has actually changed since last save
         const currentHash = generateDataString(currentQuestions);
         const dataChanged = currentHash !== lastSavedHashRef.current;
 
-        console.log("[AutoSave] Debounce triggered", {
-          dataChanged,
-          currentHash: currentHash.substring(0, 100) + "...",
-          lastSavedHash: lastSavedHashRef.current.substring(0, 100) + "...",
-          currentHashLength: currentHash.length,
-          lastSavedHashLength: lastSavedHashRef.current.length,
-        });
-
         if (dataChanged) {
-          console.log("[AutoSave] Saving...");
-          performSave(currentQuestions, 0, true); // Pass autoSave=true
+          performSave(currentQuestions, 0, true);
         }
       }, debounceMs);
     },
@@ -358,7 +339,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         return false;
       }
 
-      if (allquestion.length === 0) {
+      if (!customQuestions && allquestion.length === 0) {
         console.warn("Manual save failed: No questions to save");
         return false;
       }
@@ -412,16 +393,9 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
   // Main autosave effect - triggers debounced save when question changes
   useEffect(() => {
-    console.log("[AutoSave] Effect triggered", {
-      autosave: formstate.setting?.autosave,
-      hasDebounceQuestion: !!debounceQuestion,
-      pauseAutoSave,
-    });
     if (formstate.setting?.autosave && debounceQuestion && !pauseAutoSave) {
-      console.log("[AutoSave] Calling debouncedSave");
       debouncedSave(debounceQuestion);
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounceQuestion, formstate.setting?.autosave, pauseAutoSave]);
 

@@ -102,9 +102,13 @@ const QuestionTab = () => {
       lastIdx: formState.lastqIdx,
     });
 
+    //temp save question
+    dispatch(setallquestion(updatedQuestions));
+
     //Autosave
     if (formState.setting?.autosave) {
       setquestionLoading(true);
+
       const process = await manualSave({
         customQuestions: updatedQuestions,
       });
@@ -117,10 +121,6 @@ const QuestionTab = () => {
         });
         return;
       }
-    }
-    //Mnually Save
-    else {
-      dispatch(setallquestion(updatedQuestions));
     }
   }, [
     formState.lastqIdx,
@@ -192,6 +192,8 @@ const QuestionTab = () => {
           lastIdx: formState.lastqIdx,
         });
 
+        dispatch(setallquestion(updatedQuestions));
+
         if (formState.setting?.autosave) {
           const isSave = await manualSave({
             customQuestions: updatedQuestions,
@@ -204,8 +206,6 @@ const QuestionTab = () => {
             });
             return;
           }
-        } else {
-          dispatch(setallquestion(updatedQuestions));
         }
       }
     },
@@ -763,7 +763,7 @@ const QuestionTab = () => {
     async (type: "add" | "delete", deletepage?: number) => {
       // Check for unsaved questions before proceeding
 
-      if (hasUnsavedQuestions) {
+      if (!formState.setting?.autosave && hasUnsavedQuestions) {
         showSaveConfirmation(() => {
           handlePageInternal(type, deletepage);
         });
@@ -772,7 +772,12 @@ const QuestionTab = () => {
 
       handlePageInternal(type, deletepage);
     },
-    [handlePageInternal, hasUnsavedQuestions, showSaveConfirmation],
+    [
+      formState.setting?.autosave,
+      handlePageInternal,
+      hasUnsavedQuestions,
+      showSaveConfirmation,
+    ],
   );
 
   const questionColor = useMemo(

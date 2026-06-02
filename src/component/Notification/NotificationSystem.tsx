@@ -48,6 +48,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  //Fetch method
   const fetchNotifications = useCallback(async () => {
     if (!users.user?._id) return;
     try {
@@ -82,12 +83,6 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
 
     const apiUrl =
       import.meta.env.VITE_API_URL || "http://localhost:4000/v0/api";
-
-    //Debug
-    console.log(
-      "[SSE] Establishing connection to:",
-      `${apiUrl}/notifications/stream`,
-    );
 
     const eventSource = new EventSource(`${apiUrl}/notifications/stream`, {
       withCredentials: true,
@@ -136,8 +131,8 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
     }
 
     return () => {
+      //close connection
       eventSource.close();
-      console.log("[SSE] Connection closed");
     };
   }, [users.user?._id, fetchNotifications]);
 
@@ -400,17 +395,17 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
                         <div className="flex flex-wrap gap-1.5 mb-2.5">
                           {notification.metadata.responseCount && (
                             <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
-                              📊 {notification.metadata.responseCount} responses
+                              {notification.metadata.responseCount} responses
                             </span>
                           )}
                           {notification.metadata.score && (
                             <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full font-medium">
-                              ⭐ Score: {notification.metadata.score}
+                              Score: {notification.metadata.score}
                             </span>
                           )}
                           {notification.metadata.completionRate && (
                             <span className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-medium">
-                              ✓ {notification.metadata.completionRate}% complete
+                              {notification.metadata.completionRate}% complete
                             </span>
                           )}
                         </div>

@@ -24,7 +24,6 @@ import { useSetSearchParam } from "../hooks/CustomHook";
 import useFormValidation from "../hooks/ValidationHook";
 import ImprovedAutoSave from "../component/AutoSave/ImprovedAutoSave";
 import { useQuery } from "@tanstack/react-query";
-import { checkUnsavedQuestions } from "../utils/formValidation";
 import Pagination from "../component/Navigator/PaginationComponent";
 import { useFormAPI } from "../hooks/useFormAPI";
 import useUserSession from "../hooks/useUserSession";
@@ -50,7 +49,7 @@ function FormPage() {
   const dispatch = useDispatch();
   const userSession = useUserSession();
   const { fetchFormTab } = useFormAPI();
-  const { formstate, page, allquestion, prevAllQuestion } = useSelector(
+  const { formstate, page, allquestion } = useSelector(
     (root: RootState) => root.allform,
   );
   const navigate = useNavigate();
@@ -83,8 +82,8 @@ function FormPage() {
   });
 
   const isUnSavedQuestion = useMemo(
-    () => checkUnsavedQuestions(allquestion, prevAllQuestion, page),
-    [allquestion, page, prevAllQuestion],
+    () => allquestion.some((i) => !i._id),
+    [allquestion],
   );
 
   //Initiallize Page
@@ -158,11 +157,7 @@ function FormPage() {
 
         // Check unsaved directly using current allquestion/prevAllQuestion from store
         // This avoids stale closure issues with isUnSavedQuestion memo
-        const hasUnsavedChanges = checkUnsavedQuestions(
-          allquestion,
-          prevAllQuestion,
-          currentPage,
-        );
+        const hasUnsavedChanges = allquestion.some((i) => !i._id);
 
         // Only update both states if there are no unsaved changes or this is initial load
         // This prevents the "hasChange" state from resetting during refetch
