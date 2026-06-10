@@ -32,7 +32,6 @@ export const useSessionManager = ({
   setformsession,
   onAutoSignOut,
 }: UseSessionManagerProps) => {
-  // Core state
   const [userInactive, setUserInactive] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [lastActivityTime, setLastActivityTime] = useState<Date>(new Date());
@@ -46,11 +45,10 @@ export const useSessionManager = ({
   const lastActivityTimeRef = useRef<Date>(new Date());
   const lastResetTimeRef = useRef<number>(0);
 
-  // Reset activity timer and clear any existing timers - optimized with throttling
+  // Reset activity timer
   const resetActivityTimer = useCallback(() => {
     if (!isMountedRef.current) return;
 
-    // Throttle: Only reset if at least 1 second has passed since last reset
     const currentTime = Date.now();
     const timeSinceLastReset = currentTime - lastResetTimeRef.current;
     if (timeSinceLastReset < 1000) {
@@ -58,9 +56,6 @@ export const useSessionManager = ({
     }
     lastResetTimeRef.current = currentTime;
 
-    console.log("🔄 Activity detected - resetting timer");
-
-    // Clear existing timers
     if (activityTimeoutRef.current !== null) {
       clearTimeout(activityTimeoutRef.current);
       activityTimeoutRef.current = null;
@@ -137,6 +132,7 @@ export const useSessionManager = ({
     resetActivityTimerRef.current();
   }, [setformsession]);
 
+  //Only enable acitivity timer when form required email
   useEffect(() => {
     if (
       (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
@@ -155,6 +151,7 @@ export const useSessionManager = ({
     };
   }, [accessMode, isFormRequiredSessionChecked]);
 
+  //Enable timer base on activity mode (click , scroll , etc ...)
   useEffect(() => {
     if (
       (accessMode === "authenticated" && isFormRequiredSessionChecked) ||

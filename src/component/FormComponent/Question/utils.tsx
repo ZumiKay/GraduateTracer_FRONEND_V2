@@ -53,6 +53,36 @@ export const generateQuestionKey = (
   return `${question.type}-${index}-${titleHash.replace(/[^a-zA-Z0-9]/g, "")}`; //Generate with removed space title
 };
 
+export const validateQuestionStructure = (
+  questions: Array<ContentType>,
+): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  const qIdxSet = new Set<number>();
+
+  questions.forEach((question, index) => {
+    if (qIdxSet.has(question.qIdx)) {
+      errors.push(`Duplicate qIdx ${question.qIdx} found at position ${index}`);
+    }
+    qIdxSet.add(question.qIdx);
+
+    question.conditional?.forEach((cond, condIndex) => {
+      if (cond.contentIdx !== undefined && !questions.find((q) => q.qIdx === cond.contentIdx)) {
+        errors.push(
+          `Question ${index}: Conditional ${condIndex} references non-existent qIdx ${cond.contentIdx}`,
+        );
+      }
+    });
+
+    if (question.parentcontent?.qIdx !== undefined && !questions.find((q) => q.qIdx === question.parentcontent!.qIdx)) {
+      errors.push(
+        `Question ${index}: Parent content references non-existent qIdx ${question.parentcontent.qIdx}`,
+      );
+    }
+  });
+
+  return { isValid: errors.length === 0, errors };
+};
+
 export const filterQuestions = {
   types: [
     { key: "all", label: "All", color: "default" as const },

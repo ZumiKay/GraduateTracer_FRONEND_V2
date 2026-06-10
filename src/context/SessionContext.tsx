@@ -1,21 +1,11 @@
-import React, {
-  createContext,
-  useContext,
-  useCallback,
-  useRef,
-  useEffect,
-} from "react";
+import React, { createContext, useCallback, useRef, useEffect } from "react";
 import { UseMutationResult } from "@tanstack/react-query";
 import { ApiRequestReturnType } from "../hooks/APIHook/ApiHook";
 
 interface SessionContextType {
-  // Manual session check function
   checkSession: () => Promise<boolean>;
-  // Is session check in progress
   isChecking: boolean;
-  // Last check result
   lastCheckSuccess: boolean | null;
-  // Callback for session expired
   onSessionExpired?: () => void;
 }
 
@@ -36,6 +26,13 @@ interface SessionProviderProps {
   checkOnVisibilityChange?: boolean;
 }
 
+/**Sessiin provider wrapper
+ * @description public form access session manangement
+ * @method
+ * - check for valid active session
+ * - expand session
+ * - callback onSessionExpired
+ */
 export const SessionProvider: React.FC<SessionProviderProps> = ({
   children,
   manuallyCheckSession,
@@ -56,23 +53,20 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
     }
 
     try {
-      console.log("🔍 [SessionContext] Checking session...");
       lastCheckTimeRef.current = now;
 
       const result = await manuallyCheckSession.mutateAsync();
 
       if (result.success) {
-        console.log("✅ [SessionContext] Session is valid");
         lastCheckResultRef.current = true;
         return true;
       } else {
-        console.log("❌ [SessionContext] Session is invalid");
         lastCheckResultRef.current = false;
         onSessionExpired?.();
         return false;
       }
     } catch (error) {
-      console.error("❌ [SessionContext] Session check error:", error);
+      console.log(error);
       lastCheckResultRef.current = false;
       onSessionExpired?.();
       return false;
@@ -99,9 +93,6 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
         // Only check if tab was hidden for more than 1 minute
         const hiddenDuration = Date.now() - lastCheckTimeRef.current;
         if (hiddenDuration > 60000) {
-          console.log(
-            "👁️ [SessionContext] Tab became visible, checking session...",
-          );
           checkSession();
         }
       }
@@ -122,20 +113,6 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
   return (
     <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
   );
-};
-
-export const useSessionContext = () => {
-  const context = useContext(SessionContext);
-  if (!context) {
-    // Return a dummy context if not within provider (for backward compatibility)
-    return {
-      checkSession: async () => true,
-      isChecking: false,
-      lastCheckSuccess: null,
-      onSessionExpired: undefined,
-    };
-  }
-  return context;
 };
 
 export default SessionContext;

@@ -124,8 +124,8 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     if (!formReqData.isLoading) {
       if (formReqData.formState) {
         const state = formReqData.formState;
-        console.log({ state });
 
+        //Require for authentication
         if (!state.isAuthenticated && state.setting?.email) {
           dispatch({ type: "SET_ACCESS_MODE", payload: "login" });
           return;
@@ -135,6 +135,8 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
           type: "SET_ACCESS_MODE",
           payload: "login",
         };
+
+        //Condition for if the user is authenticated
         if (state.isAuthenticated || !state.setting?.email) {
           dispatchState.payload = formState.guestData
             ? "guest"
@@ -160,10 +162,11 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     formState.guestData,
   ]);
 
+  //Combine loading state
   const [loadingState, setLoadingState] = useState({
     isLoading: true,
     phase: "initializing" as "initializing" | "loading-form" | "ready",
-    minLoadingTime: 500,
+    minLoadingTime: 500, //Estimate loading time
     loadingStartTime: Date.now(),
     allowPaginationLoading: false, // Allow form pagination to show its own loading
   });
@@ -470,6 +473,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }
   }, [user.user, formId, respondentLogin, error, localFormSessionStateKey]);
 
+  //handleGuest authentication
   const handleGuestAccess = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -518,6 +522,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         },
       };
 
+      //Add session state to localstorage
       if (localFormSessionStateKey)
         saveFormStateToLocalStorage({
           replace: true,
@@ -525,6 +530,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
           data: sessionState,
         });
 
+      //clean up unecessary storage
       cleanupUnrelatedLocalStorage({
         formId,
         userKey: email,
@@ -787,7 +793,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
           !inactivityWarning.showWarning &&
           isInitialized &&
           (formReqData.formState?.setting?.email
-            ? formState.respondentInfo
+            ? formState.formsession?.isActive
             : true) &&
           (alreadyRespondedData ? (
             <SubmissionSuccessView
@@ -804,7 +810,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
                 inactivityWarning.handleContinueSession();
               }}
               checkOnVisibilityChange={true}
-              periodicCheckInterval={0}
+              periodicCheckInterval={5000} //Check every 5s
             >
               <RespondentForm {...respondentFormProps} />
             </SessionProvider>

@@ -59,6 +59,7 @@ function FormPage() {
   const [tab, setTab] = useState<alltabs>(
     (searchParam.get("tab") ?? "question") as alltabs,
   );
+  const [isSettingUnsaved, setIsSettingUnsaved] = useState(false);
 
   const formId = useMemo(() => {
     return param.id || formstate._id || "";
@@ -107,6 +108,7 @@ function FormPage() {
 
       const hasAccess = result.isOwner || result.isCreator || result.isEditor;
 
+      //Access Verification
       if (
         result.isOwner === undefined &&
         result.isCreator === undefined &&
@@ -155,17 +157,10 @@ function FormPage() {
           isVisible: q.parentcontent ? true : undefined,
         }));
 
-        // Check unsaved directly using current allquestion/prevAllQuestion from store
-        // This avoids stale closure issues with isUnSavedQuestion memo
-        const hasUnsavedChanges = allquestion.some((i) => !i._id);
+        //Check for unsavedquestion
 
-        // Only update both states if there are no unsaved changes or this is initial load
-        // This prevents the "hasChange" state from resetting during refetch
-        if (!hasUnsavedChanges) {
-          dispatch(setallquestion(normalizedContents));
-          if (!result.setting?.autosave)
-            dispatch(setprevallquestion(normalizedContents));
-        }
+        dispatch(setallquestion(normalizedContents));
+        dispatch(setprevallquestion(normalizedContents));
       }
 
       dispatch(setfetchloading(false));
@@ -238,9 +233,27 @@ function FormPage() {
         dispatch(setreloaddata(true));
       };
 
+      if (tab === "setting" && isSettingUnsaved) {
+        dispatch(
+          setopenmodal({
+            state: "confirm",
+            value: {
+              open: true,
+              data: {
+                question:
+                  "You have unsaved settings. Are you sure you want to leave without saving?",
+                btn: { agree: "Leave", disagree: "Stay" },
+                onAgree: () => continueTabSwitching(val, proceedFunc),
+              },
+            },
+          }),
+        );
+        return;
+      }
+
       continueTabSwitching(val, proceedFunc);
     },
-    [continueTabSwitching, setParams, dispatch],
+    [continueTabSwitching, setParams, dispatch, tab, isSettingUnsaved],
   );
 
   const handlePageChange = useCallback(
@@ -397,7 +410,17 @@ function FormPage() {
             </motion.div>
           </AnimatePresence>
         </Tab>
-        <Tab key={"setting"} title="Setting">
+        <Tab
+          key={"setting"}
+          title={
+            <div className="flex items-center gap-1.5">
+              Setting
+              {isSettingUnsaved && (
+                <span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />
+              )}
+            </div>
+          }
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key="setting-tab"
@@ -407,7 +430,7 @@ function FormPage() {
               exit="exit"
               className="w-full min-h-screen h-full grid place-items-center"
             >
-              <SettingTab />
+              <SettingTab onUnsavedChange={setIsSettingUnsaved} />
             </motion.div>
           </AnimatePresence>
         </Tab>

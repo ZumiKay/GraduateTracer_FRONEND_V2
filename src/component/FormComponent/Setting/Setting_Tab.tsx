@@ -15,7 +15,7 @@ import {
 import { SelectionType } from "../../../types/Global.types";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../../redux/store";
-import { ReactNode, useCallback, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { ConfirmModalDataType, setopenmodal } from "../../../redux/openmodal";
 import { hasObjectChanged } from "../../../helperFunc";
 import Selection from "../Selection";
@@ -131,13 +131,30 @@ const asyncRemoveSelfFromForm = async () => {
   return removeReq;
 };
 
-const SettingTab = () => {
+const SettingTab = ({
+  onUnsavedChange,
+}: {
+  onUnsavedChange?: (hasUnsaved: boolean) => void;
+}) => {
   const { formstate, loading, allformstate } = useSelector(
     (root: RootState) => root.allform,
   );
   const dispatch = useDispatch();
   const [isEdit, setisEdit] = useState(false);
   const [showOwnerManager, setShowOwnerManager] = useState(false);
+
+  useEffect(() => {
+    onUnsavedChange?.(isEdit);
+  }, [isEdit, onUnsavedChange]);
+
+  useEffect(() => {
+    if (!isEdit) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isEdit]);
   const navigate = useNavigate();
 
   const handleRestoreSetting = async () => {

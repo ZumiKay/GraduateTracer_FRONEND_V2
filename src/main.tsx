@@ -6,6 +6,7 @@ import { store } from "./redux/store.tsx";
 import { BrowserRouter } from "react-router-dom";
 import { HeroUIProvider } from "@heroui/react";
 import { ToastContainer } from "react-toastify";
+import "katex/dist/katex.min.css";
 import "babel-polyfill";
 import "es6-shim";
 import { QueryClientProvider } from "@tanstack/react-query";

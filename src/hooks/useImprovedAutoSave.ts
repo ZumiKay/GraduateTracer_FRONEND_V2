@@ -29,7 +29,7 @@ interface AutoSaveConfig {
 
 const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const {
-    debounceMs = 2000, // 2 seconds after user stops editing
+    debounceMs = 2000, //delay effect 2 seconds after user stops editing
     retryAttempts = 3,
     retryDelayMs = 2000,
     offlineQueueSize = 50,
@@ -58,6 +58,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const stateUpdateTimeoutRef = useRef<number | null>(null);
   const isMountedRef = useRef<boolean>(true);
   const autoSaveStatusRef = useRef<AutoSaveStatus>(autoSaveStatus);
+  const prevPauseAutoSaveRef = useRef<boolean>(pauseAutoSave);
   const [autoSavedDataQueue, setautoSavedDataQueue] =
     useState<Array<ContentType>>();
 
@@ -73,6 +74,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const generateDataString = useCallback((data: ContentType[]) => {
     return JSON.stringify(
       data.map((q) => ({
+        ...q,
         _id: q._id,
         content: q.content,
         answer: q.answer,
@@ -108,10 +110,23 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           return;
         }
 
-        //Update allquestion states
+        // Preserve client-side isVisible state — the server doesn't persist this
+        // field, so blindly replacing state causes conditional questions to vanish.
+        const currentQuestions = allQuestionRef.current;
+        const mergedQuestions = latestVal.map((serverQ) => {
+          const currentQ = currentQuestions.find((q) =>
+            q._id
+              ? q._id === serverQ._id
+              : q.qIdx === serverQ.qIdx && q.page === serverQ.page,
+          );
+          if (currentQ?.isVisible !== undefined) {
+            return { ...serverQ, isVisible: currentQ.isVisible };
+          }
+          return serverQ;
+        });
 
-        dispatch(setallquestion(latestVal));
-        dispatch(setprevallquestion(latestVal));
+        dispatch(setallquestion(mergedQuestions));
+        dispatch(setprevallquestion(mergedQuestions));
       }
     },
 
@@ -122,11 +137,25 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const updateAllQueueData = useCallback(() => {
     if (!autoSavedDataQueue || autoSavedDataQueue.length === 0) return;
 
-    dispatch(setallquestion(autoSavedDataQueue));
-    dispatch(setprevallquestion(autoSavedDataQueue));
+    // Preserve client-side isVisible when applying queued server data
+    const currentQuestions = allQuestionRef.current;
+    const mergedQueue = autoSavedDataQueue.map((serverQ) => {
+      const currentQ = currentQuestions.find((q) =>
+        q._id
+          ? q._id === serverQ._id
+          : q.qIdx === serverQ.qIdx && q.page === serverQ.page,
+      );
+      if (currentQ?.isVisible !== undefined) {
+        return { ...serverQ, isVisible: currentQ.isVisible };
+      }
+      return serverQ;
+    });
 
-    // Update hash to match the new state so next comparison works correctly
-    const newHash = generateDataString(autoSavedDataQueue);
+    dispatch(setallquestion(mergedQueue));
+    dispatch(setprevallquestion(mergedQueue));
+
+    // Update hash to match the new state for reduce the update state if the data not change
+    const newHash = generateDataString(mergedQueue);
     setLastSavedHash(newHash);
     lastSavedHashRef.current = newHash;
 
@@ -156,6 +185,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
         if (!isMountedRef.current) return false;
 
+        //Remove frontend questions numbering for backend process (better numbering accuracy).
         const strippedData = stripQuestionNumbering(dataToSave);
 
         const response = await AutoSaveQuestion({
@@ -176,20 +206,22 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           });
           lastSaveAttemptRef.current = new Date();
 
+          const savedData = response.data;
+
           // Always queue data for autosave, update state only on blur
-          if (response.data) {
+          if (savedData) {
             //Only add queue saving for question tab
             if (autoSave && tab === "question") {
-              setautoSavedDataQueue(response.data as Array<ContentType>);
+              setautoSavedDataQueue(savedData as Array<ContentType>);
             } else {
               const newHash = generateDataString(
-                response.data as Array<ContentType>,
+                savedData as Array<ContentType>,
               );
               setLastSavedHash(newHash);
               lastSavedHashRef.current = newHash;
 
               updateAllQuestionStates({
-                latestVal: response.data as Array<ContentType>,
+                latestVal: savedData as Array<ContentType>,
               });
             }
           }
@@ -328,6 +360,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     [isOnline, offlineQueueSize, performSave, debounceMs, generateDataString],
   );
 
+  //Manually trigger save
   const manualSave = useCallback(
     async ({
       customQuestions,
@@ -335,12 +368,10 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       customQuestions?: Array<ContentType>;
     }): Promise<boolean> => {
       if (!formstate._id) {
-        console.warn("Manual save failed: No form ID");
         return false;
       }
 
       if (!customQuestions && allquestion.length === 0) {
-        console.warn("Manual save failed: No questions to save");
         return false;
       }
 
@@ -358,7 +389,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         const success = await performSave(
           customQuestions ?? allquestion,
           0,
-          false, // Manual save always updates immediately, not queued
+          false,
         );
 
         if (success) {
@@ -393,7 +424,25 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
   // Main autosave effect - triggers debounced save when question changes
   useEffect(() => {
-    if (formstate.setting?.autosave && debounceQuestion && !pauseAutoSave) {
+    const wasPaused = prevPauseAutoSaveRef.current;
+    prevPauseAutoSaveRef.current = pauseAutoSave;
+
+    if (pauseAutoSave) {
+      console.log("===Pause Auto-Saved===");
+      //clear prevDebounceTimeout
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    if (wasPaused) {
+      return;
+    }
+
+    if (formstate.setting?.autosave && debounceQuestion) {
+      console.log("===UnpausedAuto-save===");
       debouncedSave(debounceQuestion);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

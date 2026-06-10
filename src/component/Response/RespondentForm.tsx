@@ -6,6 +6,7 @@ import React, {
   useState,
   memo,
   lazy,
+  useContext,
 } from "react";
 import { Alert, Spinner } from "@heroui/react";
 import {
@@ -14,7 +15,6 @@ import {
   ContentType,
   FormTypeEnum as FormTypeEnumImport,
 } from "../../types/Form.types";
-import { useSessionContext } from "../../context/SessionContext";
 
 const FormHeader = lazy(() =>
   import("./components/FormHeader").then((m) => ({ default: m.FormHeader })),
@@ -44,6 +44,7 @@ import {
 import { generateStorageKey } from "../../helperFunc";
 import { SubmissionSuccessView } from "./components/SubmissionSuccessView";
 import { QuestionRenderer } from "./components/QuestionRenderer";
+import SessionContext from "../../context/SessionContext";
 
 const uniqueToastId = "respondentFormUniqueToastId";
 
@@ -64,6 +65,18 @@ const LoadingFallback = memo(() => (
 
 LoadingFallback.displayName = "LoadingFallback";
 
+const useSessionContext = () => {
+  const context = useContext(SessionContext);
+  if (!context) {
+    return {
+      checkSession: async () => true,
+      isChecking: false,
+      lastCheckSuccess: null,
+      onSessionExpired: undefined,
+    };
+  }
+  return context;
+};
 const RespondentForm: React.FC<RespondentFormProps> = memo(
   ({
     data,
@@ -533,9 +546,9 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             <small className="text-gray-500 italic">
               {progressLoaded ? (
                 accessMode === "guest" || isUserActive ? (
-                  "✓ Your progress is automatically saved as you fill out the form"
+                  "Your progress is automatically saved as you fill out the form"
                 ) : (
-                  "⚠️ Progress saving is paused due to inactive session"
+                  "Progress saving is paused due to inactive session"
                 )
               ) : (
                 <span className="flex items-center justify-center gap-2">

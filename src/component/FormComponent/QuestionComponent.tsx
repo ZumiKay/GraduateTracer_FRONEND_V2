@@ -73,7 +73,7 @@ const QuestionComponent = memo(
     // Use qcolor from form settings, fallback to color prop
     const themeColor = useMemo(
       () => formSettings?.qcolor || color || "#6366f1",
-      [formSettings?.qcolor, color]
+      [formSettings?.qcolor, color],
     );
 
     //QuestionId included Array Idx
@@ -81,7 +81,7 @@ const QuestionComponent = memo(
 
     const conditionInfo = useMemo(
       () => value.parentcontent,
-      [value.parentcontent]
+      [value.parentcontent],
     );
     const isNotConditioned = conditionInfo?.qIdx === -1;
     const isNotTextType = value.type !== QuestionType.Text;
@@ -89,7 +89,7 @@ const QuestionComponent = memo(
     //IsLinkedQuestionVisible
     const currentShowState = useMemo(
       () => isQuestionsLinkedVisible({ target: value._id ?? idx, allquestion }),
-      [allquestion, idx, value._id]
+      [allquestion, idx, value._id],
     );
 
     const onUpdateState = useCallback(
@@ -99,6 +99,7 @@ const QuestionComponent = memo(
             const updatedQuestion = { ...question, ...newVal };
 
             if (autosave) {
+              //Set state as queue for saving to avoid too many requests
               dispatch(setdisbounceQuestion(updatedQuestion));
             }
 
@@ -110,7 +111,7 @@ const QuestionComponent = memo(
 
         dispatch(setallquestion(updatedQuestions as Array<ContentType>));
       },
-      [allquestion, dispatch, value._id, idx, autosave]
+      [allquestion, dispatch, value._id, idx, autosave],
     );
 
     const renderContentBaseOnQuestionType = useCallback(() => {
@@ -210,7 +211,7 @@ const QuestionComponent = memo(
                   },
                 },
               },
-            })
+            }),
           );
         } else {
           onUpdateState({
@@ -219,17 +220,17 @@ const QuestionComponent = memo(
           });
         }
       },
-      [dispatch, onUpdateState, value]
+      [dispatch, onUpdateState, value],
     );
 
     const handleTitleChange = useCallback(
       (val: string) => onUpdateState({ title: val }),
-      [onUpdateState]
+      [onUpdateState],
     );
 
     const handleRequireChange = useCallback(
       (val: boolean) => onUpdateState({ require: val }),
-      [onUpdateState]
+      [onUpdateState],
     );
 
     return (
@@ -352,7 +353,7 @@ const QuestionComponent = memo(
           )}
       </div>
     );
-  }
+  },
 );
 
 QuestionComponent.displayName = "QuestionComponent";
