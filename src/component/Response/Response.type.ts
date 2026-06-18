@@ -42,6 +42,8 @@ export interface SaveProgressType {
   timestamp: string;
   formId: string;
   version: string;
+  /** ISO timestamp set the first time progress is saved, used to measure completion time on submit */
+  startedAt?: string;
   [x: string]: unknown | undefined;
 }
 

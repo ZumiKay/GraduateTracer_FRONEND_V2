@@ -259,6 +259,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         currentPage={currentPage}
         limit={limit}
         handlePageChange={handlePageChange}
+        handleLimitChange={handleLimitChange}
       />
 
       <EmailModal

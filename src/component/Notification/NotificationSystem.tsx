@@ -46,6 +46,8 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [markLoading, setmarkLoading] = useState(false);
+
   const [unreadCount, setUnreadCount] = useState(0);
 
   //Fetch method
@@ -138,11 +140,13 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
 
   const markAsRead = async (notificationId: string) => {
     try {
+      setmarkLoading(true);
       await ApiRequest({
         url: `/notifications/${notificationId}/read`,
         method: "PUT",
         cookie: true,
       });
+      setmarkLoading(false);
 
       setNotifications((prev) =>
         prev.map((notification) =>
@@ -159,12 +163,14 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
 
   const markAllAsRead = async () => {
     try {
+      setLoading(true);
       await ApiRequest({
         url: `/notifications/mark-all-read`,
         method: "PUT",
         cookie: true,
         data: { userId },
       });
+      setLoading(false);
 
       setNotifications((prev) =>
         prev.map((notification) => ({ ...notification, isRead: true })),
@@ -177,11 +183,13 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
 
   const deleteNotification = async (notificationId: string) => {
     try {
+      setmarkLoading(true);
       await ApiRequest({
         url: `/notifications/${notificationId}`,
         method: "DELETE",
         cookie: true,
       });
+      setmarkLoading(false);
 
       setNotifications((prev) =>
         prev.filter((notification) => notification._id !== notificationId),
@@ -433,6 +441,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
                                 size="sm"
                                 variant="flat"
                                 color="success"
+                                isLoading={markLoading}
                                 onPress={() => markAsRead(notification._id)}
                                 className="hover:scale-110 transition-transform"
                               >
@@ -447,6 +456,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
                               size="sm"
                               variant="flat"
                               color="danger"
+                              isLoading={markLoading}
                               onPress={() =>
                                 deleteNotification(notification._id)
                               }

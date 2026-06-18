@@ -140,7 +140,7 @@ const QuestionTab = () => {
                   alt="minus"
                   width={20}
                   height={20}
-                  loading="lazy"
+                  loading="eager"
                 />
               )
             }
@@ -161,7 +161,7 @@ const QuestionTab = () => {
                 alt="plus"
                 width={20}
                 height={20}
-                loading="lazy"
+                loading="eager"
               />
             }
           >

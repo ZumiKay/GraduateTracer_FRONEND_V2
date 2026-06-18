@@ -9,13 +9,14 @@ import {
   Tab,
 } from "@heroui/react";
 import { FiBarChart, FiRefreshCw, FiPieChart } from "react-icons/fi";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ApiRequest from "../../hooks/APIHook/ApiHook";
-import { FormDataType } from "../../types/Form.types";
+import { FormDataType, FormTypeEnum } from "../../types/Form.types";
 import GraphAnalyticsView from "./GraphAnalyticsView";
 import DefaultAnalyticsView from "./DefaultAnalyticsView";
 import { AnalyticsData } from "./ResponseAnalytics.types";
 import OverviewAnayticsTabs from "./components/OverviewAnalytics";
+import Pagination from "../Navigator/PaginationComponent";
 
 interface ResponseAnalyticsProps {
   formId: string;
@@ -31,6 +32,9 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
   const [selectedPage, setSelectedPage] = useState<number | undefined>(
     undefined,
   );
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+  const queryClient = useQueryClient();
 
   // Get unique pages from form contents
   const availablePages = form.contents
@@ -43,7 +47,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
       ).sort((a, b) => a - b)
     : [];
 
-  // Fetch analytics data using the analytics controller
+  // Fetch detail analytics for form
   const {
     data: analytics,
     error,
@@ -74,7 +78,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
 
       return result.data as AnalyticsData;
     },
-    enabled: !!formId,
+    enabled: !!formId && activeTab === "questions",
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: (failureCount) => {
       if (failureCount >= 2) return false;
@@ -87,35 +91,32 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
     console.error("Error fetching analytics:", error);
   }
 
-  if (isLoading) {
-    return (
-      <div className="w-full p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <FiRefreshCw className="animate-spin text-4xl text-blue-500 mx-auto mb-4" />
-            <p className="text-gray-600">Loading analytics...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Reset pagination when tab changes or analytics data updates
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, analytics?.questions.length]);
 
-  if (!analytics || analytics.isResponse === false) {
-    return (
-      <div className="w-full p-6">
-        <Card>
-          <CardBody className="text-center p-8">
-            <FiBarChart className="text-6xl text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Analytics Data</h3>
-            <p className="text-gray-600">
-              Analytics data will appear here once you have responses to your
-              form.
-            </p>
-          </CardBody>
-        </Card>
-      </div>
-    );
-  }
+  // Calculate paginated questions
+  const paginatedQuestions = React.useMemo(() => {
+    if (!analytics?.questions) return [];
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    const endIdx = startIdx + itemsPerPage;
+    return analytics.questions.slice(startIdx, endIdx);
+  }, [analytics?.questions, currentPage, itemsPerPage]);
+
+  const totalPages = analytics?.questions
+    ? Math.ceil(analytics.questions.length / itemsPerPage)
+    : 0;
+
+  const handleRefresh = () => {
+    if (activeTab === "questions") {
+      refetch();
+    } else {
+      queryClient.invalidateQueries({
+        queryKey: ["overviewPerformance", formId],
+      });
+    }
+  };
 
   return (
     <div className="w-full p-6 space-y-6">
@@ -128,7 +129,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
           </p>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          {availablePages.length > 0 && (
+          {activeTab === "questions" && availablePages.length > 0 && (
             <Select
               placeholder="All Pages"
               aria-label="Response Analytics Pagintion"
@@ -154,7 +155,7 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
           )}
           <Button
             size="sm"
-            onPress={() => refetch()}
+            onPress={handleRefresh}
             aria-label="Refresh Button"
             startContent={<FiRefreshCw />}
           >
@@ -171,7 +172,10 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
         aria-label="Analytics Tab"
       >
         <Tab key="overview" title="Overview">
-          <OverviewAnayticsTabs analytics={analytics} formId={formId} />
+          <OverviewAnayticsTabs
+            formId={formId}
+            isQuizForm={form.type === FormTypeEnum.Quiz}
+          />
         </Tab>
 
         <Tab
@@ -179,48 +183,92 @@ const ResponseAnalytics: React.FC<ResponseAnalyticsProps> = ({
           title="Question Analysis"
           aria-label="QuestionAnalysis Tab"
         >
-          <div className="space-y-6">
-            {/* View Mode Toggle */}
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">
-                {analytics.questions.length} Question
-                {analytics.questions.length !== 1 ? "s" : ""} Analyzed
-              </h3>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant={viewMode === "default" ? "solid" : "ghost"}
-                  color={viewMode === "default" ? "primary" : "default"}
-                  onPress={() => setViewMode("default")}
-                  startContent={<FiBarChart />}
-                >
-                  Default View
-                </Button>
-                <Button
-                  size="sm"
-                  variant={viewMode === "graph" ? "solid" : "ghost"}
-                  color={viewMode === "graph" ? "primary" : "default"}
-                  onPress={() => setViewMode("graph")}
-                  startContent={<FiPieChart />}
-                >
-                  Graph View
-                </Button>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <FiRefreshCw className="animate-spin text-4xl text-blue-500 mx-auto mb-4" />
+                <p className="text-gray-600">Loading analytics...</p>
               </div>
             </div>
+          ) : !analytics || analytics.isResponse === false ? (
+            <Card>
+              <CardBody className="text-center p-8">
+                <FiBarChart className="text-6xl text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">
+                  No Analytics Data
+                </h3>
+                <p className="text-gray-600">
+                  Analytics data will appear here once you have responses to
+                  your form.
+                </p>
+              </CardBody>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {/* View Mode Toggle */}
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">
+                  Showing{" "}
+                  {Math.min(
+                    (currentPage - 1) * itemsPerPage + 1,
+                    analytics.questions.length,
+                  )}
+                  -
+                  {Math.min(
+                    currentPage * itemsPerPage,
+                    analytics.questions.length,
+                  )}{" "}
+                  of {analytics.questions.length} Question
+                  {analytics.questions.length !== 1 ? "s" : ""} Analyzed
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant={viewMode === "default" ? "solid" : "ghost"}
+                    color={viewMode === "default" ? "primary" : "default"}
+                    onPress={() => setViewMode("default")}
+                    startContent={<FiBarChart />}
+                  >
+                    Default View
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={viewMode === "graph" ? "solid" : "ghost"}
+                    color={viewMode === "graph" ? "primary" : "default"}
+                    onPress={() => setViewMode("graph")}
+                    startContent={<FiPieChart />}
+                  >
+                    Graph View
+                  </Button>
+                </div>
+              </div>
 
-            {/* Questions Display */}
-            {viewMode === "graph" ? (
-              <GraphAnalyticsView
-                questions={analytics.questions}
-                formColor={form.setting?.qcolor}
-              />
-            ) : (
-              <DefaultAnalyticsView
-                questions={analytics.questions}
-                formColor={form.setting?.qcolor}
-              />
-            )}
-          </div>
+              {/* Questions Display */}
+              {viewMode === "graph" ? (
+                <GraphAnalyticsView
+                  questions={paginatedQuestions}
+                  formColor={form.setting?.qcolor}
+                />
+              ) : (
+                <DefaultAnalyticsView
+                  questions={paginatedQuestions}
+                  formColor={form.setting?.qcolor}
+                />
+              )}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-center mt-8">
+                  <Pagination
+                    totalPage={totalPages}
+                    page={currentPage}
+                    setPage={setCurrentPage}
+                    isDisable={isLoading}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </Tab>
       </Tabs>
     </div>

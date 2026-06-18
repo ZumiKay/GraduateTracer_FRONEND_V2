@@ -59,6 +59,8 @@ interface ResponseTableProps {
   getStatusColor: (
     status: string,
   ) => "success" | "warning" | "danger" | "default";
+  currentPage?: number;
+  limit?: number;
 }
 
 const useReturnResponse = () => {
@@ -109,6 +111,8 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
   onDeleteResponse,
   onBulkDelete,
   getStatusColor,
+  currentPage = 1,
+  limit = 10,
 }) => {
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set([]));
   const [deleteItem, setDeleteItem] = useState<ResponseListItem | null>(null);
@@ -134,6 +138,11 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     isOpen: isReturnModalOpen,
     onOpen: onReturnModalOpen,
     onClose: onReturnModalClose,
+  } = useDisclosure();
+  const {
+    isOpen: isBulkReturnModalOpen,
+    onOpen: onBulkReturnModalOpen,
+    onClose: onBulkReturnModalClose,
   } = useDisclosure();
 
   const isResponseListItem = (
@@ -336,6 +345,65 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     onReturnModalClose,
   ]);
 
+  const handleBulkReturnOpen = useCallback(() => {
+    onBulkReturnModalOpen();
+  }, [onBulkReturnModalOpen]);
+
+  const handleConfirmBulkReturn = useCallback(async () => {
+    const selectedIds = Array.from(selectedKeys) as string[];
+    if (selectedIds.length === 0) return;
+
+    const htmlContent = `
+      <div style="margin: 20px 0;">
+        ${
+          returnAdditionalInfo
+            ? `<p style="white-space: pre-wrap;">${returnAdditionalInfo}</p>`
+            : "<p>No additional information provided.</p>"
+        }
+      </div>
+    `;
+
+    try {
+      await Promise.all(
+        selectedIds.map((responseId) =>
+          returnMutation.mutateAsync({
+            responseId,
+            html: htmlContent,
+            reason: returnReason || undefined,
+            feedback: returnFeedback || undefined,
+            includeQuestionsAndResponses,
+          }),
+        ),
+      );
+
+      SuccessToast({
+        title: "Success",
+        content: `Successfully returned ${selectedIds.length} response(s)`,
+      });
+
+      onBulkReturnModalClose();
+      setReturnReason("");
+      setReturnFeedback("");
+      setReturnAdditionalInfo("");
+      setIncludeQuestionsAndResponses(false);
+      setSelectedKeys(new Set([]));
+    } catch (error) {
+      ErrorToast({
+        toastid: uniqueToastId,
+        title: "Error",
+        content: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }, [
+    selectedKeys,
+    returnReason,
+    returnFeedback,
+    returnAdditionalInfo,
+    includeQuestionsAndResponses,
+    returnMutation,
+    onBulkReturnModalClose,
+  ]);
+
   // Handle viewing multiple selected responses
   const handleViewSelectedResponses = useCallback(() => {
     const selectedIds = Array.from(selectedKeys) as string[];
@@ -405,6 +473,17 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
             >
               View Responses
             </Button>
+            {isQuizForm && (
+              <Button
+                color="warning"
+                variant="flat"
+                size="sm"
+                onPress={handleBulkReturnOpen}
+                startContent={<FiCornerUpLeft />}
+              >
+                Return Selected
+              </Button>
+            )}
             <Button
               color="danger"
               variant="flat"
@@ -432,12 +511,13 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
             <TableColumn>EMAIL</TableColumn>
             <TableColumn>STATUS</TableColumn>
             <TableColumn>SUBMITTED AT</TableColumn>
+            {isQuizForm ? <TableColumn>SCORE</TableColumn> : <TableColumn hideHeader>{""}</TableColumn>}
             <TableColumn>ACTIONS</TableColumn>
           </TableHeader>
           <TableBody emptyContent="No responses found">
             {responses.filter(isResponseListItem).map((response, idx) => (
               <TableRow key={response._id}>
-                <TableCell>{idx + 1}</TableCell>
+                <TableCell>{(currentPage - 1) * limit + idx + 1}</TableCell>
                 <TableCell>{getResponseDisplayName(response)}</TableCell>
                 <TableCell>{response.respondentEmail || "N/A"}</TableCell>
                 <TableCell>
@@ -455,6 +535,13 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
                   {response.submittedAt
                     ? new Date(response.submittedAt).toLocaleString()
                     : "N/A"}
+                </TableCell>
+                <TableCell>
+                  {isQuizForm
+                    ? response.totalScore !== undefined
+                      ? response.totalScore
+                      : "N/A"
+                    : null}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
@@ -750,6 +837,107 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
                   {returnMutation.isPending
                     ? "Sending..."
                     : "Send Return Email"}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* Bulk Return Modal */}
+      <Modal
+        isOpen={isBulkReturnModalOpen}
+        onClose={onBulkReturnModalClose}
+        size="2xl"
+        scrollBehavior="inside"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                <h3 className="text-xl font-bold">
+                  Return {selectedCount} Response(s) to Respondents
+                </h3>
+                <p className="text-sm text-gray-500 font-normal">
+                  This will send a return email to each selected respondent.
+                </p>
+              </ModalHeader>
+              <ModalBody className="gap-4">
+                <Input
+                  label="Reason for Return"
+                  placeholder="e.g., Incomplete answers, missing information"
+                  value={returnReason}
+                  onValueChange={setReturnReason}
+                  variant="bordered"
+                  labelPlacement="outside"
+                  description="Optional: Brief reason why the responses are being returned"
+                />
+                <Textarea
+                  label="Feedback"
+                  placeholder="Provide constructive feedback to help respondents improve their submission..."
+                  value={returnFeedback}
+                  onValueChange={setReturnFeedback}
+                  variant="bordered"
+                  labelPlacement="outside"
+                  minRows={4}
+                  description="Optional: Detailed feedback for the respondents"
+                />
+                <Textarea
+                  label="Additional Information"
+                  placeholder="Any other information you'd like to include in the email..."
+                  value={returnAdditionalInfo}
+                  onValueChange={setReturnAdditionalInfo}
+                  variant="bordered"
+                  labelPlacement="outside"
+                  minRows={6}
+                  description="This will be included in each return email"
+                  isRequired
+                />
+                <Switch
+                  isSelected={includeQuestionsAndResponses}
+                  onValueChange={setIncludeQuestionsAndResponses}
+                  classNames={{
+                    base: "inline-flex flex-row-reverse w-full max-w-full bg-content1 hover:bg-content2 items-center justify-between cursor-pointer rounded-lg gap-2 p-4 border-2 border-transparent data-[selected=true]:border-primary",
+                    wrapper: "p-0 h-4 overflow-visible",
+                    thumb:
+                      "w-6 h-6 border-2 shadow-lg group-data-[selected=true]:ml-6",
+                  }}
+                >
+                  <div className="flex flex-col gap-1">
+                    <p className="text-medium font-semibold">
+                      Include Questions and Responses
+                    </p>
+                    <p className="text-tiny text-default-400">
+                      Include all questions and each respondent's answers in the
+                      return email
+                    </p>
+                  </div>
+                </Switch>
+              </ModalBody>
+              <ModalFooter>
+                <Button
+                  color="default"
+                  variant="light"
+                  onPress={onClose}
+                  isDisabled={returnMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  color="warning"
+                  variant="solid"
+                  onPress={handleConfirmBulkReturn}
+                  isLoading={returnMutation.isPending}
+                  isDisabled={
+                    !returnAdditionalInfo.trim() || returnMutation.isPending
+                  }
+                  startContent={
+                    returnMutation.isPending ? undefined : <FiSend />
+                  }
+                >
+                  {returnMutation.isPending
+                    ? "Sending..."
+                    : `Send to ${selectedCount} Respondent(s)`}
                 </Button>
               </ModalFooter>
             </>

@@ -15,6 +15,10 @@ import { deleteFormLocalStorage } from "../../../helperFunc";
 
 type QuestionType = ContentType<unknown>;
 
+/**
+ * Converts seconds to a human-readable duration string (e.g., "1d 2h 30mn")
+ */
+
 interface UseFormSubmissionProps {
   formId?: string;
   formType?: FormTypeEnum;
@@ -61,8 +65,9 @@ export const useFormSubmission = ({
 
     // Load progress from storage
     const savedData = localStorage.getItem(progressStorageKey);
-    const prevQuestion =
-      savedData && (JSON.parse(savedData) as SaveProgressType);
+    const prevQuestion = savedData
+      ? (JSON.parse(savedData) as SaveProgressType)
+      : undefined;
 
     let ToSubmitQuestion: FormResponse[] = [];
 
@@ -128,6 +133,14 @@ export const useFormSubmission = ({
       return;
     }
 
+    //Time completion tracking
+    const startedAt = prevQuestion?.startedAt
+      ? new Date(prevQuestion.startedAt).getTime()
+      : undefined;
+    const completionTimeSeconds = startedAt
+      ? Math.max(0, Math.round((Date.now() - startedAt) / 1000))
+      : undefined;
+
     try {
       setSubmitting(true);
       setError(null);
@@ -140,6 +153,7 @@ export const useFormSubmission = ({
           responseSet: ToSubmitQuestion,
           respondentEmail: respondentInfo?.respondentEmail,
           respondentName: respondentInfo?.respondentName,
+          completionTime: completionTimeSeconds,
         },
       })) as ApiRequestReturnType;
 

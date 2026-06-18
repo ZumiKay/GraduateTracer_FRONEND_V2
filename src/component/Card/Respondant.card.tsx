@@ -23,6 +23,7 @@ import {
 import DateRangeSelector from "../FormComponent/DateRanageSelector";
 import { getLocalTimeZone, now, parseDate } from "@internationalized/date";
 import Selection from "../FormComponent/Selection";
+import { JSONContent } from "@tiptap/react";
 
 interface TextCardProps {
   content: ContentType;
@@ -41,7 +42,7 @@ const Respondant_Question_Card = memo(
           onSelectAnswer({ answer: ans as never });
         }
       },
-      [onSelectAnswer, isDisable]
+      [onSelectAnswer, isDisable],
     );
 
     //Question numbering
@@ -88,14 +89,14 @@ const Respondant_Question_Card = memo(
           ? `linear-gradient(135deg, ${color}, ${color}dd)`
           : undefined,
       }),
-      [color]
+      [color],
     );
 
     const questionBadgeStyle = useMemo(
       () => ({
         backgroundColor: color,
       }),
-      [color]
+      [color],
     );
 
     const MultipleChoiceComponent = useMemo(() => {
@@ -156,9 +157,9 @@ const Respondant_Question_Card = memo(
                   answerkey?.answer
                     ? Array.isArray(answerkey.answer)
                       ? (answerkey.answer as number[]).includes(
-                          choice.idx ?? cIdx
+                          choice.idx ?? cIdx,
                         )
-                        ? choice.idx ?? cIdx
+                        ? (choice.idx ?? cIdx)
                         : -1
                       : -1
                     : -1
@@ -175,7 +176,7 @@ const Respondant_Question_Card = memo(
 
                   if (val === -1) {
                     const newAnswers = currentAnswers.filter(
-                      (a) => a !== choiceValue
+                      (a) => a !== choiceValue,
                     );
                     handleAnswer(newAnswers);
                   } else {
@@ -428,7 +429,7 @@ const Respondant_Question_Card = memo(
               } dark:bg-white dark:rounded-md dark:p-2`}
             >
               <StyledTiptap
-                value={content.title as never}
+                value={content.title as JSONContent}
                 readonly
                 variant="question"
               />
@@ -490,7 +491,7 @@ const Respondant_Question_Card = memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 Respondant_Question_Card.displayName = "Respondant_Question_Card";

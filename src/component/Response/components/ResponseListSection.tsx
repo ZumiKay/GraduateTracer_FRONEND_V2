@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, CardHeader, CardBody, Pagination } from "@heroui/react";
+import { Card, CardHeader, CardBody, Pagination, Select, SelectItem } from "@heroui/react";
 import ResponseTable from "./ResponseTable";
 import { FormDataType } from "../../../types/Form.types";
 import {
@@ -29,6 +29,7 @@ interface ResponseListSectionProps {
   currentPage: number;
   limit: number;
   handlePageChange: (page: number) => void;
+  handleLimitChange: (limit: number) => void;
 }
 
 export const ResponseListSection: React.FC<ResponseListSectionProps> = ({
@@ -46,6 +47,7 @@ export const ResponseListSection: React.FC<ResponseListSectionProps> = ({
   currentPage,
   limit,
   handlePageChange,
+  handleLimitChange,
 }) => {
   return (
     <Card>
@@ -66,19 +68,35 @@ export const ResponseListSection: React.FC<ResponseListSectionProps> = ({
           onDeleteResponse={onDeleteResponse}
           onBulkDelete={onBulkDelete}
           getStatusColor={getStatusColor}
+          currentPage={currentPage}
+          limit={limit}
         />
 
         {pagination && (
           <div className="mt-6 space-y-4">
-            {/* Pagination Info */}
+            {/* Pagination Info + Per-page selector */}
             <div className="flex justify-between items-center text-sm text-gray-600">
               <div>
                 Showing {(currentPage - 1) * limit + 1} to{" "}
                 {Math.min(currentPage * limit, pagination.totalCount)} of{" "}
                 {pagination.totalCount} responses
               </div>
-              <div>
-                Page {currentPage} of {pagination.totalPages}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 whitespace-nowrap">Rows per page</span>
+                <Select
+                  size="sm"
+                  selectedKeys={[limit.toString()]}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0] as string;
+                    if (selected) handleLimitChange(parseInt(selected));
+                  }}
+                  className="w-20"
+                  aria-label="Rows per page"
+                >
+                  {[5, 10, 20, 50].map((n) => (
+                    <SelectItem key={n.toString()}>{n.toString()}</SelectItem>
+                  ))}
+                </Select>
               </div>
             </div>
 

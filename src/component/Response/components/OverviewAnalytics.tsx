@@ -1,12 +1,6 @@
 import { memo, useCallback, useMemo, useState } from "react";
-import { Card, CardBody, CardHeader, Progress, Spinner } from "@heroui/react";
-import {
-  FiClock,
-  FiTarget,
-  FiTrendingUp,
-  FiUsers,
-  FiAlertCircle,
-} from "react-icons/fi";
+import { Card, CardBody, CardHeader, Spinner } from "@heroui/react";
+import { FiClock, FiTrendingUp, FiUsers, FiAlertCircle } from "react-icons/fi";
 import {
   BarChart,
   Bar,
@@ -22,7 +16,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import ApiRequest from "../../../hooks/APIHook/ApiHook";
 import {
-  AnalyticsData,
   GraphType,
   OverviewPerformanceData,
   PeriodType,
@@ -31,8 +24,8 @@ import { SelectionType } from "../../../types/Global.types";
 import Selection from "../../FormComponent/Selection";
 
 interface OverviewAnalyticsTabsPropsType {
-  analytics: AnalyticsData;
   formId: string;
+  isQuizForm: boolean;
 }
 
 /* -------------------------------- Constants -------------------------------- */
@@ -84,7 +77,7 @@ const ChartTooltip = ({
 };
 
 const OverviewAnayticsTabs = memo(
-  ({ analytics, formId }: OverviewAnalyticsTabsPropsType) => {
+  ({ formId, isQuizForm }: OverviewAnalyticsTabsPropsType) => {
     const [overviewGraph, setOverviewGraph] = useState<GraphType>(
       GraphType.BAR,
     );
@@ -121,32 +114,11 @@ const OverviewAnayticsTabs = memo(
       retry: 1,
     });
 
-    const completionRatePct = analytics.formStats.completionRate;
-    const avgScorePct = useMemo(
+    const dailyVolumeChartData = useMemo(
       () =>
-        analytics.formStats.maxPossibleScore > 0
-          ? (analytics.formStats.averageScore /
-              analytics.formStats.maxPossibleScore) *
-            100
-          : 0,
-      [analytics.formStats.averageScore, analytics.formStats.maxPossibleScore],
-    );
-
-    const difficultQuestionsChartData = useMemo(
-      () =>
-        perfData?.performanceMetrics.difficultQuestions.map((q) => ({
-          name: q.title.length > 25 ? `${q.title.slice(0, 25)}…` : q.title,
-          Accuracy: parseFloat(q.accuracy.toFixed(1)),
-          "Avg Score": parseFloat(q.averageScore.toFixed(2)),
-        })) ?? [],
-      [perfData],
-    );
-
-    const topPerformersChartData = useMemo(
-      () =>
-        perfData?.performanceMetrics.topPerformers.map((p) => ({
-          name: p.name.length > 16 ? `${p.name.slice(0, 16)}…` : p.name,
-          Score: p.score,
+        perfData?.timeSeriesData.map((d) => ({
+          date: d.date.length > 5 ? d.date.slice(5) : d.date,
+          Responses: d.responses,
         })) ?? [],
       [perfData],
     );
@@ -164,115 +136,64 @@ const OverviewAnayticsTabs = memo(
                 <div>
                   <p className="text-sm text-gray-600">Total Responses</p>
                   <p className="text-2xl font-bold">
-                    {analytics.formStats.totalResponses}
+                    {perfData?.totalResponses ?? 0}
                   </p>
                 </div>
               </div>
             </CardBody>
           </Card>
 
-          <Card aria-label="CompletionRate Card">
-            <CardBody className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <FiTarget className="text-green-600 text-xl" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Completion Rate</p>
-                  <p className="text-2xl font-bold">
-                    {analytics.formStats.completionRate.toFixed(1)}%
-                  </p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-
-          <Card aria-label="AverageScore Card">
-            <CardBody className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <FiTrendingUp className="text-yellow-600 text-xl" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Average Score</p>
-                  <p className="text-2xl font-bold">
-                    {analytics.formStats.averageScore.toFixed(1)}
-                    <span className="text-sm text-gray-500">
-                      /{analytics.formStats.maxPossibleScore}
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-
-          <Card aria-label="CompletedResponses Card">
-            <CardBody className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <FiClock className="text-purple-600 text-xl" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Completed Responses</p>
-                  <p className="text-2xl font-bold">
-                    {analytics.formStats.completedResponses}
-                  </p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
+          {isQuizForm && (
+            <>
+              <Card aria-label="AverageScore Card">
+                <CardBody className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-100 rounded-lg">
+                      <FiTrendingUp className="text-yellow-600 text-xl" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Average Score</p>
+                      <p className="text-2xl font-bold">
+                        {perfData?.averageScore.toFixed(1)}
+                      </p>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+              <Card aria-label="CompletedResponses Card">
+                <CardBody className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <FiClock className="text-purple-600 text-xl" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        Completed Responses
+                      </p>
+                      <p className="text-2xl font-bold">
+                        {perfData?.completedResponses}
+                      </p>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            </>
+          )}
         </div>
 
-        {/* Form Stats Overview */}
-        <Card aria-label="PerformanceOverview Card">
-          <CardHeader>
-            <h3 className="text-lg font-semibold">Performance Overview</h3>
-          </CardHeader>
-          <CardBody className="space-y-4">
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm">Completion Rate</span>
-                <span className="text-sm font-semibold">
-                  {completionRatePct.toFixed(1)}%
-                </span>
-              </div>
-              <Progress
-                value={completionRatePct}
-                className="h-2"
-                color="warning"
-                aria-label="analytics progressBar"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm">Average Score</span>
-                <span className="text-sm font-semibold">
-                  {avgScorePct.toFixed(1)}%
-                </span>
-              </div>
-              <Progress
-                value={avgScorePct}
-                className="h-2"
-                color="success"
-                aria-label="averageScore progressBar"
-              />
-            </div>
-          </CardBody>
-        </Card>
-
-        {/* Details Performance Analytics */}
+        {/* Period Selection */}
         <div className="DetailPerformanceContainer w-full space-y-4">
-          {/* Filter Section */}
           <div className="flex flex-wrap items-center gap-3">
-            <Selection
-              items={PerformanceGraphsViewOptions}
-              selectedKeys={[overviewGraph]}
-              onSelectionChange={(val) =>
-                val.currentKey &&
-                handleOverviewGraphSelection(val.currentKey as GraphType)
-              }
-            />
+            {!isQuizForm && (
+              <Selection
+                items={PerformanceGraphsViewOptions}
+                selectedKeys={[overviewGraph]}
+                onSelectionChange={(val) =>
+                  val.currentKey &&
+                  handleOverviewGraphSelection(val.currentKey as GraphType)
+                }
+              />
+            )}
             <Selection
               items={PeriodOptions}
               selectedKeys={[period]}
@@ -300,97 +221,73 @@ const OverviewAnayticsTabs = memo(
             <>
               {overviewGraph === GraphType.BAR && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Question Difficulty Chart */}
-                  <Card aria-label="QuestionDifficulty Chart">
-                    <CardHeader>
-                      <h4 className="text-base font-semibold">
-                        Question Difficulty (Accuracy %)
-                      </h4>
-                    </CardHeader>
-                    <CardBody>
-                      {difficultQuestionsChartData.length === 0 ? (
-                        <p className="text-sm text-gray-500 text-center py-8">
-                          No question data available.
-                        </p>
-                      ) : (
-                        <ResponsiveContainer width="100%" height={260}>
-                          <BarChart
-                            data={difficultQuestionsChartData}
-                            margin={{ top: 5, right: 10, left: 0, bottom: 60 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis
-                              dataKey="name"
-                              tick={{ fontSize: 11 }}
-                              angle={-35}
-                              textAnchor="end"
-                              interval={0}
-                            />
-                            <YAxis
-                              tick={{ fontSize: 11 }}
-                              domain={[0, 100]}
-                              tickFormatter={(v) => `${v}%`}
-                            />
-                            <Tooltip content={<ChartTooltip />} />
-                            <Legend wrapperStyle={{ paddingTop: 16 }} />
-                            <Bar
-                              dataKey="Accuracy"
-                              fill={CHART_COLORS.danger}
-                              radius={[4, 4, 0, 0]}
-                            />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      )}
-                    </CardBody>
-                  </Card>
-
-                  {/* Top Performers Chart */}
-                  <Card aria-label="TopPerformers Chart">
-                    <CardHeader>
-                      <h4 className="text-base font-semibold">
-                        Top Performers
-                      </h4>
-                    </CardHeader>
-                    <CardBody>
-                      {topPerformersChartData.length === 0 ? (
-                        <p className="text-sm text-gray-500 text-center py-8">
-                          No performer data available.
-                        </p>
-                      ) : (
-                        <ResponsiveContainer width="100%" height={260}>
-                          <BarChart
-                            data={topPerformersChartData}
-                            margin={{ top: 5, right: 10, left: 0, bottom: 60 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis
-                              dataKey="name"
-                              tick={{ fontSize: 11 }}
-                              angle={-35}
-                              textAnchor="end"
-                              interval={0}
-                            />
-                            <YAxis tick={{ fontSize: 11 }} />
-                            <Tooltip content={<ChartTooltip />} />
-                            <Legend wrapperStyle={{ paddingTop: 16 }} />
-                            <Bar
-                              dataKey="Score"
-                              fill={CHART_COLORS.primary}
-                              radius={[4, 4, 0, 0]}
-                            />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      )}
-                    </CardBody>
-                  </Card>
+                  {isQuizForm ? (
+                    <>
+                      {/* Question Difficulty Chart */}
+                      <Card aria-label="QuestionDifficulty Chart">
+                        <CardHeader>
+                          <h4 className="text-base font-semibold">
+                            Question Difficulty (Accuracy %)
+                          </h4>
+                        </CardHeader>
+                      </Card>
+                    </>
+                  ) : (
+                    /* Normal form: all submissions are completed — show daily volume only */
+                    <Card aria-label="DailyVolume Chart" className="col-span-2">
+                      <CardHeader>
+                        <h4 className="text-base font-semibold">
+                          Daily Response Volume
+                        </h4>
+                      </CardHeader>
+                      <CardBody>
+                        {dailyVolumeChartData.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-8">
+                            No data available for this period.
+                          </p>
+                        ) : (
+                          <ResponsiveContainer width="100%" height={260}>
+                            <BarChart
+                              data={dailyVolumeChartData}
+                              margin={{
+                                top: 5,
+                                right: 10,
+                                left: 0,
+                                bottom: 60,
+                              }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis
+                                dataKey="date"
+                                tick={{ fontSize: 11 }}
+                                angle={-35}
+                                textAnchor="end"
+                                interval={0}
+                              />
+                              <YAxis tick={{ fontSize: 11 }} />
+                              <Tooltip content={<ChartTooltip />} />
+                              <Legend wrapperStyle={{ paddingTop: 16 }} />
+                              <Bar
+                                dataKey="Responses"
+                                fill={CHART_COLORS.secondary}
+                                radius={[4, 4, 0, 0]}
+                              />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        )}
+                      </CardBody>
+                    </Card>
+                  )}
                 </div>
               )}
 
-              {overviewGraph === GraphType.TIMESERIES && (
+              {!isQuizForm && overviewGraph === GraphType.TIMESERIES && (
                 <Card aria-label="TimeseriesChart Card">
                   <CardHeader>
                     <h4 className="text-base font-semibold">
-                      Responses &amp; Average Score Over Time
+                      {isQuizForm
+                        ? "Responses & Average Score Over Time"
+                        : "Responses Over Time"}
                     </h4>
                   </CardHeader>
                   <CardBody>
@@ -422,17 +319,19 @@ const OverviewAnayticsTabs = memo(
                               style: { fontSize: 11 },
                             }}
                           />
-                          <YAxis
-                            yAxisId="right"
-                            orientation="right"
-                            tick={{ fontSize: 11 }}
-                            label={{
-                              value: "Avg Score",
-                              angle: 90,
-                              position: "insideRight",
-                              style: { fontSize: 11 },
-                            }}
-                          />
+                          {isQuizForm && (
+                            <YAxis
+                              yAxisId="right"
+                              orientation="right"
+                              tick={{ fontSize: 11 }}
+                              label={{
+                                value: "Avg Score",
+                                angle: 90,
+                                position: "insideRight",
+                                style: { fontSize: 11 },
+                              }}
+                            />
+                          )}
                           <Tooltip content={<ChartTooltip />} />
                           <Legend />
                           <Line
@@ -444,15 +343,17 @@ const OverviewAnayticsTabs = memo(
                             dot={false}
                             name="Responses"
                           />
-                          <Line
-                            yAxisId="right"
-                            type="monotone"
-                            dataKey="averageScore"
-                            stroke={CHART_COLORS.secondary}
-                            strokeWidth={2}
-                            dot={false}
-                            name="Avg Score"
-                          />
+                          {isQuizForm && (
+                            <Line
+                              yAxisId="right"
+                              type="monotone"
+                              dataKey="averageScore"
+                              stroke={CHART_COLORS.secondary}
+                              strokeWidth={2}
+                              dot={false}
+                              name="Avg Score"
+                            />
+                          )}
                         </LineChart>
                       </ResponsiveContainer>
                     )}
@@ -469,12 +370,19 @@ const OverviewAnayticsTabs = memo(
                     color: "text-blue-600",
                     bg: "bg-blue-50",
                   },
-                  {
-                    label: "Avg.Score",
-                    value: perfData.averageScore.toFixed(2),
-                    color: "text-green-600",
-                    bg: "bg-green-50",
-                  },
+                  isQuizForm
+                    ? {
+                        label: "Avg.Score",
+                        value: perfData.averageScore.toFixed(2),
+                        color: "text-green-600",
+                        bg: "bg-green-50",
+                      }
+                    : {
+                        label: "Total Submitted",
+                        value: perfData.totalResponses,
+                        color: "text-green-600",
+                        bg: "bg-green-50",
+                      },
                   {
                     label: "Completed",
                     value: perfData.completedResponses,
@@ -487,7 +395,7 @@ const OverviewAnayticsTabs = memo(
                     color: "text-yellow-600",
                     bg: "bg-yellow-50",
                   },
-                ].map((stat) => (
+                ]?.map((stat) => (
                   <div
                     key={stat.label}
                     className={`${stat.bg} rounded-lg p-3 text-center`}

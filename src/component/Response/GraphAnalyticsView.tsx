@@ -18,6 +18,8 @@ import {
 } from "recharts";
 import { QuestionAnalytics } from "./ResponseAnalytics.types";
 import { COLORS, convertToRechartsFormat } from "./ResponseAnalytics.utils";
+import { QuestionType } from "../../types/Form.types";
+import StyledTiptap from "./components/StyledTiptap";
 
 interface GraphAnalyticsViewProps {
   questions: QuestionAnalytics[];
@@ -107,9 +109,19 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                           {question.questionType}
                         </Chip>
                       </div>
-                      <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-3 leading-tight">
-                        {question.questionTitle}
-                      </h3>
+                      <div
+                        className={`tiptab_container w-full ${
+                          question.questionType !== QuestionType.Text
+                            ? "pb-4 border-b border-gray-200"
+                            : ""
+                        } dark:bg-white dark:rounded-md dark:p-2`}
+                      >
+                        <StyledTiptap
+                          value={question.questionTitle}
+                          readonly
+                          variant="question"
+                        />
+                      </div>
                       <div className="flex gap-2 flex-wrap">
                         <Chip
                           size="sm"

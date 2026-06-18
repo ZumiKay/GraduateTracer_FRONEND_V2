@@ -199,7 +199,7 @@ function Dashboard() {
     updated: searchParam.get("updated") ?? undefined,
   });
   const [paginationData, setPaginationData] = useState({
-    totalPages: 1,
+    totalPage: 1,
     totalCount: 0,
     hasNextPage: false,
     hasPrevPage: false,
@@ -332,7 +332,7 @@ function Dashboard() {
           userForms: Array<FormDataType>;
         };
         pagination?: {
-          totalPages: number;
+          totalPage: number;
           totalCount: number;
           hasNextPage: boolean;
           hasPrevPage: boolean;
@@ -345,7 +345,7 @@ function Dashboard() {
 
       if (responseData.pagination) {
         setPaginationData({
-          totalPages: responseData.pagination.totalPages,
+          totalPage: responseData.pagination.totalPage,
           totalCount: responseData.pagination.totalCount,
           hasNextPage: responseData.pagination.hasNextPage,
           hasPrevPage: responseData.pagination.hasPrevPage,
@@ -517,7 +517,7 @@ function Dashboard() {
           <FormPagination
             onPageChange={setpage}
             onLimitChange={setlimit}
-            total={paginationData.totalPages}
+            total={paginationData.totalPage}
             totalCount={paginationData.totalCount}
             currentItems={allformstate.length}
           />
