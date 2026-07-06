@@ -135,6 +135,14 @@ export const SubmissionSuccessView: React.FC<SubmissionSuccessViewProps> = ({
           <p className="success-score-fraction">
             {scoreData.totalScore} / {scoreData.maxScore}
           </p>
+
+          {scoreData.extraScore != null && scoreData.extraScore > 0 && (
+            <p className="success-score-extra">
+              +{scoreData.extraScore} bonus pt
+              {scoreData.extraScore !== 1 ? "s" : ""}
+            </p>
+          )}
+
           <p className="success-score-disclaimer">
             This score might not be final.
           </p>

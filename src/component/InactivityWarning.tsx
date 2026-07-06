@@ -34,7 +34,6 @@ export const InactivityWarning: React.FC<InactivityWarningProps> = ({
   const [timeRemaining, setTimeRemaining] = useState(timeUntilAutoSignout || 0);
   const [progressValue, setProgressValue] = useState(100);
 
-  // Update countdown timer
   useEffect(() => {
     if (!isOpen || !timeUntilAutoSignout) return;
 
@@ -50,7 +49,6 @@ export const InactivityWarning: React.FC<InactivityWarningProps> = ({
     return () => clearInterval(interval);
   }, [isOpen, timeUntilAutoSignout]);
 
-  // Reset timer when modal opens
   useEffect(() => {
     if (isOpen && timeUntilAutoSignout) {
       setTimeRemaining(timeUntilAutoSignout);
@@ -58,14 +56,12 @@ export const InactivityWarning: React.FC<InactivityWarningProps> = ({
     }
   }, [isOpen, timeUntilAutoSignout]);
 
-  // Format remaining time
   const formatRemainingTime = (ms: number) => {
     const minutes = Math.floor(ms / (1000 * 60));
     const seconds = Math.floor((ms % (1000 * 60)) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  // Determine color based on remaining time
   const getProgressColor = () => {
     if (progressValue > 50) return "success";
     if (progressValue > 25) return "warning";
@@ -85,7 +81,8 @@ export const InactivityWarning: React.FC<InactivityWarningProps> = ({
       isDismissable={false}
       isKeyboardDismissDisabled={true}
       hideCloseButton={true}
-      size="md"
+      backdrop="blur"
+      size="lg"
       aria-label="inactive alert modal #1"
       className={`${className}`}
       motionProps={{
@@ -165,7 +162,7 @@ export const InactivityWarning: React.FC<InactivityWarningProps> = ({
                         size="md"
                         showValueLabel={false}
                         aria-label={`Session time remaining: ${progressValue.toFixed(
-                          0
+                          0,
                         )}%`}
                       />
                       <div className="flex justify-between text-xs text-foreground-500">

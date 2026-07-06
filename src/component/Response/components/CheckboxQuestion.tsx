@@ -37,6 +37,14 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
           {question.require && (
             <span className="text-red-500 text-sm ml-2">*Required</span>
           )}
+          {question.score !== undefined && question.score > 0 && (
+            <span
+              className="ml-2 inline-flex items-center rounded-full bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5"
+              aria-label={`This question is worth ${question.score} points`}
+            >
+              {question.score} pts
+            </span>
+          )}
         </div>
       </div>
       <div className="flex justify-between items-center">

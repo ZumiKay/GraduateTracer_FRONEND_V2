@@ -29,34 +29,40 @@ const FormSummaryHeader = memo(
     onValidateAll,
   }: FormSummaryHeaderProps) => {
     const isDark = useSelector((root: RootState) => root.globalindex.darkmode);
+
     const getValidationStatus = () => {
       if (!validationSummary) return null;
-
       const { totalInvalidQuestions } = validationSummary;
 
       if (totalInvalidQuestions === 0) {
         return (
           <Chip color="success" variant="flat" size="sm">
-            ✓ All questions validated
+            <span className="hidden sm:inline">✓ All validated</span>
+            <span className="sm:hidden">✓</span>
           </Chip>
         );
       }
 
       return (
         <Chip color="warning" variant="flat" size="sm">
-          ⚠ {totalInvalidQuestions} issue(s) found
+          ⚠ {totalInvalidQuestions}
+          <span className="hidden sm:inline">
+            {" "}
+            issue{totalInvalidQuestions !== 1 ? "s" : ""}
+          </span>
         </Chip>
       );
     };
 
     return (
-      <div className="sticky top-0 z-10 w-full bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 py-4">
-        <div className="w-full max-w-4xl mx-auto px-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+      <div className="w-full bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700">
+        <div className="w-full max-w-4xl mx-auto">
+          {/* Title row */}
+          <div className="flex items-center justify-between px-4 py-2.5 sm:px-6 sm:py-4">
+            <h2 className="text-sm font-bold text-gray-800 dark:text-white sm:text-xl">
               Form Summary
             </h2>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {getValidationStatus()}
               <Button
                 color="primary"
@@ -65,45 +71,53 @@ const FormSummaryHeader = memo(
                 onPress={onValidateAll}
                 isLoading={isValidating}
               >
-                Validate All
+                <span className="hidden sm:inline">Validate All</span>
+                <span className="sm:hidden">Validate</span>
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Stats strip — always 3 columns, never stacks */}
+          <div className="border-t border-gray-100 dark:border-gray-700">
             {loading ? (
-              <div className="col-span-3 flex justify-center">
+              <div className="flex justify-center py-3">
                 <CircularProgress aria-label="Loading progress" size="sm" />
               </div>
             ) : (
-              <>
-                <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
-                  <p className="text-xl font-bold text-blue-700">
+              <div className="grid grid-cols-3">
+                <div className="flex flex-col items-center py-2 sm:py-3.5 gap-0.5 border-r border-gray-100 dark:border-gray-700">
+                  <span className="text-base sm:text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums leading-none">
                     {formTotalScore ?? totalsummerize?.totalscore ?? 0}
-                  </p>
-                  <p className="text-xs text-blue-600">
-                    Total Score (All Questions)
-                  </p>
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-blue-500 dark:text-blue-400 font-medium mt-0.5">
+                    Total Score
+                  </span>
                 </div>
-                <div className="text-center p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-lg">
-                  <p className="text-xl font-bold text-green-700">
+
+                <div className="flex flex-col items-center py-2 sm:py-3.5 gap-0.5 border-r border-gray-100 dark:border-gray-700">
+                  <span className="text-base sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums leading-none">
                     {totalsummerize?.totalquestion ?? 0}
-                  </p>
-                  <p className="text-xs text-green-600">Total Questions</p>
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+                    Questions
+                  </span>
                 </div>
-                <div className="text-center p-3 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg">
-                  <p className="text-xl font-bold text-purple-700">
+
+                <div className="flex flex-col items-center py-2 sm:py-3.5 gap-0.5">
+                  <span className="text-base sm:text-2xl font-bold text-violet-600 dark:text-violet-400 tabular-nums leading-none">
                     {totalsummerize?.totalpage ?? 0}
-                  </p>
-                  <p className="text-xs text-purple-600">Total Pages</p>
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-violet-600 dark:text-violet-400 font-medium mt-0.5">
+                    Pages
+                  </span>
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
       </div>
     );
-  }
+  },
 );
 
 FormSummaryHeader.displayName = "FormSummaryHeader";

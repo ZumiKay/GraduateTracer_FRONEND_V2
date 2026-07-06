@@ -10,7 +10,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ErrorToast } from "../Modal/AlertModal";
 import SuccessToast from "../Modal/AlertModal";
 import RespondentForm, { RespondentFormProps } from "./RespondentForm";
-import { validateGuestEmail } from "../../utils/publicFormUtils";
 import useRespondentFormPaginaition from "./hooks/usePaginatedFormData";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
@@ -38,6 +37,7 @@ import { FormAction, FormState } from "./types/PublicFormAccessTypes";
 import { formStateReducer } from "./reducers/formStateReducer";
 import { SubmissionSuccessView } from "./components/SubmissionSuccessView";
 import { useSendResponseCopy } from "./hooks/useFormSubmission";
+import { ApiRequestReturnType } from "../../hooks/APIHook/ApiHook";
 
 const initialFormState: FormState = {
   accessMode: "login",
@@ -72,6 +72,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     formId,
     user,
     dispatch,
+    formstate: formState,
   });
 
   useEffect(() => {
@@ -80,9 +81,17 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }
   }, [formId, navigate]);
 
+  useEffect(() => {
+    console.log({ formState });
+  }, [formState]);
+
   // API hooks
-  const { respondentLogin, signOut, error, useManuallySessionVeriftication } =
-    useFormsessionAPI();
+  const {
+    respondentLogin,
+    signOut,
+    useManuallySessionVeriftication,
+    isLoading,
+  } = useFormsessionAPI();
 
   const handleSessionExpired = useCallback(() => {
     const currentSessionData = formState.formsession?.respondentinfo;
@@ -102,7 +111,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     formId,
     handleSessionExpired,
   );
-
   const formDataEnabled = Boolean(isInitialized && formId);
   const formReqData = useRespondentFormPaginaition({
     formId,
@@ -110,7 +118,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     formsession: formState.formsession as never,
     enabled: formDataEnabled,
   });
-
   const isFormRequiredSessionChecked = useMemo(() => {
     return Boolean(
       formReqData.formState?.setting?.acceptResponses &&
@@ -155,14 +162,13 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }
   }, [
     formReqData,
-    formState?.guestData?.email,
     formState.accessMode,
     formState.formsession?.isActive,
-    isInitialized,
     formState.guestData,
+    isInitialized,
   ]);
 
-  //Combine loading state
+  //Form Initialize Loading
   const [loadingState, setLoadingState] = useState({
     isLoading: true,
     phase: "initializing" as "initializing" | "loading-form" | "ready",
@@ -242,7 +248,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
           ) => Partial<RespondentSessionType>),
     ) => {
       if (typeof sessionOrUpdater === "function") {
-        // Handle functional updates - get current state and apply function
         const currentSession = formState.formsession;
         const newSession = sessionOrUpdater(currentSession);
         dispatch({ type: "SET_FORMSESSION", payload: newSession });
@@ -255,7 +260,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
 
   /* --------------------------- Session Mangagement -------------------------- */
 
-  // Auto signout handler
   const handleAutoSignOut = useCallback(async () => {
     if (!formId) return;
     try {
@@ -333,222 +337,90 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
 
   /* ----------------------------- Hanlder Method ----------------------------- */
 
-  const handleLoginChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const { name, value, type, checked } = e.target;
-      dispatch({
-        type: "UPDATE_LOGIN_DATA",
-        payload: { [name]: type === "checkbox" ? checked : value },
-      });
-    },
-    [],
-  );
-
-  const handleGuestChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const { name, value } = e.target;
-      dispatch({
-        type: "UPDATE_GUEST_DATA",
-        payload: { [name]: value },
-      });
-    },
-    [],
-  );
-
-  const handleUserLogin = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
+  const handleLogin = useCallback(
+    async (e?: React.FormEvent, additional?: { existed: "1" }) => {
+      e?.preventDefault();
       if (!formId) return;
+      const { rememberMe, email, name, password, isGuest } =
+        formState.loginData;
 
-      const loginReq = await respondentLogin.mutateAsync({
-        formId,
-        rememberMe: formState.loginData.rememberMe,
-        email: formState.loginData.email,
-        password: formState.loginData.password,
-      });
-
-      if (!loginReq.success) {
-        ErrorToast({
-          title: "Error",
-          content: error ?? "Error Occurred",
-        });
-        return;
-      }
-
-      const sessionState: Partial<RespondentSessionType> = {
-        isActive: true,
-        respondentinfo: {
-          respondentEmail: formState.loginData.email,
+      respondentLogin.mutate(
+        {
+          existed: additional?.existed,
+          formId,
+          ...(!additional?.existed && {
+            rememberMe,
+            email,
+            name,
+            password,
+            isGuest,
+          }),
         },
-      };
+        {
+          onSuccess: () => {
+            const sessionState: Partial<RespondentSessionType> = {
+              isActive: true,
+              respondentinfo: {
+                respondentEmail: additional?.existed
+                  ? (user.user?.email ?? "")
+                  : email,
+                respondentName: user.user?.name ?? name,
+                isGuest,
+              },
+            };
 
-      //save to localstorage
-      if (localFormSessionStateKey)
-        saveFormStateToLocalStorage({
-          replace: true,
-          key: localFormSessionStateKey,
-          data: sessionState,
-        });
+            //save to localstorage
+            if (localFormSessionStateKey) {
+              saveFormStateToLocalStorage({
+                replace: true,
+                key: localFormSessionStateKey,
+                data: sessionState,
+              });
+            }
 
-      //Remove other storage
-      cleanupUnrelatedLocalStorage({
-        formId,
-        userKey: formState.loginData.email,
-        suffix: ["state", "progress"],
-      });
-      dispatch({ type: "SET_FORMSESSION", payload: sessionState });
-      dispatch({ type: "SET_ACCESS_MODE", payload: "authenticated" });
-      SuccessToast({ title: "Success", content: "Login successful!" });
+            //Cleanup
+            cleanupUnrelatedLocalStorage({
+              formId,
+              userKey: formState.loginData.email,
+              suffix: ["state", "progress"],
+            });
+
+            //Update state
+            dispatch({ type: "SET_FORMSESSION", payload: sessionState });
+            dispatch({
+              type: "SET_ACCESS_MODE",
+              payload: "authenticated",
+            });
+            SuccessToast({
+              toastid: "Respondent LoggedIn",
+              title: "Success",
+              content: "Logged in",
+            });
+          },
+          onError(error) {
+            const err = error as unknown as ApiRequestReturnType;
+            const toastid = "RespondentLoginError";
+
+            if (err.status === 401)
+              ErrorToast({
+                toastid,
+                title: "Validation",
+                content: "Incorrect Credential",
+              });
+            ErrorToast({ toastid, title: "Error", content: "Error occured" });
+          },
+        },
+      );
     },
     [
       formId,
-      respondentLogin,
-      formState.loginData.rememberMe,
-      formState.loginData.email,
-      formState.loginData.password,
+      formState.loginData,
       localFormSessionStateKey,
-      error,
+      respondentLogin,
+      user.user?.email,
+      user.user?.name,
+      dispatch,
     ],
-  );
-
-  const handleLoginExisted = useCallback(async () => {
-    if (!user.user || !formId) {
-      ErrorToast({
-        toastid: "UniqueExistedLoginError",
-        title: "Unauthenticated",
-        content: "Unauthenticated",
-      });
-      return;
-    }
-
-    try {
-      const asyncLogin = await respondentLogin.mutateAsync({
-        existed: "1",
-        formId,
-        rememberMe: true,
-      });
-
-      if (!asyncLogin.success) {
-        ErrorToast({
-          title: "Error",
-          content: error ?? "Login failed",
-        });
-        return;
-      }
-
-      const sessionState: Partial<RespondentSessionType> = {
-        isActive: true,
-        respondentinfo: {
-          respondentEmail: user.user.email,
-        },
-      };
-
-      if (localFormSessionStateKey) {
-        saveFormStateToLocalStorage({
-          replace: true,
-          key: localFormSessionStateKey,
-          data: sessionState,
-        });
-      }
-
-      cleanupUnrelatedLocalStorage({
-        formId,
-        userKey: user.user.email,
-        suffix: ["state", "progress"],
-      });
-
-      dispatch({ type: "SET_FORMSESSION", payload: sessionState });
-      dispatch({ type: "SET_ACCESS_MODE", payload: "authenticated" });
-
-      SuccessToast({
-        title: "Success",
-        content: "Login successful!",
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-      ErrorToast({
-        title: "Error",
-        content: "An error occurred during login",
-      });
-    }
-  }, [user.user, formId, respondentLogin, error, localFormSessionStateKey]);
-
-  //handleGuest authentication
-  const handleGuestAccess = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!formId) return;
-
-      const { name, email, rememberMe } = formState.guestData;
-
-      if (!name || !email) {
-        ErrorToast({
-          title: "Error",
-          content: "Please provide both name and email",
-        });
-        return;
-      }
-
-      if (!validateGuestEmail(email)) {
-        ErrorToast({
-          title: "Error",
-          content: "Please enter a valid email address",
-        });
-        return;
-      }
-
-      const guestLoginRequest = await respondentLogin.mutateAsync({
-        formId,
-        email,
-        name,
-        rememberMe: rememberMe ?? false,
-        isGuest: true,
-      });
-
-      if (!guestLoginRequest.success) {
-        ErrorToast({
-          title: "Authentication Failed",
-          content: "Error occurred",
-        });
-        return;
-      }
-
-      const sessionState: RespondentSessionType = {
-        isActive: true,
-        respondentinfo: {
-          respondentEmail: email,
-          respondentName: name,
-          isGuest: true,
-        },
-      };
-
-      //Add session state to localstorage
-      if (localFormSessionStateKey)
-        saveFormStateToLocalStorage({
-          replace: true,
-          key: localFormSessionStateKey,
-          data: sessionState,
-        });
-
-      //clean up unecessary storage
-      cleanupUnrelatedLocalStorage({
-        formId,
-        userKey: email,
-        suffix: ["state", "progress"],
-      });
-
-      dispatch({ type: "SET_ACCESS_MODE", payload: "guest" });
-      dispatch({
-        type: "SET_FORMSESSION",
-        payload: {
-          isActive: true,
-          respondentinfo: sessionState as never,
-        },
-      });
-
-      SuccessToast({ title: "Success", content: "Guest access granted!" });
-    },
-    [formId, formState.guestData, localFormSessionStateKey, respondentLogin],
   );
 
   const handleSwitchUser = useCallback(async () => {
@@ -610,50 +482,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     user.isAuthenticated,
   ]);
 
-  const handleRememberMeChange = useCallback((checked: boolean) => {
-    dispatch({ type: "UPDATE_LOGIN_DATA", payload: { rememberMe: checked } });
-    dispatch({ type: "UPDATE_GUEST_DATA", payload: { rememberMe: checked } });
-  }, []);
-
-  const authContainerProps = useMemo(
-    () => ({
-      formTitle: formReqData.formState?.title,
-      showGuestForm: formState.showGuestForm,
-      loginData: formState.loginData,
-      guestData: formState.guestData,
-      isLoginLoading: respondentLogin.isPending,
-      user: {
-        user: user.user as unknown as Record<string, unknown>,
-        isAuthenticated: user.isAuthenticated,
-      },
-      onLoginChange: handleLoginChange,
-      onGuestChange: handleGuestChange,
-      onLoginSubmit: handleUserLogin,
-      onGuestSubmit: handleGuestAccess,
-      onLoginExisted: handleLoginExisted,
-      onShowGuestForm: () =>
-        dispatch({ type: "SET_SHOW_GUEST_FORM", payload: true }),
-      onBackToLogin: () =>
-        dispatch({ type: "SET_SHOW_GUEST_FORM", payload: false }),
-      onRememberMeChange: handleRememberMeChange,
-    }),
-    [
-      formReqData.formState?.title,
-      formState.showGuestForm,
-      formState.loginData,
-      formState.guestData,
-      respondentLogin.isPending,
-      user.user,
-      user.isAuthenticated,
-      handleLoginChange,
-      handleGuestChange,
-      handleUserLogin,
-      handleGuestAccess,
-      handleLoginExisted,
-      handleRememberMeChange,
-    ],
-  );
-
   const alreadyRespondedData = formReqData.formState?.setting?.submitonce
     ? formReqData.formState?.isResponsed
     : undefined;
@@ -666,16 +494,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   const respondentFormProps: RespondentFormProps = useMemo(
     () => ({
       data: formReqData,
-      isGuest: formState.accessMode === "guest",
-      RespondentData:
-        formState.accessMode === "guest"
-          ? formState.guestData
-          : user.user
-            ? {
-                email: user.user.email as string,
-                name: user.user.name as string,
-              }
-            : undefined,
       userId: user.user?._id,
       formSessionInfo:
         formState.formsession?.respondentinfo || ({} as RespondentInfoType),
@@ -689,7 +507,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     [
       formReqData,
       formState.accessMode,
-      formState.guestData,
       formState.formsession?.respondentinfo,
       formState.formsession?.isActive,
       user.user,
@@ -790,11 +607,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         {/* Render form based on user state */}
         {(formState.accessMode === "authenticated" ||
           formState.accessMode === "guest") &&
-          !inactivityWarning.showWarning &&
           isInitialized &&
-          (formReqData.formState?.setting?.email
-            ? formState.formsession?.isActive
-            : true) &&
           (alreadyRespondedData ? (
             <SubmissionSuccessView
               formType={formReqData.formState?.type as never}
@@ -820,7 +633,15 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   }
 
   return !formReqData.isLoading && !formReqData.formState?.isAuthenticated ? (
-    <AuthContainer {...authContainerProps} />
+    <AuthContainer
+      formTitle={formReqData.formState?.title}
+      showGuestForm={formState.showGuestForm}
+      loginData={formState.loginData}
+      isLoginLoading={respondentLogin.isPending}
+      updateLoginState={dispatch}
+      user={user}
+      onLogin={handleLogin}
+    />
   ) : (
     <></>
   );

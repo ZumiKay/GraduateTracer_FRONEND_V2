@@ -21,10 +21,10 @@ export default function FormPagination({
 }: FormpaginationProps) {
   const [param, setparam] = useSearchParams();
   const [currentPage, setCurrentPage] = React.useState(
-    Number(param.get("page")) || 1
+    Number(param.get("page")) || 1,
   );
   const [showperpage, setshowperpage] = React.useState(
-    Number(param.get("show")) || 5
+    Number(param.get("show")) || 5,
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

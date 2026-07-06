@@ -3,40 +3,33 @@ import { Card, CardHeader, CardBody, Button } from "@heroui/react";
 import { FiUser, FiUserCheck } from "react-icons/fi";
 import { LoginForm } from "./LoginForm";
 import { GuestForm } from "./GuestForm";
-import { LoginData, GuestData } from "../../types/PublicFormAccess.types";
+import { LoginData } from "../../types/PublicFormAccess.types";
+import { FormAction } from "./types/PublicFormAccessTypes";
+import { SessionState } from "../../redux/user.store";
+
+export type onLoginFuncType = (
+  e?: React.FormEvent,
+  addition?: { existed: "1" },
+) => Promise<void>;
 
 interface AuthContainerProps {
   formTitle?: string;
   showGuestForm: boolean;
   loginData: LoginData;
-  guestData?: GuestData;
   isLoginLoading: boolean;
-  user: { user: Record<string, unknown> | null; isAuthenticated: boolean };
-  onLoginChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onGuestChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onLoginSubmit: (e: React.FormEvent) => void;
-  onGuestSubmit: (e: React.FormEvent) => void;
-  onLoginExisted: () => void;
-  onShowGuestForm: () => void;
-  onBackToLogin: () => void;
-  onRememberMeChange: (checked: boolean) => void;
+  user: SessionState;
+  updateLoginState: React.Dispatch<FormAction>;
+  onLogin: onLoginFuncType;
 }
 
 export const AuthContainer: React.FC<AuthContainerProps> = ({
   formTitle,
   showGuestForm,
   loginData,
-  guestData,
   isLoginLoading,
   user,
-  onLoginChange,
-  onGuestChange,
-  onLoginSubmit,
-  onGuestSubmit,
-  onLoginExisted,
-  onShowGuestForm,
-  onBackToLogin,
-  onRememberMeChange,
+  updateLoginState,
+  onLogin,
 }) => {
   return (
     <div className="w-full min-h-screen  dark:bg-gray-700 light:bg-gradient-to-br light:from-slate-50 light:via-blue-50 light:to-indigo-100 flex items-center justify-center p-4">
@@ -68,10 +61,16 @@ export const AuthContainer: React.FC<AuthContainerProps> = ({
                   loginData={loginData}
                   isLoading={isLoginLoading}
                   user={user}
-                  onLoginChange={onLoginChange}
-                  onSubmit={onLoginSubmit}
-                  onLoginExisted={onLoginExisted}
-                  onRememberMeChange={onRememberMeChange}
+                  onSubmit={onLogin}
+                  onLoginChange={(e) =>
+                    updateLoginState({
+                      type: "UPDATE_LOGIN_DATA",
+                      payload: {
+                        [e.target.name]: e.target.value,
+                        isGuest: false,
+                      },
+                    })
+                  }
                 />
 
                 <div className="relative mt-6">
@@ -97,7 +96,12 @@ export const AuthContainer: React.FC<AuthContainerProps> = ({
                       size="lg"
                       radius="lg"
                       className="w-full border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-medium transition-all duration-200"
-                      onPress={onShowGuestForm}
+                      onPress={() =>
+                        updateLoginState({
+                          type: "SET_SHOW_GUEST_FORM",
+                          payload: true,
+                        })
+                      }
                       startContent={<FiUserCheck className="w-4 h-4" />}
                     >
                       Continue as Guest
@@ -107,12 +111,21 @@ export const AuthContainer: React.FC<AuthContainerProps> = ({
               </>
             ) : (
               <GuestForm
-                guestData={guestData}
+                guestData={loginData}
                 isLoading={isLoginLoading}
-                onGuestChange={onGuestChange}
-                onSubmit={onGuestSubmit}
-                onBackToLogin={onBackToLogin}
-                onRememberMeChange={onRememberMeChange}
+                onGuestChange={(e) =>
+                  updateLoginState({
+                    type: "UPDATE_LOGIN_DATA",
+                    payload: { [e.target.name]: e.target.value, isGuest: true },
+                  })
+                }
+                onSubmit={onLogin}
+                onBackToLogin={() =>
+                  updateLoginState({
+                    type: "SET_SHOW_GUEST_FORM",
+                    payload: false,
+                  })
+                }
               />
             )}
           </CardBody>

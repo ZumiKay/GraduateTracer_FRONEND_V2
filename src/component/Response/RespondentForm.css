@@ -481,6 +481,13 @@
   margin-top: 0.125rem;
 }
 
+.success-score-extra {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0369a1;
+  margin-top: 0.125rem;
+}
+
 .success-score-disclaimer {
   font-size: 0.72rem;
   color: #6b7280;

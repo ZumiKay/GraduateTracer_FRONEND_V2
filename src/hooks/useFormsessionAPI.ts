@@ -82,33 +82,14 @@ export const useFormsessionAPI = () => {
 
   const respondentLogin = useMutation({
     mutationKey: ["respondentLogin"],
-    mutationFn: async (
-      props: RespondentLoginProps,
-    ): Promise<FormsessionResponse> => {
-      setIsLoading(true);
-      setError(null);
-
-      const response = await ApiRequest({
+    mutationFn: async (props: RespondentLoginProps) => {
+      return ApiRequest({
         method: "POST",
         url: "/response/respondentlogin",
         data: props,
         cookie: true,
+        reactQuery: true,
       });
-      setIsLoading(false);
-
-      return handleApiResponse(response) as FormsessionResponse;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sessionVerification"] });
-      queryClient.invalidateQueries({ queryKey: ["formsession"] });
-    },
-    onError: (error: Error) => {
-      console.log("Respondent Login", error);
-      // Skip showing error toast if user is switching
-      if (!isSwitchingUser) {
-        ErrorToast({ title: "Failed", content: error.message });
-      }
-      setError(error.message);
     },
   });
 
@@ -123,6 +104,7 @@ export const useFormsessionAPI = () => {
           throw Error("No form found");
         }
 
+        setError(null);
         const response = await ApiRequest({
           method: "GET",
           url: `/response/verifyformsession/${formId}`,
@@ -152,6 +134,7 @@ export const useFormsessionAPI = () => {
           throw new Error("Invalid FormId");
         }
 
+        setError(null);
         const response = await ApiRequest({
           method: "GET",
           url: `/response/verifyformsession/${formId}`,

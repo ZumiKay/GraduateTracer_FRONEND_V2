@@ -16,13 +16,13 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import ApiRequest from "../../../hooks/APIHook/ApiHook";
 import {
-  GraphType,
   OverviewPerformanceData,
   PeriodType,
 } from "../ResponseAnalytics.types";
 import { SelectionType } from "../../../types/Global.types";
 import Selection from "../../FormComponent/Selection";
 
+type PerformanceGraphOptionType = "Response" | "Difficulty" | "Top";
 interface OverviewAnalyticsTabsPropsType {
   formId: string;
   isQuizForm: boolean;
@@ -30,10 +30,22 @@ interface OverviewAnalyticsTabsPropsType {
 
 /* -------------------------------- Constants -------------------------------- */
 
-const PerformanceGraphsViewOptions: Array<SelectionType<GraphType>> = [
-  { label: "Bar", value: GraphType.BAR },
-  { label: "Timeseries", value: GraphType.TIMESERIES },
-];
+const getPerformanceGraphOptions = (
+  isQuizForm: boolean,
+): Array<SelectionType<PerformanceGraphOptionType>> => {
+  const baseOptions: Array<SelectionType<PerformanceGraphOptionType>> = [
+    { label: "Response Count", value: "Response" },
+  ];
+
+  if (isQuizForm) {
+    baseOptions.push(
+      { label: "Question Difficulty", value: "Difficulty" },
+      { label: "Top Scorer", value: "Top" },
+    );
+  }
+
+  return baseOptions;
+};
 
 const PeriodOptions: Array<SelectionType<PeriodType>> = [
   { label: "Last 7 days", value: "7d" },
@@ -78,14 +90,23 @@ const ChartTooltip = ({
 
 const OverviewAnayticsTabs = memo(
   ({ formId, isQuizForm }: OverviewAnalyticsTabsPropsType) => {
-    const [overviewGraph, setOverviewGraph] = useState<GraphType>(
-      GraphType.BAR,
+    const performanceGraphOptions = useMemo(
+      () => getPerformanceGraphOptions(isQuizForm),
+      [isQuizForm],
     );
+
+    const [overviewGraph, setOverviewGraph] =
+      useState<PerformanceGraphOptionType>(
+        performanceGraphOptions[0]?.value ?? "Response",
+      );
     const [period, setPeriod] = useState<PeriodType>("7d");
 
-    const handleOverviewGraphSelection = useCallback((val: GraphType) => {
-      setOverviewGraph(val);
-    }, []);
+    const handleOverviewGraphSelection = useCallback(
+      (val: PerformanceGraphOptionType) => {
+        setOverviewGraph(val);
+      },
+      [],
+    );
 
     const handlePeriodChange = useCallback((val: PeriodType) => {
       setPeriod(val);
@@ -181,22 +202,24 @@ const OverviewAnayticsTabs = memo(
           )}
         </div>
 
-        {/* Period Selection */}
+        {/* Performance Metrics Selections */}
         <div className="DetailPerformanceContainer w-full space-y-4">
           <div className="flex flex-wrap items-center gap-3">
-            {!isQuizForm && (
-              <Selection
-                items={PerformanceGraphsViewOptions}
-                selectedKeys={[overviewGraph]}
-                onSelectionChange={(val) =>
-                  val.currentKey &&
-                  handleOverviewGraphSelection(val.currentKey as GraphType)
-                }
-              />
-            )}
+            <Selection
+              items={performanceGraphOptions}
+              selectedKeys={[overviewGraph]}
+              onSelectionChange={(val) =>
+                val.currentKey &&
+                handleOverviewGraphSelection(
+                  val.currentKey as PerformanceGraphOptionType,
+                )
+              }
+            />
+
             <Selection
               items={PeriodOptions}
               selectedKeys={[period]}
+              isDisabled={overviewGraph !== "Response"}
               onSelectionChange={(val) =>
                 val.currentKey &&
                 handlePeriodChange(val.currentKey as PeriodType)
@@ -219,146 +242,246 @@ const OverviewAnayticsTabs = memo(
 
           {!isPerfLoading && !isPerfError && perfData && (
             <>
-              {overviewGraph === GraphType.BAR && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {isQuizForm ? (
-                    <>
-                      {/* Question Difficulty Chart */}
-                      <Card aria-label="QuestionDifficulty Chart">
-                        <CardHeader>
-                          <h4 className="text-base font-semibold">
-                            Question Difficulty (Accuracy %)
-                          </h4>
-                        </CardHeader>
-                      </Card>
-                    </>
-                  ) : (
-                    /* Normal form: all submissions are completed — show daily volume only */
-                    <Card aria-label="DailyVolume Chart" className="col-span-2">
-                      <CardHeader>
-                        <h4 className="text-base font-semibold">
-                          Daily Response Volume
-                        </h4>
-                      </CardHeader>
-                      <CardBody>
-                        {dailyVolumeChartData.length === 0 ? (
-                          <p className="text-sm text-gray-500 text-center py-8">
-                            No data available for this period.
-                          </p>
-                        ) : (
-                          <ResponsiveContainer width="100%" height={260}>
-                            <BarChart
-                              data={dailyVolumeChartData}
-                              margin={{
-                                top: 5,
-                                right: 10,
-                                left: 0,
-                                bottom: 60,
-                              }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis
-                                dataKey="date"
-                                tick={{ fontSize: 11 }}
-                                angle={-35}
-                                textAnchor="end"
-                                interval={0}
-                              />
-                              <YAxis tick={{ fontSize: 11 }} />
-                              <Tooltip content={<ChartTooltip />} />
-                              <Legend wrapperStyle={{ paddingTop: 16 }} />
-                              <Bar
-                                dataKey="Responses"
-                                fill={CHART_COLORS.secondary}
-                                radius={[4, 4, 0, 0]}
-                              />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        )}
-                      </CardBody>
-                    </Card>
-                  )}
-                </div>
-              )}
-
-              {!isQuizForm && overviewGraph === GraphType.TIMESERIES && (
-                <Card aria-label="TimeseriesChart Card">
+              {overviewGraph === "Difficulty" && isQuizForm && (
+                <Card aria-label="QuestionDifficulty Chart">
                   <CardHeader>
                     <h4 className="text-base font-semibold">
-                      {isQuizForm
-                        ? "Responses & Average Score Over Time"
-                        : "Responses Over Time"}
+                      Question Difficulty
                     </h4>
                   </CardHeader>
                   <CardBody>
-                    {perfData.timeSeriesData.length === 0 ? (
+                    {!perfData.performanceMetrics.difficultQuestions ||
+                    perfData.performanceMetrics.difficultQuestions.length ===
+                      0 ? (
                       <p className="text-sm text-gray-500 text-center py-8">
-                        No timeseries data available.
+                        No question difficulty data available.
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-gray-100">
+                        {perfData.performanceMetrics.difficultQuestions.map(
+                          (q, idx) => {
+                            const pct = Number((q.accuracy * 100).toFixed(1));
+                            const color =
+                              pct < 40
+                                ? "text-red-600 bg-red-50"
+                                : pct < 70
+                                  ? "text-yellow-600 bg-yellow-50"
+                                  : "text-green-600 bg-green-50";
+                            return (
+                              <li
+                                key={q.questionId}
+                                className="flex items-center justify-between py-3 gap-4"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span className="text-xs font-medium text-gray-400 w-5 shrink-0">
+                                    {idx + 1}
+                                  </span>
+                                  <span className="text-sm text-gray-800 truncate">
+                                    {q.questionId}
+                                  </span>
+                                </div>
+                                <span
+                                  className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${color}`}
+                                >
+                                  {pct}%
+                                </span>
+                              </li>
+                            );
+                          },
+                        )}
+                      </ul>
+                    )}
+                  </CardBody>
+                </Card>
+              )}
+
+              {overviewGraph === "Top" && isQuizForm && (
+                <Card aria-label="TopScorer Chart">
+                  <CardHeader>
+                    <h4 className="text-base font-semibold">Top Scorers</h4>
+                  </CardHeader>
+                  <CardBody>
+                    {!perfData.performanceMetrics.topPerformers ||
+                    perfData.performanceMetrics.topPerformers.length === 0 ? (
+                      <p className="text-sm text-gray-500 text-center py-8">
+                        No top scorer data available.
                       </p>
                     ) : (
                       <ResponsiveContainer width="100%" height={300}>
-                        <LineChart
-                          data={perfData.timeSeriesData}
-                          margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                        <BarChart
+                          data={perfData.performanceMetrics.topPerformers.map(
+                            (performer, idx) => ({
+                              rank: `${idx + 1}`,
+                              name: performer.name.substring(0, 20),
+                              score: Number(performer.score.toFixed(2)),
+                              fullName: performer.name,
+                            }),
+                          )}
+                          margin={{
+                            top: 5,
+                            right: 10,
+                            left: 0,
+                            bottom: 60,
+                          }}
                         >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis
-                            dataKey="date"
-                            tick={{ fontSize: 11 }}
-                            tickFormatter={(v: string) =>
-                              v.length > 5 ? v.slice(5) : v
-                            }
+                            dataKey="name"
+                            tick={{ fontSize: 10 }}
+                            angle={-35}
+                            textAnchor="end"
+                            interval={0}
+                            height={80}
                           />
                           <YAxis
-                            yAxisId="left"
                             tick={{ fontSize: 11 }}
                             label={{
-                              value: "Responses",
+                              value: "Score",
                               angle: -90,
                               position: "insideLeft",
                               style: { fontSize: 11 },
                             }}
                           />
-                          {isQuizForm && (
-                            <YAxis
-                              yAxisId="right"
-                              orientation="right"
-                              tick={{ fontSize: 11 }}
-                              label={{
-                                value: "Avg Score",
-                                angle: 90,
-                                position: "insideRight",
-                                style: { fontSize: 11 },
-                              }}
-                            />
-                          )}
                           <Tooltip content={<ChartTooltip />} />
-                          <Legend />
-                          <Line
-                            yAxisId="left"
-                            type="monotone"
-                            dataKey="responses"
-                            stroke={CHART_COLORS.primary}
-                            strokeWidth={2}
-                            dot={false}
-                            name="Responses"
+                          <Legend wrapperStyle={{ paddingTop: 16 }} />
+                          <Bar
+                            dataKey="score"
+                            fill={CHART_COLORS.secondary}
+                            radius={[4, 4, 0, 0]}
+                            name="Score"
                           />
-                          {isQuizForm && (
-                            <Line
-                              yAxisId="right"
-                              type="monotone"
-                              dataKey="averageScore"
-                              stroke={CHART_COLORS.secondary}
-                              strokeWidth={2}
-                              dot={false}
-                              name="Avg Score"
-                            />
-                          )}
-                        </LineChart>
+                        </BarChart>
                       </ResponsiveContainer>
                     )}
                   </CardBody>
                 </Card>
+              )}
+
+              {overviewGraph === "Response" && (
+                <>
+                  {isQuizForm ? (
+                    <Card aria-label="TimeseriesChart Card">
+                      <CardHeader>
+                        <h4 className="text-base font-semibold">
+                          Responses & Average Score Over Time
+                        </h4>
+                      </CardHeader>
+                      <CardBody>
+                        {perfData.timeSeriesData.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-8">
+                            No timeseries data available.
+                          </p>
+                        ) : (
+                          <ResponsiveContainer width="100%" height={300}>
+                            <LineChart
+                              data={perfData.timeSeriesData}
+                              margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis
+                                dataKey="date"
+                                tick={{ fontSize: 11 }}
+                                tickFormatter={(v: string) =>
+                                  v.length > 5 ? v.slice(5) : v
+                                }
+                              />
+                              <YAxis
+                                yAxisId="left"
+                                tick={{ fontSize: 11 }}
+                                label={{
+                                  value: "Responses",
+                                  angle: -90,
+                                  position: "insideLeft",
+                                  style: { fontSize: 11 },
+                                }}
+                              />
+                              <YAxis
+                                yAxisId="right"
+                                orientation="right"
+                                tick={{ fontSize: 11 }}
+                                label={{
+                                  value: "Avg Score",
+                                  angle: 90,
+                                  position: "insideRight",
+                                  style: { fontSize: 11 },
+                                }}
+                              />
+                              <Tooltip content={<ChartTooltip />} />
+                              <Legend />
+                              <Line
+                                yAxisId="left"
+                                type="monotone"
+                                dataKey="responses"
+                                stroke={CHART_COLORS.primary}
+                                strokeWidth={2}
+                                dot={false}
+                                name="Responses"
+                              />
+                              <Line
+                                yAxisId="right"
+                                type="monotone"
+                                dataKey="averageScore"
+                                stroke={CHART_COLORS.secondary}
+                                strokeWidth={2}
+                                dot={false}
+                                name="Avg Score"
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        )}
+                      </CardBody>
+                    </Card>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <Card
+                        aria-label="DailyVolume Chart"
+                        className="col-span-2"
+                      >
+                        <CardHeader>
+                          <h4 className="text-base font-semibold">
+                            Daily Response Volume
+                          </h4>
+                        </CardHeader>
+                        <CardBody>
+                          {dailyVolumeChartData.length === 0 ? (
+                            <p className="text-sm text-gray-500 text-center py-8">
+                              No data available for this period.
+                            </p>
+                          ) : (
+                            <ResponsiveContainer width="100%" height={260}>
+                              <BarChart
+                                data={dailyVolumeChartData}
+                                margin={{
+                                  top: 5,
+                                  right: 10,
+                                  left: 0,
+                                  bottom: 60,
+                                }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis
+                                  dataKey="date"
+                                  tick={{ fontSize: 11 }}
+                                  angle={-35}
+                                  textAnchor="end"
+                                  interval={0}
+                                />
+                                <YAxis tick={{ fontSize: 11 }} />
+                                <Tooltip content={<ChartTooltip />} />
+                                <Legend wrapperStyle={{ paddingTop: 16 }} />
+                                <Bar
+                                  dataKey="Responses"
+                                  fill={CHART_COLORS.secondary}
+                                  radius={[4, 4, 0, 0]}
+                                />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          )}
+                        </CardBody>
+                      </Card>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Summary Stats */}

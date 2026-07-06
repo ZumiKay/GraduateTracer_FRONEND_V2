@@ -1,15 +1,14 @@
 import React from "react";
 import { Button, Input, Form, Checkbox } from "@heroui/react";
 import { FiMail, FiUser, FiUserCheck } from "react-icons/fi";
-import { GuestData } from "../../types/PublicFormAccess.types";
+import { LoginData } from "../../types/PublicFormAccess.types";
 
 interface GuestFormProps {
-  guestData: GuestData;
+  guestData: LoginData;
   isLoading: boolean;
   onGuestChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (e: React.FormEvent) => void;
   onBackToLogin: () => void;
-  onRememberMeChange: (val: boolean) => void;
 }
 
 export const GuestForm: React.FC<GuestFormProps> = ({
@@ -18,7 +17,6 @@ export const GuestForm: React.FC<GuestFormProps> = ({
   onGuestChange,
   onSubmit,
   onBackToLogin,
-  onRememberMeChange,
 }) => {
   return (
     <div className="space-y-6">
@@ -74,7 +72,11 @@ export const GuestForm: React.FC<GuestFormProps> = ({
           <Checkbox
             name="rememberMe"
             isSelected={guestData.rememberMe}
-            onValueChange={onRememberMeChange}
+            onValueChange={(val) => {
+              onGuestChange({
+                target: { name: "rememberMe", value: val as never },
+              } as never);
+            }}
             size="sm"
             radius="md"
             classNames={{

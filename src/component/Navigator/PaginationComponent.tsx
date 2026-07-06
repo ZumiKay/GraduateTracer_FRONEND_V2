@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 
+type PaginationSize = "sm" | "md" | "lg";
+
 interface PaginationProps {
   totalPage: number;
   page: number;
   setPage: (val: number) => void;
   isDisable?: boolean;
+  size?: PaginationSize;
 }
 
 interface PaginationState {
@@ -15,7 +18,7 @@ interface PaginationState {
 }
 
 const BUTTON_STYLES = {
-  base: "inline-flex items-center justify-center min-w-9 h-9 rounded-lg font-semibold text-sm transition-all duration-200 border",
+  base: "inline-flex items-center justify-center rounded-lg font-semibold transition-all duration-200 border",
   active:
     "bg-primary text-white border-primary shadow-md hover:shadow-lg hover:bg-primary-600",
   inactive:
@@ -26,23 +29,55 @@ const BUTTON_STYLES = {
   dots: "text-gray-400 font-medium",
 } as const;
 
+const SIZE_STYLES = {
+  sm: {
+    button: "min-w-7 h-7 text-xs",
+    gap: "gap-0.5",
+    padding: "p-1.5",
+    divider: "h-4",
+    input: "w-10 h-6 text-xs",
+    outer: "py-3 px-2",
+  },
+  md: {
+    button: "min-w-9 h-9 text-sm",
+    gap: "gap-1 sm:gap-2",
+    padding: "p-2",
+    divider: "h-5",
+    input: "w-12 h-8 text-xs",
+    outer: "py-4 px-2 sm:py-6",
+  },
+  lg: {
+    button: "min-w-11 h-11 text-base",
+    gap: "gap-1.5 sm:gap-2",
+    padding: "p-3",
+    divider: "h-6",
+    input: "w-14 h-10 text-sm",
+    outer: "py-5 px-2 sm:py-8",
+  },
+} as const;
+
 const PageItem = ({
   isActive,
   content,
   onPress,
   isDisabled,
   isArrow = false,
+  size = "md",
 }: {
   content: string;
   isActive?: boolean;
   isDisabled?: boolean;
   isArrow?: boolean;
   onPress?: () => void;
+  size?: PaginationSize;
 }) => {
   const getButtonClass = (): string => {
-    if (isDisabled) return `${BUTTON_STYLES.base} ${BUTTON_STYLES.disabled}`;
-    if (isArrow) return `${BUTTON_STYLES.base} ${BUTTON_STYLES.arrow}`;
-    return `${BUTTON_STYLES.base} ${
+    const sizeClass = SIZE_STYLES[size].button;
+    if (isDisabled)
+      return `${BUTTON_STYLES.base} ${sizeClass} ${BUTTON_STYLES.disabled}`;
+    if (isArrow)
+      return `${BUTTON_STYLES.base} ${sizeClass} ${BUTTON_STYLES.arrow}`;
+    return `${BUTTON_STYLES.base} ${sizeClass} ${
       isActive ? BUTTON_STYLES.active : BUTTON_STYLES.inactive
     }`;
   };
@@ -75,7 +110,9 @@ const Pagination = ({
   page,
   setPage,
   isDisable = false,
+  size = "md",
 }: PaginationProps) => {
+  const sz = SIZE_STYLES[size];
   const [inputValue, setInputValue] = useState<string>(String(page));
 
   useEffect(() => {
@@ -156,25 +193,24 @@ const Pagination = ({
   if (totalPage <= 1) return null;
 
   return (
-    <div className="flex items-center justify-center w-full py-4 px-2 sm:py-6">
+    <div className={`flex items-center justify-center w-full ${sz.outer}`}>
       <nav
-        className="inline-flex items-center gap-1 sm:gap-2 rounded-lg border border-gray-200 bg-white p-2 shadow-sm hover:shadow-md transition-shadow"
+        className={`inline-flex items-center ${sz.gap} rounded-lg border border-gray-200 bg-white ${sz.padding} shadow-sm hover:shadow-md transition-shadow`}
         role="navigation"
         aria-label="Pagination navigation"
       >
-        {/* Previous Button */}
         <PageItem
           content="←"
           isArrow
+          size={size}
           isDisabled={page === 1 || isDisable}
           onPress={() => handlePageChange(page - 1)}
         />
 
         {/* Divider */}
-        <div className="h-5 w-px bg-gray-200 mx-1" aria-hidden="true" />
+        <div className={`${sz.divider} w-px bg-gray-200 mx-1`} aria-hidden="true" />
 
-        {/* Page Numbers */}
-        <div className="flex items-center gap-1">
+        <div className={`flex items-center ${sz.gap}`}>
           {pageNumbers.map((pageNum, idx) =>
             typeof pageNum === "string" ? (
               <span
@@ -190,6 +226,7 @@ const Pagination = ({
                 content={String(pageNum)}
                 isActive={pageNum === page}
                 isDisabled={isDisable}
+                size={size}
                 onPress={() => handlePageChange(pageNum)}
               />
             ),
@@ -197,17 +234,16 @@ const Pagination = ({
         </div>
 
         {/* Divider */}
-        <div className="h-5 w-px bg-gray-200 mx-1" aria-hidden="true" />
+        <div className={`${sz.divider} w-px bg-gray-200 mx-1`} aria-hidden="true" />
 
-        {/* Next Button */}
         <PageItem
           content="→"
           isArrow
+          size={size}
           isDisabled={page === totalPage || isDisable}
           onPress={() => handlePageChange(page + 1)}
         />
 
-        {/* Page Input Field */}
         <div className="hidden sm:flex items-center gap-1 ml-2 pl-2 border-l border-gray-200">
           <label
             htmlFor="page-input"
@@ -241,7 +277,7 @@ const Pagination = ({
               }
             }}
             disabled={isDisable}
-            className="w-12 h-8 px-2 text-xs text-center border border-gray-300 rounded bg-white text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className={`${sz.input} px-2 text-center border border-gray-300 rounded bg-white text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all`}
             aria-label="Go to page"
           />
           <span className="text-xs font-medium text-gray-500">

@@ -3,25 +3,23 @@ import { Button, Input, Checkbox, Form } from "@heroui/react";
 import { FiMail, FiLock } from "react-icons/fi";
 import { PasswordInput } from "../FormComponent/Input";
 import { LoginData } from "../../types/PublicFormAccess.types";
+import { SessionState } from "../../redux/user.store";
+import { onLoginFuncType } from "./AuthContainer";
 
 interface LoginFormProps {
   loginData: LoginData;
   isLoading: boolean;
-  user: { user: Record<string, unknown> | null; isAuthenticated: boolean };
+  user?: SessionState;
   onLoginChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onSubmit: (e: React.FormEvent) => void;
-  onLoginExisted: () => void;
-  onRememberMeChange: (checked: boolean) => void;
+  onSubmit: onLoginFuncType;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({
   loginData,
   isLoading,
   user,
-  onLoginChange,
   onSubmit,
-  onLoginExisted,
-  onRememberMeChange,
+  onLoginChange,
 }) => {
   return (
     <div className="space-y-6">
@@ -62,7 +60,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           <Checkbox
             name="rememberMe"
             isSelected={loginData.rememberMe}
-            onValueChange={onRememberMeChange}
+            onValueChange={(val) =>
+              onLoginChange({
+                target: { name: "rememberMe", value: val as never } as never,
+              } as never)
+            }
             size="sm"
             radius="md"
             classNames={{
@@ -87,16 +89,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             {isLoading ? "Signing in..." : "Sign In"}
           </Button>
 
-          {user.isAuthenticated && user.user && (
+          {user && user?.isAuthenticated && user.user && (
             <Button
-              onPress={onLoginExisted}
               type="button"
+              onPress={() => onSubmit(undefined, { existed: "1" })}
               color="secondary"
               size="lg"
               radius="lg"
               className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
             >
-              {`Continue as ${(user.user as Record<string, unknown>)?.email}`}
+              {`Continue as ${user?.user?.email}`}
             </Button>
           )}
         </div>

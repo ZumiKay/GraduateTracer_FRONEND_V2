@@ -20,9 +20,7 @@ interface SessionProviderProps {
     unknown
   >;
   onSessionExpired?: () => void;
-  // Interval for periodic checks (in ms, 0 to disable)
   periodicCheckInterval?: number;
-  // Enable visibility change check
   checkOnVisibilityChange?: boolean;
 }
 
@@ -31,7 +29,7 @@ interface SessionProviderProps {
  * @method
  * - check for valid active session
  * - expand session
- * - callback onSessionExpired
+ * - onSessionExpired
  */
 export const SessionProvider: React.FC<SessionProviderProps> = ({
   children,
@@ -74,17 +72,16 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
   }, [manuallyCheckSession, onSessionExpired]);
 
   // Periodic session check
-  useEffect(() => {
-    if (periodicCheckInterval <= 0) return;
+  // useEffect(() => {
+  //   // if (periodicCheckInterval <= 0) return;
 
-    const interval = setInterval(() => {
-      checkSession();
-    }, periodicCheckInterval);
+  //   // const interval = setInterval(() => {
+  //   //   checkSession();
+  //   // }, periodicCheckInterval);
 
-    return () => clearInterval(interval);
-  }, [periodicCheckInterval, checkSession]);
+  //   // return () => clearInterval(interval);
+  // }, [periodicCheckInterval, checkSession]);
 
-  // Check session on visibility change (when user returns to tab)
   useEffect(() => {
     if (!checkOnVisibilityChange) return;
 

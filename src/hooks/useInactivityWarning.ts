@@ -76,7 +76,6 @@ export const useInactivityWarning = (
     accessMode,
   ]);
 
-  // Handle continue session action
   const handleContinueSession = useCallback(() => {
     try {
       if (handleReactivateSession) {

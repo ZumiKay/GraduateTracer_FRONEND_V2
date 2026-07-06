@@ -46,11 +46,6 @@ export const useFormAPI = () => {
     [],
   );
 
-  /**
-   * Get initial form data (validation, access checks, etc.)
-   * @param formId - The form ID
-   * @returns Promise with validation summary and access info
-   */
   const getFormValidation = useCallback(
     async (formId: string, action: string = "send_form") => {
       const response = await ApiRequest({

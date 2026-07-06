@@ -1,22 +1,29 @@
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import Respondant_Question_Card from "../../Card/Respondant.card";
 import SolutionInput from "./SolutionInput";
 import { ContentType } from "../../../types/Form.types";
-import { ContentAnswerType } from "../../Response/Response.type";
+
+interface SiblingScore {
+  id: string | number;
+  score?: number;
+  isBonusScore?: boolean;
+}
 
 interface QuestionItemProps {
   question: ContentType;
   idx: number;
   formColor?: string;
   onUpdateContent: (updates: Partial<ContentType>, qIdx: number) => void;
-  onSelectAnswer: (
-    answerData: { answer: ContentAnswerType },
-    idx: number
-  ) => void;
   parentScore?: number;
   parentQIdx?: number;
-  scoreMode?: boolean;
-  updateTotalScore?: React.Dispatch<React.SetStateAction<number>>;
+  currentMaxParentScore?: number;
+  siblingScores?: Array<SiblingScore>;
+  isBonusScore?: boolean;
+  isChildHasScore?: boolean;
+  onUpdateMaxParentScore: (
+    parentId: string | number,
+    newBudget: number,
+  ) => void;
 }
 
 const QuestionItem = memo(
@@ -26,14 +33,47 @@ const QuestionItem = memo(
     formColor,
     onUpdateContent,
     parentScore,
+    isBonusScore,
+    isChildHasScore,
+    currentMaxParentScore,
+    siblingScores,
+    onUpdateMaxParentScore,
   }: QuestionItemProps) => {
     const isConditional = !!question.parentcontent;
 
+    const handleUpdateContent = useCallback(
+      (updates: Partial<ContentType>) => onUpdateContent(updates, idx),
+      [onUpdateContent, idx],
+    );
+
+    const handleUpdateMaxParentScore = useCallback(
+      (p: string | number, editscore: number) => {
+        if (currentMaxParentScore === undefined || parentScore === undefined)
+          return;
+
+        const editedQuestionId = question._id ?? question.qIdx;
+
+        const siblingScoreTotal = (siblingScores ?? []).reduce((sum, sib) => {
+          const isEditedQuestion = sib.id === editedQuestionId;
+          return sum + (isEditedQuestion ? editscore : (sib.score ?? 0));
+        }, 0);
+
+        onUpdateMaxParentScore(p, parentScore - siblingScoreTotal);
+      },
+      [
+        currentMaxParentScore,
+        parentScore,
+        siblingScores,
+        question,
+        onUpdateMaxParentScore,
+      ],
+    );
+
     return (
       <div
-        className={`space-y-4 ${
+        className={`space-y-3 sm:space-y-4 ${
           isConditional
-            ? "bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400"
+            ? "bg-blue-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-400"
             : ""
         }`}
       >
@@ -51,13 +91,17 @@ const QuestionItem = memo(
         <SolutionInput
           key={`solution-${question._id || idx}-${idx}`}
           content={question}
-          onUpdateContent={(updates) => onUpdateContent(updates, idx)}
+          onUpdateContent={handleUpdateContent}
           isValidated={question.isValidated}
           parentScore={parentScore}
+          isBonusScore={isBonusScore}
+          maxParentScore={currentMaxParentScore}
+          isChildHasScore={isChildHasScore}
+          onUpdateMaxParentScore={handleUpdateMaxParentScore}
         />
       </div>
     );
-  }
+  },
 );
 
 QuestionItem.displayName = "QuestionItem";

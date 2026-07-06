@@ -21,7 +21,6 @@ import {
   ScoringMethod,
   statusColor,
 } from "../component/Response/Response.type";
-import { getResponseDisplayName } from "../utils/respondentUtils";
 import { fetchResponseDetails } from "../services/responseService";
 import { useDispatch } from "react-redux";
 import { setformstate } from "../redux/formstore";
@@ -125,7 +124,7 @@ const ViewResponsePage: React.FC = () => {
         setformstate({
           ...form,
           contents: undefined,
-        })
+        }),
       );
     }
   }, [responseId, form, dispatch]);
@@ -133,16 +132,6 @@ const ViewResponsePage: React.FC = () => {
   React.useEffect(() => {
     dispatchFormData();
   }, [dispatchFormData]);
-
-  const formatDate = useCallback((date: Date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }, []);
 
   const getStatusColor = useCallback((status: string): statusColor => {
     switch (status) {
@@ -165,45 +154,6 @@ const ViewResponsePage: React.FC = () => {
     }
   }, []);
 
-  const computedData = useMemo(() => {
-    if (!selectedResponse) return null;
-
-    const displayName = getResponseDisplayName(selectedResponse);
-    const email = selectedResponse.respondentEmail || "No email provided";
-    const submittedDate = selectedResponse.submittedAt
-      ? formatDate(selectedResponse.submittedAt)
-      : "Not yet submitted";
-
-    // Calculate current total score from responseset (including pending changes)
-    const totalScore =
-      selectedResponse.responseset?.reduce((sum, resp) => {
-        const questionId = resp.question._id as string;
-        const score =
-          pendingScores[questionId] !== undefined
-            ? pendingScores[questionId]
-            : resp.score || 0;
-        return sum + Number(score);
-      }, 0) || 0;
-
-    // Calculate max total score by summing all scoreable question scores
-    const maxTotalScore =
-      selectedResponse.responseset?.reduce((total, resp) => {
-        const question = resp.question;
-        // Only count questions that are scoreable (not text type, not conditional parent)
-        if (
-          question &&
-          question.type !== QuestionType.Text &&
-          !question.parentcontent &&
-          question.score
-        ) {
-          return total + (question.score || 0);
-        }
-        return total;
-      }, 0) || 0;
-
-    return { displayName, email, totalScore, maxTotalScore, submittedDate };
-  }, [selectedResponse, formatDate, pendingScores]);
-
   const responseItems = useMemo(() => {
     if (!selectedResponse) return [];
 
@@ -220,14 +170,11 @@ const ViewResponsePage: React.FC = () => {
     });
   }, [selectedResponse]);
 
-  // Check if response is scoreable (all required questions have score value)
   const isScoreable = useMemo(() => {
     if (!isQuizForm || !selectedResponse?.responseset) return true;
 
-    // Check if any required question has no score defined
     const hasUnscoredQuestion = selectedResponse.responseset.some((resp) => {
       const question = resp.question;
-      // A question needs score if it's a quiz question and not a text type
       if (
         question &&
         question.require &&
@@ -333,7 +280,6 @@ const ViewResponsePage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Navigation Controls - Show when multiple responses */}
             {responseIds.length > 1 && (
               <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800">
                 <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
@@ -397,16 +343,14 @@ const ViewResponsePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="space-y-6">
-        {/* Respondent Information Card */}
-        {computedData && (
+        {selectedResponse && (
           <RespondentInfoCard
-            displayName={computedData.displayName}
-            email={computedData.email}
-            totalScore={computedData.totalScore}
-            maxTotalScore={computedData.maxTotalScore}
-            submittedDate={computedData.submittedDate}
+            displayName={selectedResponse.respondentName ?? ""}
+            email={selectedResponse.respondentEmail ?? ""}
+            totalScore={selectedResponse.totalScore}
+            maxTotalScore={form.totalscore}
+            submittedDate={selectedResponse.submittedAt as string}
             completionStatus={selectedResponse.completionStatus || ""}
             scoringMethod={selectedResponse.scoringMethod}
             isQuizForm={isQuizForm}
@@ -414,7 +358,6 @@ const ViewResponsePage: React.FC = () => {
           />
         )}
 
-        {/* Warning: Response Cannot Be Scored */}
         {isQuizForm && !isScoreable && (
           <Card className="shadow-sm border-l-4 border-l-amber-500 dark:border-l-amber-400 bg-amber-50 dark:bg-amber-900/20">
             <div className="p-4 flex items-start gap-3">
@@ -475,12 +418,12 @@ const ViewResponsePage: React.FC = () => {
                   isAutoScore={isAutoScore ?? false}
                   isQuizForm={isQuizForm}
                   allQuestions={selectedResponse.responseset.map(
-                    (i) => i.question
+                    (i) => i.question,
                   )}
                   onScoreUpdate={handleQuestionScoreUpdate}
                   responseId={selectedResponse._id}
                 />
-              )
+              ),
             )}
           </div>
         </div>
@@ -492,9 +435,9 @@ const ViewResponsePage: React.FC = () => {
         onClose={onReturnModalClose}
         onSubmit={handleReturnResponse}
         isLoading={isReturningResponse}
-        respondentEmail={computedData?.email}
-        currentScore={computedData?.totalScore}
-        maxScore={computedData?.maxTotalScore}
+        respondentEmail={selectedResponse.respondentEmail}
+        currentScore={selectedResponse.totalScore}
+        maxScore={form.totalscore}
         isQuizForm={isQuizForm}
         returnReason={returnReason}
         setReturnReason={setReturnReason}

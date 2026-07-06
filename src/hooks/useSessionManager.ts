@@ -37,15 +37,13 @@ export const useSessionManager = ({
   const [lastActivityTime, setLastActivityTime] = useState<Date>(new Date());
   const [isPageVisible, setIsPageVisible] = useState<boolean>(true);
   const [alertDismissed, setAlertDismissed] = useState<boolean>(false);
-
-  // Refs for persistence
   const activityTimeoutRef = useRef<number | null>(null);
   const autoSignoutTimeoutRef = useRef<number | null>(null);
   const isMountedRef = useRef<boolean>(true);
   const lastActivityTimeRef = useRef<Date>(new Date());
   const lastResetTimeRef = useRef<number>(0);
 
-  // Reset activity timer
+  /**Track respondent activitiy with event */
   const resetActivityTimer = useCallback(() => {
     if (!isMountedRef.current) return;
 
@@ -56,6 +54,7 @@ export const useSessionManager = ({
     }
     lastResetTimeRef.current = currentTime;
 
+    //Clear exists timer
     if (activityTimeoutRef.current !== null) {
       clearTimeout(activityTimeoutRef.current);
       activityTimeoutRef.current = null;
@@ -98,17 +97,6 @@ export const useSessionManager = ({
     }, INACTIVITY_WARNING_TIMEOUT);
   }, [setformsession, onAutoSignOut]);
 
-  const resetActivityTimerRef = useRef(resetActivityTimer);
-
-  useEffect(() => {
-    resetActivityTimerRef.current = resetActivityTimer;
-  }, [resetActivityTimer]);
-
-  const handleActivity = useCallback(() => {
-    if (!isMountedRef.current) return;
-    resetActivityTimerRef.current();
-  }, []);
-
   const handleReactivateSession = useCallback(() => {
     lastResetTimeRef.current = 0;
 
@@ -129,8 +117,8 @@ export const useSessionManager = ({
     }));
 
     //reset the activity timer
-    resetActivityTimerRef.current();
-  }, [setformsession]);
+    resetActivityTimer();
+  }, [resetActivityTimer, setformsession]);
 
   //Only enable acitivity timer when form required email
   useEffect(() => {
@@ -139,7 +127,7 @@ export const useSessionManager = ({
       accessMode === "guest"
     ) {
       lastResetTimeRef.current = 0;
-      resetActivityTimerRef.current();
+      resetActivityTimer();
     }
     return () => {
       if (activityTimeoutRef.current) {
@@ -149,10 +137,15 @@ export const useSessionManager = ({
         clearTimeout(autoSignoutTimeoutRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessMode, isFormRequiredSessionChecked]);
 
   //Enable timer base on activity mode (click , scroll , etc ...)
   useEffect(() => {
+    const handleActivity = () => {
+      if (!isMountedRef.current) return;
+      resetActivityTimer();
+    };
     if (
       (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
       accessMode === "guest"
@@ -167,7 +160,8 @@ export const useSessionManager = ({
         });
       };
     }
-  }, [accessMode, isFormRequiredSessionChecked, handleActivity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessMode, isFormRequiredSessionChecked]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -178,7 +172,6 @@ export const useSessionManager = ({
 
       if (isVisible) {
         setAlertDismissed(false);
-        resetActivityTimerRef.current();
       }
     };
 

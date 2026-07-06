@@ -59,7 +59,6 @@ interface FetchContentReturnType extends ApiRequestReturnType {
 
 const useRespondentFormPaginaition = ({
   formId,
-  user,
   formsession,
   accessMode,
   enabled = false,
@@ -115,6 +114,7 @@ const useRespondentFormPaginaition = ({
   }, [formsession, localformsession]);
 
   useEffect(() => {
+    //set session to exsit one
     if (stableFormsession && stableFormsession !== localformsession) {
       const timer = setTimeout(() => {
         setlocalformsession(stableFormsession);
@@ -182,10 +182,8 @@ const useRespondentFormPaginaition = ({
       formId,
       page: currentPage,
       ty: fetchType,
-      user,
-      formsession: localformsession,
     }),
-    [formId, currentPage, fetchType, user, localformsession],
+    [formId, currentPage, fetchType],
   );
 
   const queryFn = useCallback(
@@ -193,15 +191,10 @@ const useRespondentFormPaginaition = ({
     [fetchContent, stableQueryParams],
   );
 
-  const stableQueryKey = useMemo(() => {
-    return ["respondent-form", formId, currentPage, fetchType];
-  }, [formId, currentPage, fetchType]);
-
   const { data, error, isFetching } = useQuery({
-    queryKey: stableQueryKey,
+    queryKey: ["respondent-form", formId, currentPage, fetchType],
     queryFn,
     staleTime: 5 * 60 * 1000, // 5 minutes - better caching
-    gcTime: 10 * 60 * 1000, // 10 minutes - retain cached data longer
     enabled: Boolean(enabled && formId && currentPage && currentPage >= 1),
     retry: (failureCount, error: Error) => {
       // Retry on network errors, but not on 401 (auth errors)
@@ -214,6 +207,7 @@ const useRespondentFormPaginaition = ({
     refetchInterval: false, // Disable automatic refetching
     refetchOnReconnect: false, // Don't refetch when network reconnects
     refetchIntervalInBackground: false, // Don't refetch in background
+
     // Add network mode to prevent loading on every network change
     networkMode: "online",
   });
@@ -229,7 +223,7 @@ const useRespondentFormPaginaition = ({
     ) {
       setfetchType("data");
     }
-  }, [accessMode, formState]);
+  }, [accessMode, formState?.isLoggedIn]);
 
   useEffect(() => {
     if (!formId) {
@@ -293,7 +287,7 @@ const useRespondentFormPaginaition = ({
       totalPages,
       // Additional states for debugging and loading management
       isFetching,
-      isPending: isFetching, // Alias for isPending
+      isPending: isFetching,
     }),
     [
       isFetching,

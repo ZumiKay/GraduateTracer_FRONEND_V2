@@ -82,7 +82,7 @@ export interface ResponseDataType {
   totalScore?: number;
   scoringMethod: ScoringMethod;
   completionStatus?: ResponseCompletionStatus;
-  submittedAt?: Date;
+  submittedAt?: string | Date;
   respondentType?: respondentType;
   responseset: ResponseSetType[];
   isCompleted?: boolean;
@@ -101,6 +101,7 @@ export interface RespondentSessionType {
 export interface SubmittionProcessionReturnType {
   maxScore: number;
   totalScore: number;
+  extraScore?: number;
   message: string;
   responseId?: string;
   respondentEmail?: string;

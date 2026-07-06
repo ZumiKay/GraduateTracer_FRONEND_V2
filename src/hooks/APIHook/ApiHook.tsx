@@ -11,6 +11,7 @@ export interface ApiRequestProps {
   method: "GET" | "PUT" | "DELETE" | "POST" | "PATCH";
   url: string;
   data?: Record<string, unknown>;
+  returnawait?: true;
   cookie?: boolean;
   reactQuery?: boolean;
   encrypt?: boolean;
@@ -60,16 +61,6 @@ export interface ApiRequestReturnType {
   errorResponses?: ErrorResponse;
 }
 
-interface EncryptedPathResponse {
-  originalPath: string;
-  encryptedPath: string;
-  redirectUrl: string;
-}
-
-interface PublicKeyResponse {
-  publicKey: string;
-}
-
 /* -------------------------------- Constant -------------------------------- */
 const API_CONFIG = {
   BASE_URL: import.meta.env.VITE_API_URL,
@@ -77,12 +68,7 @@ const API_CONFIG = {
   HEADERS: {
     "Content-Type": "application/json",
   },
-  REFRESH_TOKEN_URL: "/refreshtoken", // Update with your actual refresh endpoint
-} as const;
-
-const PEM_MARKERS = {
-  HEADER: "-----BEGIN PUBLIC KEY-----",
-  FOOTER: "-----END PUBLIC KEY-----",
+  REFRESH_TOKEN_URL: "/refreshtoken",
 } as const;
 
 const ERROR_MESSAGES = {
@@ -94,6 +80,7 @@ const ERROR_MESSAGES = {
   REFRESH_FAILED: "Session expired. Please login again",
 } as const;
 
+//Create axios instance
 const axiosInstance = axios.create({
   baseURL: API_CONFIG.BASE_URL,
   timeout: API_CONFIG.TIMEOUT,
@@ -150,6 +137,8 @@ axiosInstance.interceptors.request.use(
  * Handles token refresh on unauthenticate requests
  */
 
+const skipRefreshTokenUrl = ["response/respondentlogin", "/registeruser"];
+
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse) => {
     return response;
@@ -169,12 +158,15 @@ axiosInstance.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response?.status === 401) {
+    if (
+      error.response?.status === 401 &&
+      originalRequest.url &&
+      !skipRefreshTokenUrl.some((i) => originalRequest.url?.includes(i))
+    ) {
       if (originalRequest.url === API_CONFIG.REFRESH_TOKEN_URL) {
-        // Refresh token is invalid, redirect to login
         isRefreshing = false;
         processQueue(new Error(ERROR_MESSAGES.REFRESH_FAILED));
-        window.location.href = "/login";
+        window.location.href = "/";
         return Promise.reject(error);
       }
 
@@ -218,85 +210,8 @@ axiosInstance.interceptors.response.use(
   },
 );
 
-/* ---------------------------- Encryption Helper --------------------------- */
-
-/**Step of encryption ***
- * 1/ Get Public key from backend
- * 2/ Convert to the CryptoKey
- * 3/ Then Encript using helper (encryptString)
- */
-
-const getPublicKey = async (): Promise<PublicKeyResponse | null> => {
-  try {
-    const response = await axiosInstance.get("/de/public-key");
-    return response.data;
-  } catch (error) {
-    console.error("Failed to fetch public key:", error);
-    return null;
-  }
-};
-
-const importPublicKey = async (pemKey: string): Promise<CryptoKey> => {
-  const pemContents = pemKey
-    .replace(PEM_MARKERS.HEADER, "")
-    .replace(PEM_MARKERS.FOOTER, "")
-    .replace(/\s/g, "");
-
-  const binaryDer = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
-
-  return await window.crypto.subtle.importKey(
-    "spki",
-    binaryDer.buffer,
-    { name: "RSA-OAEP", hash: "SHA-256" },
-    true,
-    ["encrypt"],
-  );
-};
-
-/**
- * Encryption string helper with publicKey
- */
-const encryptString = async (
-  plainText: string,
-  publicKey: string,
-): Promise<string | null> => {
-  try {
-    const cryptoKey = await importPublicKey(publicKey);
-    const encodedText = new TextEncoder().encode(plainText);
-    const encryptedBuffer = await window.crypto.subtle.encrypt(
-      { name: "RSA-OAEP" },
-      cryptoKey,
-      encodedText,
-    );
-
-    const encryptedArray = new Uint8Array(encryptedBuffer);
-    const binary = String.fromCharCode(...encryptedArray);
-    return btoa(binary);
-  } catch (error) {
-    console.error("Encryption failed:", error);
-    return null;
-  }
-};
-
-const processUrlEncryption = async (url: string): Promise<string> => {
-  const keyResponse = await getPublicKey();
-  if (!keyResponse?.publicKey) {
-    throw new Error(ERROR_MESSAGES.ENCRYPTION_FAILED);
-  }
-
-  const encryptedUrl = await encryptString(url, keyResponse.publicKey);
-  if (!encryptedUrl) {
-    throw new Error(ERROR_MESSAGES.ENCRYPTION_FAILED);
-  }
-
-  return encryptedUrl;
-};
-
 /* ----------------------------- Error Handling ----------------------------- */
 
-/**
- * Extracts a meaningful error message from the error response
- */
 const extractErrorMessage = (
   errorResponse: ErrorResponse | undefined,
   axiosError: AxiosError,
@@ -305,7 +220,6 @@ const extractErrorMessage = (
     return axiosError.message || ERROR_MESSAGES.NETWORK;
   }
 
-  // Enhanced error format: message + error code
   if (errorResponse.message && errorResponse.error) {
     return `${errorResponse.message} (${errorResponse.error})`;
   }
@@ -319,7 +233,6 @@ const extractErrorMessage = (
     );
   }
 
-  // Simple message
   if (errorResponse.message) {
     return errorResponse.message;
   }
@@ -327,9 +240,6 @@ const extractErrorMessage = (
   return axiosError.message || ERROR_MESSAGES.UNKNOWN;
 };
 
-/**
- * Handles timeout errors
- */
 const handleTimeoutError = (
   reactQuery: boolean,
 ): never | ApiRequestReturnType => {
@@ -365,39 +275,18 @@ const createApiError = (
 
 /* --------------------------- API Request Helper --------------------------- */
 
-/**
- * Makes an HTTP request to the API with optional encryption
- */
 const ApiRequest = async ({
   method,
   url,
   data,
   cookie = false,
   reactQuery = false,
-  encrypt = false,
   timeout = API_CONFIG.TIMEOUT,
   skipRefresh = false,
+  returnawait,
 }: ApiRequestProps): Promise<ApiRequestReturnType> => {
-  // Handle URL encryption if needed
-  let processedUrl = url;
-  if (encrypt) {
-    try {
-      processedUrl = await processUrlEncryption(url);
-    } catch (error) {
-      console.error("URL encryption failed:", error);
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : ERROR_MESSAGES.ENCRYPTION_FAILED,
-      };
-    }
-  }
-
-  // Configure request
   const config: AxiosRequestConfig & { skipRefresh?: boolean } = {
-    url: processedUrl,
+    url,
     method,
     withCredentials: cookie,
     timeout,
@@ -405,6 +294,10 @@ const ApiRequest = async ({
     data,
     skipRefresh,
   };
+
+  if (returnawait) {
+    return await axiosInstance(config);
+  }
 
   try {
     const response = await axiosInstance(config);
@@ -433,12 +326,10 @@ const ApiRequest = async ({
       | undefined;
     const errorMessage = extractErrorMessage(errorResponse, axiosError);
 
-    // For React Query, throw the error
     if (reactQuery) {
       throw createApiError(errorMessage, axiosError.status, errorResponse);
     }
 
-    // For regular requests, return error object
     return {
       success: false,
       status: axiosError.status,
@@ -447,29 +338,6 @@ const ApiRequest = async ({
       reactQuery,
       errorResponses: errorResponse,
     };
-  }
-};
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const generateEncryptedRedirectUrl = async (
-  originalPath: string,
-): Promise<string> => {
-  try {
-    const response = await ApiRequest({
-      method: "POST",
-      url: "/encrypt/encrypt-path",
-      data: { path: originalPath },
-    });
-
-    if (response.success && response.data) {
-      const encryptedData = response.data as EncryptedPathResponse;
-      return encryptedData.redirectUrl;
-    }
-
-    throw new Error("Failed to encrypt path");
-  } catch (error) {
-    console.error("Error generating encrypted redirect URL:", error);
-    return originalPath;
   }
 };
 

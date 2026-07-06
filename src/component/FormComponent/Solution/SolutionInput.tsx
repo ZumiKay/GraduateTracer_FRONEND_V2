@@ -14,6 +14,8 @@ import {
   Radio,
   RadioGroup,
   RangeValue,
+  Switch,
+  Tooltip,
 } from "@heroui/react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -34,45 +36,51 @@ interface SolutionInputProps {
   onUpdateContent: (updates: Partial<ContentType>) => void;
   isValidated?: boolean;
   parentScore?: number;
+  maxParentScore?: number;
+  isBonusScore?: boolean;
+  isChildHasScore?: boolean;
+
+  onUpdateMaxParentScore?: (p: string | number, editscore: number) => void;
 }
 
 type LocalAnswerType = ContentAnswerType | DateValue | RangeType<DateValue>;
 
-/**
- * SolutionInput Component
- *
- * Handles solution input for different question types with validation and scoring.
- * Optimized for performance with proper memoization and error handling.
- *
- * @component
- */
 const SolutionInput: React.FC<SolutionInputProps> = ({
   content,
   onUpdateContent,
   isValidated = false,
   parentScore,
+  isBonusScore,
+  isChildHasScore,
+  onUpdateMaxParentScore,
+  maxParentScore,
 }) => {
   const formstate = useSelector((root: RootState) => root.allform.formstate);
   const isDark = useSelector((root: RootState) => root.globalindex.darkmode);
   const dispatch = useDispatch();
   const previousAnswerRef = useRef<ContentAnswerType | undefined>(undefined);
+  const previousScoreRef = useRef<number>(content.score ?? 0);
+  const previousParentScoreRef = useRef<number | undefined>(parentScore);
 
   // State management
   const [localAnswer, setLocalAnswer] = useState<LocalAnswerType>();
-  const [localScore, setLocalScore] = useState<number>(content.score || 0);
+  const [localScore, setLocalScore] = useState<number>(content.score ?? 0);
+  const [warningMess, setwarningMess] = useState<string | undefined>(
+    isChildHasScore ? undefined : "",
+  );
+  const [isExtraScore, setisBonusScore] = useState<boolean | undefined>(
+    isBonusScore,
+  );
   const [scoreInputValue, setScoreInputValue] = useState<string>(
-    String(content.score || 0),
+    String(content.score ?? 0),
   );
   const [scoreBeforeEdit, setScoreBeforeEdit] = useState<number>(
-    content.score || 0,
+    content.score ?? 0,
   );
   const [errorMess, setErrorMess] = useState<string>();
 
   const isConditionalQuestion = !!content.parentcontent;
 
-  /**
-   * Helper function to safely parse date strings to DateValue
-   */
   const safeParseDateValue = useCallback(
     (dateString: string): DateValue | null => {
       try {
@@ -88,37 +96,27 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     [],
   );
 
-  /**
-   * Helper function to check if answer has value
-   */
   const hasAnswerValue = useCallback((answer: ContentAnswerType): boolean => {
     if (answer === "" || answer === null || answer === undefined) {
       return false;
     }
 
-    // For arrays (checkbox, selection)
     if (Array.isArray(answer)) {
       return answer.length > 0;
     }
 
-    // For range types
     if (typeof answer === "object" && answer !== null) {
       if ("start" in answer && "end" in answer) {
         return answer.start !== undefined && answer.end !== undefined;
       }
     }
 
-    // For other types (string, number, date)
     return true;
   }, []);
 
-  /**
-   * Initialize and sync local answer with content.answer
-   */
   useEffect(() => {
     const newAnswer = (content.answer as AnswerKey)?.answer;
 
-    // Skip if answer hasn't changed
     if (newAnswer === previousAnswerRef.current) {
       return;
     }
@@ -127,9 +125,34 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     setLocalAnswer(newAnswer);
   }, [content.answer, content.type]);
 
-  /**
-   * Handle answer changes with validation and state updates
-   */
+  useEffect(() => {
+    const newScore = content.score ?? 0;
+
+    if (newScore === previousScoreRef.current) {
+      return;
+    }
+    previousScoreRef.current = newScore;
+
+    setLocalScore(newScore);
+    setScoreInputValue(String(newScore));
+    setScoreBeforeEdit(newScore);
+  }, [content.score]);
+
+  useEffect(() => {
+    if (previousParentScoreRef.current === parentScore) return;
+    previousParentScoreRef.current = parentScore;
+
+    setErrorMess(undefined);
+
+    if (!isConditionalQuestion || isBonusScore) return;
+
+    setLocalScore(0);
+    setScoreInputValue("0");
+    setScoreBeforeEdit(0);
+    previousScoreRef.current = 0;
+    onUpdateContent({ score: 0 });
+  }, [parentScore, isConditionalQuestion, isBonusScore, onUpdateContent]);
+
   const handleAnswerChange = useCallback(
     (answer?: ContentAnswerType) => {
       try {
@@ -155,42 +178,37 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     [content.answer, onUpdateContent],
   );
 
-  /**
-   * Handle score changes
-   */
   const handleScoreChange = useCallback((score: number) => {
     setLocalScore(score);
   }, []);
 
-  /**
-   * Validate and save score
-   */
+  const handleChangeConditionScoreType = useCallback(
+    (val: boolean) => {
+      onUpdateContent({ isBonusScore: val });
+      setisBonusScore(val);
+    },
+    [onUpdateContent],
+  );
+
   const handleScoreSave = useCallback(
     (finalScore: number) => {
       try {
-        // Verify Child Score
-        if (
-          isConditionalQuestion &&
-          parentScore !== undefined &&
-          parentScore < finalScore
-        ) {
-          ErrorToast({
-            title: "Validation Error",
-            content: `Score cannot exceed parent question score (${parentScore} pts)`,
-          });
-          setErrorMess(`Maximum score: ${parentScore} pts`);
-          // Revert to previous valid score
-          setLocalScore(scoreBeforeEdit);
-          setScoreInputValue(String(scoreBeforeEdit));
-          return;
-        }
-
-        // Clear error if validation passes
         setErrorMess(undefined);
 
         if (finalScore !== content.score) {
           onUpdateContent({ score: finalScore });
         }
+
+        if (content.parentcontent && !isBonusScore) {
+          onUpdateMaxParentScore?.(
+            content.parentcontent?.qId ||
+              (content.parentcontent?.qIdx as never),
+            finalScore,
+          );
+        }
+
+        previousScoreRef.current = finalScore;
+        setScoreBeforeEdit(finalScore);
       } catch (error) {
         console.error("Error saving score:", error);
         ErrorToast({
@@ -200,19 +218,18 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
       }
     },
     [
+      content.parentcontent,
       content.score,
-      isConditionalQuestion,
+      isBonusScore,
       onUpdateContent,
-      parentScore,
-      scoreBeforeEdit,
+      onUpdateMaxParentScore,
     ],
   );
 
-  /**
-   * Update total form score
-   */
   const handleTotalScoreUpdate = useCallback(
     (newScore: number) => {
+      if (isConditionalQuestion) return;
+
       try {
         const scoreDiff = newScore - scoreBeforeEdit;
 
@@ -230,12 +247,15 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         console.error("Error updating total score:", error);
       }
     },
-    [scoreBeforeEdit, dispatch, formstate],
+    [isConditionalQuestion, scoreBeforeEdit, dispatch, formstate],
   );
 
-  /**
-   * Validate range dates
-   */
+  const handleParentWarning = useCallback(() => {
+    if (!isChildHasScore) return;
+
+    setwarningMess("Child Score Will Reset");
+  }, [isChildHasScore]);
+
   const validateRangeDate = useCallback(
     (range: RangeType<DateValue>): { isValid: boolean; message: string } => {
       if (
@@ -250,7 +270,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         };
       }
 
-      // Check if start and end are the same
       if (range.start.compare(range.end) === 0) {
         return {
           isValid: false,
@@ -258,7 +277,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         };
       }
 
-      // Check if range is valid (end >= start)
       if (range.end.compare(range.start) < 0) {
         return {
           isValid: false,
@@ -266,17 +284,12 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         };
       }
 
-      // Check if within question range
       if (content.rangedate?.start && content.rangedate?.end) {
         try {
           const questionStart = safeParseDateValue(content.rangedate.start);
           const questionEnd = safeParseDateValue(content.rangedate.end);
 
           if (questionStart && questionEnd) {
-            // Allow selection to match question range boundaries
-
-            console.log({ questionStart, rangeStart: range.start });
-
             if (
               range.start.compare(questionStart) < 0 ||
               range.end.compare(questionEnd) > 0 ||
@@ -299,9 +312,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     [content.rangedate, safeParseDateValue],
   );
 
-  /**
-   * Validate range numbers
-   */
   const validateRangeNumber = useCallback(
     (range: RangeType<number>): { isValid: boolean; message: string } => {
       if (range.start === undefined || range.end === undefined) {
@@ -311,7 +321,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         };
       }
 
-      // Check if range is valid (end >= start)
       if (range.end < range.start) {
         return {
           isValid: false,
@@ -319,7 +328,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         };
       }
 
-      // Check if within question range
       if (
         content.rangenumber &&
         typeof content.rangenumber.start === "number" &&
@@ -341,9 +349,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     [content.rangenumber],
   );
 
-  /**
-   * Render answer input based on question type
-   */
   const renderAnswerInput = useMemo(() => {
     switch (content.type) {
       case QuestionType.Text:
@@ -501,7 +506,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         return (
           <div className="space-y-3">
             <p className="text-sm font-medium">Set correct date range:</p>
-            <div className="flex gap-2 items-start">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-2">
               <DatePicker
                 label="Start Date"
                 value={currentRange?.start}
@@ -526,7 +531,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
                 size="sm"
                 isInvalid={!validation.isValid}
               />
-              <span className="text-gray-400 mt-2">to</span>
+              <span className="text-gray-400 text-center sm:mt-2">to</span>
               <DatePicker
                 label="End Date"
                 granularity="day"
@@ -572,7 +577,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
                 {questionRange.end}
               </div>
             )}
-            <div className="flex gap-2 items-start">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-2">
               <NumberInput
                 label="Min Value"
                 placeholder="Minimum"
@@ -588,7 +593,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
                 size="sm"
                 isInvalid={!validation.isValid}
               />
-              <span className="text-gray-400 mt-2">to</span>
+              <span className="text-gray-400 text-center sm:mt-2">to</span>
               <NumberInput
                 label="Max Value"
                 placeholder="Maximum"
@@ -690,9 +695,9 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
   return (
     <div className="w-full space-y-4 p-4 bg-white dark:bg-gray-700 rounded-lg border">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium">Solution Settings</h3>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+        <h3 className="text-base sm:text-lg font-medium">Solution Settings</h3>
+        <div className="flex flex-wrap items-center gap-2">
           {isConditionalQuestion && (
             <Chip color="secondary" variant="flat" size="sm">
               Conditional Question
@@ -708,7 +713,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
       {isConditionalQuestion && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800 font-medium">
-            📋 Conditional Question
+            Conditional Question
           </p>
           <p className="text-xs text-blue-600 mt-1">
             This question appears only when a specific answer is selected in its
@@ -738,37 +743,55 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
               onFocus={() => {
                 if (errorMess) setErrorMess(undefined);
                 setScoreBeforeEdit(localScore);
+                handleParentWarning();
               }}
               onChange={(e) => {
                 const inputValue = e.target.value;
-                setScoreInputValue(inputValue);
 
                 if (inputValue === "" || inputValue === "0") {
+                  setScoreInputValue(inputValue);
                   handleScoreChange(0);
+                  handleScoreSave(0);
+                  handleTotalScoreUpdate(0);
                   return;
                 }
 
                 const numValue = parseFloat(inputValue);
                 if (!isNaN(numValue) && numValue >= 0) {
-                  const newScore = Math.floor(numValue);
+                  const maxScore =
+                    !isBonusScore && parentScore !== undefined
+                      ? parentScore
+                      : undefined;
+                  const newScore =
+                    maxScore !== undefined
+                      ? Math.min(Math.floor(numValue), maxScore)
+                      : Math.floor(numValue);
+                  setScoreInputValue(String(newScore));
                   handleScoreChange(newScore);
+                  handleScoreSave(newScore);
+                  handleTotalScoreUpdate(newScore);
                 }
               }}
               onBlur={() => {
                 handleScoreSave(localScore);
-                handleTotalScoreUpdate(localScore);
+                if (warningMess) setwarningMess("");
               }}
               variant={isDark ? "flat" : "bordered"}
               min={0}
-              max={parentScore}
               startContent={<span className="text-sm text-gray-500">pts</span>}
               isInvalid={!!errorMess}
               errorMessage={errorMess}
             />
-            {isConditionalQuestion && parentScore !== undefined && (
-              <p className="text-xs text-blue-600">
-                Maximum score for this conditional question: {parentScore} pts
-              </p>
+            {isConditionalQuestion &&
+              parentScore !== undefined &&
+              !isBonusScore && (
+                <p className="text-xs text-gray-500">
+                  Max: {maxParentScore} pts
+                </p>
+              )}
+
+            {warningMess && (
+              <p className="text-xs font-bold text-red-400">{warningMess}</p>
             )}
           </div>
 
@@ -781,15 +804,15 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
       )}
 
       {/* Footer */}
-      <div className="flex justify-end items-center pt-2 border-t">
+      <div className="flex flex-col justify-end items-center pt-2 gap-y-5 border-t">
         <div className="text-sm text-gray-500">
           {content.type === QuestionType.Text ? (
             "Display text only"
           ) : (
             <>
               {hasAnswerValue(localAnswer as ContentAnswerType)
-                ? "✓ Has answer"
-                : "⚠ No answer"}
+                ? "Has answer"
+                : "No answer"}
               {" | "}
               {localScore > 0 ? `${localScore} pts` : "0 pts"}
               {isConditionalQuestion && (
@@ -798,9 +821,28 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
             </>
           )}
         </div>
+        {!content.parentcontent &&
+          content.conditional &&
+          content.conditional.length > 0 && (
+            <Tooltip
+              delay={0}
+              content={
+                <p>{`Set question score as bonus (enable to set each child question score)`}</p>
+              }
+            >
+              <Switch
+                isSelected={isExtraScore}
+                onValueChange={(val) => handleChangeConditionScoreType(val)}
+              >
+                Bonus Score
+              </Switch>
+            </Tooltip>
+          )}
       </div>
     </div>
   );
 };
 
-export default SolutionInput;
+SolutionInput.displayName = "SolutionInput";
+
+export default React.memo(SolutionInput);

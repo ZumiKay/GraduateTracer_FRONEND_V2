@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
 import { RootState } from "../../../redux/store";
-import { FormAction } from "../types/PublicFormAccessTypes";
+import { FormAction, FormState } from "../types/PublicFormAccessTypes";
 import useFormsessionAPI from "../../../hooks/useFormsessionAPI";
 import { generateStorageKey } from "../../../helperFunc";
 import { RespondentSessionType } from "../Response.type";
 
 const useFormInitialization = ({
   formId,
-  user,
   dispatch,
+  formstate,
 }: {
   formId: string | undefined;
   user: RootState["usersession"];
   dispatch: React.Dispatch<FormAction>;
+  formstate: FormState;
 }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -20,11 +21,12 @@ const useFormInitialization = ({
 
   const sessionVerificationEnabled = Boolean(formId);
   const verifiedSession = useSessionVerification(
-    sessionVerificationEnabled,
+    Boolean(sessionVerificationEnabled),
     formId,
   );
 
   useEffect(() => {
+    console.log("Form initialized");
     const initializeForm = async () => {
       setIsInitializing(true);
       setIsInitialized(false);
@@ -35,11 +37,14 @@ const useFormInitialization = ({
           return;
         }
 
-        if (verifiedSession.isLoading || verifiedSession.isFetching) {
+        if (
+          verifiedSession.isLoading ||
+          verifiedSession.isFetching ||
+          !dispatch
+        ) {
           return;
         }
 
-        // Form Not Require Authentication
         if (
           verifiedSession.data?.data &&
           !verifiedSession.data.data.isNormalForm
@@ -71,6 +76,10 @@ const useFormInitialization = ({
               isActive: true,
               respondentinfo: verifiedSession.data.data,
             };
+            dispatch({
+              type: "SET_FORMSESSION",
+              payload: defaultSession,
+            });
 
             localStorage.setItem(key, JSON.stringify(defaultSession));
           }
@@ -88,15 +97,13 @@ const useFormInitialization = ({
     };
 
     initializeForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     formId,
-    user.isAuthenticated,
-    dispatch,
-    user.user,
     verifiedSession.isLoading,
+    verifiedSession.isFetched,
     verifiedSession.isFetching,
-    verifiedSession.data,
-    verifiedSession.error,
+    verifiedSession.data?.data,
   ]);
 
   return {

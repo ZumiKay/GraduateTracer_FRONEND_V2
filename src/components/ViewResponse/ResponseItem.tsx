@@ -69,12 +69,12 @@ const ResponseItem = React.memo<ResponseItemProps>(
         isRange: isRangeType(question.type),
         isChoice: isChoiceType(question.type),
       }),
-      [question.type]
+      [question.type],
     );
 
     const choiceOptions = useMemo(
       () => (questionTypeInfo.isChoice ? getChoiceOptions(question) : []),
-      [questionTypeInfo.isChoice, question]
+      [questionTypeInfo.isChoice, question],
     );
 
     const userSelectedIndices = useMemo(() => {
@@ -89,7 +89,6 @@ const ResponseItem = React.memo<ResponseItemProps>(
       return new Set([response.key]);
     }, [questionTypeInfo.isChoice, resp.response]);
 
-    // Parse correct answer for choice questions (Quiz mode)
     const correctAnswerIndices = useMemo(() => {
       if (!questionTypeInfo.isChoice || !isQuizForm || !question.answer)
         return new Set<number>();
@@ -98,12 +97,10 @@ const ResponseItem = React.memo<ResponseItemProps>(
       if (!answer || answer.answer === undefined || answer.answer === null)
         return new Set<number>();
 
-      // AnswerKey type: answer.answer is Array<number> for choice questions
       if (Array.isArray(answer.answer)) {
         return new Set(answer.answer as number[]);
       }
 
-      // Handle single number answer
       if (typeof answer.answer === "number") {
         return new Set([answer.answer]);
       }
@@ -196,7 +193,6 @@ const ResponseItem = React.memo<ResponseItemProps>(
       );
     };
 
-    // Render Choice Type Question (show all options with selections)
     const renderChoiceContent = () => {
       const hasUserResponse = userSelectedIndices.size > 0;
       const userResponse = resp.response as AnswerKeyPairValueType;
@@ -228,12 +224,12 @@ const ResponseItem = React.memo<ResponseItemProps>(
                       isUserSelected && isCorrectAnswer
                         ? "bg-green-50 border-green-400"
                         : isUserSelected && !isCorrectAnswer && isQuizForm
-                        ? "bg-red-50 border-red-300"
-                        : isCorrectAnswer && isQuizForm
-                        ? "bg-green-50 border-green-300 border-dashed"
-                        : isUserSelected
-                        ? "bg-blue-50 border-blue-300"
-                        : "bg-white border-gray-200"
+                          ? "bg-red-50 border-red-300"
+                          : isCorrectAnswer && isQuizForm
+                            ? "bg-green-50 border-green-300 border-dashed"
+                            : isUserSelected
+                              ? "bg-blue-50 border-blue-300"
+                              : "bg-white border-gray-200"
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -320,8 +316,8 @@ const ResponseItem = React.memo<ResponseItemProps>(
                               ? isCorrect
                                 ? "success"
                                 : isWrong
-                                ? "danger"
-                                : "primary"
+                                  ? "danger"
+                                  : "primary"
                               : "primary"
                           }
                           className="font-medium"
@@ -355,8 +351,8 @@ const ResponseItem = React.memo<ResponseItemProps>(
                               ? isCorrect
                                 ? "success"
                                 : isWrong
-                                ? "danger"
-                                : "primary"
+                                  ? "danger"
+                                  : "primary"
                               : "primary"
                           }
                           className="font-medium"
@@ -382,13 +378,11 @@ const ResponseItem = React.memo<ResponseItemProps>(
             )}
           </div>
 
-          {/* Correct Answer Summary - Show when user got it wrong */}
           {isQuizForm &&
             correctAnswerIndices.size > 0 &&
             (() => {
-              // Check if user got any answer wrong
               const userKeys = Array.isArray(
-                (resp.response as AnswerKeyPairValueType)?.key
+                (resp.response as AnswerKeyPairValueType)?.key,
               )
                 ? ((resp.response as AnswerKeyPairValueType).key as number[])
                 : [
@@ -403,7 +397,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
               if (!hasWrongAnswer) return null;
 
               const correctOptions = choiceOptions.filter((opt) =>
-                correctAnswerIndices.has(opt.idx ?? choiceOptions.indexOf(opt))
+                correctAnswerIndices.has(opt.idx ?? choiceOptions.indexOf(opt)),
               );
 
               return (
@@ -439,11 +433,9 @@ const ResponseItem = React.memo<ResponseItemProps>(
       );
     };
 
-    // Helper to render response value properly
     const renderResponseValue = (value: ResponseValueType) => {
       if (!value) return null;
 
-      // Handle CheckBox array response
       if (Array.isArray(value)) {
         return (
           <div className="flex flex-col gap-2">
@@ -465,7 +457,6 @@ const ResponseItem = React.memo<ResponseItemProps>(
         );
       }
 
-      // Handle simple string response
       if (typeof value === "string") {
         return <span className="font-medium">{value}</span>;
       }
@@ -473,22 +464,19 @@ const ResponseItem = React.memo<ResponseItemProps>(
       return null;
     };
 
-    // Helper to render answer key based on its type
     const renderAnswerKey = (
       answerData:
         | AnswerKey
         | AnswerKeyPairValueType[]
         | AnswerKeyPairValueType
-        | undefined
+        | undefined,
     ): React.ReactNode => {
       if (!answerData) return null;
 
-      // Check if it's AnswerKey type (has 'answer' property)
       if (typeof answerData === "object" && "answer" in answerData) {
         const answerKey = answerData as AnswerKey;
         const answer = answerKey.answer;
 
-        // Handle Array of numbers (checkbox answers)
         if (Array.isArray(answer)) {
           return (
             <div className="flex flex-wrap gap-2">
@@ -501,7 +489,6 @@ const ResponseItem = React.memo<ResponseItemProps>(
           );
         }
 
-        // Handle simple string/number answer
         if (typeof answer === "string" || typeof answer === "number") {
           return (
             <Chip
@@ -516,7 +503,6 @@ const ResponseItem = React.memo<ResponseItemProps>(
         }
       }
 
-      // Check if it's AnswerKeyPairValueType array
       if (Array.isArray(answerData)) {
         return (
           <div className="flex flex-wrap gap-2">
@@ -538,7 +524,6 @@ const ResponseItem = React.memo<ResponseItemProps>(
         );
       }
 
-      // Check if it's AnswerKeyPairValueType (has 'key' and 'val' properties)
       if (
         typeof answerData === "object" &&
         "key" in answerData &&
@@ -574,13 +559,11 @@ const ResponseItem = React.memo<ResponseItemProps>(
         );
       }
 
-      // Fallback: render as string
       return (
         <span className="font-medium text-green-900">{String(answerData)}</span>
       );
     };
 
-    // Render Other Question Types
     const renderOtherContent = () => {
       const hasAnswerKey =
         question.answer !== undefined && question.answer !== null;
@@ -630,7 +613,6 @@ const ResponseItem = React.memo<ResponseItemProps>(
       );
     };
 
-    // Main content renderer based on question type
     const renderMainContent = () => {
       if (questionTypeInfo.isRange) {
         return renderRangeContent();
@@ -692,7 +674,6 @@ const ResponseItem = React.memo<ResponseItemProps>(
       );
     }
 
-    // Non-text questions
     return (
       <Card className="shadow-lg hover:shadow-2xl transition-all duration-300 border-2 border-gray-200 hover:border-blue-300 bg-gradient-to-br from-white to-gray-50 dark:bg-black">
         {question.parentcontent && (
@@ -725,15 +706,17 @@ const ResponseItem = React.memo<ResponseItemProps>(
                 >
                   {question?.type || "Unknown"}
                 </Chip>
-                {isQuizForm && question.score && (
+                {isQuizForm && question.score && isAutoScore ? (
                   <Chip
                     size="md"
-                    color={isAutoScore ? "success" : "warning"}
+                    color={"success"}
                     variant="flat"
                     className="font-semibold shadow-sm"
                   >
-                    {isAutoScore ? "✓ Auto-Scored" : "✎ Manual Scoring"}
+                    Auto-Scored
                   </Chip>
+                ) : (
+                  <></>
                 )}
               </div>
 
@@ -750,11 +733,10 @@ const ResponseItem = React.memo<ResponseItemProps>(
                 </div>
               )}
 
-              {/* Response Content - Type-specific rendering */}
               {renderMainContent()}
             </div>
 
-            {isQuizForm && (
+            {isQuizForm ? (
               <div className="flex flex-col items-end gap-3 min-w-[160px]">
                 {!canScore ? (
                   <div className="bg-gradient-to-br from-purple-100 via-purple-50 to-pink-100 rounded-2xl px-6 py-5 text-center border-2 border-purple-300 shadow-lg hover:shadow-xl transition-all duration-200">
@@ -770,32 +752,35 @@ const ResponseItem = React.memo<ResponseItemProps>(
                   </div>
                 ) : null}
               </div>
+            ) : (
+              <></>
             )}
           </div>
 
-          {/* Score Mode Input */}
           {question.score &&
-            onScoreUpdate &&
-            responseId &&
-            question._id &&
-            !isResponseEmpty(resp.response, resp.question.type) && (
-              <div className="mt-8 pt-6 border-t-2 border-dashed border-gray-300">
-                <div className="bg-gray-50 rounded-xl p-6 shadow-inner">
-                  <ScoreModeInput
-                    maxScore={question?.score || 0}
-                    initialScore={resp.score || 0}
-                    initialComment={resp.comment}
-                    onScoreChange={({ score, comment }) => {
-                      onScoreUpdate(question._id as string, score, comment);
-                    }}
-                  />
-                </div>
+          onScoreUpdate &&
+          responseId &&
+          question._id &&
+          !isResponseEmpty(resp.response, resp.question.type) ? (
+            <div className="mt-8 pt-6 border-t-2 border-dashed border-gray-300">
+              <div className="bg-gray-50 rounded-xl p-6 shadow-inner">
+                <ScoreModeInput
+                  maxScore={question?.score || 0}
+                  initialScore={resp.score || 0}
+                  initialComment={resp.comment}
+                  onScoreChange={({ score, comment }) => {
+                    onScoreUpdate(question._id as string, score, comment);
+                  }}
+                />
               </div>
-            )}
+            </div>
+          ) : (
+            <></>
+          )}
         </div>
       </Card>
     );
-  }
+  },
 );
 
 ResponseItem.displayName = "ResponseItem";

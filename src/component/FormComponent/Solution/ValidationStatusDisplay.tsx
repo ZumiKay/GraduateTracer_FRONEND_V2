@@ -257,24 +257,24 @@ const ValidationStatusDisplay = memo(
               onClick={() =>
                 setIsScoringAnalysisExpanded(!isScoringAnalysisExpanded)
               }
-              className="w-full px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 flex items-center justify-between hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-900/30 dark:hover:to-purple-900/30 transition-colors"
+              className="w-full px-3 py-3 sm:px-5 sm:py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 flex items-center justify-between gap-2 hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-900/30 dark:hover:to-purple-900/30 transition-colors"
               aria-expanded={isScoringAnalysisExpanded}
               aria-controls="scoring-analysis-content"
             >
-              <div className="flex items-center gap-3">
-                <SparklesIcon />
-                <div className="text-left">
-                  <h3 className="font-semibold text-gray-800 dark:text-white">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <span className="flex-shrink-0"><SparklesIcon /></span>
+                <div className="text-left min-w-0">
+                  <h3 className="font-semibold text-gray-800 dark:text-white text-sm sm:text-base">
                     Scoring Analysis
                   </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 hidden sm:block">
                     Breakdown of auto-scoring capabilities for this form
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <span
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+                  className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${
                     validationSummary.scoringAnalysis.isAutoScoreable
                       ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                       : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
@@ -283,12 +283,12 @@ const ValidationStatusDisplay = memo(
                   {validationSummary.scoringAnalysis.isAutoScoreable ? (
                     <>
                       <CheckCircleIcon />
-                      Auto-Scoreable
+                      <span className="hidden xs:inline">Auto-Scoreable</span>
                     </>
                   ) : (
                     <>
                       <WarningIcon />
-                      Manual Review Required
+                      <span className="hidden xs:inline">Manual Review</span>
                     </>
                   )}
                 </span>
@@ -296,8 +296,8 @@ const ValidationStatusDisplay = memo(
               </div>
             </button>
             {isScoringAnalysisExpanded && (
-              <div id="scoring-analysis-content" className="p-5">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div id="scoring-analysis-content" className="p-3 sm:p-5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
                   <div className="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600">
                     <div className="text-xl font-bold text-gray-700 dark:text-gray-200">
                       {validationSummary.scoringAnalysis.totalQuestions}
@@ -420,7 +420,7 @@ const ValidationStatusDisplay = memo(
 
         {formstate.type === "QUIZ" && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <div className="px-3 py-3 sm:px-5 sm:py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
               <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
                 <svg
                   className="w-5 h-5 text-gray-500 dark:text-gray-400"
@@ -438,8 +438,8 @@ const ValidationStatusDisplay = memo(
                 Quiz Configuration
               </h3>
             </div>
-            <div className="p-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-3 sm:p-5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
                 {/* Valid Questions */}
                 <div className="text-center p-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800">
                   <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">

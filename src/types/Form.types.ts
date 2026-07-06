@@ -167,6 +167,7 @@ export interface ContentType<t = unknown> {
   isValidated?: boolean;
   isVisible?: boolean;
   isChildVisibility?: boolean;
+  isBonusScore?: boolean;
   //Helper Field
   isFilled?: boolean;
   children?: Array<ContentType>;

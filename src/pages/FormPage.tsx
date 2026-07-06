@@ -54,12 +54,12 @@ function FormPage() {
   );
   const navigate = useNavigate();
   const { validateForm, showValidationWarnings } = useFormValidation();
-
   const { searchParam, setParams } = useSetSearchParam();
   const [tab, setTab] = useState<alltabs>(
     (searchParam.get("tab") ?? "question") as alltabs,
   );
   const [isSettingUnsaved, setIsSettingUnsaved] = useState(false);
+  const [isScroll, setisScroll] = useState(false);
 
   const formId = useMemo(() => {
     return param.id || formstate._id || "";
@@ -86,6 +86,16 @@ function FormPage() {
     () => allquestion.some((i) => !i._id),
     [allquestion],
   );
+
+  useEffect(() => {
+    window.addEventListener("scroll", () => setisScroll(true));
+    window.addEventListener("scrollend", () => setisScroll(false));
+
+    return () => {
+      window.removeEventListener("scroll", () => setisScroll(true));
+      window.removeEventListener("scrollend", () => setisScroll(false));
+    };
+  }, []);
 
   //Initiallize Page
   useEffect(() => {
@@ -216,8 +226,6 @@ function FormPage() {
         }
       }
 
-      // Note: Removed required question validation for admin interface
-      // Required validation should only apply to respondent forms, not admin form builder
       proceedFunc();
     },
     [formId, validateForm, showValidationWarnings],
@@ -439,7 +447,9 @@ function FormPage() {
       {/* Pagination */}
 
       {(tab === "question" || tab === "solution") && formstate.totalpage ? (
-        <div className="sticky bottom-0 left-0 right-0 w-full h-fit py-3 grid place-content-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div
+          className={`w-full h-fit py-3 grid place-content-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]`}
+        >
           <Pagination
             page={page}
             setPage={handlePage}

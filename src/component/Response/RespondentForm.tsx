@@ -3,7 +3,6 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useState,
   memo,
   lazy,
   useContext,
@@ -120,13 +119,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       checkIfQuestionShouldShow,
     );
 
-    const [respondentInfo, setRespondentInfo] =
-      useState<RespondentInfoType>(formSessionInfo);
-
-    useEffect(() => {
-      setRespondentInfo(formSessionInfo);
-    }, [formSessionInfo]);
-
     const progressStorageKey = useMemo(() => {
       if (!formState?._id) return null;
       return generateStorageKey({
@@ -151,7 +143,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       responses,
       checkIfQuestionShouldShow: checkIfQuestionShouldShow as never,
       validateForm: validateForm as never,
-      respondentInfo,
+      respondentInfo: formSessionInfo,
       clearProgressState,
     });
 
@@ -185,10 +177,13 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     // Check if the user already responded
     useEffect(() => {
+      console.log(formSessionInfo);
+
       if (formState?.setting?.submitonce && formState.isResponsed) {
         setSuccess(true);
       }
     }, [
+      formSessionInfo,
       formState,
       formState?.isResponsed,
       formState?.responses,
@@ -449,9 +444,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     );
 
     const handleRespondentInfoChange = useCallback(
-      (updatedInfo: RespondentInfoType) => {
-        setRespondentInfo(updatedInfo);
-      },
+      (updatedInfo: RespondentInfoType) => {},
       [],
     );
 
@@ -533,7 +526,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           {accessMode !== "login" && !isUserActive && (
             <div className="mb-4 p-3 bg-amber-100 border border-amber-400 rounded-lg text-amber-800">
               <div className="flex items-center gap-2">
-                <span className="font-medium">⚠️ Session Inactive</span>
+                <span className="font-medium">Session Inactive</span>
                 <span className="text-sm">
                   Your progress is not being saved. Please reactivate your
                   session to continue.
@@ -570,10 +563,10 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           {formState &&
             formState._id &&
             currentPage === 1 &&
-            formSessionInfo &&
+            formSessionInfo?.respondentEmail &&
             formState.setting?.email && (
               <RespondentInfo
-                respondentInfo={respondentInfo}
+                respondentInfo={formSessionInfo}
                 onRespondentInfoChange={handleRespondentInfoChange}
               />
             )}

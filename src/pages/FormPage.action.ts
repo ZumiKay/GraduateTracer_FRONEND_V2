@@ -8,6 +8,7 @@ export const AutoSaveQuestion = async (data: {
   formId: string;
   type?: "save" | "edit";
   page?: number;
+  title?: string;
 }) => {
   const url = data.type === "save" ? "/savecontent" : "/editform";
   const response = ApiRequest({

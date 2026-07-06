@@ -7,7 +7,6 @@ import { ConfirmModal } from "./component/Modal/AlertModal";
 import { setUser } from "./redux/user.store";
 import PrivateRoute, { PublichRoute } from "./route/PrivateRoute";
 import ReplaceSessionPage from "./pages/ReplaceSession";
-import { setupAxiosInterceptors } from "./config/axiosInterceptor";
 import { useUserSession } from "./hooks/useUserSession";
 import { AppLoading, PageLoading } from "./component/Loading/AppLoading";
 const AuthenticationPage = lazy(() => import("./pages/Authentication"));
@@ -19,14 +18,14 @@ const FormPage = lazy(() => import("./pages/FormPage"));
 const UserResponsesPage = lazy(() => import("./pages/UserResponsesPage"));
 const ViewResponsePage = lazy(() => import("./pages/ViewResponsePage"));
 const PublicFormAccess = lazy(
-  () => import("./component/Response/PublicFormAccess")
+  () => import("./component/Response/PublicFormAccess"),
 );
 const CookieConsent = lazy(() => import("./component/Cookie/CookieConsent"));
 const Footer = lazy(() => import("./component/Cookie/Footer"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CollaboratorConfirmPage = lazy(
-  () => import("./pages/CollaboratorConfirmPage")
+  () => import("./pages/CollaboratorConfirmPage"),
 );
 const OwnershipConfirmPage = lazy(() => import("./pages/OwnershipConfirmPage"));
 
@@ -39,7 +38,7 @@ const App = memo(() => {
       pathname === "/" ||
       pathname === "/form-access" ||
       pathname.startsWith("/form-access/"),
-    [pathname]
+    [pathname],
   );
 
   const {
@@ -54,7 +53,7 @@ const App = memo(() => {
       pathname !== "/" &&
       pathname !== "/form-access" &&
       !pathname.startsWith("/form-access/"),
-    [pathname]
+    [pathname],
   );
 
   const shouldShowFooter = useMemo(
@@ -63,27 +62,20 @@ const App = memo(() => {
       pathname !== "/form-access" &&
       !pathname.startsWith("/form-access/") &&
       pathname !== "/privacy-policy",
-    [pathname]
+    [pathname],
   );
 
-  useEffect(() => {
-    // Initialize axios interceptors for token refresh
-    setupAxiosInterceptors();
-  }, []);
-
-  // Sync React Query data with Redux store for components that still use Redux
   useEffect(() => {
     if (sessionData && !isFetching) {
       dispatch(
         setUser({
           user: sessionData.user,
           isAuthenticated: sessionData.isAuthenticated,
-        })
+        }),
       );
     }
   }, [dispatch, isFetching, sessionData]);
 
-  // Show loading spinner while session is being initially fetched
   if (isLoading) {
     return <AppLoading />;
   }
@@ -100,7 +92,7 @@ const App = memo(() => {
                 OpenModal.actions.setopenmodal({
                   state: "setting",
                   value: false,
-                })
+                }),
               )
             }
           />
@@ -115,7 +107,7 @@ const App = memo(() => {
               OpenModal.actions.setopenmodal({
                 state: "confirm",
                 value: { open: false },
-              })
+              }),
             )
           }
         />

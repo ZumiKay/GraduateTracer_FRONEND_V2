@@ -49,12 +49,6 @@ export function formStateReducer(
         loginData: { ...state.loginData, ...action.payload },
       };
 
-    case "UPDATE_GUEST_DATA":
-      return {
-        ...state,
-        guestData: { ...state.guestData, ...action.payload },
-      };
-
     case "RESET_LOGIN_DATA":
       return {
         ...state,
@@ -67,14 +61,6 @@ export function formStateReducer(
         loginData: { ...state.loginData, email: action.payload.email },
         formsession: action.payload.session,
         accessMode: "authenticated",
-      };
-
-    case "INIT_GUEST_USER":
-      return {
-        ...state,
-        guestData: action.payload,
-        accessMode: "guest",
-        formsession: { isActive: true },
       };
 
     default:
