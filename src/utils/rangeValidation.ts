@@ -115,13 +115,6 @@ export const validateRangeDate = (
   return end.compare(start) >= 0;
 };
 
-/**
- * Check if a question has valid range values before saving
- */
-export const hasValidRanges = (questions: ContentType[]): boolean => {
-  const errors = validateRangeQuestions(questions);
-  return errors.length === 0;
-};
 
 /**
  * Get user-friendly error messages for range validation errors

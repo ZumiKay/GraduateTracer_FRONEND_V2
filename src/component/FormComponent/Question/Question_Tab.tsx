@@ -85,6 +85,7 @@ const QuestionTab = () => {
                   ref={(el) => {
                     componentRefs.current[questionKey] = el;
                   }}
+                  id={`${page}-${question._id ?? question.qIdx}`}
                 >
                   <QuestionComponent
                     idx={idx}

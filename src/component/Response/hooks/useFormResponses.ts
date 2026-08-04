@@ -121,7 +121,7 @@ export const useFormResponses = (
         return false;
       }
 
-      if (parentQuestion.type === QuestionType.CheckBox) {
+      if (parentQuestion.type === QuestionType.CheckBox || parentQuestion.type === QuestionType.MultipleSelection) {
         let selectedIndices: number[] = [];
 
         let normalizedResponse: ResponseValue | null | undefined =

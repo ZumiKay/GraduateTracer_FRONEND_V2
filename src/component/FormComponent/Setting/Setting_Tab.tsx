@@ -353,11 +353,26 @@ const SettingTab = ({
   }, [dispatch, handleDeleteForm]);
 
   const Settingitem = useCallback(
-    ({ content, action }: { content: string; action?: ReactNode }) => {
+    ({
+      content,
+      description,
+      action,
+    }: {
+      content: string;
+      description?: string;
+      action?: ReactNode;
+    }) => {
       return (
-        <div className="w-full h-fit flex flex-row items-center justify-between p-2 border-b-2 border-b-gray-300 dark:border-b-gray-600">
-          <p className="text-lg font-normal dark:text-gray-200">{content}</p>
-          {action}
+        <div className="flex items-center justify-between px-4 py-3.5 gap-4">
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <p className="text-sm font-medium dark:text-gray-200">{content}</p>
+            {description && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {description}
+              </p>
+            )}
+          </div>
+          <div className="shrink-0">{action}</div>
         </div>
       );
     },
@@ -365,52 +380,54 @@ const SettingTab = ({
   );
 
   return (
-    <div className="setting-tab w-[80%] h-fit flex flex-col items-center gap-y-10 bg-white dark:bg-gray-800 p-2 rounded-lg">
+    <div className="setting-tab w-full max-w-2xl mx-auto flex flex-col gap-y-8 py-4 px-2 sm:px-0">
       {Object.entries(groupedOptions).map(([section, item]) => (
-        <div key={`${section} of setting`} className="w-full h-fit">
-          <p
-            key={section}
-            className="text-4xl font-bold text-left w-full dark:text-gray-100"
-          >
+        <div key={`${section} of setting`} className="flex flex-col gap-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400 px-1">
             {section}
           </p>
-
-          {(item as unknown as SettingOptionType).map(
-            (setting, idx) =>
-              setting && (
-                <Settingitem
-                  key={idx}
-                  content={setting.label ?? ""}
-                  action={
-                    setting.type === "color" && setting.color ? (
-                      <CustomizeColorPicker
-                        colors={setting.color}
-                        value={
-                          formstate.setting
-                            ? formstate.setting[setting.state as never]
-                            : ""
-                        }
-                        onChange={(val) => {
-                          handleChangeSetting({ [setting.state]: val });
-                        }}
-                      />
-                    ) : setting.type === "select" ? (
-                      <Selection
-                        className="w-[150px]"
-                        items={setting.option ?? []}
-                        selectedKeys={[
-                          handleChangeSetting(setting.state) as string,
-                        ]}
-                        onChange={(val) =>
-                          handleChangeSetting({
-                            [setting.state]: val.target.value,
-                          })
-                        }
-                        aria-label={`Select ${setting.label}`}
-                      />
-                    ) : setting.type === "switch" ? (
-                      <>
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
+            {(item as unknown as SettingOptionType).map(
+              (setting, idx) =>
+                setting && (
+                  <Settingitem
+                    key={idx}
+                    content={setting.label ?? ""}
+                    description={
+                      setting.state === "autosave"
+                        ? "Applies to the Question tab only"
+                        : undefined
+                    }
+                    action={
+                      setting.type === "color" && setting.color ? (
+                        <CustomizeColorPicker
+                          colors={setting.color}
+                          value={
+                            formstate.setting
+                              ? formstate.setting[setting.state as never]
+                              : ""
+                          }
+                          onChange={(val) => {
+                            handleChangeSetting({ [setting.state]: val });
+                          }}
+                        />
+                      ) : setting.type === "select" ? (
+                        <Selection
+                          className="w-[150px]"
+                          items={setting.option ?? []}
+                          selectedKeys={[
+                            handleChangeSetting(setting.state) as string,
+                          ]}
+                          onChange={(val) =>
+                            handleChangeSetting({
+                              [setting.state]: val.target.value,
+                            })
+                          }
+                          aria-label={`Select ${setting.label}`}
+                        />
+                      ) : setting.type === "switch" ? (
                         <Switch
+                          size="sm"
                           onValueChange={(val) =>
                             handleChangeSetting({ [setting.state]: val })
                           }
@@ -423,14 +440,14 @@ const SettingTab = ({
                               }
                             : {})}
                         />
-                      </>
-                    ) : (
-                      <></>
-                    )
-                  }
-                />
-              ),
-          )}
+                      ) : (
+                        <></>
+                      )
+                    }
+                  />
+                ),
+            )}
+          </div>
         </div>
       ))}
 
@@ -470,43 +487,52 @@ const SettingTab = ({
       )}
 
       {/* Collaborative Features Section */}
-
-      <div className="collaborative w-full h-full flex flex-row items-center justify-between">
-        <div className="flex flex-col">
-          <p className="text-lg font-bold dark:text-gray-100">Collaboration</p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Manage form access and collaborative editing
-          </p>
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400 px-1">
+          Collaboration
+        </p>
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+          <div className="flex items-center justify-between px-4 py-3.5 gap-4">
+            <div className="flex flex-col gap-0.5">
+              <p className="text-sm font-medium dark:text-gray-200">
+                Form Access
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Manage form access and collaborative editing
+              </p>
+            </div>
+            {formstate.isEditor ? (
+              <Button
+                color="danger"
+                variant="flat"
+                size="sm"
+                className="font-semibold shrink-0"
+                onPress={() => {
+                  const value: ConfirmModalDataType = {
+                    open: true,
+                    data: {
+                      question: "Are you sure ? (Action can't undo)",
+                      onAgree: () => handleRemoveSelf(),
+                    },
+                  };
+                  dispatch(setopenmodal({ state: "confirm", value }));
+                }}
+              >
+                Leave Form
+              </Button>
+            ) : (
+              <Button
+                color="primary"
+                variant="flat"
+                size="sm"
+                className="font-semibold shrink-0"
+                onPress={() => setShowOwnerManager(true)}
+              >
+                Manage Access
+              </Button>
+            )}
+          </div>
         </div>
-        {formstate.isEditor ? (
-          <Button
-            color="danger"
-            variant="solid"
-            className="font-bold max-w-sm"
-            onPress={() => {
-              const value: ConfirmModalDataType = {
-                open: true,
-                data: {
-                  question: "Are you sure ? (Action can't undo)",
-                  onAgree: () => handleRemoveSelf(),
-                },
-              };
-
-              dispatch(setopenmodal({ state: "confirm", value }));
-            }}
-          >
-            Remove Self From Form
-          </Button>
-        ) : (
-          <Button
-            color="primary"
-            variant="solid"
-            className="font-bold max-w-sm"
-            onPress={() => setShowOwnerManager(true)}
-          >
-            Manage Access
-          </Button>
-        )}
       </div>
 
       {/* Owner Manager Modal */}
@@ -517,13 +543,14 @@ const SettingTab = ({
         />
       )}
 
-      <div className="btn_section w-full h-[40px] flex flex-row items-center gap-x-5">
+      <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
         <Button
           isLoading={loading}
+          variant="flat"
           onPress={() => handleRestoreSetting()}
-          className="bg-slate-400 text-white font-bold"
+          className="font-semibold"
         >
-          Restore
+          Restore Defaults
         </Button>
         <Button
           isLoading={loading}
@@ -542,9 +569,9 @@ const SettingTab = ({
               }) as never,
             )
           }
-          className="text-white font-bold"
+          className="text-white font-semibold"
         >
-          Save
+          Save Changes
         </Button>
       </div>
     </div>

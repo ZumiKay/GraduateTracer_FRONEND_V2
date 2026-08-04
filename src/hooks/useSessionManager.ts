@@ -10,12 +10,12 @@ interface UseSessionManagerProps {
   setformsession: React.Dispatch<
     React.SetStateAction<Partial<RespondentSessionType> | undefined>
   >;
-  onAutoSignOut?: () => Promise<void>;
+  onAutoSignOut?: () => void;
 }
 
 const INACTIVITY_WARNING_TIMEOUT = 10 * 60 * 1000; // 10 minute
 const AUTO_SIGNOUT_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-const PAGE_VISIBILITY_ALERT_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+const PAGE_VISIBILITY_ALERT_THRESHOLD = 5 * 1000; // 5 minutes
 const ACTIVITY_EVENTS = [
   "mousedown",
   "mousemove",
@@ -88,7 +88,7 @@ export const useSessionManager = ({
 
         try {
           if (onAutoSignOut) {
-            await onAutoSignOut();
+            onAutoSignOut();
           }
         } catch (error) {
           console.error("Error during auto signout:", error);
@@ -122,10 +122,7 @@ export const useSessionManager = ({
 
   //Only enable acitivity timer when form required email
   useEffect(() => {
-    if (
-      (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
-      accessMode === "guest"
-    ) {
+    if (accessMode === "authenticated" && isFormRequiredSessionChecked) {
       lastResetTimeRef.current = 0;
       resetActivityTimer();
     }
@@ -146,10 +143,7 @@ export const useSessionManager = ({
       if (!isMountedRef.current) return;
       resetActivityTimer();
     };
-    if (
-      (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
-      accessMode === "guest"
-    ) {
+    if (accessMode === "authenticated" && isFormRequiredSessionChecked) {
       ACTIVITY_EVENTS.forEach((event) => {
         document.addEventListener(event, handleActivity, { passive: true });
       });

@@ -10,6 +10,7 @@ interface LoginFormProps {
   loginData: LoginData;
   isLoading: boolean;
   user?: SessionState;
+  error?: string;
   onLoginChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: onLoginFuncType;
 }
@@ -20,10 +21,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   user,
   onSubmit,
   onLoginChange,
+  error,
 }) => {
   return (
     <div className="space-y-6">
       <Form onSubmit={onSubmit} className="space-y-5 w-full">
+        {error ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+            <p className="font-semibold">Login failed</p>
+            <p className="mt-1 leading-relaxed">{error}</p>
+          </div>
+        ) : null}
+
         <div className="space-y-1 w-full">
           <Input
             name="email"

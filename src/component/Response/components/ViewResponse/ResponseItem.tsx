@@ -1,21 +1,21 @@
 import React, { useMemo } from "react";
 import { Card, Chip } from "@heroui/react";
-import {
-  QuestionType,
-  ContentType,
-  ChoiceQuestionType,
-  AnswerKey,
-} from "../../types/Form.types";
-import {
-  ResponseSetType,
-  AnswerKeyPairValueType,
-  ResponseValueType,
-} from "../../component/Response/Response.type";
-import StyledTiptap from "../../component/Response/components/StyledTiptap";
-import { ConditionalIndicator } from "../../component/Response/components/ConditionalIndicator";
-import { ScoreModeInput } from "../../component/FormComponent/Solution/ScoreComponent";
-import { isResponseEmpty } from "../../utils/responseUtils";
 import { RangeValue } from "@heroui/react";
+import {
+  AnswerKeyPairValueType,
+  ResponseSetType,
+  ResponseValueType,
+} from "../../Response.type";
+import {
+  AnswerKey,
+  ChoiceQuestionType,
+  ContentType,
+  QuestionType,
+} from "../../../../types/Form.types";
+import { ConditionalIndicator } from "../ConditionalIndicator";
+import StyledTiptap from "../StyledTiptap";
+import { isResponseEmpty } from "../../../../utils/responseUtils";
+import { ScoreModeInput } from "../../../FormComponent/Solution/ScoreComponent";
 
 interface ResponseItemProps {
   response: ResponseSetType;
@@ -27,17 +27,15 @@ interface ResponseItemProps {
   responseId?: string;
 }
 
-// Helper to check if a question is a range type
 const isRangeType = (qType: QuestionType) =>
   qType === QuestionType.RangeDate || qType === QuestionType.RangeNumber;
 
-// Helper to check if a question is a choice type
 const isChoiceType = (qType: QuestionType) =>
   qType === QuestionType.CheckBox ||
   qType === QuestionType.MultipleChoice ||
-  qType === QuestionType.Selection;
+  qType === QuestionType.Selection ||
+  qType === QuestionType.MultipleSelection;
 
-// Get options for choice questions
 const getChoiceOptions = (question: ContentType): ChoiceQuestionType[] => {
   switch (question.type) {
     case QuestionType.CheckBox:
@@ -45,6 +43,7 @@ const getChoiceOptions = (question: ContentType): ChoiceQuestionType[] => {
     case QuestionType.MultipleChoice:
       return question.multiple || [];
     case QuestionType.Selection:
+    case QuestionType.MultipleSelection:
       return question.selection || [];
     default:
       return [];

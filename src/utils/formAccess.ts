@@ -30,22 +30,6 @@ export const checkFormAccess = (formData: FormDataType): FormAccessInfo => {
   };
 };
 
-/**
- * Get access level display name
- */
-export const getAccessLevelDisplay = (
-  accessLevel: "owner" | "collaborator" | "none"
-): string => {
-  switch (accessLevel) {
-    case "owner":
-      return "Form Creator";
-    case "collaborator":
-      return "Collaborator";
-    case "none":
-    default:
-      return "No Access";
-  }
-};
 
 /**
  * Check if user can perform specific actions based on access level

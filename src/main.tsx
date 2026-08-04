@@ -12,12 +12,6 @@ import "es6-shim";
 import { QueryClientProvider } from "@tanstack/react-query";
 import queryClient from "./hooks/ReactQueryClient.tsx";
 
-// Import test utilities in development mode
-if (import.meta.env.DEV) {
-  import("./utils/testFormAccess.ts");
-  import("./utils/testSecurity.ts");
-  import("./utils/debugFormAccess.ts");
-}
 
 // Apply dark mode on initial load based on localStorage
 const isDarkMode = JSON.parse(localStorage.getItem("darkmode") ?? "false");

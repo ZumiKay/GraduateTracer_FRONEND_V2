@@ -16,6 +16,7 @@ import {
   FolderIcon,
   QuestionIcon,
 } from "./Assets";
+import ValidationIssueDisplay from "../ValidationIssueDisplay";
 
 interface QuestionCardProps {
   question: ContentType;
@@ -51,6 +52,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
   return (
     <div
+      id={`question-card-${question._id || question.qIdx}`}
+      data-question-id={question._id || question.qIdx}
+      data-qidx={question.qIdx}
       className={`mt-3 transition-all duration-200 ${
         level > 0 ? `pl-${Math.min(level * 4, 12)}` : ""
       }`}
@@ -223,6 +227,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               <QuestionIcon width="16" height="16" className="text-gray-500" />
             </div>
           </div>
+
+          {/* Per-question validation issues */}
+          {question.validationIssues &&
+            question.validationIssues.length > 0 && (
+              <ValidationIssueDisplay issues={question.validationIssues} />
+            )}
         </CardBody>
       </Card>
     </div>

@@ -1,9 +1,7 @@
 import { useState, useCallback } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import ApiRequest, { ApiRequestReturnType } from "./APIHook/ApiHook";
+import { useMutation } from "@tanstack/react-query";
+import ApiRequest, { ApiError, ApiRequestReturnType } from "./APIHook/ApiHook";
 import queryClient from "./ReactQueryClient";
-import { ErrorToast } from "../component/Modal/AlertModal";
-import { AxiosError } from "axios";
 
 let isSwitchingUser = false;
 
@@ -44,6 +42,7 @@ export interface SessionVerificationParams {
 
 export interface ReplaceSessionParams {
   code: string;
+  isSkipLogin?: boolean;
 }
 
 export interface FormsessionResponse {
@@ -64,25 +63,11 @@ export interface SessionVerificationResponse extends ApiRequestReturnType {
 
 export const useFormsessionAPI = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleApiResponse = useCallback((response: ApiRequestReturnType) => {
-    if (!response.success) {
-      if (response.status === 401) {
-        return { ...response, session: { isExpired: true } };
-      }
-      const errorMessage =
-        response.error || response.message || "An error occurred";
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-    setError(null);
-    return response;
-  }, []);
+  const [error, setError] = useState<ApiError | null>(null);
 
   const respondentLogin = useMutation({
     mutationKey: ["respondentLogin"],
-    mutationFn: async (props: RespondentLoginProps) => {
+    mutationFn: (props: RespondentLoginProps) => {
       return ApiRequest({
         method: "POST",
         url: "/response/respondentlogin",
@@ -93,168 +78,91 @@ export const useFormsessionAPI = () => {
     },
   });
 
-  const useSessionVerification = (
-    enabled: boolean = false,
-    formId: string = "",
-  ) => {
-    return useQuery({
-      queryKey: ["sessionVerification"],
-      queryFn: async () => {
-        if (!formId) {
-          throw Error("No form found");
-        }
-
-        setError(null);
-        const response = await ApiRequest({
-          method: "GET",
-          url: `/response/verifyformsession/${formId}`,
-          cookie: true,
-          skipRefresh: true,
-        });
-
-        return handleApiResponse(response) as SessionVerificationResponse;
-      },
-      enabled,
-      retry: false, // Disable retry to prevent multiple failed requests
-      staleTime: 5 * 60 * 1000, // 5 minutes of cached
-      refetchInterval: false,
-      refetchOnWindowFocus: true, // Disable refetch on window focus
-      refetchOnReconnect: false, // Disable refetch on network reconnect
-    });
-  };
-
-  const useManuallySessionVeriftication = (
+  const useSessionVeriftication = (
     formId?: string,
     handleSessionExpired?: () => void,
   ) => {
     return useMutation({
-      mutationKey: ["manualSessionVerification", formId],
-      mutationFn: async () => {
+      mutationKey: ["SessionVerification", formId],
+      mutationFn() {
         if (!formId) {
           throw new Error("Invalid FormId");
         }
-
         setError(null);
-        const response = await ApiRequest({
+        return ApiRequest({
           method: "GET",
           url: `/response/verifyformsession/${formId}`,
           cookie: true,
-          skipRefresh: true,
           reactQuery: true,
         });
-
-        return handleApiResponse(response) as SessionVerificationResponse;
       },
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["sessionVerification"] });
+      onSuccess() {
+        queryClient.invalidateQueries({ queryKey: ["SessionVerification"] });
       },
-      onError: (error: AxiosError) => {
-        // Skip showing error toast if user is switching
-        if (!isSwitchingUser) {
-          ErrorToast({
-            toastid: "Manually check session",
-            title: "Verification Failed",
-            content: error.message,
-          });
+      onError: (error) => {
+        //Show session renewal modal
+        const err = error as ApiError;
 
-          //Show session renewal modal
-          if (handleSessionExpired) handleSessionExpired();
-        }
-        setError(error.message);
+        if (handleSessionExpired && err.status === 401) handleSessionExpired();
+
+        setError(error);
       },
     });
   };
 
   const replaceSession = useMutation({
     mutationKey: ["replaceSession"],
-    mutationFn: async (
-      params: ReplaceSessionParams,
-    ): Promise<FormsessionResponse> => {
-      setIsLoading(true);
+    mutationFn(params: ReplaceSessionParams) {
       setError(null);
-
-      try {
-        const response = await ApiRequest({
-          method: "PATCH",
-          url: `/response/sessionremoval/${params.code}`,
-          cookie: true,
-        });
-
-        return handleApiResponse(response) as FormsessionResponse;
-      } finally {
-        setIsLoading(false);
-      }
+      return ApiRequest({
+        method: "PATCH",
+        url: `/response/sessionremoval/${params.code}${params.isSkipLogin ? "?skiplogin=1" : ""}`,
+        cookie: true,
+        reactQuery: true,
+      });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sessionVerification"] });
-      queryClient.invalidateQueries({ queryKey: ["formsession"] });
-      queryClient.removeQueries({ queryKey: ["sessionVerification"] });
-    },
-    onError: (error: Error) => {
-      setError(error.message);
+    onSuccess() {
+      queryClient.invalidateQueries({ queryKey: ["SessionVerification"] });
     },
   });
 
   const signOut = useMutation({
     mutationKey: ["signOut"],
-    mutationFn: async (formId: string): Promise<FormsessionResponse> => {
-      setIsLoading(true);
+    mutationFn(formId: string) {
       setError(null);
 
-      try {
-        const response = await ApiRequest({
-          method: "DELETE",
-          url: "/response/sessionlogout/" + formId,
-          cookie: true,
-        });
-
-        return handleApiResponse(response) as FormsessionResponse;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    onSuccess: () => {
-      queryClient.clear();
-      localStorage.removeItem("formsession");
-      localStorage.removeItem("accessToken");
-    },
-    onError: (error: Error) => {
-      setError(error.message);
+      return ApiRequest({
+        method: "DELETE",
+        url: "/response/sessionlogout/" + formId,
+        cookie: true,
+        reactQuery: true,
+        skipRefresh: true,
+      });
     },
   });
 
   const sendRemovalEmail = useMutation({
     mutationKey: ["sendRemovalEmail"],
-    mutationFn: async (
-      props: SendRemovalEmailProps,
-    ): Promise<FormsessionResponse> => {
-      setIsLoading(true);
+    mutationFn(props: SendRemovalEmailProps) {
       setError(null);
 
-      try {
-        const response = await ApiRequest({
-          method: "POST",
-          url: "/response/send-removal-email", // Assuming this endpoint exists
-          data: props,
-        });
-
-        return handleApiResponse(response) as FormsessionResponse;
-      } finally {
-        setIsLoading(false);
-      }
+      return ApiRequest({
+        method: "POST",
+        url: "/response/send-removal-email", // Assuming this endpoint exists
+        data: props,
+        reactQuery: true,
+      });
     },
-    onError: (error: Error) => {
-      setError(error.message);
-    },
+    onError: setError,
   });
 
   const refreshSession = useCallback(async () => {
     setIsLoading(true);
     try {
       await queryClient.invalidateQueries({
-        queryKey: ["sessionVerification"],
+        queryKey: ["SessionVerification"],
       });
-      await queryClient.refetchQueries({ queryKey: ["sessionVerification"] });
+      await queryClient.refetchQueries({ queryKey: ["SessionVerification"] });
     } catch (error) {
       console.error("Session refresh failed:", error);
       throw error;
@@ -264,9 +172,8 @@ export const useFormsessionAPI = () => {
   }, []);
 
   const clearSessionData = useCallback(() => {
-    queryClient.removeQueries({ queryKey: ["sessionVerification"] });
+    queryClient.removeQueries({ queryKey: ["SessionVerification"] });
     queryClient.removeQueries({ queryKey: ["formsession"] });
-    localStorage.removeItem("formsession");
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
@@ -276,48 +183,12 @@ export const useFormsessionAPI = () => {
     replaceSession,
     signOut,
     sendRemovalEmail,
-    useSessionVerification,
-    useManuallySessionVeriftication,
+    useSessionVeriftication,
     refreshSession,
     clearSessionData,
     clearError,
     isLoading,
     error,
-    // Quick access
-    isLoginLoading: respondentLogin.isPending,
-    isSessionLoading: replaceSession.isPending,
-    isEmailLoading: sendRemovalEmail.isPending,
-
-    loginSuccess: respondentLogin.isSuccess,
-    sessionSuccess: replaceSession.isSuccess,
-    emailSuccess: sendRemovalEmail.isSuccess,
-
-    loginError: respondentLogin.error,
-
-    sessionError: replaceSession.error || signOut.error,
-    emailError: sendRemovalEmail.error,
-  };
-};
-
-export const useSessionActions = () => {
-  const {
-    replaceSession,
-    signOut,
-    isSessionLoading,
-    sessionSuccess,
-    sessionError,
-  } = useFormsessionAPI();
-
-  return {
-    replace: replaceSession.mutate,
-    replaceAsync: replaceSession.mutateAsync,
-    signOut: signOut.mutate,
-    signOutAsync: signOut.mutateAsync,
-    isLoading: isSessionLoading,
-    isSuccess: sessionSuccess,
-    error: sessionError,
-    resetReplace: replaceSession.reset,
-    resetSignOut: signOut.reset,
   };
 };
 

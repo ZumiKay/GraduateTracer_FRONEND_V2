@@ -20,6 +20,7 @@ interface AuthContainerProps {
   user: SessionState;
   updateLoginState: React.Dispatch<FormAction>;
   onLogin: onLoginFuncType;
+  error?: string;
 }
 
 export const AuthContainer: React.FC<AuthContainerProps> = ({
@@ -30,6 +31,7 @@ export const AuthContainer: React.FC<AuthContainerProps> = ({
   user,
   updateLoginState,
   onLogin,
+  error,
 }) => {
   return (
     <div className="w-full min-h-screen  dark:bg-gray-700 light:bg-gradient-to-br light:from-slate-50 light:via-blue-50 light:to-indigo-100 flex items-center justify-center p-4">
@@ -62,6 +64,7 @@ export const AuthContainer: React.FC<AuthContainerProps> = ({
                   isLoading={isLoginLoading}
                   user={user}
                   onSubmit={onLogin}
+                  error={error}
                   onLoginChange={(e) =>
                     updateLoginState({
                       type: "UPDATE_LOGIN_DATA",

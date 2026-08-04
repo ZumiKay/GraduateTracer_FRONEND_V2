@@ -1,32 +1,38 @@
 import { useEffect, useState } from "react";
-import { RootState } from "../../../redux/store";
-import { FormAction, FormState } from "../types/PublicFormAccessTypes";
-import useFormsessionAPI from "../../../hooks/useFormsessionAPI";
+import { FormAction } from "../types/PublicFormAccessTypes";
 import { generateStorageKey } from "../../../helperFunc";
-import { RespondentSessionType } from "../Response.type";
+import { RespondentInfoType, RespondentSessionType } from "../Response.type";
+import { useQuery } from "@tanstack/react-query";
+import ApiRequest from "../../../hooks/APIHook/ApiHook";
 
 const useFormInitialization = ({
   formId,
   dispatch,
-  formstate,
 }: {
   formId: string | undefined;
-  user: RootState["usersession"];
   dispatch: React.Dispatch<FormAction>;
-  formstate: FormState;
 }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
-  const { useSessionVerification } = useFormsessionAPI();
-
-  const sessionVerificationEnabled = Boolean(formId);
-  const verifiedSession = useSessionVerification(
-    Boolean(sessionVerificationEnabled),
-    formId,
-  );
+  const verifiedSession = useQuery({
+    queryKey: ["SessionVerifcation", formId],
+    queryFn: () =>
+      ApiRequest({
+        method: "GET",
+        url: "/response/verifyformsession/" + formId,
+        reactQuery: true,
+        cookie: true,
+        skipRefresh: true,
+      }),
+    staleTime: 5 * 60 * 60, //5 minutes stale
+    retry: false,
+    networkMode: "online",
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
 
   useEffect(() => {
-    console.log("Form initialized");
     const initializeForm = async () => {
       setIsInitializing(true);
       setIsInitialized(false);
@@ -37,22 +43,17 @@ const useFormInitialization = ({
           return;
         }
 
-        if (
-          verifiedSession.isLoading ||
-          verifiedSession.isFetching ||
-          !dispatch
-        ) {
+        if (verifiedSession.isLoading || !dispatch) {
           return;
         }
 
-        if (
-          verifiedSession.data?.data &&
-          !verifiedSession.data.data.isNormalForm
-        ) {
+        const verifiedData = verifiedSession.data?.data as RespondentInfoType;
+
+        if (verifiedData) {
           //Initialize storage key for form session
           const key = generateStorageKey({
             suffix: "state",
-            userKey: verifiedSession.data.data.respondentEmail,
+            userKey: verifiedData.respondentEmail,
             formId: formId,
           });
 
@@ -74,7 +75,7 @@ const useFormInitialization = ({
             //*If no formsession state exist
             const defaultSession: RespondentSessionType = {
               isActive: true,
-              respondentinfo: verifiedSession.data.data,
+              respondentinfo: verifiedData,
             };
             dispatch({
               type: "SET_FORMSESSION",
@@ -90,27 +91,19 @@ const useFormInitialization = ({
         console.error("Form initialization error:", error);
         setIsInitialized(true); // Still mark as initialized to prevent blocking
       } finally {
-        if (!verifiedSession.isLoading && !verifiedSession.isFetching) {
+        if (!verifiedSession.isLoading) {
           setIsInitializing(false);
         }
       }
     };
 
     initializeForm();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    formId,
-    verifiedSession.isLoading,
-    verifiedSession.isFetched,
-    verifiedSession.isFetching,
-    verifiedSession.data?.data,
-  ]);
+  }, [dispatch, formId, verifiedSession.data?.data, verifiedSession.isLoading]);
 
   return {
     isInitialized,
     isInitializing,
-    sessionVerificationLoading:
-      verifiedSession.isLoading || verifiedSession.isFetching,
+    sessionVerificationLoading: verifiedSession.isPending,
     sessionVerificationError: verifiedSession.error,
     sessionData: verifiedSession.data,
   };

@@ -101,9 +101,15 @@ export default function Navigationbar() {
     () =>
       canSaveTabs &&
       !formData.fetchloading &&
-      isAutosaveDisabled &&
+      (isAutosaveDisabled || currentTab === "solution") &&
       !isDashboard,
-    [canSaveTabs, formData.fetchloading, isAutosaveDisabled, isDashboard],
+    [
+      canSaveTabs,
+      formData.fetchloading,
+      isAutosaveDisabled,
+      currentTab,
+      isDashboard,
+    ],
   );
 
   const saveButtonState = useMemo(() => {
@@ -247,7 +253,13 @@ export default function Navigationbar() {
     } finally {
       setsaveloading(false);
     }
-  }, [dispatch, formData.formstate, formData.allquestion, formData.page, manualSave]);
+  }, [
+    dispatch,
+    formData.formstate,
+    formData.allquestion,
+    formData.page,
+    manualSave,
+  ]);
 
   const applyTitleChange = useCallback(
     (newTitle: string) => {
@@ -259,31 +271,33 @@ export default function Navigationbar() {
   );
 
   const handleTitleBlur = useCallback(() => {
-    const newTitle = (formtitleRef.current?.textContent?.trim() || "").slice(0, 50);
+    const newTitle = (formtitleRef.current?.textContent?.trim() || "").slice(
+      0,
+      50,
+    );
     applyTitleChange(newTitle);
   }, [applyTitleChange]);
 
-  const handleTitleInput = useCallback(
-    (e: React.FormEvent<HTMLDivElement>) => {
-      const el = e.currentTarget;
-      const text = el.textContent || "";
-      if (text.length > 50) {
-        el.textContent = text.slice(0, 50);
-        const sel = window.getSelection();
-        const range = document.createRange();
-        if (el.firstChild) {
-          range.setStart(el.firstChild, 50);
-          range.collapse(true);
-          sel?.removeAllRanges();
-          sel?.addRange(range);
-        }
+  const handleTitleInput = useCallback((e: React.FormEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const text = el.textContent || "";
+    if (text.length > 50) {
+      el.textContent = text.slice(0, 50);
+      const sel = window.getSelection();
+      const range = document.createRange();
+      if (el.firstChild) {
+        range.setStart(el.firstChild, 50);
+        range.collapse(true);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   const handleMobileTitleBlur = useCallback(() => {
-    const newTitle = (mobileFormtitleRef.current?.textContent?.trim() || "").slice(0, 50);
+    const newTitle = (
+      mobileFormtitleRef.current?.textContent?.trim() || ""
+    ).slice(0, 50);
     applyTitleChange(newTitle);
   }, [applyTitleChange]);
 
@@ -415,18 +429,21 @@ export default function Navigationbar() {
             </div>
           )}
 
-          {!isSettingTab && !formData.fetchloading && !isAutosaveDisabled && (
-            <div className="flex flex-col items-end gap-0.5">
-              <AutoSaveContainer />
-              {autoSaveStatusText && (
-                <span
-                  className={`hidden sm:block text-xs ${autoSaveStatusColor}`}
-                >
-                  {autoSaveStatusText}
-                </span>
-              )}
-            </div>
-          )}
+          {!isSettingTab &&
+            !formData.fetchloading &&
+            !isAutosaveDisabled &&
+            currentTab !== "solution" && (
+              <div className="flex flex-col items-end gap-0.5">
+                <AutoSaveContainer />
+                {autoSaveStatusText && (
+                  <span
+                    className={`hidden sm:block text-xs ${autoSaveStatusColor}`}
+                  >
+                    {autoSaveStatusText}
+                  </span>
+                )}
+              </div>
+            )}
 
           <NotificationContainer
             userId={userSession?.user?._id || ""}

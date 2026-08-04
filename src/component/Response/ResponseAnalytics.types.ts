@@ -149,8 +149,13 @@ export interface TopPerformer {
 export interface DifficultQuestion {
   questionId: string;
   title: string;
-  accuracy: number;
-  averageScore: number;
+  accuracy: number; // full-mark rate  (0–1)
+  partialAccuracy: number; // any-credit rate (0–1)
+  averageScore: number; // raw avg earned
+  maxScore: number;
+  averagePercent: number; // avg earned as % of max (0–100)
+  responseCount: number;
+  isConditional: boolean;
 }
 
 export interface OverviewPerformanceData {
@@ -158,7 +163,7 @@ export interface OverviewPerformanceData {
   completedResponses: number;
   averageScore: number;
   responseRate: number;
-  averageCompletionTime: number;
+  averageCompletionTime: string;
   timeSeriesData: TimeSeriesPoint[];
   performanceMetrics: {
     topPerformers: TopPerformer[];

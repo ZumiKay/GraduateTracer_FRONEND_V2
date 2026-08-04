@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import ApiRequest from "./APIHook/ApiHook";
-import { FormDataType } from "../types/Form.types";
 
 // Type for form tabs
 type alltabs =
@@ -31,17 +30,15 @@ export const useFormAPI = () => {
       tab: alltabs;
       page: number;
       formId: string;
-    }): Promise<FormDataType> => {
+    }) => {
       const ty = tab === "question" ? "detail" : tab;
 
-      const response = await ApiRequest({
+      return ApiRequest({
         url: `/filteredform?ty=${ty}&q=${formId}&page=${page}`,
         method: "GET",
         cookie: true,
         reactQuery: true,
       });
-
-      return response.data as FormDataType;
     },
     [],
   );

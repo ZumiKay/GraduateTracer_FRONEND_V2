@@ -674,11 +674,12 @@ const ResponseDisplayCard: React.FC<ResponseDisplayCardProps> = React.memo(
           );
         }
 
-        // Handle Choice Questions (Multiple Choice, Checkbox, Selection)
+        // Handle Choice Questions (Multiple Choice, Checkbox, Selection, MultipleSelection)
         if (
           questionType === QuestionType.MultipleChoice ||
           questionType === QuestionType.CheckBox ||
-          questionType === QuestionType.Selection
+          questionType === QuestionType.Selection ||
+          questionType === QuestionType.MultipleSelection
         ) {
           // Get the choices array based on the question type
           let choices: Array<{ idx: number; content: string }> | undefined;
@@ -690,7 +691,10 @@ const ResponseDisplayCard: React.FC<ResponseDisplayCardProps> = React.memo(
             choices = question?.checkbox as
               | Array<{ idx: number; content: string }>
               | undefined;
-          } else if (questionType === QuestionType.Selection) {
+          } else if (
+            questionType === QuestionType.Selection ||
+            questionType === QuestionType.MultipleSelection
+          ) {
             choices = question?.selection as
               | Array<{ idx: number; content: string }>
               | undefined;

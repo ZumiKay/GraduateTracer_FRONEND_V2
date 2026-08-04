@@ -12,6 +12,7 @@ export const getQuestionTypeLabel = (type: QuestionType): string => {
     [QuestionType.RangeNumber]: "Range Number",
     [QuestionType.RangeDate]: "Range Date",
     [QuestionType.Selection]: "Selection",
+    [QuestionType.MultipleSelection]: "Multiple Selection",
   };
   return typeMap[type] || "Unknown";
 };

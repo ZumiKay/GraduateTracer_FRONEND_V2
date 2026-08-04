@@ -9,7 +9,7 @@ export { FormStateCard } from "./components/FormStateCard";
 
 // Hooks
 export { useFormResponses } from "./hooks/useFormResponses";
-export { useFormValidation } from "./hooks/useFormValidation";
+export { useFormValidation } from "../../hooks/ValidationHook";
 export type { FormResponse, ResponseValue } from "./hooks/useFormResponses";
 
 // Utils

@@ -14,9 +14,8 @@ import {
 import { SessionVerificationResponse } from "../../../hooks/useFormsessionAPI";
 import { SessionState } from "../../../redux/user.store";
 import { generateStorageKey } from "../../../helperFunc";
-import { ErrorToast } from "../../Modal/AlertModal";
 
-export type accessModeType = "login" | "guest" | "authenticated" | "error";
+export type accessModeType = "login" | "authenticated" | "error";
 type fetchtype = "data" | "initial";
 export interface GetFormStateResponseType extends FormDataType {
   isResponsed?: SubmittionProcessionReturnType;
@@ -26,7 +25,7 @@ export interface GetFormStateResponseType extends FormDataType {
 }
 
 export type UseRespondentFormPaginationReturn = {
-  isLoading: boolean;
+  isFetching: boolean;
   handlePage: (direction: "prev" | "next") => void;
   formState: GetFormStateResponseType | undefined;
   currentPage: number | null;
@@ -36,9 +35,8 @@ export type UseRespondentFormPaginationReturn = {
   error: Error | null;
   totalPages: number;
   showInactiveAlert?: boolean;
-  // Additional debugging states
-  isFetching?: boolean;
-  isPending?: boolean;
+  isSuccess?: boolean;
+  isFormRequiredSessionChecked?: boolean;
 };
 
 type useRespondentFormPaginationProps = {
@@ -84,24 +82,38 @@ const useRespondentFormPaginaition = ({
   );
 
   const savedPageData = useMemo(() => {
-    if (!storageKey) return null;
-    try {
-      const storedData = localStorage.getItem(storageKey);
-      return storedData ? (JSON.parse(storedData) as SaveProgressType) : null;
-    } catch (error) {
-      console.error("Failed to parse saved page data:", error);
-      return null;
+    if (!formId) return null;
+    if (storageKey) {
+      try {
+        const storedData = localStorage.getItem(storageKey);
+        return storedData ? (JSON.parse(storedData) as SaveProgressType) : null;
+      } catch (error) {
+        console.error("Failed to parse saved page data:", error);
+        return null;
+      }
     }
-  }, [storageKey]);
+    // Fallback for open/guest forms: no email-based key available
+    if (enabled) {
+      try {
+        const noEmailKey = generateStorageKey({ suffix: "progress", formId });
+        const storedData = localStorage.getItem(noEmailKey);
+        return storedData ? (JSON.parse(storedData) as SaveProgressType) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [storageKey, formId, enabled]);
 
-  //Page Inititalize
+  // Initialize currentPage once — wait until we have a storage key or
+  // initialization is complete (enabled), so we never default to page 1
+  // prematurely and trigger an unnecessary fetch.
   useEffect(() => {
-    if (savedPageData?.currentPage) {
-      setcurrentPage(savedPageData.currentPage);
-    } else {
-      setcurrentPage(1);
+    if (currentPage !== null) return; // already initialized
+    if (storageKey !== null || enabled) {
+      setcurrentPage(savedPageData?.currentPage ?? 1);
     }
-  }, [savedPageData]);
+  }, [storageKey, enabled, savedPageData, currentPage]);
 
   const stableFormsession = useMemo(() => {
     if (
@@ -124,7 +136,7 @@ const useRespondentFormPaginaition = ({
   }, [stableFormsession, localformsession]);
 
   const fetchContent = useCallback(
-    async ({
+    ({
       page,
       ty,
       formId,
@@ -145,34 +157,12 @@ const useRespondentFormPaginaition = ({
         p: page.toString(),
         ty,
       });
-
-      try {
-        const getData = await ApiRequest({
-          url: `/response/form/${formId}?${params}`,
-          method: "GET",
-          cookie: true,
-          reactQuery: true,
-        });
-
-        if (!getData.success) {
-          if (getData.status === 401) {
-            if (accessModeRef.current !== "login") {
-              ErrorToast({ title: "Session", content: "Unauthenticated" });
-            }
-            console.log("Unauthenticated - user session expired");
-            return { ...getData, isAuthenicated: false };
-          }
-
-          return Promise.reject(
-            new Error(`Failed to fetch form data: ${getData.status}`),
-          );
-        }
-
-        return getData;
-      } catch (error) {
-        console.error("Network error during fetch:", error);
-        return Promise.reject(error);
-      }
+      return ApiRequest({
+        url: `/response/form/${formId}?${params}`,
+        method: "GET",
+        cookie: true,
+        reactQuery: true,
+      });
     },
     [],
   );
@@ -191,24 +181,28 @@ const useRespondentFormPaginaition = ({
     [fetchContent, stableQueryParams],
   );
 
-  const { data, error, isFetching } = useQuery({
-    queryKey: ["respondent-form", formId, currentPage, fetchType],
+  const { data, error, isFetching, isSuccess } = useQuery({
+    queryKey: [
+      "respondent-form",
+      formId,
+      currentPage,
+      fetchType,
+      formsession?.respondentinfo?.respondentEmail ?? null,
+    ],
     queryFn,
-    staleTime: 5 * 60 * 1000, // 5 minutes - better caching
+    staleTime: 5 * 60 * 1000, // 5 minutes
     enabled: Boolean(enabled && formId && currentPage && currentPage >= 1),
     retry: (failureCount, error: Error) => {
-      // Retry on network errors, but not on 401 (auth errors)
       const status = (error as unknown as { status?: number }).status;
       if (status === 401) return false;
       return failureCount < 2; // Max 2 retries
     },
     refetchOnWindowFocus: false,
-    refetchOnMount: false, // Don't refetch on mount if data is fresh
-    refetchInterval: false, // Disable automatic refetching
-    refetchOnReconnect: false, // Don't refetch when network reconnects
-    refetchIntervalInBackground: false, // Don't refetch in background
+    refetchOnMount: false,
+    refetchInterval: false,
+    refetchOnReconnect: false,
+    refetchIntervalInBackground: false,
 
-    // Add network mode to prevent loading on every network change
     networkMode: "online",
   });
 
@@ -217,13 +211,22 @@ const useRespondentFormPaginaition = ({
   }, [data]);
 
   useEffect(() => {
-    if (
-      (accessMode === "authenticated" || accessMode === "guest") &&
-      !formState?.isLoggedIn
+    if (accessMode === "authenticated" && !formState?.isAuthenticated) {
+      setfetchType("initial");
+    } else if (
+      formState &&
+      !formState?.setting?.email &&
+      !formState?.isResponsed
     ) {
       setfetchType("data");
     }
-  }, [accessMode, formState?.isLoggedIn]);
+  }, [
+    accessMode,
+    formState,
+    formState?.isAuthenticated,
+    formState?.isResponsed,
+    formState?.setting?.email,
+  ]);
 
   useEffect(() => {
     if (!formId) {
@@ -276,7 +279,6 @@ const useRespondentFormPaginaition = ({
 
   return useMemo(
     () => ({
-      isLoading: isFetching,
       handlePage,
       formState,
       currentPage,
@@ -287,10 +289,10 @@ const useRespondentFormPaginaition = ({
       totalPages,
       // Additional states for debugging and loading management
       isFetching,
-      isPending: isFetching,
+      isSuccess,
+      isFormRequiredSessionChecked: !!formState?.setting?.email,
     }),
     [
-      isFetching,
       handlePage,
       formState,
       currentPage,
@@ -299,6 +301,8 @@ const useRespondentFormPaginaition = ({
       navigationState.canGoPrev,
       error,
       totalPages,
+      isFetching,
+      isSuccess,
     ],
   );
 };

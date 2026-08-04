@@ -35,7 +35,6 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
   children,
   manuallyCheckSession,
   onSessionExpired,
-  periodicCheckInterval = 0,
   checkOnVisibilityChange = true,
 }) => {
   const lastCheckResultRef = useRef<boolean | null>(null);
@@ -43,18 +42,15 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
   const checkCooldownMs = 5000; // Minimum 5 seconds between checks
 
   const checkSession = useCallback(async (): Promise<boolean> => {
-    // Throttle: prevent checking too frequently
     const now = Date.now();
     if (now - lastCheckTimeRef.current < checkCooldownMs) {
-      console.log("🔄 [SessionContext] Session check throttled");
       return lastCheckResultRef.current ?? true;
     }
 
+    lastCheckTimeRef.current = now;
+
     try {
-      lastCheckTimeRef.current = now;
-
       const result = await manuallyCheckSession.mutateAsync();
-
       if (result.success) {
         lastCheckResultRef.current = true;
         return true;
@@ -63,24 +59,12 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
         onSessionExpired?.();
         return false;
       }
-    } catch (error) {
-      console.log(error);
+    } catch {
       lastCheckResultRef.current = false;
       onSessionExpired?.();
       return false;
     }
   }, [manuallyCheckSession, onSessionExpired]);
-
-  // Periodic session check
-  // useEffect(() => {
-  //   // if (periodicCheckInterval <= 0) return;
-
-  //   // const interval = setInterval(() => {
-  //   //   checkSession();
-  //   // }, periodicCheckInterval);
-
-  //   // return () => clearInterval(interval);
-  // }, [periodicCheckInterval, checkSession]);
 
   useEffect(() => {
     if (!checkOnVisibilityChange) return;

@@ -8,12 +8,28 @@ import React, {
   useContext,
 } from "react";
 import { Alert, Spinner } from "@heroui/react";
+import { useDispatch } from "react-redux";
 import {
   QuestionType,
   AnswerKey,
   ContentType,
   FormTypeEnum as FormTypeEnumImport,
 } from "../../types/Form.types";
+import { UseRespondentFormPaginationReturn } from "./hooks/usePaginatedFormData";
+import { RespondentInfoType } from "./Response.type";
+import { useFormResponses, ResponseValue } from "./hooks/useFormResponses";
+import { useProgressStorage } from "./hooks/useProgressStorage";
+import {
+  useFormSubmission,
+  useSendResponseCopy,
+} from "./hooks/useFormSubmission";
+import { setopenmodal } from "../../redux/openmodal";
+import { generateStorageKey } from "../../helperFunc";
+import { SubmissionSuccessView } from "./components/SubmissionSuccessView";
+import { QuestionRenderer } from "./components/QuestionRenderer";
+import { RespondentInfo } from "./components/RespondentInfo";
+import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
+import SessionContext from "../../context/SessionContext";
 
 const FormHeader = lazy(() =>
   import("./components/FormHeader").then((m) => ({ default: m.FormHeader })),
@@ -27,24 +43,6 @@ const FormStateCard = lazy(() =>
   })),
 );
 
-import { useFormResponses, ResponseValue } from "./hooks/useFormResponses";
-import { useFormValidation } from "./hooks/useFormValidation";
-import { UseRespondentFormPaginationReturn } from "./hooks/usePaginatedFormData";
-import { RespondentInfoType } from "./Response.type";
-import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
-import { RespondentInfo } from "./components/RespondentInfo";
-import { useDispatch } from "react-redux";
-import { setopenmodal } from "../../redux/openmodal";
-import { useProgressStorage } from "./hooks/useProgressStorage";
-import {
-  useFormSubmission,
-  useSendResponseCopy,
-} from "./hooks/useFormSubmission";
-import { generateStorageKey } from "../../helperFunc";
-import { SubmissionSuccessView } from "./components/SubmissionSuccessView";
-import { QuestionRenderer } from "./components/QuestionRenderer";
-import SessionContext from "../../context/SessionContext";
-
 const uniqueToastId = "respondentFormUniqueToastId";
 
 export interface RespondentFormProps {
@@ -54,6 +52,7 @@ export interface RespondentFormProps {
   formSessionInfo: RespondentInfoType;
   accessMode?: "login" | "guest" | "authenticated";
   isUserActive?: boolean;
+  isLoading?: boolean;
 }
 
 const LoadingFallback = memo(() => (
@@ -82,10 +81,10 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     accessMode = "authenticated",
     isUserActive = true,
     formSessionInfo,
+    isLoading,
   }) => {
     const {
       formState,
-      isLoading,
       error: formError,
       handlePage,
       currentPage,
@@ -114,11 +113,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       formSessionInfo.respondentEmail,
     );
 
-    //Form data Validation before submission
-    const { isPageComplete, validateForm } = useFormValidation(
-      checkIfQuestionShouldShow,
-    );
-
     const progressStorageKey = useMemo(() => {
       if (!formState?._id) return null;
       return generateStorageKey({
@@ -142,7 +136,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       questions,
       responses,
       checkIfQuestionShouldShow: checkIfQuestionShouldShow as never,
-      validateForm: validateForm as never,
+      validateForm: formState as never,
       respondentInfo: formSessionInfo,
       clearProgressState,
     });
@@ -177,19 +171,10 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     // Check if the user already responded
     useEffect(() => {
-      console.log(formSessionInfo);
-
       if (formState?.setting?.submitonce && formState.isResponsed) {
         setSuccess(true);
       }
-    }, [
-      formSessionInfo,
-      formState,
-      formState?.isResponsed,
-      formState?.responses,
-      formState?.setting?.submitonce,
-      setSuccess,
-    ]);
+    }, [formState, setSuccess]);
 
     // Load progress from storage on mount
     useEffect(() => {
@@ -258,28 +243,22 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     }, [formState?.setting]);
 
     const getCurrentPageQuestions = useCallback(() => {
-      const validQuestions = questions.filter((question) => {
-        if (!question._id) {
-          return false;
-        }
-        return true;
-      });
-
-      const visibleQuestions = validQuestions.filter((question) => {
+      return questions.filter((question) => {
+        if (!question._id) return false;
         try {
-          const isVisible = checkIfQuestionShouldShow(question, responses);
-          return isVisible;
+          return checkIfQuestionShouldShow(question, responses);
         } catch (error) {
           console.error(error);
           return false;
         }
       });
-
-      return visibleQuestions;
     }, [questions, checkIfQuestionShouldShow, responses]);
 
-    const currentQuestions = getCurrentPageQuestions();
-    const currentPageComplete = isPageComplete(currentQuestions, responses);
+    const currentQuestions = useMemo(
+      () => getCurrentPageQuestions(),
+      [getCurrentPageQuestions],
+    );
+    const currentPageComplete = true;
 
     const withSessionCheck = useCallback(
       async (action: () => void) => {
@@ -410,6 +389,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
                 processedValue = Number(answer.answer);
               }
               break;
+            case QuestionType.MultipleSelection:
             case QuestionType.Selection:
             case QuestionType.MultipleChoice:
               if (Array.isArray(answer.answer)) {
@@ -443,11 +423,6 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       [questions, updateResponse],
     );
 
-    const handleRespondentInfoChange = useCallback(
-      (updatedInfo: RespondentInfoType) => {},
-      [],
-    );
-
     const handleSendACopy = async () => {
       if (!scoreData?.responseId || !scoreData.respondentEmail) {
         ErrorToast({
@@ -468,7 +443,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
         SuccessToast({ title: "Success", content: "Email Sent" });
       } catch (error) {
-        console.log("Error", error);
+        console.error("Send copy error:", error);
         ErrorToast({ title: "Send Copy", content: "Error Occured" });
       }
     };
@@ -552,48 +527,34 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             </small>
           </div>
 
-          {formState && (
-            <FormHeader
-              title={formState?.title}
-              currentPage={currentPage ?? 1}
-              totalPages={totalPages}
-            />
-          )}
+          <FormHeader
+            title={formState.title}
+            currentPage={currentPage ?? 1}
+            totalPages={totalPages}
+          />
 
-          {formState &&
-            formState._id &&
+          {formState._id &&
             currentPage === 1 &&
             formSessionInfo?.respondentEmail &&
             formState.setting?.email && (
-              <RespondentInfo
-                respondentInfo={formSessionInfo}
-                onRespondentInfoChange={handleRespondentInfoChange}
-              />
+              <RespondentInfo respondentInfo={formSessionInfo} />
             )}
 
           <div className="space-y-6">
-            {isLoading && (
-              <div className="flex justify-center items-center py-8">
-                <Spinner size="lg" aria-label="Loading form data" />
-                <span className="ml-3 text-gray-600">Loading form data...</span>
-              </div>
-            )}
-
-            {!isLoading &&
-              currentQuestions.map((question, index) => (
-                <QuestionRenderer
-                  key={question._id}
-                  question={question}
-                  index={index}
-                  questions={questions}
-                  currentResponse={responses.find(
-                    (r) => r.question === question._id,
-                  )}
-                  formQColor={formState?.setting?.qcolor}
-                  onAnswer={handleQuestionAnswer}
-                  updateResponse={updateResponse as never}
-                />
-              ))}
+            {currentQuestions.map((question, index) => (
+              <QuestionRenderer
+                key={question._id}
+                question={question}
+                index={index}
+                questions={questions}
+                currentResponse={responses.find(
+                  (r) => r.question === question._id,
+                )}
+                formQColor={formState.setting?.qcolor}
+                onAnswer={handleQuestionAnswer}
+                updateResponse={updateResponse as never}
+              />
+            ))}
           </div>
 
           {error && (
@@ -606,18 +567,16 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             </Alert>
           )}
         </div>
-        {currentQuestions && (
-          <Navigation
-            currentPage={currentPage ?? 1}
-            totalPages={totalPages}
-            isCurrentPageComplete={currentPageComplete}
-            submitting={submitting}
-            onPrevious={handlePrevious}
-            onNext={handleNext}
-            onPageChange={handlePageChange}
-            onSubmit={handleSubmit}
-          />
-        )}
+        <Navigation
+          currentPage={currentPage ?? 1}
+          totalPages={totalPages}
+          isCurrentPageComplete={currentPageComplete}
+          submitting={submitting}
+          onPrevious={handlePrevious}
+          onNext={handleNext}
+          onPageChange={handlePageChange}
+          onSubmit={handleSubmit}
+        />
       </>
     );
   },

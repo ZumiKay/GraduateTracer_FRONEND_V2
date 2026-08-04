@@ -29,7 +29,7 @@ interface ErrorResponse {
   errors?: Array<{ message: string }>;
 }
 
-interface ApiError extends Error {
+export interface ApiError extends Error {
   status?: number;
   response?: {
     data?: ErrorResponse;

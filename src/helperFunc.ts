@@ -803,3 +803,21 @@ export function saveFormStateToLocalStorage<PartialDataType>({
     ),
   );
 }
+
+export function calculateFinalTotal(
+  totalScore: number,
+  oldPageTotal: number,
+  newPageTotal: number,
+) {
+  return totalScore - oldPageTotal + newPageTotal;
+}
+
+export const CalculateRemainMaxScore = ({
+  parentScore,
+  siblingScore,
+  currentScore,
+}: {
+  parentScore: number;
+  siblingScore: number;
+  currentScore: number;
+}) => Math.max(0, parentScore - siblingScore - currentScore);

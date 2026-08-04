@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useMutation } from "@tanstack/react-query";
+import { useDispatch } from "react-redux";
 import ApiRequest from "../hooks/APIHook/ApiHook";
 import { CollaboratorType } from "../types/Form.types";
+import { AsyncLoggout, logout } from "../redux/user.store";
+import { setPendingRedirect } from "../utils/authRedirect";
 
 interface ConfirmCollaboratorResponse {
   formId: string;
@@ -10,11 +13,18 @@ interface ConfirmCollaboratorResponse {
   role: CollaboratorType;
 }
 
-type ConfirmStatus = "loading" | "success" | "error" | "expired" | "invalid";
+type ConfirmStatus =
+  | "loading"
+  | "success"
+  | "error"
+  | "expired"
+  | "invalid"
+  | "wrong-account";
 
 const CollaboratorConfirmPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [status, setStatus] = useState<ConfirmStatus>("loading");
   const [message, setMessage] = useState<string>("");
   const [formData, setFormData] = useState<ConfirmCollaboratorResponse | null>(
@@ -24,34 +34,26 @@ const CollaboratorConfirmPage = () => {
   const invite = searchParams.get("invite");
 
   const confirmMutation = useMutation({
-    mutationFn: async (inviteCode: string) => {
-      const response = await ApiRequest({
+    mutationFn: (inviteCode: string) => {
+      return ApiRequest({
         method: "POST",
         url: "/collaborator/confirm",
         data: { invite: inviteCode },
         cookie: true,
         reactQuery: true,
       });
-
-      if (!response.success) {
-        throw new Error(response.error || "Failed to confirm collaboration");
-      }
-
-      return response.data as ConfirmCollaboratorResponse;
     },
     onSuccess: (data) => {
-      setFormData(data);
+      const collaboratorData = data.data as ConfirmCollaboratorResponse;
+      if (!collaboratorData) return;
+      setFormData(collaboratorData);
       setStatus("success");
-      setMessage(`You have been added as ${data.role} to "${data.formTitle}"`);
-
-      // Redirect to form after 3 seconds
-      setTimeout(() => {
-        navigate(`/form/${data.formId}`);
-      }, 3000);
+      setMessage(
+        `You have been added as ${collaboratorData.role} to "${collaboratorData.formTitle}"`,
+      );
     },
     onError: (error: Error) => {
       const errorMessage = error.message.toLowerCase();
-
       if (errorMessage.includes("expired")) {
         setStatus("expired");
         setMessage("This invitation has expired. Please request a new one.");
@@ -62,9 +64,9 @@ const CollaboratorConfirmPage = () => {
         setStatus("invalid");
         setMessage("This invitation is invalid or has already been used.");
       } else if (errorMessage.includes("not for you")) {
-        setStatus("error");
+        setStatus("wrong-account");
         setMessage(
-          "This invitation was sent to a different account. Please login with the correct account.",
+          "This invitation was sent to a different account. Please sign in with the correct account to accept it.",
         );
       } else {
         setStatus("error");
@@ -73,10 +75,16 @@ const CollaboratorConfirmPage = () => {
     },
   });
 
+  const handleSwitchAccount = async () => {
+    setPendingRedirect(window.location.pathname + window.location.search);
+    await AsyncLoggout();
+    dispatch(logout());
+    navigate("/", { replace: true });
+  };
+
   useEffect(() => {
     if (!invite) {
-      setStatus("invalid");
-      setMessage("No invitation code provided");
+      navigate("/notfound", { replace: true });
       return;
     }
 
@@ -93,10 +101,6 @@ const CollaboratorConfirmPage = () => {
 
   const handleGoToDashboard = () => {
     navigate("/dashboard");
-  };
-
-  const handleGoToLogin = () => {
-    navigate("/");
   };
 
   return (
@@ -252,6 +256,45 @@ const CollaboratorConfirmPage = () => {
           </div>
         )}
 
+        {/* Wrong Account State */}
+        {status === "wrong-account" && (
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-100 dark:bg-amber-900 rounded-full mb-6">
+              <svg
+                className="w-8 h-8 text-amber-600 dark:text-amber-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              Wrong Account
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{message}</p>
+            <div className="space-y-3">
+              <button
+                onClick={handleSwitchAccount}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+              >
+                Sign Out &amp; Login with Different Account
+              </button>
+              <button
+                onClick={handleGoToDashboard}
+                className="w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-2 px-4 rounded-lg transition-colors"
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Error State */}
         {status === "error" && (
           <div className="text-center">
@@ -280,12 +323,6 @@ const CollaboratorConfirmPage = () => {
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
               >
                 Go to Dashboard
-              </button>
-              <button
-                onClick={handleGoToLogin}
-                className="w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-2 px-4 rounded-lg transition-colors"
-              >
-                Login with Different Account
               </button>
             </div>
           </div>

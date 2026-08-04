@@ -100,7 +100,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       const isChanged = hasDataChanged(latestVal);
 
       if (isChanged) {
-        //If question have no questionId critital error
         if (latestVal.some((i) => !i.questionId)) {
           ErrorToast({
             toastid: "Save Question",
@@ -110,8 +109,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           return;
         }
 
-        // Preserve client-side isVisible state — the server doesn't persist this
-        // field, so blindly replacing state causes conditional questions to vanish.
         const currentQuestions = allQuestionRef.current;
         const mergedQuestions = latestVal.map((serverQ) => {
           const currentQ = currentQuestions.find((q) =>
@@ -261,12 +258,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
             retryCount: 0,
           });
 
-          ErrorToast({
-            title: "Auto-save Failed",
-            content: `Failed to save after ${retryAttempts} attempts. ${errorMessage}`,
-            toastid: "autosave-error",
-          });
-
           return false;
         }
       }
@@ -324,7 +315,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline, offlineQueue.length]);
 
-  // Timer resets on each edit to avoid too many requests
   const debouncedSave = useCallback(
     (data: ContentType) => {
       // Clear existing timer and restart - this ensures save only happens
@@ -407,12 +397,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           error: errorMessage,
           retryCount: 0,
         }));
-
-        ErrorToast({
-          title: "Manual Save Failed",
-          content: errorMessage,
-          toastid: "manual-save-error",
-        });
 
         return false;
       } finally {

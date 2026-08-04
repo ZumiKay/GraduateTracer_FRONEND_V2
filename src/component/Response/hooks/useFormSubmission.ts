@@ -154,6 +154,7 @@ export const useFormSubmission = ({
           respondentEmail: respondentInfo?.respondentEmail,
           respondentName: respondentInfo?.respondentName,
           completionTime: completionTimeSeconds,
+          isGuest: respondentInfo.isGuest,
         },
       })) as ApiRequestReturnType;
 

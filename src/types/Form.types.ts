@@ -75,7 +75,6 @@ export interface FormDataType {
   owners?: Array<string>;
   editors?: Array<string>;
   totalpage: number;
-  totalscore?: number;
   createdAt?: Date;
   updatedAt?: Date;
   responses?: Array<FormResponseType>;
@@ -85,8 +84,14 @@ export interface FormDataType {
   isEditor?: boolean;
   isCollaborator?: boolean;
   formType?: string; // Represents which dashboard tab this form belongs to
-  lastqIdx?: number;
-
+  lastQuestionIdx?: number;
+  currentPageTotalScores?: number;
+  totalQuestions?: number;
+  totalScores?: number;
+  totalConditions?: number;
+  extraScore?: number;
+  dynamicTotalScore?: number;
+  validation?: FormValidationSummary;
   //Helper types
   isFilled?: boolean;
   isAuthenticated?: boolean;
@@ -102,10 +107,34 @@ export enum QuestionType {
   Date = "date",
   RangeDate = "rangedate",
   Selection = "selection",
+  MultipleSelection = "multipleselection",
   RangeNumber = "rangenumber",
   ShortAnswer = "shortanswer",
   Paragraph = "paragraph",
 }
+
+// Question types that are always automatically scored (objective types)
+export const AUTO_SCORABLE_TYPES: Set<QuestionType> = new Set([
+  QuestionType.MultipleChoice,
+  QuestionType.CheckBox,
+  QuestionType.Selection,
+  QuestionType.MultipleSelection,
+  QuestionType.Number,
+  QuestionType.Date,
+  QuestionType.RangeDate,
+  QuestionType.RangeNumber,
+]);
+
+// Question types that can be auto-scored IF they have both answer key and score
+export const MAYBE_AUTO_SCORABLE_TYPES: Set<QuestionType> = new Set([
+  QuestionType.ShortAnswer,
+  QuestionType.Paragraph,
+]);
+
+// Question types that are display only (no scoring)
+export const DISPLAY_ONLY_TYPES: Set<QuestionType> = new Set([
+  QuestionType.Text,
+]);
 
 // Range Type
 export interface RangeType<t> {
@@ -142,6 +171,12 @@ export interface ParentContentType {
   optIdx: number;
 }
 
+// Per-Question Validation Issue
+export interface QuestionValidationIssue {
+  type: "error" | "warning";
+  message: string;
+}
+
 // Content Type
 export interface ContentType<t = unknown> {
   _id?: string;
@@ -168,9 +203,12 @@ export interface ContentType<t = unknown> {
   isVisible?: boolean;
   isChildVisibility?: boolean;
   isBonusScore?: boolean;
+  useChildScoreSum?: boolean;
   //Helper Field
   isFilled?: boolean;
   children?: Array<ContentType>;
+  validationIssues?: QuestionValidationIssue[];
+  validationWarning?: QuestionValidationIssue[];
   [key: string]: t | unknown;
 }
 
@@ -286,32 +324,38 @@ export const DefaultFormState: FormDataType = {
   setting: getDefaultFormSetting(FormTypeEnum.Normal),
 };
 
-// Validation Types
-export interface ValidationResult {
-  isValid: boolean;
-  errors: string[];
-  warnings: string[];
-  missingAnswers: string[];
-  missingScores: string[];
-  wrongScores: string[];
+export interface ValidationErrorMessageType {
+  name?: string;
+  message?: string;
 }
 
-export interface CombinedValidationResults {
-  errors: string[];
-  warnings: string[];
-  missingAnswers: string[];
-  missingScores: string[];
-  wrongScores: string[];
+export interface ErrorValidataionPropsType {
+  _id?: string;
+  qIdx?: number;
+  questionId: string;
+  page: number;
+  message?: ValidationErrorMessageType;
+}
+
+// Validation Types
+export interface ValidationResult {
+  isValid?: boolean;
+  errors?: Array<ErrorValidataionPropsType>;
+  warnings?: Array<ErrorValidataionPropsType>;
+  missingAnswers?: Array<ErrorValidataionPropsType>;
+  missingScores?: Array<ErrorValidataionPropsType>;
+  wrongScores?: Array<ErrorValidataionPropsType>;
 }
 
 export interface ScoringAnalysis {
   isAutoScoreable: boolean;
+  /** Total number of questions across all pages of the form */
   totalQuestions: number;
   scoredQuestions: number;
   autoScorableQuestions: number;
   manualGradingQuestions: number;
-  missingAnswerKeys: Array<{ qIdx: number; title: string; type: QuestionType }>;
-  unsupportedTypes: Array<{ qIdx: number; title: string; type: QuestionType }>;
+  missingAnswerKeys: Partial<ContentType>;
+  unsupportedTypes: Partial<ContentType>;
 }
 
 export interface FormValidationSummary {
@@ -319,9 +363,16 @@ export interface FormValidationSummary {
   totalValidQuestions: number;
   totalInvalidQuestions: number;
   totalScore: number;
-  validationResults: CombinedValidationResults;
+  validationResults: ValidationResult;
+  initialCurrentPageScoreAnalysis?: ScoringAnalysis;
   scoringAnalysis?: ScoringAnalysis;
   canProceed?: boolean;
   canSubmit?: boolean;
   action?: string;
+}
+
+export interface SummaryFormType {
+  totalScore: number;
+  totalQuestion: number;
+  lastQuestionIdx: number;
 }

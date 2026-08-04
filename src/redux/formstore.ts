@@ -7,6 +7,7 @@ import {
 import ApiRequest from "../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 import { ShowLinkedQuestionType } from "../types/Global.types";
+import { validateRealtimeQuestions } from "../component/Response/utils/validationUtils";
 
 export const AsyncSaveForm = createAsyncThunk(
   "form/save",
@@ -68,10 +69,25 @@ const formstore = createSlice({
     showLinkedQuestions: null as Array<ShowLinkedQuestionType> | null,
     revalidateContent: false,
     testQuestonState: undefined as Array<ContentType> | undefined,
+    showOverview: false,
   },
   reducers: {
+    setShowOverview: (state, action: PayloadAction<boolean>) => {
+      state.showOverview = action.payload;
+    },
     setformstate: (state, action: PayloadAction<FormDataType>) => {
+      //Force to prevent to replace the whole formstate
+      if (action.type) {
+        state.formstate[action.type as never] = action.payload as never;
+      }
       state.formstate = action.payload;
+    },
+
+    setvalidation: (
+      state,
+      action: PayloadAction<Pick<FormDataType, "validation">>,
+    ) => {
+      state.formstate.validation = action.payload.validation;
     },
     setisFormEdit: (state, action: PayloadAction<boolean>) => {
       state.isFormEdit = action.payload;
@@ -85,12 +101,20 @@ const formstore = createSlice({
         Array<ContentType> | ((prev: Array<ContentType>) => Array<ContentType>)
       >,
     ) => {
+      let newQuestions: ContentType[];
       if (typeof action.payload === "function") {
-        const newQuestions = action.payload(state.allquestion as ContentType[]);
-
-        state.allquestion = newQuestions;
+        newQuestions = action.payload(state.allquestion as ContentType[]);
       } else {
-        state.allquestion = action.payload;
+        newQuestions = action.payload;
+      }
+
+      const currentTab =
+        new URLSearchParams(window.location.search).get("tab") ?? "question";
+
+      if (currentTab === "question") {
+        state.allquestion = validateRealtimeQuestions(newQuestions, "question");
+      } else {
+        state.allquestion = newQuestions;
       }
     },
     setprevallquestion: (state, action: PayloadAction<Array<ContentType>>) => {
@@ -206,5 +230,7 @@ export const {
   setshowLinkedQuestion,
   setRevalidateContent,
   settTestQuestionState,
+  setvalidation,
+  setShowOverview,
 } = formstore.actions;
 export default formstore;

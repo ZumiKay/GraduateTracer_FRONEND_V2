@@ -2,7 +2,12 @@ import { Tab, Tabs } from "@heroui/react";
 import { useNavigate, useParams } from "react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FormDataType } from "../types/Form.types";
+import {
+  FormDataType,
+  ErrorValidataionPropsType,
+  QuestionValidationIssue,
+  ValidationResult,
+} from "../types/Form.types";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 import {
@@ -21,14 +26,13 @@ import ResponseDashboard from "../component/Response/ResponseDashboard";
 import ResponseAnalytics from "../component/Response/ResponseAnalytics";
 import { setopenmodal } from "../redux/openmodal";
 import { useSetSearchParam } from "../hooks/CustomHook";
-import useFormValidation from "../hooks/ValidationHook";
-import ImprovedAutoSave from "../component/AutoSave/ImprovedAutoSave";
 import { useQuery } from "@tanstack/react-query";
 import Pagination from "../component/Navigator/PaginationComponent";
 import { useFormAPI } from "../hooks/useFormAPI";
 import useUserSession from "../hooks/useUserSession";
+import OverviewContainer from "../component/FormComponent/Overview/component";
 
-type alltabs =
+export type alltabs =
   | "question"
   | "solution"
   | "preview"
@@ -44,6 +48,82 @@ interface ApiError extends Error {
   };
 }
 
+/**
+ * Extract per-question validation issues from combined validation results.
+ * Returns a Map keyed by question _id or qIdx string, with an array of
+ * QuestionValidationIssue (type + message) for each question.
+ */
+function extractQuestionValidationIssues(
+  validationResults?: ValidationResult,
+): Map<string, QuestionValidationIssue[]> {
+  const map = new Map<string, QuestionValidationIssue[]>();
+  if (!validationResults) return map;
+
+  const getIssueMessage = (
+    item: ErrorValidataionPropsType,
+    fallback: string,
+  ): string => {
+    if (!item.message) return fallback;
+    if (typeof item.message === "string") return item.message;
+    if (typeof item.message === "object" && item.message.message) {
+      return item.message.message;
+    }
+    return fallback;
+  };
+
+  const addIssue = (
+    item: ErrorValidataionPropsType,
+    type: "error" | "warning",
+    message: string,
+  ) => {
+    const key = item._id || String(item.qIdx ?? "");
+    if (!key) return;
+    const existing = map.get(key) || [];
+    existing.push({ type, message });
+    map.set(key, existing);
+  };
+
+  validationResults.errors?.forEach((item) => {
+    if (typeof item === "object" && item !== null) {
+      addIssue(
+        item,
+        "error",
+        getIssueMessage(item, `Validation error on ${item.questionId}`),
+      );
+    }
+  });
+
+  validationResults.warnings?.forEach((item) => {
+    if (typeof item === "object" && item !== null) {
+      addIssue(
+        item,
+        "warning",
+        getIssueMessage(item, `Warning on ${item.questionId}`),
+      );
+    }
+  });
+
+  validationResults.missingAnswers?.forEach((item) => {
+    if (typeof item === "object" && item !== null) {
+      addIssue(item, "error", getIssueMessage(item, "Missing answer key"));
+    }
+  });
+
+  validationResults.missingScores?.forEach((item) => {
+    if (typeof item === "object" && item !== null) {
+      addIssue(item, "warning", getIssueMessage(item, "Missing score value"));
+    }
+  });
+
+  validationResults.wrongScores?.forEach((item) => {
+    if (typeof item === "object" && item !== null) {
+      addIssue(item, "error", getIssueMessage(item, "Invalid score setting"));
+    }
+  });
+
+  return map;
+}
+
 function FormPage() {
   const param = useParams();
   const dispatch = useDispatch();
@@ -53,19 +133,17 @@ function FormPage() {
     (root: RootState) => root.allform,
   );
   const navigate = useNavigate();
-  const { validateForm, showValidationWarnings } = useFormValidation();
   const { searchParam, setParams } = useSetSearchParam();
   const [tab, setTab] = useState<alltabs>(
     (searchParam.get("tab") ?? "question") as alltabs,
   );
   const [isSettingUnsaved, setIsSettingUnsaved] = useState(false);
-  const [isScroll, setisScroll] = useState(false);
 
   const formId = useMemo(() => {
     return param.id || formstate._id || "";
   }, [param.id, formstate._id]);
 
-  const { data, error, isLoading, isFetching } = useQuery({
+  const { data, isSuccess, error, isError, isFetching } = useQuery({
     queryKey: ["FormInfo", formId, page, tab],
     queryFn: () => fetchFormTab({ tab, page, formId }),
     enabled: !!formId || !!userSession.error,
@@ -87,16 +165,6 @@ function FormPage() {
     [allquestion],
   );
 
-  useEffect(() => {
-    window.addEventListener("scroll", () => setisScroll(true));
-    window.addEventListener("scrollend", () => setisScroll(false));
-
-    return () => {
-      window.removeEventListener("scroll", () => setisScroll(true));
-      window.removeEventListener("scrollend", () => setisScroll(false));
-    };
-  }, []);
-
   //Initiallize Page
   useEffect(() => {
     const currentPage = searchParam.get("page");
@@ -106,15 +174,13 @@ function FormPage() {
   }, [dispatch, searchParam]);
 
   useEffect(() => {
-    dispatch(setfetchloading(isLoading || isFetching));
-
     if (!param.id) {
       navigate("/dashboard", { replace: true });
       return;
     }
 
-    if (data && !error) {
-      const result = data as FormDataType;
+    if (isSuccess && data.data) {
+      const result = data.data as FormDataType;
 
       const hasAccess = result.isOwner || result.isCreator || result.isEditor;
 
@@ -151,21 +217,30 @@ function FormPage() {
         setformstate({
           ...result,
           contents: undefined,
-          totalscore: result.totalscore,
-          totalpage: result.totalpage,
+          validation: result.validation,
         }),
       );
 
       // Update questions only for question/solution tabs
       if (shouldUpdateQuestions && result.contents) {
         const currentPage = Number(searchParam.get("page") ?? 1);
-        const normalizedContents = (result.contents ?? []).map((q) => ({
-          ...q,
-          page: q.page ?? currentPage,
-          isChildVisibility:
-            q.conditional && q.conditional.length > 0 ? true : undefined,
-          isVisible: q.parentcontent ? true : undefined,
-        }));
+
+        // Extract per-question validation issues from combined validation
+        const validationMap = extractQuestionValidationIssues(
+          result.validation?.validationResults,
+        );
+
+        const normalizedContents = (result.contents ?? []).map((q) => {
+          const key = q._id || String(q.qIdx);
+          return {
+            ...q,
+            page: q.page ?? currentPage,
+            isChildVisibility:
+              q.conditional && q.conditional.length > 0 ? true : undefined,
+            isVisible: q.parentcontent ? true : undefined,
+            validationIssues: validationMap.get(key) ?? [],
+          };
+        });
 
         //Check for unsavedquestion
 
@@ -177,9 +252,7 @@ function FormPage() {
     }
 
     // Handle errors
-    if (error && !isLoading) {
-      console.error("React Query error:", error);
-
+    if (isError && error) {
       const apiError = error as ApiError;
 
       if (apiError?.status === 403) {
@@ -198,71 +271,53 @@ function FormPage() {
         ErrorToast({
           toastid: "FormError",
           title: "Error",
-          content: apiError?.message || "Failed to load form",
+          content: "Failed to load form",
         });
       }
 
       navigate("/dashboard", { replace: true });
     }
+  }, [
+    data,
+    isFetching,
+    param.id,
+    error,
+    navigate,
+    dispatch,
+    isError,
+    searchParam,
+    isSuccess,
+  ]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, isLoading, isFetching, param.id, error, navigate, dispatch]);
+  const handleTabs = async (val: alltabs) => {
+    const proceedFunc = () => {
+      setParams({ tab: val, page: "1" });
+      setTab(val);
+      dispatch(setfetchloading(true));
+      dispatch(setpage(1));
+      dispatch(setreloaddata(true));
+    };
 
-  const continueTabSwitching = useCallback(
-    async (val: alltabs, proceedFunc: () => void) => {
-      // Validate before switching to solution tab
-      if (val === "solution" && formId) {
-        try {
-          const validation = await validateForm(formId, "switch_tab");
-          if (
-            validation &&
-            validation.validationResults.warnings &&
-            validation.validationResults.warnings.length > 0
-          ) {
-            showValidationWarnings(validation);
-          }
-        } catch (error) {
-          console.error("Validation error:", error);
-        }
-      }
-
-      proceedFunc();
-    },
-    [formId, validateForm, showValidationWarnings],
-  );
-
-  const handleTabs = useCallback(
-    async (val: alltabs) => {
-      const proceedFunc = () => {
-        setParams({ tab: val, page: "1" });
-        setTab(val);
-        dispatch(setfetchloading(true));
-        dispatch(setpage(1));
-        dispatch(setreloaddata(true));
-      };
-
-      if (tab === "setting" && isSettingUnsaved) {
-        dispatch(
-          setopenmodal({
-            state: "confirm",
-            value: {
-              open: true,
-              data: {
-                question:
-                  "You have unsaved settings. Are you sure you want to leave without saving?",
-                btn: { agree: "Leave", disagree: "Stay" },
-                onAgree: () => continueTabSwitching(val, proceedFunc),
-              },
+    if (tab === "setting" && isSettingUnsaved) {
+      dispatch(
+        setopenmodal({
+          state: "confirm",
+          value: {
+            open: true,
+            data: {
+              question:
+                "You have unsaved settings. Are you sure you want to leave without saving?",
+              btn: { agree: "Leave", disagree: "Stay" },
+              onAgree: () => proceedFunc(),
             },
-          }),
-        );
-        return;
-      }
+          },
+        }),
+      );
+      return;
+    }
 
-      continueTabSwitching(val, proceedFunc);
-    },
-    [continueTabSwitching, setParams, dispatch, tab, isSettingUnsaved],
-  );
+    proceedFunc();
+  };
 
   const handlePageChange = useCallback(
     (val: number) => {
@@ -346,6 +401,9 @@ function FormPage() {
         formstate.setting?.bg ? `bg-[${formstate.setting.bg}]` : ""
       }`}
     >
+      {(tab === "question" || tab === "solution") && (
+        <OverviewContainer tab={tab} loading={isFetching} />
+      )}
       <Tabs
         className="w-full h-fit bg-white dark:bg-black"
         variant="underlined"
@@ -363,7 +421,6 @@ function FormPage() {
               className="relative"
             >
               <QuestionTab />
-              <ImprovedAutoSave />
             </motion.div>
           </AnimatePresence>
         </Tab>
@@ -376,7 +433,7 @@ function FormPage() {
               animate="animate"
               exit="exit"
             >
-              <Solution_Tab />
+              <Solution_Tab isLoading={isFetching} />
             </motion.div>
           </AnimatePresence>
         </Tab>

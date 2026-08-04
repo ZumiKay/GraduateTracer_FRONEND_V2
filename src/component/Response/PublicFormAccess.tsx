@@ -11,6 +11,7 @@ import { ErrorToast } from "../Modal/AlertModal";
 import SuccessToast from "../Modal/AlertModal";
 import RespondentForm, { RespondentFormProps } from "./RespondentForm";
 import useRespondentFormPaginaition from "./hooks/usePaginatedFormData";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import {
@@ -19,10 +20,6 @@ import {
   saveFormStateToLocalStorage,
 } from "../../helperFunc";
 import { RespondentInfoType, RespondentSessionType } from "./Response.type";
-import {
-  PublicFormAccessProps,
-  GuestData,
-} from "../../types/PublicFormAccess.types";
 import { useSessionManager } from "../../hooks/useSessionManager";
 import { useInactivityWarning } from "../../hooks/useInactivityWarning";
 import { AuthContainer } from "./AuthContainer";
@@ -33,47 +30,25 @@ import useFormsessionAPI, {
 } from "../../hooks/useFormsessionAPI";
 import { SessionProvider } from "../../context/SessionContext";
 import useFormInitialization from "./hooks/useFormInitialization";
-import { FormAction, FormState } from "./types/PublicFormAccessTypes";
+import { FormState } from "./types/PublicFormAccessTypes";
 import { formStateReducer } from "./reducers/formStateReducer";
 import { SubmissionSuccessView } from "./components/SubmissionSuccessView";
 import { useSendResponseCopy } from "./hooks/useFormSubmission";
-import { ApiRequestReturnType } from "../../hooks/APIHook/ApiHook";
+import { ApiError } from "../../hooks/APIHook/ApiHook";
+
+export type PublicFormAccessProps = Record<string, never>;
 
 const initialFormState: FormState = {
   accessMode: "login",
   showGuestForm: false,
   loginData: { email: "", password: "", rememberMe: false },
-  guestData: {
-    name: "",
-    email: "",
-    rememberMe: false,
-    isActive: false,
-    timeStamp: 0,
-  },
 };
-
-/* ----------------------------- Main Component ----------------------------- */
 
 const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   const { formId } = useParams<{ formId: string; token: string }>();
   const user = useSelector((root: RootState) => root.usersession);
   const navigate = useNavigate();
-
-  const [formState, dispatch] = useReducer(formStateReducer, {
-    ...initialFormState,
-    loginData: { ...initialFormState.loginData, email: user.user?.email ?? "" },
-  });
-
-  const [expiredSessionData, setExpiredSessionData] =
-    useState<GuestData | null>(null);
-  const [showExpiredAlert, setShowExpiredAlert] = useState(false);
-
-  const { isInitialized, isInitializing } = useFormInitialization({
-    formId,
-    user,
-    dispatch,
-    formstate: formState,
-  });
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!formId) {
@@ -81,36 +56,33 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }
   }, [formId, navigate]);
 
-  useEffect(() => {
-    console.log({ formState });
-  }, [formState]);
+  const [formState, dispatch] = useReducer(formStateReducer, {
+    ...initialFormState,
+    loginData: { ...initialFormState.loginData, email: user.user?.email ?? "" },
+  });
+  const [showExpiredAlert, setShowExpiredAlert] = useState(false);
 
-  // API hooks
-  const {
-    respondentLogin,
-    signOut,
-    useManuallySessionVeriftication,
-    isLoading,
-  } = useFormsessionAPI();
-
-  const handleSessionExpired = useCallback(() => {
-    const currentSessionData = formState.formsession?.respondentinfo;
-    if (currentSessionData) {
-      setExpiredSessionData({
-        name: currentSessionData.respondentName || "",
-        email: currentSessionData.respondentEmail || "",
-        rememberMe: false,
-        isActive: false,
-        timeStamp: Date.now(),
-      });
-      setShowExpiredAlert(true);
-    }
-  }, [formState.formsession?.respondentinfo]);
-
-  const manuallyCheckSession = useManuallySessionVeriftication(
+  const { isInitialized, isInitializing } = useFormInitialization({
     formId,
-    handleSessionExpired,
+    dispatch,
+  });
+
+  const MIN_LOADING_TIME = 500;
+
+  const [loadingState, setLoadingState] = useState({
+    isLoading: true,
+    phase: "initializing" as "initializing" | "loading-form" | "ready",
+    loadingStartTime: Date.now(),
+    allowPaginationLoading: false,
+  });
+
+  const { respondentLogin, signOut, useSessionVeriftication } =
+    useFormsessionAPI();
+
+  const manuallyCheckSession = useSessionVeriftication(formId, () =>
+    setShowExpiredAlert(true),
   );
+
   const formDataEnabled = Boolean(isInitialized && formId);
   const formReqData = useRespondentFormPaginaition({
     formId,
@@ -118,42 +90,33 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     formsession: formState.formsession as never,
     enabled: formDataEnabled,
   });
-  const isFormRequiredSessionChecked = useMemo(() => {
-    return Boolean(
-      formReqData.formState?.setting?.acceptResponses &&
-      formReqData.formState.setting.email,
-    );
-  }, [formReqData.formState?.setting]);
 
   useEffect(() => {
     if (!isInitialized) return; // Wait for initialization to complete
 
-    if (!formReqData.isLoading) {
-      if (formReqData.formState) {
+    if (!formReqData.isFetching) {
+      if (formReqData.isSuccess && formReqData.formState) {
         const state = formReqData.formState;
 
-        //Require for authentication
         if (!state.isAuthenticated && state.setting?.email) {
           dispatch({ type: "SET_ACCESS_MODE", payload: "login" });
           return;
         }
 
-        const dispatchState: FormAction = {
-          type: "SET_ACCESS_MODE",
-          payload: "login",
-        };
+        const isAuthenticated = state.isAuthenticated || !state.setting?.email;
 
-        //Condition for if the user is authenticated
-        if (state.isAuthenticated || !state.setting?.email) {
-          dispatchState.payload = formState.guestData
-            ? "guest"
-            : "authenticated";
-
-          if (!state.setting?.email && !formState.formsession?.isActive) {
-            dispatch({ type: "SET_FORMSESSION", payload: { isActive: true } });
-          }
+        if (
+          isAuthenticated &&
+          !state.setting?.email &&
+          !formState.formsession?.isActive
+        ) {
+          dispatch({ type: "SET_FORMSESSION", payload: { isActive: true } });
         }
-        dispatch(dispatchState);
+
+        dispatch({
+          type: "SET_ACCESS_MODE",
+          payload: isAuthenticated ? "authenticated" : "login",
+        });
       } else if (formReqData.error) {
         if (!isUserSwitching() && formState.accessMode !== "login") {
           dispatch({ type: "SET_ACCESS_MODE", payload: "error" });
@@ -164,18 +127,8 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     formReqData,
     formState.accessMode,
     formState.formsession?.isActive,
-    formState.guestData,
     isInitialized,
   ]);
-
-  //Form Initialize Loading
-  const [loadingState, setLoadingState] = useState({
-    isLoading: true,
-    phase: "initializing" as "initializing" | "loading-form" | "ready",
-    minLoadingTime: 500, //Estimate loading time
-    loadingStartTime: Date.now(),
-    allowPaginationLoading: false, // Allow form pagination to show its own loading
-  });
 
   useEffect(() => {
     const currentTime = Date.now();
@@ -191,7 +144,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         }));
       }
     } else if (
-      formReqData.isLoading &&
+      formReqData.isFetching &&
       isInitialized &&
       !loadingState.allowPaginationLoading
     ) {
@@ -204,10 +157,10 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       }
     } else if (
       !isInitializing &&
-      (!formReqData.isLoading || loadingState.allowPaginationLoading) &&
+      (!formReqData.isFetching || loadingState.allowPaginationLoading) &&
       isInitialized
     ) {
-      const shouldWait = timeSinceStart < loadingState.minLoadingTime;
+      const shouldWait = timeSinceStart < MIN_LOADING_TIME;
 
       if (!shouldWait && loadingState.isLoading) {
         setLoadingState((prev) => ({
@@ -217,7 +170,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
           allowPaginationLoading: true, // Now allow form to handle its own loading
         }));
       } else if (shouldWait) {
-        const remainingTime = loadingState.minLoadingTime - timeSinceStart;
+        const remainingTime = MIN_LOADING_TIME - timeSinceStart;
         setTimeout(() => {
           setLoadingState((prev) => ({
             ...prev,
@@ -230,11 +183,10 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     }
   }, [
     isInitializing,
-    formReqData.isLoading,
+    formReqData.isFetching,
     isInitialized,
     loadingState.phase,
     loadingState.loadingStartTime,
-    loadingState.minLoadingTime,
     loadingState.isLoading,
     loadingState.allowPaginationLoading,
   ]);
@@ -258,56 +210,13 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     [formState.formsession],
   );
 
-  /* --------------------------- Session Mangagement -------------------------- */
-
-  const handleAutoSignOut = useCallback(async () => {
-    if (!formId) return;
-    try {
-      const asyncLogout = await signOut.mutateAsync(formId);
-      if (!asyncLogout.success) {
-        throw new Error("Signout failed");
-      }
-
-      const sessionState: Partial<RespondentSessionType> = {
-        isActive: false,
-      };
-
-      // Handle localStorage based on authentication status
-      if (user.isAuthenticated && user.user?.email) {
-        // For authenticated users, save the inactive session state
-        const key = generateStorageKey({
-          suffix: "state",
-          userKey: user.user.email,
-          formId: formId,
-        });
-
-        //Update stored state
-        saveFormStateToLocalStorage({ key, data: sessionState });
-      }
-
-      dispatch({ type: "SET_FORMSESSION", payload: sessionState });
-
-      ErrorToast({
-        toastid: "auto-signout",
-        title: "Session Expired",
-        content: "You have been automatically signed out due to inactivity",
-      });
-
-      setTimeout(() => {
-        window.location.reload();
-      }, 200);
-    } catch (error) {
-      console.error("Auto signout error:", error);
-      throw error;
-    }
-  }, [signOut, formId, user.user?.email, user.isAuthenticated]);
-
   const sessionManager = useSessionManager({
     accessMode: formState.accessMode,
-    isFormRequiredSessionChecked,
     formsession: formState.formsession,
     setformsession: setFormsessionStable as never,
-    onAutoSignOut: handleAutoSignOut,
+    onAutoSignOut: () => handleSwitchUser,
+    isFormRequiredSessionChecked:
+      formReqData.isFormRequiredSessionChecked ?? false,
   });
 
   const inactivityWarning = useInactivityWarning({
@@ -334,8 +243,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     formState.accessMode,
     formState.formsession?.respondentinfo?.respondentEmail,
   ]);
-
-  /* ----------------------------- Hanlder Method ----------------------------- */
 
   const handleLogin = useCallback(
     async (e?: React.FormEvent, additional?: { existed: "1" }) => {
@@ -364,12 +271,11 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
                 respondentEmail: additional?.existed
                   ? (user.user?.email ?? "")
                   : email,
-                respondentName: user.user?.name ?? name,
+                respondentName: name || undefined,
                 isGuest,
               },
             };
 
-            //save to localstorage
             if (localFormSessionStateKey) {
               saveFormStateToLocalStorage({
                 replace: true,
@@ -378,14 +284,12 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
               });
             }
 
-            //Cleanup
             cleanupUnrelatedLocalStorage({
               formId,
               userKey: formState.loginData.email,
               suffix: ["state", "progress"],
             });
 
-            //Update state
             dispatch({ type: "SET_FORMSESSION", payload: sessionState });
             dispatch({
               type: "SET_ACCESS_MODE",
@@ -397,18 +301,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
               content: "Logged in",
             });
           },
-          onError(error) {
-            const err = error as unknown as ApiRequestReturnType;
-            const toastid = "RespondentLoginError";
-
-            if (err.status === 401)
-              ErrorToast({
-                toastid,
-                title: "Validation",
-                content: "Incorrect Credential",
-              });
-            ErrorToast({ toastid, title: "Error", content: "Error occured" });
-          },
         },
       );
     },
@@ -418,73 +310,68 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       localFormSessionStateKey,
       respondentLogin,
       user.user?.email,
-      user.user?.name,
       dispatch,
     ],
   );
 
-  const handleSwitchUser = useCallback(async () => {
+  const handleSwitchUser = useCallback(() => {
     if (!formId) return;
 
-    try {
-      setUserSwitching(true);
+    setUserSwitching(true);
 
-      const asyncLogout = await signOut.mutateAsync(formId);
-      if (!asyncLogout.success) {
-        setUserSwitching(false); // Reset flag on error
+    signOut.mutate(formId, {
+      onSuccess: () => {
+        //Clean cache
+        queryClient.removeQueries({ queryKey: ["respondent-form", formId] });
+        setUserSwitching(false);
+
+        if (user.isAuthenticated) {
+          const updateFormSession = { isActive: undefined };
+          if (localFormSessionStateKey)
+            saveFormStateToLocalStorage({
+              key: localFormSessionStateKey,
+              data: updateFormSession,
+            });
+          dispatch({ type: "SET_FORMSESSION", payload: updateFormSession });
+        } else {
+          const localKey = generateStorageKey({
+            suffix: "state",
+            formId,
+            userKey: formState.formsession?.respondentinfo?.respondentEmail,
+          });
+          window.localStorage.removeItem(localKey);
+        }
+        dispatch({ type: "SET_ACCESS_MODE", payload: "login" });
+      },
+      onError: (error) => {
+        console.error("Error during switch user:", error);
+        setUserSwitching(false);
         ErrorToast({
-          toastid: "loginerror",
+          toastid: "switchusererror",
           title: "Error",
           content: "Can't logout. Please try again.",
         });
-        return;
-      }
-
-      //handle Guest and User
-
-      if (user.isAuthenticated) {
-        const updateFormSession = {
-          isActive: undefined,
-        };
-
-        //Save state to storage
-
-        if (localFormSessionStateKey)
-          saveFormStateToLocalStorage({
-            key: localFormSessionStateKey,
-            data: updateFormSession,
-          });
-        dispatch({ type: "SET_FORMSESSION", payload: updateFormSession });
-      } else {
-        const localKey = generateStorageKey({
-          suffix: "state",
-          formId,
-          userKey: formState.formsession?.respondentinfo?.respondentEmail,
-        });
-        window.localStorage.removeItem(localKey);
-      }
-
-      dispatch({ type: "SET_ACCESS_MODE", payload: "login" });
-    } catch (error) {
-      console.error("Error during switch user:", error);
-      setUserSwitching(false); // Reset flag on error
-      ErrorToast({
-        toastid: "switchusererror",
-        title: "Error",
-        content: "Failed to switch user",
-      });
-    }
+      },
+    });
   }, [
     formId,
     formState.formsession?.respondentinfo?.respondentEmail,
     localFormSessionStateKey,
+    queryClient,
     signOut,
     user.isAuthenticated,
   ]);
 
-  const alreadyRespondedData = formReqData.formState?.setting?.submitonce
-    ? formReqData.formState?.isResponsed
-    : undefined;
+  const alreadyRespondedData = useMemo(
+    () =>
+      formReqData.formState?.setting?.submitonce
+        ? formReqData.formState?.isResponsed
+        : undefined,
+    [
+      formReqData.formState?.isResponsed,
+      formReqData.formState?.setting?.submitonce,
+    ],
+  );
 
   const sendResponseCopy = useSendResponseCopy(
     alreadyRespondedData?.responseId,
@@ -500,17 +387,15 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       accessMode:
         formState.accessMode === "error" ? "login" : formState.accessMode,
       isUserActive: formState.formsession?.isActive,
-      // Loading management props
-      allowInternalLoading: loadingState.allowPaginationLoading,
-      globalLoadingManaged: true,
+      isLoading: loadingState.isLoading,
     }),
     [
       formReqData,
-      formState.accessMode,
+      user.user?._id,
       formState.formsession?.respondentinfo,
       formState.formsession?.isActive,
-      user.user,
-      loadingState.allowPaginationLoading,
+      formState.accessMode,
+      loadingState.isLoading,
     ],
   );
 
@@ -533,7 +418,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     );
   }
 
-  // Error state
   if (formState.accessMode === "error") {
     const errorMessage =
       formReqData.error instanceof Error
@@ -548,22 +432,17 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     );
   }
 
-  // Authenticated or Guest access - show form
-  if (
-    formState.accessMode === "authenticated" ||
-    formState.accessMode === "guest"
-  ) {
+  if (formState.accessMode === "authenticated") {
     return (
-      <div className="w-full min-h-screen">
-        {/* Expired Session Alert */}
-        {showExpiredAlert && expiredSessionData && (
+      <>
+        {showExpiredAlert && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
               <Alert
                 color="warning"
                 variant="faded"
                 title="Session Expired"
-                description={`Your session for "${expiredSessionData.name}" has expired. Please login again`}
+                description={`Your session for "${formState.formsession?.respondentinfo?.respondentName || formState.formsession?.respondentinfo?.respondentEmail}" has expired. Please login again`}
                 className="mb-4"
                 aria-label="inactive alert"
               />
@@ -588,63 +467,60 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
           warningMessage={inactivityWarning.warningMessage}
         />
 
-        {/* Switch User Button */}
-        {!inactivityWarning.showWarning &&
-          formReqData.formState?.setting?.email && (
-            <div className="fixed top-4 right-4 z-10">
-              <Button
-                variant="light"
-                size="sm"
-                onPress={handleSwitchUser}
-                className="bg-white shadow-md dark:bg-gray-700 dark:text-white font-bold"
-                isLoading={signOut.isPending}
-              >
-                Switch user
-              </Button>
-            </div>
-          )}
+        <div className="w-full min-h-screen">
+          {!inactivityWarning.showWarning &&
+            formReqData.formState?.setting?.email && (
+              <div className="fixed top-4 right-4 z-10">
+                <Button
+                  variant="light"
+                  size="sm"
+                  onPress={handleSwitchUser}
+                  className="bg-white shadow-md dark:bg-gray-700 dark:text-white font-bold"
+                  isLoading={signOut.isPending}
+                >
+                  Switch user
+                </Button>
+              </div>
+            )}
 
-        {/* Render form based on user state */}
-        {(formState.accessMode === "authenticated" ||
-          formState.accessMode === "guest") &&
-          isInitialized &&
-          (alreadyRespondedData ? (
-            <SubmissionSuccessView
-              formType={formReqData.formState?.type as never}
-              submissionResult={null}
-              formIsResponsed={alreadyRespondedData}
-              onSendCopy={() => sendResponseCopy.mutate()}
-              isSendingCopy={sendResponseCopy.isPending}
-            />
-          ) : (
-            <SessionProvider
-              manuallyCheckSession={manuallyCheckSession}
-              onSessionExpired={() => {
-                inactivityWarning.handleContinueSession();
-              }}
-              checkOnVisibilityChange={true}
-              periodicCheckInterval={5000} //Check every 5s
-            >
-              <RespondentForm {...respondentFormProps} />
-            </SessionProvider>
-          ))}
-      </div>
+          {isInitialized &&
+            (alreadyRespondedData ? (
+              <SubmissionSuccessView
+                formType={formReqData.formState?.type as never}
+                submissionResult={null}
+                formIsResponsed={alreadyRespondedData}
+                onSendCopy={() => sendResponseCopy.mutate()}
+                isSendingCopy={sendResponseCopy.isPending}
+              />
+            ) : (
+              <SessionProvider
+                manuallyCheckSession={manuallyCheckSession}
+                checkOnVisibilityChange={true}
+              >
+                <RespondentForm {...respondentFormProps} />
+              </SessionProvider>
+            ))}
+        </div>
+      </>
     );
   }
 
-  return !formReqData.isLoading && !formReqData.formState?.isAuthenticated ? (
+  return !formReqData.isFetching && !formReqData.formState?.isAuthenticated ? (
     <AuthContainer
       formTitle={formReqData.formState?.title}
       showGuestForm={formState.showGuestForm}
       loginData={formState.loginData}
+      error={
+        (respondentLogin?.error as ApiError)?.status !== 500
+          ? respondentLogin.error?.message
+          : undefined
+      }
       isLoginLoading={respondentLogin.isPending}
       updateLoginState={dispatch}
       user={user}
       onLogin={handleLogin}
     />
-  ) : (
-    <></>
-  );
+  ) : null;
 };
 
 export default React.memo(PublicFormAccess);

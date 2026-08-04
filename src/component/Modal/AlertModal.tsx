@@ -4,7 +4,6 @@ import { toast, ToastContentProps } from "react-toastify";
 import ModalWrapper from "./Modal";
 import { useSelector, shallowEqual } from "react-redux";
 import { RootState } from "../../redux/store";
-import { ApiRequestReturnType } from "../../hooks/APIHook/ApiHook";
 
 type ToastContenttype = {
   title: string;
@@ -85,55 +84,6 @@ export function InfoToast(data: ToastContenttype) {
     closeButton: true,
   });
 }
-
-export const PromiseToast = (
-  data: { promise: Promise<ApiRequestReturnType> },
-  custom?: { pending?: string; success?: string; error?: string },
-) => {
-  const toastId = "uniquepromise";
-  if (toast.isActive(toastId)) toast.dismiss(toastId);
-
-  let showToast = true;
-
-  const delayPromise = new Promise<ApiRequestReturnType>((resolve, reject) => {
-    if (showToast) {
-      toast.promise(
-        data.promise.then((res) => {
-          if (!res.success) reject(res);
-          resolve(res);
-        }),
-        {
-          pending: custom?.pending ?? "Loading...",
-          success: custom?.success,
-          error: custom?.error ?? "Error Occurred",
-        },
-        {
-          toastId,
-          position: "bottom-right",
-          autoClose: 2000,
-          closeOnClick: true,
-          closeButton: true,
-        },
-      );
-    }
-
-    data.promise
-      .then((res) => {
-        if (!res.success) {
-          reject(res);
-          return;
-        }
-
-        showToast = false; // Prevent toast from showing if completed in <1s
-        resolve(res);
-      })
-      .catch((err) => {
-        reject(err);
-      });
-  });
-
-  return delayPromise;
-};
 
 type ConfirmModalProps = {
   open: boolean;

@@ -64,6 +64,7 @@ const Respondant_Question_Card = memo(
         case QuestionType.RangeDate:       return "Date Range";
         case QuestionType.RangeNumber:     return "Number Range";
         case QuestionType.Selection:       return "Selection";
+        case QuestionType.MultipleSelection: return "Multiple Selection";
         default:                           return "Question";
       }
     }, [content.type]);
@@ -165,6 +166,54 @@ const Respondant_Question_Card = memo(
       );
     }, [content, handleAnswer, isDisable]);
 
+    const MultipleSelectionComponent = useMemo(() => {
+      if (content.type !== QuestionType.MultipleSelection) return null;
+      const options = content.selection;
+      if (!options || options.length === 0) return null;
+      const answerkey = content.answer as AnswerKey;
+
+      return (
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Select multiple options:
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            {options.map((choice, cIdx) => (
+              <ChoiceAnswer
+                key={`choice-${content.idx}-${cIdx}`}
+                name={`choicename${cIdx}`}
+                choicety={content.type as never}
+                value={
+                  answerkey?.answer
+                    ? Array.isArray(answerkey.answer)
+                      ? (answerkey.answer as number[]).includes(choice.idx ?? cIdx)
+                        ? (choice.idx ?? cIdx)
+                        : -1
+                      : -1
+                    : -1
+                }
+                data={{ label: choice.content, value: choice.idx ?? cIdx }}
+                onChange={(val) => {
+                  const currentAnswers = Array.isArray(answerkey.answer)
+                    ? answerkey.answer
+                    : [];
+                  const choiceValue = choice.idx ?? cIdx;
+                  if (val === -1) {
+                    handleAnswer(currentAnswers.filter((a) => a !== choiceValue));
+                  } else {
+                    if (!currentAnswers.includes(choiceValue)) {
+                      handleAnswer([...currentAnswers, choiceValue]);
+                    }
+                  }
+                }}
+                isDisable={isDisable}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }, [content, handleAnswer, isDisable]);
+
     const RangeDateComponent = useMemo(() => {
       if (content.type !== QuestionType.RangeDate) return null;
       const value = content.rangedate;
@@ -211,6 +260,9 @@ const Respondant_Question_Card = memo(
 
         case QuestionType.CheckBox:
           return CheckboxComponent;
+
+        case QuestionType.MultipleSelection:
+          return MultipleSelectionComponent;
 
         case QuestionType.RangeDate:
           return RangeDateComponent;
@@ -320,6 +372,7 @@ const Respondant_Question_Card = memo(
       content,
       MultipleChoiceComponent,
       CheckboxComponent,
+      MultipleSelectionComponent,
       RangeDateComponent,
       handleAnswer,
       isDisable,

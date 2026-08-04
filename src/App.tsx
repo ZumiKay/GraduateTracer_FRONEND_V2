@@ -37,7 +37,10 @@ const App = memo(() => {
     () =>
       pathname === "/" ||
       pathname === "/form-access" ||
-      pathname.startsWith("/form-access/"),
+      pathname.startsWith("/form-access/") ||
+      pathname === "/notfound" ||
+      pathname.includes("/response/session/replace"),
+
     [pathname],
   );
 

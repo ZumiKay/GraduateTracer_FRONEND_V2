@@ -15,7 +15,7 @@ import {
   FiSend,
 } from "react-icons/fi";
 import { useQuery } from "@tanstack/react-query";
-import { FormTypeEnum, QuestionType } from "../types/Form.types";
+import { FormDataType, FormTypeEnum, QuestionType } from "../types/Form.types";
 import {
   ResponseDataType,
   ScoringMethod,
@@ -26,12 +26,13 @@ import { useDispatch } from "react-redux";
 import { setformstate } from "../redux/formstore";
 import { useFormAPI } from "../hooks/useFormAPI";
 import { ErrorToast } from "../component/Modal/AlertModal";
-import ResponseItem from "../components/ViewResponse/ResponseItem";
-import RespondentInfoCard from "../components/ViewResponse/RespondentInfoCard";
-import ReturnResponseModal from "../components/ViewResponse/ReturnResponseModal";
 import { useResponseScoring } from "../hooks/useResponseScoring";
 import { useResponseNavigation } from "../hooks/useResponseNavigation";
 import { useReturnResponse } from "../hooks/useReturnResponse";
+import RespondentInfoCard from "../component/Response/components/ViewResponse/RespondentInfoCard";
+import ResponseItem from "../component/Response/components/ViewResponse/ResponseItem";
+import ReturnResponseModal from "../component/Response/components/ViewResponse/ReturnResponseModal";
+import type { ApiRequestReturnType } from "../hooks/APIHook/ApiHook";
 
 const ViewResponsePage: React.FC = () => {
   const { formId, responseId } = useParams<{
@@ -48,7 +49,6 @@ const ViewResponsePage: React.FC = () => {
     onClose: onReturnModalClose,
   } = useDisclosure();
 
-  // Use custom hooks
   const {
     responseIds,
     currentResponseIndex,
@@ -57,12 +57,18 @@ const ViewResponsePage: React.FC = () => {
     handleNavigateResponse,
   } = useResponseNavigation({ responseId, formId });
 
-  // Fetch form data
-  const { data: form, isLoading: isLoadingForm } = useQuery({
+  const { data: formQuery, isLoading: isLoadingForm } = useQuery<
+    ApiRequestReturnType,
+    Error
+  >({
     queryKey: ["FormInfo", formId, "response"],
     queryFn: () => fetchFormTab({ tab: "response", page: 1, formId: formId! }),
     enabled: !!formId,
   });
+
+  const form = useMemo(() => {
+    return formQuery?.data as FormDataType | undefined;
+  }, [formQuery]);
 
   // Fetch response details
   const { data: selectedResponse, isLoading: isLoadingResponse } =
@@ -72,7 +78,7 @@ const ViewResponsePage: React.FC = () => {
         if (!responseId || !formId) throw new Error("Response ID is required");
         return await fetchResponseDetails(responseId, formId);
       },
-      enabled: !!responseId || !!formId,
+      enabled: !!responseId && !!formId,
       staleTime: 30000,
       gcTime: 300000,
     });
@@ -119,7 +125,7 @@ const ViewResponsePage: React.FC = () => {
       });
       return;
     }
-    if (form && form.type) {
+    if (form) {
       dispatch(
         setformstate({
           ...form,
@@ -349,7 +355,7 @@ const ViewResponsePage: React.FC = () => {
             displayName={selectedResponse.respondentName ?? ""}
             email={selectedResponse.respondentEmail ?? ""}
             totalScore={selectedResponse.totalScore}
-            maxTotalScore={form.totalscore}
+            maxTotalScore={form.totalScore}
             submittedDate={selectedResponse.submittedAt as string}
             completionStatus={selectedResponse.completionStatus || ""}
             scoringMethod={selectedResponse.scoringMethod}
@@ -437,7 +443,7 @@ const ViewResponsePage: React.FC = () => {
         isLoading={isReturningResponse}
         respondentEmail={selectedResponse.respondentEmail}
         currentScore={selectedResponse.totalScore}
-        maxScore={form.totalscore}
+        maxScore={form.totalScore}
         isQuizForm={isQuizForm}
         returnReason={returnReason}
         setReturnReason={setReturnReason}

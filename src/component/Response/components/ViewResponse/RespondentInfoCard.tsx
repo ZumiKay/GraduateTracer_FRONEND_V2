@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, Chip, Divider } from "@heroui/react";
-import { statusColor } from "../../component/Response/Response.type";
+import { statusColor } from "../../Response.type";
 
 interface RespondentInfoCardProps {
   displayName: string;

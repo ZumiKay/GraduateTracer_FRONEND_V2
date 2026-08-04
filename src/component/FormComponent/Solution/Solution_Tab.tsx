@@ -1,64 +1,43 @@
-import { useEffect, useState, useCallback, useMemo, useRef, memo } from "react";
-import { useDispatch, useSelector, shallowEqual } from "react-redux";
+import { useEffect, useCallback, useMemo, memo } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../../redux/store";
 import { QuestionLoading } from "../../Loading/ContainerLoading";
 import {
   setallquestion,
-  setdisbounceQuestion,
   setRevalidateContent,
+  setShowOverview,
 } from "../../../redux/formstore";
-import { ContentType, FormValidationSummary } from "../../../types/Form.types";
-import ApiRequest from "../../../hooks/APIHook/ApiHook";
+import { ContentType } from "../../../types/Form.types";
 import useFormValidation from "../../../hooks/ValidationHook";
-import { ErrorToast, InfoToast } from "../../Modal/AlertModal";
-import { useQuery } from "@tanstack/react-query";
 import FormSummaryHeader from "./FormSummaryHeader";
 import ValidationStatusDisplay from "./ValidationStatusDisplay";
 import QuestionItem from "./QuestionItem";
 
-interface FormTotalSummary {
-  totalpage: number;
-  totalquestion: number;
-  totalscore: number;
-}
-
-const fetchFormTotalSummary = async (
-  formId: string,
-): Promise<FormTotalSummary> => {
-  const response = await ApiRequest({
-    url: `/filteredform?ty=total&q=${formId}`,
-    method: "GET",
-    cookie: true,
-    reactQuery: true,
-  });
-
-  return response.data as FormTotalSummary;
-};
-
-const Solution_Tab = memo(() => {
+const Solution_Tab = memo(({ isLoading }: { isLoading: boolean }) => {
   const dispatch = useDispatch();
 
   // Selectors
   const allquestion = useSelector(
     (root: RootState) => root.allform.allquestion,
-    shallowEqual,
   );
 
   const fetchloading = useSelector(
     (root: RootState) => root.allform.fetchloading,
   );
-  const formId = useSelector((root: RootState) => root.allform.formstate._id);
-  const formTotalScore = useSelector(
-    (root: RootState) => root.allform.formstate.totalscore,
-  );
-  const formType = useSelector(
-    (root: RootState) => root.allform.formstate.type,
-  );
+
+  const {
+    _id: formId,
+    validation,
+    formType,
+    totalpage,
+    totalQuestions,
+    totalScores,
+    extraScore,
+    currentPageTotalScores,
+  } = useSelector((root: RootState) => root.allform.formstate);
+
   const formColor = useSelector(
     (root: RootState) => root.allform.formstate.setting?.qcolor,
-  );
-  const autosaveEnabled = useSelector(
-    (root: RootState) => root.allform.formstate.setting?.autosave,
   );
   const returnScore = useSelector(
     (root: RootState) => root.allform.formstate.setting?.returnscore,
@@ -67,65 +46,27 @@ const Solution_Tab = memo(() => {
     (root: RootState) => root.allform.revalidateContent,
   );
 
-  const [validationSummary, setValidationSummary] =
-    useState<FormValidationSummary | null>(null);
-
-  const { validateForm, isValidating } = useFormValidation();
-  const [maxParentScore, setmaxParentScore] = useState(
-    new Map<string | number, number>(),
-  );
-
-  // Query for form summary
-  const {
-    data: totalsummerize,
-    isLoading: loading,
-    refetch: refetchTotal,
-  } = useQuery({
-    queryKey: ["formTotalSummary", formId],
-    queryFn: () => fetchFormTotalSummary(formId!),
-    enabled: !!formId,
-    staleTime: 30000,
-    gcTime: 60000,
-    retry: 2,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
+  const { validateFormReq, processedTotalScore } = useFormValidation();
 
   const {
     parentScoreMap,
-    parentQIdxMap,
-    childrenByParentId,
     isChildHasScoreMap,
+    childSiblingScoreMap,
+    parentUseChildSumMap,
   } = useMemo(() => {
     const scoreMap = new Map<string, number>();
-    const idxMap = new Map<string, number>();
-    const childrenMap = new Map<
-      string | number,
-      Array<{ id: string | number; score?: number; isBonusScore?: boolean }>
-    >();
+    const siblingScoreMap = new Map<string | number, number>();
+    const childSiblingScoreMap = new Map<string | number, number>();
+    const parentUseChildSumMap = new Map<string | number, boolean>();
     const contentById = new Map<string, ContentType>();
     const contentByIdx = new Map<number, ContentType>();
 
     for (const question of allquestion) {
       if (question._id) {
         if (question.score) scoreMap.set(question._id, question.score);
-        if (question.qIdx !== undefined)
-          idxMap.set(question._id, question.qIdx);
         contentById.set(question._id, question);
       }
       contentByIdx.set(question.qIdx, question);
-
-      const parentKey =
-        question.parentcontent?.qId ?? question.parentcontent?.qIdx;
-      if (parentKey !== undefined) {
-        const list = childrenMap.get(parentKey) ?? [];
-        list.push({
-          id: question._id ?? question.qIdx,
-          score: question.score,
-          isBonusScore: question.isBonusScore,
-        });
-        childrenMap.set(parentKey, list);
-      }
     }
 
     const childHasScoreMap = new Map<string | number, boolean>();
@@ -133,6 +74,7 @@ const Solution_Tab = memo(() => {
       if (!question.conditional || question.conditional.length === 0) continue;
 
       const key = question._id ?? question.qIdx;
+
       const qualifies = (t?: ContentType) =>
         !!t && !t.isBonusScore && t.score !== undefined && t.score > 0;
       const hasScore = question.conditional.some((con) => {
@@ -144,13 +86,51 @@ const Solution_Tab = memo(() => {
         return qualifies(byId) || qualifies(byIdx);
       });
       childHasScoreMap.set(key, hasScore);
+
+      if (question.useChildScoreSum) {
+        const sumOfSiblingScore = question.conditional.reduce(
+          (total, s) =>
+            (total +=
+              allquestion.find(
+                (q) => q._id === s.contentId || q.qIdx === s.contentIdx,
+              )?.score ?? 0),
+          0,
+        );
+
+        siblingScoreMap.set(key, sumOfSiblingScore);
+
+        // For each child of this useChildScoreSum parent, compute sum of
+        // OTHER siblings' scores (excluding the child itself) so the child
+        // can show remaining distributable score and validate its input.
+        for (const con of question.conditional) {
+          const childQuestion = allquestion.find(
+            (q) => q._id === con.contentId || q.qIdx === con.contentIdx,
+          );
+          if (!childQuestion) continue;
+          const childKey = childQuestion._id ?? childQuestion.qIdx;
+          const otherSiblingsScore = question.conditional.reduce(
+            (total, sibling) => {
+              const siblingQ = allquestion.find(
+                (q) =>
+                  q._id === sibling.contentId || q.qIdx === sibling.contentIdx,
+              );
+              if (!siblingQ || (siblingQ._id ?? siblingQ.qIdx) === childKey)
+                return total;
+              return total + (siblingQ.score ?? 0);
+            },
+            0,
+          );
+          childSiblingScoreMap.set(childKey, otherSiblingsScore);
+          parentUseChildSumMap.set(childKey, true);
+        }
+      }
     }
 
     return {
       parentScoreMap: scoreMap,
-      parentQIdxMap: idxMap,
-      childrenByParentId: childrenMap,
       isChildHasScoreMap: childHasScoreMap,
+      childSiblingScoreMap,
+      parentUseChildSumMap,
     };
   }, [allquestion]);
 
@@ -159,50 +139,8 @@ const Solution_Tab = memo(() => {
     [allquestion],
   );
 
-  useEffect(() => {
-    if (!formId) return;
-
-    let isMounted = true;
-    const timeoutId = setTimeout(async () => {
-      try {
-        const validation = await validateForm(formId, "solution");
-        if (validation && isMounted) {
-          setValidationSummary(validation);
-        }
-      } catch (error) {
-        console.error("Validation error:", error);
-      }
-    }, 300);
-
-    //Inititalize maxParentScore
-    const tobeaddscore = new Map();
-    for (const q of allquestion) {
-      if (
-        !q.isBonusScore &&
-        q.conditional &&
-        q.conditional.length > 0 &&
-        q.score !== undefined
-      ) {
-        tobeaddscore.set(q._id || q.qIdx, q.score);
-      }
-    }
-    setmaxParentScore(tobeaddscore);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(timeoutId);
-    };
-  }, [allquestion, formId, validateForm]);
-
-  const allquestionRef = useRef(allquestion);
-  allquestionRef.current = allquestion;
-
   const updateQuestion = useCallback(
     (newVal: Partial<ContentType>, qIdx: number) => {
-      if (autosaveEnabled) {
-        const merged = { ...allquestionRef.current[qIdx], ...newVal };
-        dispatch(setdisbounceQuestion(merged));
-      }
       dispatch(
         setallquestion((prev) =>
           prev.map((ques, idx) =>
@@ -211,62 +149,13 @@ const Solution_Tab = memo(() => {
         ),
       );
     },
-    [autosaveEnabled, dispatch],
+    [dispatch],
   );
-
-  const updateMaxParentScore = useCallback(
-    (parentId: string | number, newBudget: number) => {
-      if (newBudget < 0) {
-        ErrorToast({
-          title: "Validation",
-          content: "Score exceed limit",
-          toastid: "childExceedScore",
-        });
-        return;
-      }
-      setmaxParentScore((prev) => {
-        const next = new Map(prev);
-        next.set(parentId, newBudget);
-        return next;
-      });
-    },
-    [],
-  );
-
-  // Validate all handler
-  const handleValidateAll = useCallback(async () => {
-    if (!formId) return;
-
-    try {
-      const validation = await validateForm(formId, "send_form");
-      if (validation) {
-        setValidationSummary(validation);
-        refetchTotal();
-
-        if (validation.validationResults.errors?.length) {
-          console.log("Debug validation result", validation.validationResults);
-        } else {
-          InfoToast({
-            title: "Validation Success",
-            content: "All questions are properly configured!",
-            toastid: "validation-success",
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Validation error:", error);
-      ErrorToast({
-        title: "Validation Error",
-        content: "Failed to validate form",
-        toastid: "validation-error",
-      });
-    }
-  }, [formId, validateForm, refetchTotal]);
 
   //Trigger Revalidate Solution Content
   useEffect(() => {
-    if (revalidateContent) {
-      handleValidateAll();
+    if (revalidateContent && formId) {
+      validateFormReq.mutate({ formId: formId as string, tab: "solution" });
     }
 
     //Reset state
@@ -279,12 +168,14 @@ const Solution_Tab = memo(() => {
   return (
     <div className="solution_tab w-full h-fit flex flex-col items-center">
       <FormSummaryHeader
-        loading={loading}
-        isValidating={isValidating}
-        totalsummerize={totalsummerize}
-        formTotalScore={formTotalScore}
-        validationSummary={validationSummary}
-        onValidateAll={handleValidateAll}
+        isValidating={validateFormReq.isPending || isLoading}
+        formTotalScore={processedTotalScore({
+          allQuestion: allquestion,
+          formState: { currentPageTotalScores, totalScores } as never,
+        })}
+        formTotalQuestion={totalQuestions}
+        formTotalPage={totalpage}
+        formExtraScore={extraScore}
       />
 
       <div className="question_card w-full h-fit flex flex-col items-center gap-8 md:gap-20 pt-4 pb-12 sm:pt-8 sm:pb-20">
@@ -294,11 +185,12 @@ const Solution_Tab = memo(() => {
           </div>
         ) : (
           <ValidationStatusDisplay
-            validationSummary={validationSummary}
             formstate={{
-              type: formType,
               setting: { returnscore: returnScore },
+              type: formType as never,
+              validation,
             }}
+            content={allquestion}
           />
         )}
 
@@ -306,10 +198,42 @@ const Solution_Tab = memo(() => {
           <QuestionLoading count={3} />
         ) : (
           <div className="w-full max-w-4xl space-y-4 sm:space-y-8 px-2 sm:px-0">
+            {validation?.validationResults?.errors?.length !== 0 && (
+              <div
+                onClick={() => {
+                  dispatch(setShowOverview(true));
+                  const element = document.querySelector(".OverviewContainer");
+                  if (element) {
+                    element.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+                className="p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-gray-700 cursor-pointer hover:bg-red-100 dark:hover:bg-gray-600 transition-colors"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    dispatch(setShowOverview(true));
+                    const element =
+                      document.querySelector(".OverviewContainer");
+                    if (element) {
+                      element.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }
+                }}
+              >
+                <h3 className="text-sm font-medium text-red-600 dark:text-red-400">
+                  {`${validation?.validationResults?.errors?.length} Error Question Detected`}
+                </h3>
+                <p className="text-xs text-red-400 dark:text-red-300 mt-1">
+                  Form cannot be publish with errors
+                </p>
+              </div>
+            )}
+
             {conditionalCount > 0 && (
               <div className="p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-gray-700">
                 <h3 className="text-sm font-medium text-blue-800 dark:text-white">
-                  📋 Conditional Questions Detected
+                  Conditional Questions Detected
                 </h3>
                 <p className="text-xs text-blue-600 mt-1 dark:text-white">
                   This form contains {conditionalCount} conditional question(s)
@@ -319,11 +243,8 @@ const Solution_Tab = memo(() => {
                 </p>
               </div>
             )}
-
             {allquestion.map((question, idx) => {
               const parentKeyOfSelf = question._id ?? question.qIdx;
-              const parentIdOfQuestion =
-                question.parentcontent?.qId ?? question.parentcontent?.qIdx;
 
               return (
                 <QuestionItem
@@ -334,25 +255,11 @@ const Solution_Tab = memo(() => {
                   onUpdateContent={updateQuestion}
                   isBonusScore={question.isBonusScore}
                   isChildHasScore={isChildHasScoreMap.get(parentKeyOfSelf)}
-                  currentMaxParentScore={
-                    parentIdOfQuestion !== undefined
-                      ? maxParentScore.get(parentIdOfQuestion)
-                      : undefined
-                  }
-                  siblingScores={
-                    parentIdOfQuestion !== undefined
-                      ? childrenByParentId.get(parentIdOfQuestion)
-                      : undefined
-                  }
-                  onUpdateMaxParentScore={updateMaxParentScore}
+                  childSiblingScore={childSiblingScoreMap.get(parentKeyOfSelf)}
+                  parentUseChildSum={parentUseChildSumMap.get(parentKeyOfSelf)}
                   parentScore={
                     question.parentcontent?.qId
                       ? parentScoreMap.get(question.parentcontent.qId)
-                      : undefined
-                  }
-                  parentQIdx={
-                    question.parentcontent?.qId
-                      ? parentQIdxMap.get(question.parentcontent.qId)
                       : undefined
                   }
                 />

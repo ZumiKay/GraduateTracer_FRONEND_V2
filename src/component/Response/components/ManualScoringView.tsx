@@ -119,6 +119,7 @@ const ManualScoringView: React.FC<ManualScoringViewProps> = ({
   const renderAnswer = useCallback(
     (response: ResponseValueType, qType: QuestionType) => {
       switch (qType) {
+        case QuestionType.MultipleSelection:
         case QuestionType.CheckBox:
           return (
             <div className="flex flex-wrap gap-2">

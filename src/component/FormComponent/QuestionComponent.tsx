@@ -1,5 +1,9 @@
-import { ChangeEvent, useCallback, useMemo, memo } from "react";
-import { ContentType, QuestionType } from "../../types/Form.types";
+import { ChangeEvent, useCallback, useMemo, memo, useState } from "react";
+import {
+  ContentType,
+  QuestionType,
+  QuestionValidationIssue,
+} from "../../types/Form.types";
 import { SelectionType } from "../../types/Global.types";
 import Selection from "./Selection";
 import { Switch, Tooltip } from "@heroui/react";
@@ -25,6 +29,7 @@ const QuestionTypeOptions: Array<SelectionType<QuestionType>> = [
   { label: "RangeNumber", value: QuestionType.RangeNumber },
   { label: "RangeDate", value: QuestionType.RangeDate },
   { label: "Selection", value: QuestionType.Selection },
+  { label: "Multiple Selection", value: QuestionType.MultipleSelection },
   { label: "Text", value: QuestionType.Text },
   { label: "Short Answer", value: QuestionType.ShortAnswer },
   { label: "Paragraph", value: QuestionType.Paragraph },
@@ -42,7 +47,172 @@ interface QuestionComponentProps {
   onDuplication: () => void;
   scrollToCondition?: (key: number) => void;
   onShowLinkedQuestions?: (questionId: string | number) => void;
+  validationIssue?:
+    | QuestionValidationIssue[]
+    | QuestionValidationIssue
+    | string;
+  validationWarning?:
+    | QuestionValidationIssue[]
+    | QuestionValidationIssue
+    | string;
 }
+
+interface ValidationToggleContainerProps {
+  validationIssue?:
+    | QuestionValidationIssue[]
+    | QuestionValidationIssue
+    | string;
+  validationWarning?:
+    | QuestionValidationIssue[]
+    | QuestionValidationIssue
+    | string;
+}
+
+const ValidationToggleContainer = memo(
+  ({ validationIssue, validationWarning }: ValidationToggleContainerProps) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const { errors, warnings } = useMemo(() => {
+      const errs: QuestionValidationIssue[] = [];
+      const warns: QuestionValidationIssue[] = [];
+
+      const processItem = (
+        item:
+          | QuestionValidationIssue[]
+          | QuestionValidationIssue
+          | string
+          | undefined,
+        defaultType: "error" | "warning",
+      ) => {
+        if (!item) return;
+        if (Array.isArray(item)) {
+          item.forEach((i) => {
+            if (typeof i === "string") {
+              (defaultType === "error" ? errs : warns).push({
+                type: defaultType,
+                message: i,
+              });
+            } else if (i && typeof i === "object" && "message" in i) {
+              const t = i.type || defaultType;
+              if (t === "error") errs.push(i);
+              else warns.push(i);
+            }
+          });
+        } else if (typeof item === "string") {
+          (defaultType === "error" ? errs : warns).push({
+            type: defaultType,
+            message: item,
+          });
+        } else if (typeof item === "object" && "message" in item) {
+          const t = item.type || defaultType;
+          if (t === "error") errs.push(item);
+          else warns.push(item);
+        }
+      };
+
+      processItem(validationIssue, "error");
+      processItem(validationWarning, "warning");
+
+      return { errors: errs, warnings: warns };
+    }, [validationIssue, validationWarning]);
+
+    if (errors.length === 0 && warnings.length === 0) return null;
+
+    const hasErrors = errors.length > 0;
+
+    return (
+      <div className="w-[97%] transition-all duration-200">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen((prev) => !prev);
+          }}
+          className={`w-full flex items-center justify-between gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer border ${
+            hasErrors
+              ? "bg-red-50/80 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/30 dark:border-red-800/60 dark:text-red-300"
+              : "bg-amber-50/80 border-amber-200 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:border-amber-800/60 dark:text-amber-300"
+          }`}
+          aria-expanded={isOpen}
+          aria-label="Toggle validation details"
+        >
+          <div className="flex items-center gap-2 flex-wrap">
+            <svg
+              className={`w-4 h-4 flex-shrink-0 ${
+                hasErrors ? "text-red-500" : "text-amber-500"
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+            <span className="font-semibold">Validation</span>
+
+            {errors.length > 0 && (
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white">
+                {errors.length} {errors.length === 1 ? "Error" : "Errors"}
+              </span>
+            )}
+
+            {warnings.length > 0 && (
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                {warnings.length}{" "}
+                {warnings.length === 1 ? "Warning" : "Warnings"}
+              </span>
+            )}
+          </div>
+
+          <svg
+            className={`w-4 h-4 transition-transform duration-200 flex-shrink-0 ${
+              isOpen ? "rotate-180" : ""
+            } ${hasErrors ? "text-red-500" : "text-amber-500"}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </button>
+
+        {isOpen && (
+          <div className="mt-1.5 space-y-1.5">
+            {errors.map((err, i) => (
+              <div
+                key={`err-${i}`}
+                className="flex items-start gap-2 px-3 py-1.5 rounded-md text-xs bg-red-50 text-red-700 border border-red-100 dark:bg-red-950/20 dark:text-red-300 dark:border-red-900/40"
+              >
+                <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                <span className="leading-relaxed">{err.message}</span>
+              </div>
+            ))}
+            {warnings.map((warn, i) => (
+              <div
+                key={`warn-${i}`}
+                className="flex items-start gap-2 px-3 py-1.5 rounded-md text-xs bg-amber-50 text-amber-700 border border-amber-100 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-900/40"
+              >
+                <span className="mt-1 w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                <span className="leading-relaxed">{warn.message}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  },
+);
+
+ValidationToggleContainer.displayName = "ValidationToggleContainer";
 
 // Memoized selectors to prevent unnecessary re-renders
 const selectAllQuestions = (state: RootState) => state.allform.allquestion;
@@ -69,6 +239,9 @@ const QuestionComponent = memo(
     const allquestion = useSelector(selectAllQuestions);
     const autosave = useSelector(selectAutosave);
     const formSettings = useSelector(selectFormSettings);
+
+    const activeValidationIssue = value.validationIssues;
+    const activeValidationWarning = value.validationWarning;
 
     // Use qcolor from form settings, fallback to color prop
     const themeColor = useMemo(
@@ -162,6 +335,7 @@ const QuestionComponent = memo(
             />
           );
         }
+        case QuestionType.MultipleSelection:
         case QuestionType.Selection: {
           return (
             <SelectionQuestionEdit
@@ -333,6 +507,12 @@ const QuestionComponent = memo(
             )}
           </div>
         </div>
+
+        {/* Validation Toggle Container */}
+        <ValidationToggleContainer
+          validationIssue={activeValidationIssue}
+          validationWarning={activeValidationWarning}
+        />
 
         {/* Conditional Indicator Badge */}
         {!isNotConditioned &&

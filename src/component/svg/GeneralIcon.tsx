@@ -100,39 +100,6 @@ export const LogoutIcon = () => {
   );
 };
 
-export const ResponsesIcon = () => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-7 w-7"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-    >
-      <path
-        fillRule="evenodd"
-        d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-};
-
-export const ArchiveIcon = () => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-7 w-7"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-    >
-      <path
-        fillRule="evenodd"
-        d="M4 3a1 1 0 011-1h10a1 1 0 011 1v2a1 1 0 011 1v2a1 1 0 01-1 1v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7a1 1 0 01-1-1V6a1 1 0 011-1V3zm2 3v2h8V6H6zm0 4v6h8v-6H6z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-};
 
 export const ThemeIcon = ({ dark }: { dark: boolean }) => {
   return (

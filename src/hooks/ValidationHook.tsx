@@ -1,147 +1,146 @@
-import { useState, useCallback } from "react";
-import ApiRequest from "./APIHook/ApiHook";
-import { ErrorToast, InfoToast } from "../component/Modal/AlertModal";
-import { FormValidationSummary } from "../types/Form.types";
+import { useCallback, useMemo } from "react";
+import { useMutation, UseMutationResult } from "@tanstack/react-query";
+import ApiRequest, { ApiRequestReturnType } from "./APIHook/ApiHook";
+import { InfoToast } from "../component/Modal/AlertModal";
+import {
+  ContentType,
+  FormDataType,
+  FormValidationSummary,
+} from "../types/Form.types";
+import { alltabs } from "../pages/FormPage";
+import { calculateFinalTotal } from "../helperFunc";
 
-export interface ValidationHookReturn {
-  validateForm: (
-    formId: string,
-    action?: string,
-  ) => Promise<FormValidationSummary | null>;
-  validateContent: (formId: string) => Promise<FormValidationSummary | null>;
-  validateFormSubmission: (
-    formId: string,
-  ) => Promise<FormValidationSummary | null>;
-  isValidating: boolean;
-  showValidationWarnings: (validation: FormValidationSummary) => void;
+export interface ValidateFormParams {
+  formId: string;
+  tab: alltabs;
 }
 
-export const useFormValidation = (): ValidationHookReturn => {
-  const [isValidating, setIsValidating] = useState(false);
+export interface ProcessedTotalScoreArgs {
+  allQuestion?: Array<ContentType>;
+  formState: FormDataType;
+}
 
-  const validateForm = useCallback(
-    async (
-      formId: string,
-      action: string = "save",
-    ): Promise<FormValidationSummary | null> => {
-      if (!formId) return null;
+export interface UseFormValidationReturn {
+  showValidationWarnings: (validation: FormValidationSummary) => void;
+  validateFormReq: UseMutationResult<
+    ApiRequestReturnType,
+    Error,
+    ValidateFormParams,
+    unknown
+  >;
+  validateFormSubmissionReq: UseMutationResult<
+    ApiRequestReturnType,
+    Error,
+    string,
+    unknown
+  >;
+  processedTotalScore: (args: ProcessedTotalScoreArgs) => number;
+}
 
-      setIsValidating(true);
-      try {
-        const response = await ApiRequest({
-          url: `/validateform?formId=${formId}&action=${action}`,
-          method: "GET",
-          cookie: true,
-        });
+const fetchFormValidation = ({ formId, tab }: ValidateFormParams) =>
+  ApiRequest({
+    url: `/validateform?formId=${formId}&action=${tab}`,
+    method: "GET",
+    cookie: true,
+    reactQuery: true,
+  });
 
-        if (!response.success) {
-          ErrorToast({
-            title: "Validation Failed",
-            content: response.error || "Failed to validate form",
-            toastid: "validation-error",
+const fetchFormSubmissionValidation = (formId: string) =>
+  ApiRequest({
+    url: `/validateformsubmission?formId=${formId}`,
+    method: "GET",
+    cookie: true,
+  });
+
+/**
+ * Custom hook providing form validation mutations, total score calculation,
+ * and toast notification for validation warnings.
+ */
+export const useFormValidation = (): UseFormValidationReturn => {
+  const processedTotalScore = useCallback(
+    ({ allQuestion = [], formState }: ProcessedTotalScoreArgs): number => {
+      const processQIdx = new Set<number | string>();
+
+      allQuestion.forEach((q) => {
+        if (q?.conditional && Array.isArray(q.conditional)) {
+          q.conditional.forEach((c) => {
+            if (c.contentId) {
+              processQIdx.add(c.contentId);
+            }
+            if (c.contentIdx !== undefined) {
+              processQIdx.add(c.contentIdx);
+            }
           });
-          return null;
+        }
+      });
+
+      const newCurrentPageTotal = allQuestion.reduce((finalTotal, q) => {
+        if (!q) return finalTotal;
+
+        if (q.isBonusScore) {
+          return finalTotal;
         }
 
-        return response.data as FormValidationSummary;
-      } catch (error) {
-        console.error("Form validation error:", error);
-        ErrorToast({
-          title: "Validation Error",
-          content: "An error occurred while validating the form",
-          toastid: "validation-error",
-        });
-        return null;
-      } finally {
-        setIsValidating(false);
+        // Check if question is a conditional child target
+        const isChildTarget =
+          (q._id && processQIdx.has(q._id)) ||
+          (q.qIdx !== undefined && processQIdx.has(q.qIdx)) ||
+          (q.questionId && processQIdx.has(q.questionId));
+
+        if (isChildTarget) {
+          return finalTotal;
+        }
+
+        return finalTotal + (q.score ?? 0);
+      }, 0);
+
+      const uniquePages = new Set(
+        allQuestion
+          .map((q) => q?.page)
+          .filter((p): p is number => p !== undefined && p !== null),
+      );
+
+      const isFullForm =
+        !formState ||
+        formState.currentPageTotalScores === undefined ||
+        formState.totalScores === undefined ||
+        formState.currentPageTotalScores === formState.totalScores ||
+        uniquePages.size > 1 ||
+        (formState.totalQuestions !== undefined &&
+          formState.totalQuestions > 0 &&
+          allQuestion.length >= formState.totalQuestions);
+
+      if (isFullForm) {
+        return newCurrentPageTotal;
       }
+
+      return calculateFinalTotal(
+        formState.totalScores ?? 0,
+        formState.currentPageTotalScores ?? 0,
+        newCurrentPageTotal,
+      );
     },
     [],
   );
 
-  const validateContent = useCallback(
-    async (formId: string): Promise<FormValidationSummary | null> => {
-      if (!formId) return null;
+  const validateFormReq = useMutation({
+    mutationKey: ["SolutionValidation"],
+    mutationFn: fetchFormValidation,
+  });
 
-      setIsValidating(true);
-      try {
-        const response = await ApiRequest({
-          url: `/validatecontent?formId=${formId}`,
-          method: "GET",
-          cookie: true,
-        });
-
-        if (!response.success) {
-          ErrorToast({
-            title: "Content Validation Failed",
-            content: response.error || "Failed to validate content",
-            toastid: "content-validation-error",
-          });
-          return null;
-        }
-
-        return response.data as FormValidationSummary;
-      } catch (error) {
-        console.error("Content validation error:", error);
-        ErrorToast({
-          title: "Validation Error",
-          content: "An error occurred while validating content",
-          toastid: "content-validation-error",
-        });
-        return null;
-      } finally {
-        setIsValidating(false);
-      }
-    },
-    [],
-  );
-
-  const validateFormSubmission = useCallback(
-    async (formId: string): Promise<FormValidationSummary | null> => {
-      if (!formId) return null;
-
-      setIsValidating(true);
-      try {
-        const response = await ApiRequest({
-          url: `/validateformsubmission?formId=${formId}`,
-          method: "GET",
-          cookie: true,
-        });
-
-        if (!response.success) {
-          ErrorToast({
-            title: "Submission Validation Failed",
-            content: response.error || "Failed to validate form for submission",
-            toastid: "submission-validation-error",
-          });
-          return null;
-        }
-
-        return response.data as FormValidationSummary;
-      } catch (error) {
-        console.error("Form submission validation error:", error);
-        ErrorToast({
-          title: "Validation Error",
-          content: "An error occurred while validating form submission",
-          toastid: "submission-validation-error",
-        });
-        return null;
-      } finally {
-        setIsValidating(false);
-      }
-    },
-    [],
-  );
+  const validateFormSubmissionReq = useMutation({
+    mutationKey: ["ValidationFormSubmission"],
+    mutationFn: fetchFormSubmissionValidation,
+  });
 
   const showValidationWarnings = useCallback(
     (validation: FormValidationSummary) => {
-      if (
-        validation.validationResults.warnings &&
-        validation.validationResults.warnings.length > 0
-      ) {
+      const warnings = validation?.validationResults?.warnings;
+      if (warnings && warnings.length > 0) {
+        const count = warnings.length;
         InfoToast({
           title: "Validation Warnings",
-          content: validation.validationResults.warnings.join(", "),
+          content: `This form has ${count} validation warning${count > 1 ? "s" : ""}`,
           toastid: "validation-warnings",
         });
       }
@@ -149,13 +148,20 @@ export const useFormValidation = (): ValidationHookReturn => {
     [],
   );
 
-  return {
-    validateForm,
-    validateContent,
-    validateFormSubmission,
-    isValidating,
-    showValidationWarnings,
-  };
+  return useMemo(
+    () => ({
+      showValidationWarnings,
+      validateFormReq,
+      validateFormSubmissionReq,
+      processedTotalScore,
+    }),
+    [
+      showValidationWarnings,
+      validateFormReq,
+      validateFormSubmissionReq,
+      processedTotalScore,
+    ],
+  );
 };
 
 export default useFormValidation;

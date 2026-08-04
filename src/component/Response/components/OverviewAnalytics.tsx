@@ -28,8 +28,6 @@ interface OverviewAnalyticsTabsPropsType {
   isQuizForm: boolean;
 }
 
-/* -------------------------------- Constants -------------------------------- */
-
 const getPerformanceGraphOptions = (
   isQuizForm: boolean,
 ): Array<SelectionType<PerformanceGraphOptionType>> => {
@@ -135,6 +133,30 @@ const OverviewAnayticsTabs = memo(
       retry: 1,
     });
 
+    // Separate all-time query for performance metrics (Top Scorers & Question Difficulty)
+    const {
+      data: allTimeData,
+      isLoading: isAllTimeLoading,
+      isError: isAllTimeError,
+    } = useQuery<OverviewPerformanceData>({
+      queryKey: ["overviewPerformance", formId, "all"],
+      queryFn: async () => {
+        const params = new URLSearchParams({ formId, period: "all" });
+        const result = await ApiRequest({
+          url: `/response/getoverviewanalytic?${params.toString()}`,
+          method: "GET",
+          cookie: true,
+          reactQuery: true,
+        });
+        if (!result.success)
+          throw new Error(result.error ?? "Failed to fetch all-time analytics");
+        return result.data as OverviewPerformanceData;
+      },
+      enabled: !!formId && isQuizForm,
+      staleTime: 10 * 60 * 1000,
+      retry: 1,
+    });
+
     const dailyVolumeChartData = useMemo(
       () =>
         perfData?.timeSeriesData.map((d) => ({
@@ -146,7 +168,7 @@ const OverviewAnayticsTabs = memo(
 
     return (
       <div className="space-y-6">
-        {/* Key Metrics */}
+        {/* Key Metrics — all sourced from all-time data */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card aria-label="Response Card">
             <CardBody className="p-4">
@@ -157,7 +179,9 @@ const OverviewAnayticsTabs = memo(
                 <div>
                   <p className="text-sm text-gray-600">Total Responses</p>
                   <p className="text-2xl font-bold">
-                    {perfData?.totalResponses ?? 0}
+                    {allTimeData?.totalResponses ??
+                      perfData?.totalResponses ??
+                      0}
                   </p>
                 </div>
               </div>
@@ -175,24 +199,11 @@ const OverviewAnayticsTabs = memo(
                     <div>
                       <p className="text-sm text-gray-600">Average Score</p>
                       <p className="text-2xl font-bold">
-                        {perfData?.averageScore.toFixed(1)}
-                      </p>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-              <Card aria-label="CompletedResponses Card">
-                <CardBody className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <FiClock className="text-purple-600 text-xl" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        Completed Responses
-                      </p>
-                      <p className="text-2xl font-bold">
-                        {perfData?.completedResponses}
+                        {(
+                          allTimeData?.averageScore ??
+                          perfData?.averageScore ??
+                          0
+                        ).toFixed(1)}
                       </p>
                     </div>
                   </div>
@@ -200,6 +211,24 @@ const OverviewAnayticsTabs = memo(
               </Card>
             </>
           )}
+
+          <Card aria-label="CompletionTime Card">
+            <CardBody className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <FiClock className="text-purple-600 text-xl" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Avg. Completion Time</p>
+                  <p className="text-2xl font-bold">
+                    {allTimeData?.averageCompletionTime ??
+                      perfData?.averageCompletionTime ??
+                      "—"}
+                  </p>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
         </div>
 
         {/* Performance Metrics Selections */}
@@ -227,135 +256,262 @@ const OverviewAnayticsTabs = memo(
             />
           </div>
 
-          {isPerfLoading && (
+          {isPerfLoading && overviewGraph === "Response" && (
             <div className="flex items-center justify-center h-48">
               <Spinner size="lg" color="primary" />
             </div>
           )}
 
-          {isPerfError && (
+          {isAllTimeLoading &&
+            (overviewGraph === "Difficulty" || overviewGraph === "Top") && (
+              <div className="flex items-center justify-center h-48">
+                <Spinner size="lg" color="primary" />
+              </div>
+            )}
+
+          {isPerfError && overviewGraph === "Response" && (
             <div className="flex items-center justify-center h-48 gap-2 text-danger">
               <FiAlertCircle className="text-xl" />
               <span className="text-sm">Failed to load performance data.</span>
             </div>
           )}
 
+          {isAllTimeError &&
+            (overviewGraph === "Difficulty" || overviewGraph === "Top") && (
+              <div className="flex items-center justify-center h-48 gap-2 text-danger">
+                <FiAlertCircle className="text-xl" />
+                <span className="text-sm">Failed to load all-time data.</span>
+              </div>
+            )}
+
           {!isPerfLoading && !isPerfError && perfData && (
             <>
-              {overviewGraph === "Difficulty" && isQuizForm && (
-                <Card aria-label="QuestionDifficulty Chart">
-                  <CardHeader>
-                    <h4 className="text-base font-semibold">
-                      Question Difficulty
-                    </h4>
-                  </CardHeader>
-                  <CardBody>
-                    {!perfData.performanceMetrics.difficultQuestions ||
-                    perfData.performanceMetrics.difficultQuestions.length ===
-                      0 ? (
-                      <p className="text-sm text-gray-500 text-center py-8">
-                        No question difficulty data available.
-                      </p>
-                    ) : (
-                      <ul className="divide-y divide-gray-100">
-                        {perfData.performanceMetrics.difficultQuestions.map(
-                          (q, idx) => {
-                            const pct = Number((q.accuracy * 100).toFixed(1));
-                            const color =
-                              pct < 40
-                                ? "text-red-600 bg-red-50"
-                                : pct < 70
-                                  ? "text-yellow-600 bg-yellow-50"
-                                  : "text-green-600 bg-green-50";
-                            return (
-                              <li
-                                key={q.questionId}
-                                className="flex items-center justify-between py-3 gap-4"
-                              >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <span className="text-xs font-medium text-gray-400 w-5 shrink-0">
+              {overviewGraph === "Difficulty" &&
+                isQuizForm &&
+                !isAllTimeLoading &&
+                !isAllTimeError &&
+                allTimeData && (
+                  <Card aria-label="QuestionDifficulty Chart">
+                    <CardHeader className="flex items-center justify-between">
+                      <h4 className="text-base font-semibold">
+                        Question Difficulty
+                      </h4>
+                      <span className="text-xs text-gray-400 font-medium">
+                        All time
+                      </span>
+                    </CardHeader>
+                    <CardBody>
+                      {!allTimeData.performanceMetrics.difficultQuestions ||
+                      allTimeData.performanceMetrics.difficultQuestions
+                        .length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-8">
+                          No question difficulty data available.
+                        </p>
+                      ) : (
+                        <ul className="divide-y divide-gray-100">
+                          {allTimeData.performanceMetrics.difficultQuestions.map(
+                            (q, idx) => {
+                              const fullPct = Math.round(q.accuracy * 100);
+                              const avgPct =
+                                q.averagePercent ??
+                                Math.round(
+                                  (q.averageScore / (q.maxScore || 1)) * 100,
+                                );
+
+                              const difficulty =
+                                fullPct < 40
+                                  ? {
+                                      label: "Hard",
+                                      badge:
+                                        "text-red-700 bg-red-50 border border-red-200",
+                                      bar: "bg-red-400",
+                                    }
+                                  : fullPct < 70
+                                    ? {
+                                        label: "Medium",
+                                        badge:
+                                          "text-yellow-700 bg-yellow-50 border border-yellow-200",
+                                        bar: "bg-yellow-400",
+                                      }
+                                    : {
+                                        label: "Easy",
+                                        badge:
+                                          "text-green-700 bg-green-50 border border-green-200",
+                                        bar: "bg-green-400",
+                                      };
+
+                              return (
+                                <li
+                                  key={q.questionId}
+                                  className="py-4 space-y-2"
+                                >
+                                  {/* Row 1: rank + title + difficulty badge */}
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-xs font-medium text-gray-400 w-5 shrink-0">
+                                        {idx + 1}
+                                      </span>
+                                      <span className="text-sm font-medium text-gray-800 line-clamp-2">
+                                        Question {q.questionId}
+                                      </span>
+                                      {q.isConditional && (
+                                        <span className="shrink-0 text-xs font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-200">
+                                          Conditional
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span
+                                      className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${difficulty.badge}`}
+                                    >
+                                      {difficulty.label}
+                                    </span>
+                                  </div>
+
+                                  {/* Row 2: progress bar (avg score %) */}
+                                  <div className="pl-7">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-xs text-gray-500">
+                                        Avg. score
+                                      </span>
+                                      <span className="text-xs font-semibold text-gray-700 ml-auto">
+                                        {avgPct}%
+                                      </span>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full ${difficulty.bar}`}
+                                        style={{ width: `${avgPct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Row 3: stat pills */}
+                                  <div className="pl-7 flex items-center gap-3 text-xs text-gray-500">
+                                    <span>
+                                      <span className="font-medium text-gray-700">
+                                        {fullPct}%
+                                      </span>{" "}
+                                      full marks
+                                    </span>
+                                    <span className="text-gray-300">·</span>
+                                    <span>
+                                      <span className="font-medium text-gray-700">
+                                        {q.responseCount ?? "—"}
+                                      </span>{" "}
+                                      responses
+                                    </span>
+                                    <span className="text-gray-300">·</span>
+                                    <span>
+                                      <span className="font-medium text-gray-700">
+                                        {q.averageScore.toFixed(1)}
+                                      </span>
+                                      /<span>{q.maxScore}</span> pts
+                                    </span>
+                                  </div>
+                                </li>
+                              );
+                            },
+                          )}
+                        </ul>
+                      )}
+                    </CardBody>
+                  </Card>
+                )}
+
+              {overviewGraph === "Top" &&
+                isQuizForm &&
+                !isAllTimeLoading &&
+                !isAllTimeError &&
+                allTimeData && (
+                  <Card aria-label="TopScorer Chart">
+                    <CardHeader className="flex items-center justify-between">
+                      <h4 className="text-base font-semibold">Top Scorers</h4>
+                      <span className="text-xs text-gray-400 font-medium">
+                        All time
+                      </span>
+                    </CardHeader>
+                    <CardBody>
+                      {!allTimeData.performanceMetrics.topPerformers ||
+                      allTimeData.performanceMetrics.topPerformers.length ===
+                        0 ? (
+                        <p className="text-sm text-gray-500 text-center py-8">
+                          No top scorer data available.
+                        </p>
+                      ) : (
+                        <ul className="divide-y divide-gray-100">
+                          {allTimeData.performanceMetrics.topPerformers.map(
+                            (performer, idx) => {
+                              const isTop3 = idx < 3;
+                              const medalColors = [
+                                "bg-yellow-400 text-white", // 1st — gold
+                                "bg-gray-400 text-white", // 2nd — silver
+                                "bg-amber-600 text-white", // 3rd — bronze
+                              ];
+                              const rowHighlight = [
+                                "bg-yellow-50",
+                                "bg-gray-50",
+                                "bg-amber-50",
+                              ];
+                              const maxScore =
+                                allTimeData.performanceMetrics.topPerformers[0]
+                                  ?.score || 1;
+
+                              return (
+                                <li
+                                  key={`${performer.name}-${idx}`}
+                                  className={`flex items-center gap-4 py-3 px-2 rounded-lg ${isTop3 ? rowHighlight[idx] : ""}`}
+                                >
+                                  {/* Rank badge */}
+                                  <span
+                                    className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold shrink-0 ${
+                                      isTop3
+                                        ? medalColors[idx]
+                                        : "bg-gray-100 text-gray-500"
+                                    }`}
+                                  >
                                     {idx + 1}
                                   </span>
-                                  <span className="text-sm text-gray-800 truncate">
-                                    {q.questionId}
-                                  </span>
-                                </div>
-                                <span
-                                  className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${color}`}
-                                >
-                                  {pct}%
-                                </span>
-                              </li>
-                            );
-                          },
-                        )}
-                      </ul>
-                    )}
-                  </CardBody>
-                </Card>
-              )}
 
-              {overviewGraph === "Top" && isQuizForm && (
-                <Card aria-label="TopScorer Chart">
-                  <CardHeader>
-                    <h4 className="text-base font-semibold">Top Scorers</h4>
-                  </CardHeader>
-                  <CardBody>
-                    {!perfData.performanceMetrics.topPerformers ||
-                    perfData.performanceMetrics.topPerformers.length === 0 ? (
-                      <p className="text-sm text-gray-500 text-center py-8">
-                        No top scorer data available.
-                      </p>
-                    ) : (
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart
-                          data={perfData.performanceMetrics.topPerformers.map(
-                            (performer, idx) => ({
-                              rank: `${idx + 1}`,
-                              name: performer.name.substring(0, 20),
-                              score: Number(performer.score.toFixed(2)),
-                              fullName: performer.name,
-                            }),
+                                  {/* Name */}
+                                  <span
+                                    className={`flex-1 text-sm truncate ${isTop3 ? "font-semibold text-gray-800" : "text-gray-700"}`}
+                                  >
+                                    {performer.name}
+                                  </span>
+
+                                  {/* Score bar */}
+                                  <div className="hidden sm:flex flex-1 max-w-[120px] h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${isTop3 ? "bg-indigo-400" : "bg-gray-300"}`}
+                                      style={{
+                                        width: `${(performer.score / maxScore) * 100}%`,
+                                      }}
+                                    />
+                                  </div>
+
+                                  {/* Score value */}
+                                  <span
+                                    className={`text-sm font-semibold shrink-0 ${
+                                      idx === 0
+                                        ? "text-yellow-600"
+                                        : idx === 1
+                                          ? "text-gray-500"
+                                          : idx === 2
+                                            ? "text-amber-700"
+                                            : "text-gray-600"
+                                    }`}
+                                  >
+                                    {performer.score.toFixed(2)}
+                                  </span>
+                                </li>
+                              );
+                            },
                           )}
-                          margin={{
-                            top: 5,
-                            right: 10,
-                            left: 0,
-                            bottom: 60,
-                          }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis
-                            dataKey="name"
-                            tick={{ fontSize: 10 }}
-                            angle={-35}
-                            textAnchor="end"
-                            interval={0}
-                            height={80}
-                          />
-                          <YAxis
-                            tick={{ fontSize: 11 }}
-                            label={{
-                              value: "Score",
-                              angle: -90,
-                              position: "insideLeft",
-                              style: { fontSize: 11 },
-                            }}
-                          />
-                          <Tooltip content={<ChartTooltip />} />
-                          <Legend wrapperStyle={{ paddingTop: 16 }} />
-                          <Bar
-                            dataKey="score"
-                            fill={CHART_COLORS.secondary}
-                            radius={[4, 4, 0, 0]}
-                            name="Score"
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    )}
-                  </CardBody>
-                </Card>
-              )}
+                        </ul>
+                      )}
+                    </CardBody>
+                  </Card>
+                )}
 
               {overviewGraph === "Response" && (
                 <>
@@ -483,53 +639,6 @@ const OverviewAnayticsTabs = memo(
                   )}
                 </>
               )}
-
-              {/* Summary Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  {
-                    label: "Response Rate",
-                    value: `${perfData.responseRate.toFixed(1)}%`,
-                    color: "text-blue-600",
-                    bg: "bg-blue-50",
-                  },
-                  isQuizForm
-                    ? {
-                        label: "Avg.Score",
-                        value: perfData.averageScore.toFixed(2),
-                        color: "text-green-600",
-                        bg: "bg-green-50",
-                      }
-                    : {
-                        label: "Total Submitted",
-                        value: perfData.totalResponses,
-                        color: "text-green-600",
-                        bg: "bg-green-50",
-                      },
-                  {
-                    label: "Completed",
-                    value: perfData.completedResponses,
-                    color: "text-purple-600",
-                    bg: "bg-purple-50",
-                  },
-                  {
-                    label: "Avg.Completion Time",
-                    value: `${perfData.averageCompletionTime} min`,
-                    color: "text-yellow-600",
-                    bg: "bg-yellow-50",
-                  },
-                ]?.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className={`${stat.bg} rounded-lg p-3 text-center`}
-                  >
-                    <p className="text-xs text-gray-500 mb-1">{stat.label}</p>
-                    <p className={`text-lg font-bold ${stat.color}`}>
-                      {stat.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
             </>
           )}
         </div>

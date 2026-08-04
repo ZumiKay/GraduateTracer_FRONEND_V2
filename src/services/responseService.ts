@@ -157,51 +157,6 @@ export const fetchResponseDetails = async (
   return result.data as ResponseDataType;
 };
 
-export const updateResponseScores = async (
-  responseId: string,
-  scores: Array<{ questionId: string; score: number }>,
-  sendEmail: boolean = false,
-) => {
-  const result = await ApiRequest({
-    url: "/updateresponsescore",
-    method: "PUT",
-    cookie: true,
-    data: {
-      responseId,
-      scores,
-      sendEmail,
-    },
-  });
-
-  return result;
-};
-
-export const deleteResponse = async (responseId: string) => {
-  const result = await ApiRequest({
-    url: `/deleteresponse/${responseId}`,
-    method: "DELETE",
-    cookie: true,
-  });
-
-  return result;
-};
-
-export const bulkDeleteResponses = async (
-  responseIds: string[],
-  formId: string,
-) => {
-  const result = await ApiRequest({
-    url: "/bulkdeleteresponses",
-    method: "DELETE",
-    cookie: true,
-    data: {
-      responseIds,
-      formId,
-    },
-  });
-
-  return result;
-};
 
 export interface ResponseSummary {
   toScore: number;

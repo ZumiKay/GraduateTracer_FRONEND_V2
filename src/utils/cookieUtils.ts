@@ -54,17 +54,6 @@ export const setCookieConsentToStorage = (
 };
 
 /**
- * Clear cookie consent data from localStorage
- */
-export const clearCookieConsent = (): void => {
-  try {
-    localStorage.removeItem(COOKIE_CONSENT_KEY);
-  } catch (error) {
-    console.error("Error clearing cookie consent:", error);
-  }
-};
-
-/**
  * Check if a specific cookie category is allowed
  */
 export const isCookieAllowed = (category: keyof CookiePreferences): boolean => {

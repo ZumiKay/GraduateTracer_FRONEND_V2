@@ -92,13 +92,13 @@ export const useQuestionTab = () => {
   );
 
   const handleAddQuestion = useCallback(async () => {
-    const qIdx = (formState?.lastqIdx ?? 0) + (allQuestion.length + 1);
+    const qIdx = (formState?.lastQuestionIdx ?? 0) + (allQuestion.length + 1);
     const updatedQuestions: Array<ContentType> = AddQuestionNumbering({
       questions: [
         ...(allQuestion ?? []),
         { ...DefaultContentType, qIdx, page },
       ],
-      lastIdx: formState.lastqIdx,
+      lastIdx: formState.lastQuestionIdx,
     });
 
     if (formState.setting?.autosave) {
@@ -115,7 +115,7 @@ export const useQuestionTab = () => {
     }
     dispatch(setallquestion(updatedQuestions));
   }, [
-    formState.lastqIdx,
+    formState.lastQuestionIdx,
     formState.setting?.autosave,
     allQuestion,
     page,
@@ -149,7 +149,7 @@ export const useQuestionTab = () => {
                     allquestion: allQuestion,
                     targetQuestion: questionToDelete.qIdx,
                     targetQuestionIdx: qidx,
-                    lastIdx: formState.lastqIdx,
+                    lastIdx: formState.lastQuestionIdx,
                   });
                   if (formState.setting?.autosave) {
                     const isSave = await manualSave({
@@ -178,7 +178,7 @@ export const useQuestionTab = () => {
         allquestion: allQuestion,
         targetQuestion: questionToDelete.qIdx,
         targetQuestionIdx: qidx,
-        lastIdx: formState.lastqIdx,
+        lastIdx: formState.lastQuestionIdx,
       });
 
       dispatch(setallquestion(updatedQuestions));
@@ -197,7 +197,7 @@ export const useQuestionTab = () => {
     [
       allQuestion,
       formState._id,
-      formState.lastqIdx,
+      formState.lastQuestionIdx,
       formState.setting?.autosave,
       dispatch,
       manualSave,
@@ -296,7 +296,7 @@ export const useQuestionTab = () => {
 
             dataToBeSave = AddQuestionNumbering({
               questions: result,
-              lastIdx: formState.lastqIdx,
+              lastIdx: formState.lastQuestionIdx,
             });
             return dataToBeSave;
           }),
@@ -324,7 +324,7 @@ export const useQuestionTab = () => {
       allQuestion,
       dispatch,
       formState.setting?.autosave,
-      formState.lastqIdx,
+      formState.lastQuestionIdx,
       page,
       manualSave,
     ],
