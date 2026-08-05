@@ -68,7 +68,7 @@ const QuestionItem = memo(
           isChildHasScore={isChildHasScore}
         />
 
-        {/* Per-question validation issues */}
+        {/* Question validation issues */}
         {question.validationIssues && question.validationIssues.length > 0 && (
           <ValidationIssueDisplay issues={question.validationIssues} />
         )}

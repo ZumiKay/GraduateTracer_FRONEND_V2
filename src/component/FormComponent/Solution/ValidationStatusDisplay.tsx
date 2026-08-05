@@ -71,7 +71,10 @@ const StatCard = memo(
 );
 StatCard.displayName = "StatCard";
 
-type Props = Pick<FormDataType, "validation" | "type" | "setting">;
+type Props = Pick<
+  FormDataType,
+  "validation" | "type" | "setting" | "totalQuestions"
+>;
 
 const ValidationStatusDisplay = memo(
   ({
@@ -189,7 +192,7 @@ const ValidationStatusDisplay = memo(
                   {/* Stat grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                     <StatCard
-                      value={scoringAnalysisData.totalQuestions}
+                      value={formstate.totalQuestions ?? 0}
                       label="Total Questions"
                       colorClass="text-purple-600 dark:text-purple-400"
                       bgClass="bg-purple-50/80 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800/60"

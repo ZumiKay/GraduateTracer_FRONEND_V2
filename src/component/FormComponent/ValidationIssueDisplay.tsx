@@ -1,135 +1,88 @@
-import React, { useState, memo } from "react";
+import React, { memo, useMemo } from "react";
 import { QuestionValidationIssue } from "../../types/Form.types";
+import {
+  ExclamationTriangleIcon,
+  ExclamationCircleIcon,
+} from "@heroicons/react/24/solid";
 
-interface ValidationIssueDisplayProps {
-  issues: QuestionValidationIssue[];
+export interface ValidationIssueDisplayProps {
+  issues?: QuestionValidationIssue[];
+  errors?: QuestionValidationIssue[];
+  warnings?: QuestionValidationIssue[];
+  className?: string;
 }
 
-/**
- * Displays per-question validation errors and warnings in a collapsible
- * toggle container. The header shows counts with red (error) and yellow
- * (warning) indicators. Clicking expands to reveal each issue.
- */
 const ValidationIssueDisplay: React.FC<ValidationIssueDisplayProps> = memo(
-  ({ issues }) => {
-    const [isOpen, setIsOpen] = useState(false);
+  ({ issues, errors, warnings, className = "" }) => {
+    const allErrors = useMemo(() => {
+      if (errors && errors.length > 0) return errors;
+      return issues?.filter((item) => item.type === "error") || [];
+    }, [errors, issues]);
 
-    if (!issues || issues.length === 0) return null;
+    const allWarnings = useMemo(() => {
+      if (warnings && warnings.length > 0) return warnings;
+      return issues?.filter((item) => item.type === "warning") || [];
+    }, [warnings, issues]);
 
-    const errors = issues.filter((i) => i.type === "error");
-    const warnings = issues.filter((i) => i.type === "warning");
+    if (allErrors.length === 0 && allWarnings.length === 0) {
+      return null;
+    }
 
     return (
-      <div className="mt-2">
-        {/* Toggle Header */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsOpen((prev) => !prev);
-          }}
-          className={`
-            w-full flex items-center justify-between gap-2
-            px-3 py-2 rounded-lg text-xs font-medium
-            transition-all duration-200 cursor-pointer
-            ${
-              errors.length > 0
-                ? "bg-red-50 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-900/30"
-                : "bg-amber-50 border border-amber-200 hover:bg-amber-100 dark:bg-amber-900/20 dark:border-amber-800 dark:hover:bg-amber-900/30"
-            }
-          `}
-        >
-          <div className="flex items-center gap-2">
-            {/* Validation icon */}
-            <svg
-              className={`w-3.5 h-3.5 flex-shrink-0 ${
-                errors.length > 0
-                  ? "text-red-500"
-                  : "text-amber-500"
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-              />
-            </svg>
-            <span
-              className={
-                errors.length > 0
-                  ? "text-red-700 dark:text-red-400"
-                  : "text-amber-700 dark:text-amber-400"
-              }
-            >
-              Validation
-            </span>
-
-            {/* Error count badge */}
-            {errors.length > 0 && (
-              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white min-w-[18px]">
-                {errors.length}
-              </span>
-            )}
-
-            {/* Warning count badge */}
-            {warnings.length > 0 && (
-              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white min-w-[18px]">
-                {warnings.length}
-              </span>
-            )}
-          </div>
-
-          {/* Chevron */}
-          <svg
-            className={`w-3.5 h-3.5 transition-transform duration-200 ${
-              isOpen ? "rotate-180" : ""
-            } ${
-              errors.length > 0
-                ? "text-red-400"
-                : "text-amber-400"
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      <div className={`w-full space-y-2.5 mt-3 ${className}`}>
+        {/* Errors Block */}
+        {allErrors.length > 0 && (
+          <div
+            role="alert"
+            className="p-3 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/40 dark:border-red-800/60 transition-all"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </button>
-
-        {/* Expanded Issue List */}
-        {isOpen && (
-          <div className="mt-1.5 space-y-1 animate-in slide-in-from-top-1 duration-200">
-            {issues.map((issue, idx) => (
-              <div
-                key={`validation-issue-${idx}`}
-                className={`
-                  flex items-start gap-2 px-3 py-1.5 rounded-md text-xs
-                  ${
-                    issue.type === "error"
-                      ? "bg-red-50/70 text-red-700 dark:bg-red-900/10 dark:text-red-400"
-                      : "bg-amber-50/70 text-amber-700 dark:bg-amber-900/10 dark:text-amber-400"
-                  }
-                `}
-              >
-                {/* Dot indicator */}
-                <span
-                  className={`
-                    mt-1 w-2 h-2 rounded-full flex-shrink-0
-                    ${issue.type === "error" ? "bg-red-500" : "bg-amber-500"}
-                  `}
-                />
-                <span className="leading-relaxed">{issue.message}</span>
+            <div className="flex items-start gap-2.5">
+              <ExclamationTriangleIcon className="w-5 h-5 text-red-500 dark:text-red-400 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-xs text-red-700 dark:text-red-300">
+                <p className="font-semibold text-sm leading-tight text-red-800 dark:text-red-200">
+                  {allErrors.length === 1
+                    ? "Validation Error"
+                    : `${allErrors.length} Validation Errors`}
+                </p>
+                {allErrors.length === 1 ? (
+                  <p>{allErrors[0].message}</p>
+                ) : (
+                  <ul className="list-disc list-inside space-y-0.5 pl-1">
+                    {allErrors.map((err, idx) => (
+                      <li key={`err-${idx}`}>{err.message}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            ))}
+            </div>
+          </div>
+        )}
+
+        {/* Warnings Block */}
+        {allWarnings.length > 0 && (
+          <div
+            role="alert"
+            className="p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/60 transition-all"
+          >
+            <div className="flex items-start gap-2.5">
+              <ExclamationCircleIcon className="w-5 h-5 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-xs text-amber-700 dark:text-amber-300">
+                <p className="font-semibold text-sm leading-tight text-amber-800 dark:text-amber-200">
+                  {allWarnings.length === 1
+                    ? "Warning"
+                    : `${allWarnings.length} Warnings`}
+                </p>
+                {allWarnings.length === 1 ? (
+                  <p>{allWarnings[0].message}</p>
+                ) : (
+                  <ul className="list-disc list-inside space-y-0.5 pl-1">
+                    {allWarnings.map((warn, idx) => (
+                      <li key={`warn-${idx}`}>{warn.message}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
