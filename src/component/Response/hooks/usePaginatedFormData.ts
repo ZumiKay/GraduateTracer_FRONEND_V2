@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { FormDataType } from "../../../types/Form.types";
+import { FormDataType, ValidationResult } from "../../../types/Form.types";
 import { useQuery } from "@tanstack/react-query";
 import ApiRequest, {
   ApiRequestReturnType,
@@ -19,9 +19,12 @@ export type accessModeType = "login" | "authenticated" | "error";
 type fetchtype = "data" | "initial";
 export interface GetFormStateResponseType extends FormDataType {
   isResponsed?: SubmittionProcessionReturnType;
+  isLoggedin?: boolean;
   message?: string;
   //For test unique of response for public form
   fingerprintStrength?: number;
+  /** Content-level validation result returned from the backend */
+  contentValidation?: ValidationResult;
 }
 
 export type UseRespondentFormPaginationReturn = {
@@ -37,6 +40,7 @@ export type UseRespondentFormPaginationReturn = {
   showInactiveAlert?: boolean;
   isSuccess?: boolean;
   isFormRequiredSessionChecked?: boolean;
+  isValidationError?: boolean;
 };
 
 type useRespondentFormPaginationProps = {
@@ -64,6 +68,7 @@ const useRespondentFormPaginaition = ({
   const navigate = useNavigate();
   const [currentPage, setcurrentPage] = useState<number | null>(null);
   const [fetchType, setfetchType] = useState<fetchtype>("initial");
+  const [validationError, setvalidationError] = useState(false);
   const [localformsession, setlocalformsession] =
     useState<RespondentSessionType>();
   const accessModeRef = useRef(accessMode);
@@ -105,9 +110,6 @@ const useRespondentFormPaginaition = ({
     return null;
   }, [storageKey, formId, enabled]);
 
-  // Initialize currentPage once — wait until we have a storage key or
-  // initialization is complete (enabled), so we never default to page 1
-  // prematurely and trigger an unnecessary fetch.
   useEffect(() => {
     if (currentPage !== null) return; // already initialized
     if (storageKey !== null || enabled) {
@@ -202,7 +204,6 @@ const useRespondentFormPaginaition = ({
     refetchInterval: false,
     refetchOnReconnect: false,
     refetchIntervalInBackground: false,
-
     networkMode: "online",
   });
 
@@ -291,6 +292,7 @@ const useRespondentFormPaginaition = ({
       isFetching,
       isSuccess,
       isFormRequiredSessionChecked: !!formState?.setting?.email,
+      isValidationError: validationError,
     }),
     [
       handlePage,
