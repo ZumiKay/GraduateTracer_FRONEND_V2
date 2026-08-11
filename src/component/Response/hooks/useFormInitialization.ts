@@ -47,7 +47,7 @@ const useFormInitialization = ({
           return;
         }
 
-        const verifiedData = verifiedSession.data?.data as RespondentInfoType;
+        const verifiedData = verifiedSession.data?.data as (RespondentInfoType & { expiresAt?: string }) | undefined;
 
         if (verifiedData) {
           //Initialize storage key for form session
@@ -57,16 +57,33 @@ const useFormInitialization = ({
             formId: formId,
           });
 
+          const expiresAt = verifiedData.expiresAt;
+
           const savedData = localStorage.getItem(key);
           if (savedData) {
             try {
               const parsed = JSON.parse(
                 savedData,
               ) as Partial<RespondentSessionType>;
+
+              const sessionExpiresAt = expiresAt || parsed.expiresAt || parsed.respondentinfo?.expiresAt;
+
+              const updatedSession: Partial<RespondentSessionType> = {
+                ...parsed,
+                expiresAt: sessionExpiresAt,
+                respondentinfo: {
+                  ...parsed.respondentinfo,
+                  ...verifiedData,
+                  expiresAt: sessionExpiresAt,
+                },
+              };
+
               dispatch({
                 type: "SET_FORMSESSION",
-                payload: parsed,
+                payload: updatedSession,
               });
+
+              localStorage.setItem(key, JSON.stringify(updatedSession));
             } catch (error) {
               console.error("Error parsing saved data:", error);
               localStorage.removeItem(key);
@@ -75,7 +92,11 @@ const useFormInitialization = ({
             //*If no formsession state exist
             const defaultSession: RespondentSessionType = {
               isActive: true,
-              respondentinfo: verifiedData,
+              respondentinfo: {
+                ...verifiedData,
+                expiresAt,
+              },
+              expiresAt,
             };
             dispatch({
               type: "SET_FORMSESSION",

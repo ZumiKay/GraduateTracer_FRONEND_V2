@@ -190,8 +190,7 @@ axiosInstance.interceptors.response.use(
         await axiosInstance.post(API_CONFIG.REFRESH_TOKEN_URL, {}, {
           skipRefresh: true,
           withCredentials: true,
-        } as InternalAxiosRequestConfig & { skipRefresh?: boolean });
-
+        } as AxiosRequestConfig & { skipRefresh?: boolean });
         isRefreshing = false;
         processQueue();
 
@@ -202,8 +201,16 @@ axiosInstance.interceptors.response.use(
         isRefreshing = false;
         processQueue(refreshError as Error);
 
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("app:session-expired"));
+        }
+
         return Promise.reject(refreshError);
       }
+    }
+
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("app:session-expired"));
     }
 
     return Promise.reject(error);
@@ -338,20 +345,6 @@ const ApiRequest = async ({
       reactQuery,
       errorResponses: errorResponse,
     };
-  }
-};
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const refreshToken = async (): Promise<boolean> => {
-  try {
-    await axiosInstance.post(API_CONFIG.REFRESH_TOKEN_URL, {}, {
-      skipRefresh: true,
-      withCredentials: true,
-    } as AxiosRequestConfig & { skipRefresh?: boolean });
-    return true;
-  } catch (error) {
-    console.error("Manual token refresh failed:", error);
-    return false;
   }
 };
 

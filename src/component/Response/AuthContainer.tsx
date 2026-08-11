@@ -6,9 +6,10 @@ import { GuestForm } from "./GuestForm";
 import { LoginData } from "../../types/PublicFormAccess.types";
 import { FormAction } from "./types/PublicFormAccessTypes";
 import { SessionState } from "../../redux/user.store";
+import { ApiError } from "../../hooks/APIHook/ApiHook";
 
 export type onLoginFuncType = (
-  e?: React.FormEvent,
+  e?: SubmitEvent,
   addition?: { existed: "1" },
 ) => Promise<void>;
 
@@ -20,7 +21,7 @@ interface AuthContainerProps {
   user: SessionState;
   updateLoginState: React.Dispatch<FormAction>;
   onLogin: onLoginFuncType;
-  error?: string;
+  error?: ApiError;
 }
 
 export const AuthContainer: React.FC<AuthContainerProps> = ({
@@ -123,6 +124,7 @@ export const AuthContainer: React.FC<AuthContainerProps> = ({
                   })
                 }
                 onSubmit={onLogin}
+                error={error}
                 onBackToLogin={() =>
                   updateLoginState({
                     type: "SET_SHOW_GUEST_FORM",

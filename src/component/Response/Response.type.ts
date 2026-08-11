@@ -34,6 +34,7 @@ export interface RespondentInfoType {
   respondentEmail: string;
   respondentName?: string;
   isGuest?: boolean;
+  expiresAt?: string | Date;
 }
 export interface SaveProgressType {
   currentPage: number;
@@ -96,6 +97,7 @@ export interface RespondentSessionType {
   alert?: boolean;
   respondentinfo?: RespondentInfoType;
   isSwitchedUser?: boolean;
+  expiresAt?: string | Date;
 }
 
 export interface SubmittionProcessionReturnType {

@@ -58,12 +58,13 @@ export interface SessionVerificationResponse extends ApiRequestReturnType {
     respondentName: string;
     isGuest?: boolean;
     isNormalForm?: boolean;
+    expiresAt?: string | Date;
   };
 }
 
 export const useFormsessionAPI = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<ApiError | null>(null);
+  const [error, setError] = useState<ApiError>();
 
   const respondentLogin = useMutation({
     mutationKey: ["respondentLogin"],
@@ -76,6 +77,7 @@ export const useFormsessionAPI = () => {
         reactQuery: true,
       });
     },
+    onError: setError,
   });
 
   const useSessionVeriftication = (
@@ -88,7 +90,7 @@ export const useFormsessionAPI = () => {
         if (!formId) {
           throw new Error("Invalid FormId");
         }
-        setError(null);
+        setError(undefined);
         return ApiRequest({
           method: "GET",
           url: `/response/verifyformsession/${formId}`,
@@ -113,7 +115,7 @@ export const useFormsessionAPI = () => {
   const replaceSession = useMutation({
     mutationKey: ["replaceSession"],
     mutationFn(params: ReplaceSessionParams) {
-      setError(null);
+      setError(undefined);
       return ApiRequest({
         method: "PATCH",
         url: `/response/sessionremoval/${params.code}${params.isSkipLogin ? "?skiplogin=1" : ""}`,
@@ -129,7 +131,7 @@ export const useFormsessionAPI = () => {
   const signOut = useMutation({
     mutationKey: ["signOut"],
     mutationFn(formId: string) {
-      setError(null);
+      setError(undefined);
 
       return ApiRequest({
         method: "DELETE",
@@ -144,7 +146,7 @@ export const useFormsessionAPI = () => {
   const sendRemovalEmail = useMutation({
     mutationKey: ["sendRemovalEmail"],
     mutationFn(props: SendRemovalEmailProps) {
-      setError(null);
+      setError(undefined);
 
       return ApiRequest({
         method: "POST",
@@ -176,7 +178,7 @@ export const useFormsessionAPI = () => {
     queryClient.removeQueries({ queryKey: ["formsession"] });
   }, []);
 
-  const clearError = useCallback(() => setError(null), []);
+  const clearError = useCallback(() => setError(undefined), []);
 
   return {
     respondentLogin,

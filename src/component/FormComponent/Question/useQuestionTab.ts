@@ -26,6 +26,7 @@ import { isConditonExist } from "../../../utils/questionMutataions";
 import useImprovedAutoSave from "../../../hooks/useImprovedAutoSave";
 import { useSetSearchParam } from "../../../hooks/CustomHook";
 import { validateQuestionStructure } from "./utils";
+import { emitAutoSaveEvent } from "../../../services/autoSaveEventBus";
 
 /**Question Tab state management hook
  * @method with the highlight:
@@ -184,14 +185,7 @@ export const useQuestionTab = () => {
       dispatch(setallquestion(updatedQuestions));
 
       if (formState.setting?.autosave) {
-        const isSave = await manualSave({ customQuestions: updatedQuestions });
-        if (!isSave) {
-          ErrorToast({
-            toastid: "Delete Question",
-            title: "Error",
-            content: "Can't Delete",
-          });
-        }
+        emitAutoSaveEvent({ tab: "question" });
       }
     },
     [
@@ -207,17 +201,15 @@ export const useQuestionTab = () => {
   const handleAddCondition = useCallback(
     async (questionIdx: number, anskey: number): Promise<void> => {
       if (questionIdx < 0 || questionIdx >= allQuestion.length) {
-        console.warn("Invalid question index for condition:", questionIdx);
         return;
       }
 
       const targetQuestion = allQuestion[questionIdx];
       if (!targetQuestion) {
-        console.warn("Question not found at index:", questionIdx);
         return;
       }
 
-      let dataToBeSave: Array<ContentType> | undefined = undefined;
+      let dataToBeSave: Array<ContentType> = [];
 
       try {
         dispatch(
@@ -303,14 +295,10 @@ export const useQuestionTab = () => {
         );
 
         if (formState.setting?.autosave && dataToBeSave) {
-          const isSaved = await manualSave({ customQuestions: dataToBeSave });
-          if (!isSaved) {
-            ErrorToast({
-              toastid: "Saving Error",
-              title: "Error",
-              content: "Error Saving",
-            });
-          }
+          //Autosave trigger
+          emitAutoSaveEvent({
+            tab: "question",
+          });
         }
       } catch (error) {
         console.error("Error in handleAddCondition:", error);
@@ -326,7 +314,6 @@ export const useQuestionTab = () => {
       formState.setting?.autosave,
       formState.lastQuestionIdx,
       page,
-      manualSave,
     ],
   );
 
@@ -403,21 +390,11 @@ export const useQuestionTab = () => {
         return q;
       });
 
-      if (formState.setting?.autosave) {
-        const isSave = await manualSave({ customQuestions: finalQuestionList });
-        if (!isSave) {
-          ErrorToast({
-            toastid: "Save Error",
-            title: "Error",
-            content: "Can't Save",
-          });
-          return;
-        }
-      }
+      emitAutoSaveEvent({ tab: "question" });
 
       dispatch(setallquestion(finalQuestionList));
     },
-    [allQuestion, dispatch, formState.setting?.autosave, manualSave],
+    [allQuestion, dispatch],
   );
 
   const handleDuplication = useCallback(
@@ -508,17 +485,7 @@ export const useQuestionTab = () => {
         }
 
         if (formState.setting?.autosave) {
-          const isSave = await manualSave({
-            customQuestions: updatedQuestions,
-          });
-          if (!isSave) {
-            ErrorToast({
-              toastid: "Save error",
-              title: "Error",
-              content: "Can't Save",
-            });
-            return;
-          }
+          emitAutoSaveEvent({ tab: "question" });
         }
 
         dispatch(setallquestion(updatedQuestions));
@@ -530,7 +497,7 @@ export const useQuestionTab = () => {
         });
       }
     },
-    [allQuestion, dispatch, formState.setting?.autosave, manualSave],
+    [allQuestion, dispatch, formState.setting?.autosave],
   );
 
   const scrollToDiv = useCallback(

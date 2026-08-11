@@ -21,6 +21,7 @@ import React, {
   useRef,
   useState,
   useMemo,
+  SyntheticEvent,
 } from "react";
 import { createSelector } from "@reduxjs/toolkit";
 import { hasArrayChange } from "../../helperFunc";
@@ -101,7 +102,7 @@ export default function Navigationbar() {
     () =>
       canSaveTabs &&
       !formData.fetchloading &&
-      (isAutosaveDisabled || currentTab === "solution") &&
+      isAutosaveDisabled &&
       !isDashboard,
     [
       canSaveTabs,
@@ -302,7 +303,7 @@ export default function Navigationbar() {
   }, [applyTitleChange]);
 
   const handleMobileTitleInput = useCallback(
-    (e: React.FormEvent<HTMLDivElement>) => {
+    (e: SyntheticEvent<HTMLDivElement>) => {
       const el = e.currentTarget;
       const text = el.textContent || "";
       if (text.length > 50) {
@@ -429,21 +430,18 @@ export default function Navigationbar() {
             </div>
           )}
 
-          {!isSettingTab &&
-            !formData.fetchloading &&
-            !isAutosaveDisabled &&
-            currentTab !== "solution" && (
-              <div className="flex flex-col items-end gap-0.5">
-                <AutoSaveContainer />
-                {autoSaveStatusText && (
-                  <span
-                    className={`hidden sm:block text-xs ${autoSaveStatusColor}`}
-                  >
-                    {autoSaveStatusText}
-                  </span>
-                )}
-              </div>
-            )}
+          {!isSettingTab && !formData.fetchloading && !isAutosaveDisabled && (
+            <div className="flex flex-col items-end gap-0.5">
+              <AutoSaveContainer />
+              {autoSaveStatusText && (
+                <span
+                  className={`hidden sm:block text-xs ${autoSaveStatusColor}`}
+                >
+                  {autoSaveStatusText}
+                </span>
+              )}
+            </div>
+          )}
 
           <NotificationContainer
             userId={userSession?.user?._id || ""}

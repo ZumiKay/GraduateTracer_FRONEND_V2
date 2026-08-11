@@ -70,7 +70,10 @@ const QuestionItem = memo(
 
         {/* Question validation issues */}
         {question.validationIssues && question.validationIssues.length > 0 && (
-          <ValidationIssueDisplay issues={question.validationIssues} />
+          <ValidationIssueDisplay
+            issues={question.validationIssues}
+            warnings={question.validationWarning}
+          />
         )}
       </div>
     );

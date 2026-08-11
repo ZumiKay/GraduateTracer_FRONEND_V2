@@ -9,7 +9,8 @@ import Selection from "./Selection";
 import { Switch, Tooltip } from "@heroui/react";
 import { CopyIcon, ShowLinkedIcon, TrashIcon } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
-import { setallquestion, setdisbounceQuestion } from "../../redux/formstore";
+import { setallquestion } from "../../redux/formstore";
+import { emitAutoSaveEvent } from "../../services/autoSaveEventBus";
 import { RootState } from "../../redux/store";
 import Tiptap from "./TipTabEditor";
 import { setopenmodal } from "../../redux/openmodal";
@@ -272,8 +273,11 @@ const QuestionComponent = memo(
             const updatedQuestion = { ...question, ...newVal };
 
             if (autosave) {
-              //Set state as queue for saving to avoid too many requests
-              dispatch(setdisbounceQuestion(updatedQuestion));
+              // The autosave hook listens for this and debounces the request.
+              emitAutoSaveEvent({
+                tab: "question",
+                questionId: updatedQuestion._id ?? idx,
+              });
             }
 
             return updatedQuestion;

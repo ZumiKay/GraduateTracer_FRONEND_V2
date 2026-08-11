@@ -5,7 +5,15 @@ import React, {
   useReducer,
   useState,
 } from "react";
-import { Button, Alert, Spinner, Card, CardHeader, CardBody, Chip } from "@heroui/react";
+import {
+  Button,
+  Alert,
+  Spinner,
+  Card,
+  CardHeader,
+  CardBody,
+  Chip,
+} from "@heroui/react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ErrorToast } from "../Modal/AlertModal";
 import SuccessToast from "../Modal/AlertModal";
@@ -25,6 +33,7 @@ import { useSessionManager } from "../../hooks/useSessionManager";
 import { useInactivityWarning } from "../../hooks/useInactivityWarning";
 import { AuthContainer } from "./AuthContainer";
 import { InactivityWarning } from "../InactivityWarning";
+import { AutoLogoutModal } from "../Modal/AutoLogoutModal";
 import useFormsessionAPI, {
   setUserSwitching,
   isUserSwitching,
@@ -35,7 +44,6 @@ import { FormState } from "./types/PublicFormAccessTypes";
 import { formStateReducer } from "./reducers/formStateReducer";
 import { SubmissionSuccessView } from "./components/SubmissionSuccessView";
 import { useSendResponseCopy } from "./hooks/useFormSubmission";
-import { ApiError } from "../../hooks/APIHook/ApiHook";
 
 export type PublicFormAccessProps = Record<string, never>;
 
@@ -68,7 +76,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     dispatch,
   });
 
-  const MIN_LOADING_TIME = 500;
+  const MIN_LOADING_TIME = 500; //Minimal loading time 500ms
 
   const [loadingState, setLoadingState] = useState({
     isLoading: true,
@@ -77,7 +85,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     allowPaginationLoading: false,
   });
 
-  const { respondentLogin, signOut, useSessionVeriftication } =
+  const { respondentLogin, signOut, useSessionVeriftication, error } =
     useFormsessionAPI();
 
   const manuallyCheckSession = useSessionVeriftication(formId, () =>
@@ -249,7 +257,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   ]);
 
   const handleLogin = useCallback(
-    async (e?: React.FormEvent, additional?: { existed: "1" }) => {
+    async (e?: SubmitEvent, additional?: { existed: "1" }) => {
       e?.preventDefault();
       if (!formId) return;
       const { rememberMe, email, name, password, isGuest } =
@@ -268,15 +276,18 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
           }),
         },
         {
-          onSuccess: () => {
+          onSuccess: (res) => {
+            const expiresAt = (res?.data as { expiresAt?: string })?.expiresAt;
             const sessionState: Partial<RespondentSessionType> = {
               isActive: true,
+              expiresAt,
               respondentinfo: {
                 respondentEmail: additional?.existed
                   ? (user.user?.email ?? "")
                   : email,
                 respondentName: name || undefined,
                 isGuest,
+                expiresAt,
               },
             };
 
@@ -615,30 +626,16 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   if (formState.accessMode === "authenticated") {
     return (
       <>
-        {showExpiredAlert && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-              <Alert
-                color="warning"
-                variant="faded"
-                title="Session Expired"
-                description={`Your session for "${formState.formsession?.respondentinfo?.respondentName || formState.formsession?.respondentinfo?.respondentEmail}" has expired. Please login again`}
-                className="mb-4"
-                aria-label="inactive alert"
-              />
-              <div className="flex gap-3 justify-end">
-                <Button
-                  isDisabled={manuallyCheckSession.isPending}
-                  color="warning"
-                  isLoading={signOut.isPending}
-                  onPress={() => window.location.reload()}
-                >
-                  To Login
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AutoLogoutModal
+          isOpen={showExpiredAlert}
+          onConfirm={() => window.location.reload()}
+          reason="expired"
+          message={`Your session for "${
+            formState.formsession?.respondentinfo?.respondentName ||
+            formState.formsession?.respondentinfo?.respondentEmail ||
+            "this form"
+          }" has expired. Please sign in again.`}
+        />
 
         <InactivityWarning
           isOpen={inactivityWarning.showWarning}
@@ -675,6 +672,11 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
             ) : (
               <SessionProvider
                 manuallyCheckSession={manuallyCheckSession}
+                expiresAt={
+                  formState.formsession?.expiresAt ||
+                  formState.formsession?.respondentinfo?.expiresAt
+                }
+                onSessionExpired={() => setShowExpiredAlert(true)}
                 checkOnVisibilityChange={true}
               >
                 <RespondentForm {...respondentFormProps} />
@@ -690,11 +692,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       formTitle={formReqData.formState?.title}
       showGuestForm={formState.showGuestForm}
       loginData={formState.loginData}
-      error={
-        (respondentLogin?.error as ApiError)?.status !== 500
-          ? respondentLogin.error?.message
-          : undefined
-      }
+      error={error}
       isLoginLoading={respondentLogin.isPending}
       updateLoginState={dispatch}
       user={user}

@@ -11,6 +11,9 @@ import {
 } from "../redux/formstore";
 import { stripQuestionNumbering } from "../services/labelQuestionNumberingService";
 import { AllFormTabs } from "../types/Global.types";
+import { ApiError } from "./APIHook/ApiHook";
+import { hasQuestionValidationIssues } from "../component/Response/utils/validationUtils";
+import { onAutoSaveEvent } from "../services/autoSaveEventBus";
 
 interface AutoSaveStatus {
   status: "idle" | "saving" | "saved" | "error" | "offline";
@@ -32,13 +35,14 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     debounceMs = 2000, //delay effect 2 seconds after user stops editing
     retryAttempts = 3,
     retryDelayMs = 2000,
-    offlineQueueSize = 50,
     tab = "question",
   } = config;
 
   const dispatch = useDispatch();
-  const { allquestion, formstate, page, debounceQuestion, pauseAutoSave } =
-    useSelector((root: RootState) => root.allform);
+
+  const { allquestion, formstate, page, pauseAutoSave } = useSelector(
+    (root: RootState) => root.allform,
+  );
 
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>({
     status: "idle",
@@ -47,7 +51,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     retryCount: 0,
   });
 
-  const [offlineQueue, setOfflineQueue] = useState<ContentType[]>([]);
+  const [offlineQueue, setOfflineQueue] = useState<number>(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastSavedHash, setLastSavedHash] = useState<string>("");
   const lastSavedHashRef = useRef<string>("");
@@ -58,7 +62,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const stateUpdateTimeoutRef = useRef<number | null>(null);
   const isMountedRef = useRef<boolean>(true);
   const autoSaveStatusRef = useRef<AutoSaveStatus>(autoSaveStatus);
-  const prevPauseAutoSaveRef = useRef<boolean>(pauseAutoSave);
+  const pauseAutoSaveRef = useRef<boolean>(pauseAutoSave);
   const [autoSavedDataQueue, setautoSavedDataQueue] =
     useState<Array<ContentType>>();
 
@@ -71,6 +75,11 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     autoSaveStatusRef.current = autoSaveStatus;
   }, [autoSaveStatus]);
 
+  useEffect(() => {
+    pauseAutoSaveRef.current = pauseAutoSave;
+  }, [pauseAutoSave]);
+
+  //Generate for quick compare
   const generateDataString = useCallback((data: ContentType[]) => {
     return JSON.stringify(
       data.map((q) => ({
@@ -101,11 +110,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
       if (isChanged) {
         if (latestVal.some((i) => !i.questionId)) {
-          ErrorToast({
-            toastid: "Save Question",
-            title: "Save Question",
-            content: "Unexpected Error",
-          });
           return;
         }
 
@@ -130,7 +134,6 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     [dispatch, hasDataChanged],
   );
 
-  //Manually Update AllQuestion State (called on blur)
   const updateAllQueueData = useCallback(() => {
     if (!autoSavedDataQueue || autoSavedDataQueue.length === 0) return;
 
@@ -169,6 +172,25 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     ): Promise<boolean> => {
       if (!formstate._id || pauseAutoSave || !isMountedRef.current)
         return false;
+
+      // Check if questions have validation issues before saving
+      if (tab === "question" && hasQuestionValidationIssues(dataToSave)) {
+        if (!autoSave) {
+          ErrorToast({
+            toastid: "save-validation-issue",
+            title: "Validation Error",
+            content:
+              "Cannot save form: Please resolve all question validation issues first.",
+          });
+        }
+        setAutoSaveStatus({
+          status: "error",
+          lastSaved: autoSaveStatus.lastSaved,
+          error: "Cannot save: Form has question validation issues",
+          retryCount: 0,
+        });
+        return false;
+      }
 
       try {
         if (!isMountedRef.current) return false;
@@ -228,8 +250,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           throw new Error(response.message || "Save failed");
         }
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
+        const errorMessage = error as ApiError;
 
         if (!isMountedRef.current) return false;
 
@@ -254,7 +275,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           setAutoSaveStatus({
             status: "error",
             lastSaved: autoSaveStatus.lastSaved,
-            error: errorMessage,
+            error: errorMessage.response?.data?.message ?? errorMessage.message,
             retryCount: 0,
           });
 
@@ -297,14 +318,14 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     };
   }, []);
 
-  // Process offline queue when back online
+  // Process offline queue when back online.
   useEffect(() => {
-    if (isOnline && offlineQueue.length > 0) {
+    if (isOnline && offlineQueue > 0) {
       const processOfflineQueue = async () => {
         try {
-          const latestData = offlineQueue[offlineQueue.length - 1];
-          await performSave([latestData]);
-          setOfflineQueue([]);
+          const latestSnapshot = allQuestionRef.current;
+          await performSave(latestSnapshot);
+          setOfflineQueue(0);
         } catch (error) {
           console.error("Failed to process offline queue:", error);
         }
@@ -313,42 +334,35 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       processOfflineQueue();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline, offlineQueue.length]);
+  }, [isOnline, offlineQueue]);
 
-  const debouncedSave = useCallback(
-    (data: ContentType) => {
-      // Clear existing timer and restart - this ensures save only happens
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
+  const triggerDebouncedSave = useCallback(() => {
+    // Clear any timer so it only save after the last change
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = window.setTimeout(() => {
+      debounceTimeoutRef.current = null;
+
+      if (!isMountedRef.current) return;
+      if (pauseAutoSaveRef.current) return;
+
+      if (!isOnline) {
+        setOfflineQueue((prev) => {
+          return prev + 1;
+        });
+        return;
       }
 
-      debounceTimeoutRef.current = window.setTimeout(() => {
-        // Clear the ref so we know no timer is running
-        debounceTimeoutRef.current = null;
+      const currentQuestions = allQuestionRef.current;
 
-        if (!isMountedRef.current) return;
-
-        if (!isOnline) {
-          setOfflineQueue((prev) => {
-            const newQueue = [...prev, data];
-            return newQueue.slice(-offlineQueueSize); // Keep only latest items
-          });
-          return;
-        }
-
-        const currentQuestions = allQuestionRef.current;
-
-        // Check if data has actually changed since last save
-        const currentHash = generateDataString(currentQuestions);
-        const dataChanged = currentHash !== lastSavedHashRef.current;
-
-        if (dataChanged) {
-          performSave(currentQuestions, 0, true);
-        }
-      }, debounceMs);
-    },
-    [isOnline, offlineQueueSize, performSave, debounceMs, generateDataString],
-  );
+      const currentHash = generateDataString(currentQuestions);
+      if (currentHash !== lastSavedHashRef.current) {
+        performSave(currentQuestions, 0, true);
+      }
+    }, debounceMs);
+  }, [isOnline, performSave, debounceMs, generateDataString]);
 
   //Manually trigger save
   const manualSave = useCallback(
@@ -406,31 +420,29 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     [formstate._id, allquestion, dispatch, performSave, generateDataString],
   );
 
-  // Main autosave effect - triggers debounced save when question changes
   useEffect(() => {
-    const wasPaused = prevPauseAutoSaveRef.current;
-    prevPauseAutoSaveRef.current = pauseAutoSave;
-
-    if (pauseAutoSave) {
-      console.log("===Pause Auto-Saved===");
-      //clear prevDebounceTimeout
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-        debounceTimeoutRef.current = null;
-      }
-      return;
+    if (pauseAutoSave && debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
     }
+  }, [pauseAutoSave]);
 
-    if (wasPaused) {
-      return;
-    }
+  // Main autosave effect — event-based.
 
-    if (formstate.setting?.autosave && debounceQuestion) {
-      console.log("===UnpausedAuto-save===");
-      debouncedSave(debounceQuestion);
-    }
+  useEffect(() => {
+    if (!formstate.setting?.autosave) return;
+
+    const unsubscribe = onAutoSaveEvent((detail) => {
+      // Only handle events for the tab this hook instance is scoped to
+      if (detail.tab !== tab) return;
+      if (pauseAutoSaveRef.current) return;
+
+      triggerDebouncedSave();
+    });
+
+    return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debounceQuestion, formstate.setting?.autosave, pauseAutoSave]);
+  }, [formstate.setting?.autosave, tab, triggerDebouncedSave]);
 
   // Cleanup
   useEffect(() => {
@@ -476,7 +488,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     autoSaveStatus,
     manualSave,
     isOnline,
-    offlineQueueSize: offlineQueue.length,
+    offlineQueueSize: offlineQueue,
     updateAllQueueData,
   };
 };

@@ -2,13 +2,16 @@ import React from "react";
 import { Button, Input, Form, Checkbox } from "@heroui/react";
 import { FiMail, FiUser, FiUserCheck } from "react-icons/fi";
 import { LoginData } from "../../types/PublicFormAccess.types";
+import { onLoginFuncType } from "./AuthContainer";
+import { ApiError } from "../../hooks/APIHook/ApiHook";
 
 interface GuestFormProps {
   guestData: LoginData;
   isLoading: boolean;
   onGuestChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: onLoginFuncType;
   onBackToLogin: () => void;
+  error?: ApiError;
 }
 
 export const GuestForm: React.FC<GuestFormProps> = ({
@@ -17,6 +20,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({
   onGuestChange,
   onSubmit,
   onBackToLogin,
+  error,
 }) => {
   return (
     <div className="space-y-6">
@@ -30,9 +34,12 @@ export const GuestForm: React.FC<GuestFormProps> = ({
         <p className="text-gray-600 dark:text-gray-400 text-sm">
           Please provide your details to continue
         </p>
+        <p className="text-red-400 text-sm" hidden={!error}>
+          {error?.response?.data?.message ?? "Error Occured"}
+        </p>
       </div>
 
-      <Form onSubmit={onSubmit} className="space-y-5">
+      <Form onSubmit={onSubmit as never} className="space-y-5">
         <div className="space-y-1 w-full">
           <Input
             name="name"

@@ -13,6 +13,7 @@ import FormSummaryHeader from "./FormSummaryHeader";
 import ValidationStatusDisplay from "./ValidationStatusDisplay";
 import QuestionItem from "./QuestionItem";
 import { useSolutionScoreMaps } from "./useSolutionScoreMaps";
+import { emitAutoSaveEvent } from "../../../services/autoSaveEventBus";
 
 /* --------------------------------- Banners -------------------------------- */
 
@@ -97,6 +98,7 @@ const SolutionTab = memo(({ isLoading }: SolutionTabProps) => {
 
   const formColor = setting?.qcolor;
   const returnScore = setting?.returnscore;
+  const autosaveEnabled = setting?.autosave;
 
   const { validateFormReq, processedTotalScore } = useFormValidation();
 
@@ -123,8 +125,13 @@ const SolutionTab = memo(({ isLoading }: SolutionTabProps) => {
           ),
         ),
       );
+
+      // Emit autosave event so the hook debounces and persists the change
+      if (autosaveEnabled) {
+        emitAutoSaveEvent({ tab: "solution" });
+      }
     },
-    [dispatch],
+    [dispatch, autosaveEnabled],
   );
 
   const navigateToOverview = useCallback(() => {

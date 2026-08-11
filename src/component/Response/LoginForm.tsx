@@ -5,12 +5,13 @@ import { PasswordInput } from "../FormComponent/Input";
 import { LoginData } from "../../types/PublicFormAccess.types";
 import { SessionState } from "../../redux/user.store";
 import { onLoginFuncType } from "./AuthContainer";
+import { ApiError } from "../../hooks/APIHook/ApiHook";
 
 interface LoginFormProps {
   loginData: LoginData;
   isLoading: boolean;
   user?: SessionState;
-  error?: string;
+  error?: ApiError;
   onLoginChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: onLoginFuncType;
 }
@@ -25,11 +26,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 }) => {
   return (
     <div className="space-y-6">
-      <Form onSubmit={onSubmit} className="space-y-5 w-full">
+      <Form onSubmit={onSubmit as never} className="space-y-5 w-full">
         {error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
             <p className="font-semibold">Login failed</p>
-            <p className="mt-1 leading-relaxed">{error}</p>
+            <p className="mt-1 leading-relaxed">
+              {error.response?.data?.message ?? "Error Occured"}
+            </p>
           </div>
         ) : null}
 

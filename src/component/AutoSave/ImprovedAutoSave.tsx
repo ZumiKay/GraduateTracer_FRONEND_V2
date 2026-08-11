@@ -19,7 +19,6 @@ interface ImprovedAutoSaveProps {
     debounceMs?: number;
     retryAttempts?: number;
     retryDelayMs?: number;
-    offlineQueueSize?: number;
   };
 }
 

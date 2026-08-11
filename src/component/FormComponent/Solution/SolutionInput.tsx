@@ -222,7 +222,7 @@ const RangeDateInput = memo(
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-2">
           <DatePicker
             label="Start Date"
-            value={currentRange.start}
+            value={currentRange.start as never}
             granularity="day"
             minValue={questionRangeDisplay?.start}
             maxValue={questionRangeDisplay?.end}
@@ -244,7 +244,7 @@ const RangeDateInput = memo(
           <DatePicker
             label="End Date"
             granularity="day"
-            value={currentRange.end}
+            value={currentRange.end as never}
             minValue={questionRangeDisplay?.start}
             maxValue={questionRangeDisplay?.end}
             onChange={(dateValue) => {
@@ -742,7 +742,7 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
         return (
           <DatePicker
             label="Date"
-            value={safeParseDateValue(localAnswer as string)}
+            value={safeParseDateValue(localAnswer as string) as never}
             granularity="day"
             onChange={(dateValue) => {
               if (dateValue) {

@@ -11,6 +11,7 @@ import { LinkIcon } from "../svg/InputIcon";
 import Link from "@tiptap/extension-link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AddLinkModal } from "../Modal/Modal";
+import ModalWrapper from "../Modal/Modal";
 import BulletList from "@tiptap/extension-bullet-list";
 import OrderedList from "@tiptap/extension-ordered-list";
 
@@ -182,6 +183,137 @@ interface TipTapProps {
   readonly?: boolean;
 }
 
+// ─── Help Modal ───────────────────────────────────────────────────────────────
+const MATH_EXAMPLES = [
+  { syntax: "$x^2 + y^2 = z^2$", desc: "Inline math" },
+  { syntax: "$$\\int_0^\\infty e^{-x}\\,dx$$", desc: "Display (block) math" },
+  { syntax: "$\\frac{a}{b}$", desc: "Fraction" },
+  { syntax: "$\\sqrt{x}$", desc: "Square root" },
+  { syntax: "$\\sum_{i=1}^{n} i$", desc: "Summation" },
+  { syntax: "$\\vec{v}$", desc: "Vector" },
+  { syntax: "$\\alpha, \\beta, \\gamma$", desc: "Greek letters" },
+  { syntax: "$\\begin{pmatrix}a&b\\\\c&d\\end{pmatrix}$", desc: "Matrix" },
+];
+
+const EDITOR_SHORTCUTS = [
+  { key: "⌘B / Ctrl+B", desc: "Bold" },
+  { key: "⌘I / Ctrl+I", desc: "Italic" },
+  { key: "/", desc: "Open heading picker" },
+  { key: "∑ button", desc: "Insert display math block" },
+];
+
+function EditorHelpModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <ModalWrapper
+      isOpen={open}
+      onClose={onClose}
+      size="2xl"
+      title="✏️  Editor Help"
+    >
+      <div className="flex flex-col gap-y-6 pb-4">
+        {/* Keyboard shortcuts */}
+        <section>
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            Keyboard Shortcuts
+          </h3>
+          <table className="w-full text-sm border-collapse">
+            <tbody>
+              {EDITOR_SHORTCUTS.map((s) => (
+                <tr
+                  key={s.key}
+                  className="border-b border-gray-100 last:border-0"
+                >
+                  <td className="py-1.5 pr-4 font-mono bg-gray-50 px-2 rounded text-xs text-gray-700 whitespace-nowrap">
+                    {s.key}
+                  </td>
+                  <td className="py-1.5 pl-3 text-gray-600">{s.desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        {/* Math / LaTeX reference */}
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+              Math (LaTeX / KaTeX)
+            </h3>
+            <a
+              href="https://katex.org/docs/supported"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-blue-600 hover:underline font-medium"
+            >
+              Full KaTeX reference ↗
+            </a>
+          </div>
+          <p className="text-xs text-gray-400 mb-3">
+            Wrap inline math with <code className="bg-gray-100 px-1 rounded">$…$</code>{" "}
+            and display (block) math with{" "}
+            <code className="bg-gray-100 px-1 rounded">$$…$$</code>.
+          </p>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-left text-xs text-gray-400 border-b border-gray-200">
+                <th className="pb-1 font-medium">Syntax</th>
+                <th className="pb-1 font-medium pl-3">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {MATH_EXAMPLES.map((ex) => (
+                <tr
+                  key={ex.syntax}
+                  className="border-b border-gray-100 last:border-0"
+                >
+                  <td className="py-1.5 pr-4 font-mono text-xs bg-gray-50 px-2 rounded text-purple-700 whitespace-nowrap">
+                    {ex.syntax}
+                  </td>
+                  <td className="py-1.5 pl-3 text-gray-600">{ex.desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        {/* Extra links */}
+        <section className="flex flex-wrap gap-3 pt-1">
+          <a
+            href="https://katex.org/docs/supported"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+          >
+            📐 KaTeX supported functions
+          </a>
+          <a
+            href="https://en.wikibooks.org/wiki/LaTeX/Mathematics"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+          >
+            📖 LaTeX Mathematics guide
+          </a>
+          <a
+            href="https://tiptap.dev/docs"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+          >
+            🖊️ Tiptap docs
+          </a>
+        </section>
+      </div>
+    </ModalWrapper>
+  );
+}
+
 const KATEX_DELIMITERS = [
   { left: "$$", right: "$$", display: true },
   { left: "$", right: "$", display: false },
@@ -313,6 +445,7 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
   }, [editor]);
 
   const [addlink, setaddlink] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     if (editor && JSON.stringify(value) !== JSON.stringify(editor.getJSON())) {
@@ -432,6 +565,8 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
           setopen={setaddlink}
         />
       )}
+
+      <EditorHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       {/* Quick header options menu */}
       {slashMenuOpen && !readonly && (
@@ -578,6 +713,14 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
               className="font-bold w-[30px] h-full grid place-content-center rounded-lg hover:bg-primary active:bg-primary transition-colors bg-lightsucess text-black text-base"
             >
               ∑
+            </span>
+            {/* Help button */}
+            <span
+              title="Editor Help & LaTeX Reference"
+              onClick={() => setHelpOpen(true)}
+              className="font-bold w-[30px] h-full grid place-content-center rounded-lg hover:bg-primary active:bg-primary transition-colors bg-lightsucess text-black text-base select-none cursor-pointer"
+            >
+              ?
             </span>
           </div>
         )}

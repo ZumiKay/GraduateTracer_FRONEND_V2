@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">34.02% </span>
+                <span class="strong">34.41% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>114/335</span>
+                <span class='fraction'>117/340</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">24.52% </span>
+                <span class="strong">23.63% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>13/53</span>
+                <span class='fraction'>13/55</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">30.53% </span>
+                <span class="strong">30.79% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>91/298</span>
+                <span class='fraction'>93/302</span>
             </div>
         
             
@@ -868,7 +868,25 @@
 <a name='L803'></a><a href='#L803'>803</a>
 <a name='L804'></a><a href='#L804'>804</a>
 <a name='L805'></a><a href='#L805'>805</a>
-<a name='L806'></a><a href='#L806'>806</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L806'></a><a href='#L806'>806</a>
+<a name='L807'></a><a href='#L807'>807</a>
+<a name='L808'></a><a href='#L808'>808</a>
+<a name='L809'></a><a href='#L809'>809</a>
+<a name='L810'></a><a href='#L810'>810</a>
+<a name='L811'></a><a href='#L811'>811</a>
+<a name='L812'></a><a href='#L812'>812</a>
+<a name='L813'></a><a href='#L813'>813</a>
+<a name='L814'></a><a href='#L814'>814</a>
+<a name='L815'></a><a href='#L815'>815</a>
+<a name='L816'></a><a href='#L816'>816</a>
+<a name='L817'></a><a href='#L817'>817</a>
+<a name='L818'></a><a href='#L818'>818</a>
+<a name='L819'></a><a href='#L819'>819</a>
+<a name='L820'></a><a href='#L820'>820</a>
+<a name='L821'></a><a href='#L821'>821</a>
+<a name='L822'></a><a href='#L822'>822</a>
+<a name='L823'></a><a href='#L823'>823</a>
+<a name='L824'></a><a href='#L824'>824</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1673,6 +1691,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { DateValue } from "@heroui/react";
 import { ContentType } from "./types/Form.types";
 import { getLocalTimeZone } from "@internationalized/date";
@@ -2478,6 +2514,24 @@ export function <span class="fstat-no" title="function not covered" >saveFormSta
     ),
   );
 }
+&nbsp;
+export function <span class="fstat-no" title="function not covered" >calculateFinalTotal(</span>
+  totalScore: number,
+  oldPageTotal: number,
+  newPageTotal: number,
+) {
+<span class="cstat-no" title="statement not covered" >  return totalScore - oldPageTotal + newPageTotal;</span>
+}
+&nbsp;
+export const CalculateRemainMaxScore = <span class="fstat-no" title="function not covered" >({</span>
+  parentScore,
+  siblingScore,
+  currentScore,
+}: {
+  parentScore: number;
+  siblingScore: number;
+  currentScore: number;
+}) =&gt; <span class="cstat-no" title="statement not covered" >Math.max(0, parentScore - siblingScore - currentScore);</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -2485,7 +2539,7 @@ export function <span class="fstat-no" title="function not covered" >saveFormSta
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-25T09:47:42.509Z
+                at 2026-08-11T08:29:29.406Z
             </div>
         <script src="../prettify.js"></script>
         <script>

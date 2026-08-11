@@ -68,7 +68,6 @@ const useRespondentFormPaginaition = ({
   const navigate = useNavigate();
   const [currentPage, setcurrentPage] = useState<number | null>(null);
   const [fetchType, setfetchType] = useState<fetchtype>("initial");
-  const [validationError, setvalidationError] = useState(false);
   const [localformsession, setlocalformsession] =
     useState<RespondentSessionType>();
   const accessModeRef = useRef(accessMode);
@@ -292,7 +291,6 @@ const useRespondentFormPaginaition = ({
       isFetching,
       isSuccess,
       isFormRequiredSessionChecked: !!formState?.setting?.email,
-      isValidationError: validationError,
     }),
     [
       handlePage,

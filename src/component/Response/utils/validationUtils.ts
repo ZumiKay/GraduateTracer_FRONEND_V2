@@ -293,3 +293,14 @@ export const validateRealtimeQuestions = (
   }
   return questions.map((q) => validateRealtimeQuestion(q));
 };
+
+export const hasQuestionValidationIssues = (
+  questions: ContentType[],
+): boolean => {
+  if (!Array.isArray(questions) || questions.length === 0) return false;
+  return questions.some((q) => {
+    const validated = validateRealtimeQuestion(q);
+    const issues = validated.validationIssues;
+    return Array.isArray(issues) && issues.some((i) => i.type === "error" || !i.type);
+  });
+};

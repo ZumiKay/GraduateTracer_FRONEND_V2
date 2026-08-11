@@ -48,11 +48,6 @@ interface ApiError extends Error {
   };
 }
 
-/**
- * Extract per-question validation issues from combined validation results.
- * Returns a Map keyed by question _id or qIdx string, with an array of
- * QuestionValidationIssue (type + message) for each question.
- */
 function extractQuestionValidationIssues(
   validationResults?: ValidationResult,
 ): Map<string, QuestionValidationIssue[]> {

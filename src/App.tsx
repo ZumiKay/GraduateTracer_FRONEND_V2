@@ -2,13 +2,14 @@ import { Route, Routes, useLocation } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "./redux/store";
 import OpenModal from "./redux/openmodal";
-import { useEffect, lazy, Suspense, memo, useMemo } from "react";
+import { useEffect, lazy, Suspense, memo, useMemo, useState } from "react";
 import { ConfirmModal } from "./component/Modal/AlertModal";
-import { setUser } from "./redux/user.store";
+import { setUser, logout } from "./redux/user.store";
 import PrivateRoute, { PublichRoute } from "./route/PrivateRoute";
 import ReplaceSessionPage from "./pages/ReplaceSession";
 import { useUserSession } from "./hooks/useUserSession";
 import { AppLoading, PageLoading } from "./component/Loading/AppLoading";
+import { AutoLogoutModal } from "./component/Modal/AutoLogoutModal";
 const AuthenticationPage = lazy(() => import("./pages/Authentication"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const FilledFormPage = lazy(() => import("./pages/FilledFormPage"));
@@ -50,7 +51,6 @@ const App = memo(() => {
     isLoading,
   } = useUserSession({ enabled: !isPublicRoute });
 
-  // Memoize pathname checks for performance
   const shouldShowNavigation = useMemo(
     () =>
       pathname !== "/" &&
@@ -67,6 +67,27 @@ const App = memo(() => {
       pathname !== "/privacy-policy",
     [pathname],
   );
+
+  const [showAutoLogoutModal, setShowAutoLogoutModal] = useState(false);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      if (!isPublicRoute) {
+        setShowAutoLogoutModal(true);
+      }
+    };
+
+    window.addEventListener("app:session-expired", handleSessionExpired);
+    return () => {
+      window.removeEventListener("app:session-expired", handleSessionExpired);
+    };
+  }, [isPublicRoute]);
+
+  const handleModalLogout = () => {
+    dispatch(logout());
+    setShowAutoLogoutModal(false);
+    window.location.href = "/";
+  };
 
   useEffect(() => {
     if (sessionData && !isFetching) {
@@ -85,7 +106,13 @@ const App = memo(() => {
 
   return (
     <Suspense fallback={<AppLoading />}>
-      {/* Modal Setting */}
+      <AutoLogoutModal
+        isOpen={showAutoLogoutModal}
+        onConfirm={handleModalLogout}
+        reason="expired"
+      />
+
+      {/* Modal */}
       {redux.setting && (
         <Suspense fallback={null}>
           <SettingModal
