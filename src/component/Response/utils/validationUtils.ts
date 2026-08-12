@@ -301,6 +301,8 @@ export const hasQuestionValidationIssues = (
   return questions.some((q) => {
     const validated = validateRealtimeQuestion(q);
     const issues = validated.validationIssues;
-    return Array.isArray(issues) && issues.some((i) => i.type === "error" || !i.type);
+    return (
+      Array.isArray(issues) && issues.some((i) => i.type === "error" || !i.type)
+    );
   });
 };

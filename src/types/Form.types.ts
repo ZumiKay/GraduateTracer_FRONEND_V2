@@ -349,8 +349,6 @@ export interface ValidationResult {
 
 export interface ScoringAnalysis {
   isAutoScoreable: boolean;
-  /** Total number of questions across all pages of the form */
-  totalQuestions: number;
   scoredQuestions: number;
   autoScorableQuestions: number;
   manualGradingQuestions: number;

@@ -4,73 +4,74 @@ import {
   DISPLAY_ONLY_TYPES,
   ContentType,
   ScoringAnalysis,
+  QuestionType,
 } from "../types/Form.types";
 
-/**
- * Optimized check for unsaved questions using O(1) lookups and early exits.
- * Detects changes in question title, type, options, ranges, answers, and conditionals.
- */
+/* -------------------------------- Constant -------------------------------- */
+const jsonChanged = <T = unknown>(val1?: T, val2?: T): boolean =>
+  JSON.stringify(val1) !== JSON.stringify(val2);
+
+const TYPE_KEY_OVERRIDES: Partial<Record<QuestionType, string>> = {
+  [QuestionType.MultipleSelection]: "selection",
+};
+
+const SCALAR_CONTENT_TYPES = new Set<QuestionType>([
+  QuestionType.ShortAnswer,
+  QuestionType.Paragraph,
+  QuestionType.Text,
+  QuestionType.Number,
+  QuestionType.Date,
+]);
+
+/* --------------------------------- Helper --------------------------------- */
 export const checkUnsavedQuestions = (
   currentQuestion: ContentType[],
   prevQuestion: ContentType[],
-  page?: number,
 ): boolean => {
-  void page;
-  const hasId = currentQuestion.some((i) => i._id);
+  const allHaveId = currentQuestion.every((q) => q._id);
+  if (!allHaveId) return true;
 
-  if (!hasId) return true;
+  const prevMap = new Map<string, ContentType>();
+  for (const q of prevQuestion) {
+    const key = q._id || q.questionId;
+    if (key) prevMap.set(key, q);
+  }
 
-  // Create Map for O(1) lookups instead of O(n) find
-  const prevQuestionMap = new Map<string, ContentType>();
-  prevQuestion.forEach((q) => {
-    const key = q._id || q.questionId || "";
-    if (key) prevQuestionMap.set(key, q);
-  });
+  return currentQuestion.some((curr) => {
+    const key = curr._id || curr.questionId;
+    const prev = key ? prevMap.get(key) : undefined;
 
-  const deepCheck = currentQuestion.some((currQ) => {
-    const qKey = currQ._id || currQ.questionId || "";
-    const isQuestion = prevQuestionMap.get(qKey);
+    if (!prev) return true;
 
-    if (!isQuestion) return true;
-
-    // Fast path: check primitives first
-    if (currQ.type !== isQuestion.type) return true;
-    if (currQ.score !== isQuestion.score) return true;
-
-    // Deep comparison for complex objects
-    const jsonCheck = <T = unknown>(val1?: T, val2?: T): boolean => {
-      return JSON.stringify(val1) !== JSON.stringify(val2);
-    };
-
-    if (jsonCheck(currQ.title, isQuestion.title)) return true;
-    if (jsonCheck(currQ.conditional, isQuestion.conditional)) return true;
-    if (jsonCheck(currQ.parentcontent, isQuestion.parentcontent)) return true;
-
-    // Check question-specific fields
-    const hasCheckbox = currQ.checkbox || isQuestion.checkbox;
-    if (hasCheckbox && jsonCheck(currQ.checkbox, isQuestion.checkbox))
+    // Quick comparisons
+    if (
+      curr.type !== prev.type ||
+      curr.require !== prev.require ||
+      curr.score !== prev.score ||
+      curr.isBonusScore !== prev.isBonusScore ||
+      curr.useChildScoreSum !== prev.useChildScoreSum
+    ) {
       return true;
+    }
 
-    const hasMultiple = currQ.multiple || isQuestion.multiple;
-    if (hasMultiple && jsonCheck(currQ.multiple, isQuestion.multiple))
+    // Deep comparisons for structured fields
+    if (
+      jsonChanged(curr.title, prev.title) ||
+      jsonChanged(curr.conditional, prev.conditional) ||
+      jsonChanged(curr.parentcontent, prev.parentcontent) ||
+      jsonChanged(curr.answer, prev.answer)
+    ) {
       return true;
+    }
 
-    const hasRangeDate = currQ.rangedate || isQuestion.rangedate;
-    if (hasRangeDate && jsonCheck(currQ.rangedate, isQuestion.rangedate))
-      return true;
+    // Deep comparison for array and object
+    if (!SCALAR_CONTENT_TYPES.has(curr.type)) {
+      const contentKey = TYPE_KEY_OVERRIDES[curr.type] ?? curr.type;
+      if (jsonChanged(curr[contentKey], prev[contentKey])) return true;
+    }
 
-    const hasRangeNumber = currQ.rangenumber || isQuestion.rangenumber;
-    if (hasRangeNumber && jsonCheck(currQ.rangenumber, isQuestion.rangenumber))
-      return true;
-
-    // Check answer key
-    if (jsonCheck(currQ.answer, isQuestion.answer)) return true;
-
-    // All checks passed
     return false;
   });
-
-  return deepCheck;
 };
 
 /**
@@ -108,7 +109,7 @@ export const calcContentScoringStats = (questions: Array<ContentType>) => {
   });
 
   return {
-    total: questions.length,
+    total: questions.length, // total for current page
     scored: scoredList.length,
     autoScorable: autoScorableList.length,
     manualGrading: manualGradingList.length,
@@ -122,18 +123,9 @@ export const calculateCurrentVal = (
 ) => Math.abs(total - prev) + current;
 
 /**
- * Recalculates and updates the ScoringAnalysis dynamically when the user edits
- * questions on a form page.
- *
- * - **CurrentPage Count** : stats derived from `currentContent` alone.
- * - **Total Count**       : form-wide stats including the current page.
- * - **Final Count**       : `(Total − OldPage) + NewPage` for each counter,
- *                           applied when `prevContent` (the old page snapshot) is supplied.
- *
- * @param prevRes        Form-wide ScoringAnalysis before this edit (covering all pages).
+ * @param prevRes        Form ScoringAnalysis (covering all pages).
  * @param currentContent New (edited) questions for the current page.
  * @param prevContent    Optional snapshot of the same page *before* the edit.
- *                       Required to enable the delta formula; without it the
  *                       current-page counts replace the form total directly.
  */
 export const validateScoreTemp = (
@@ -148,7 +140,6 @@ export const validateScoreTemp = (
         stats.scored > 0 &&
         stats.manualGrading === 0 &&
         stats.scored === stats.autoScorable,
-      totalQuestions: stats.total,
       scoredQuestions: stats.scored,
       autoScorableQuestions: stats.autoScorable,
       manualGradingQuestions: stats.manualGrading,
@@ -171,10 +162,6 @@ export const validateScoreTemp = (
     manualGradingQuestions: 0,
   };
 
-  // Delta formula: Final = prevRes - initialCurrentPage + newPageStats
-  const finalTotal =
-    prevRes.totalQuestions - initialPage.totalQuestions + newPageStats.total;
-
   const finalScored =
     prevRes.scoredQuestions - initialPage.scoredQuestions + newPageStats.scored;
 
@@ -188,14 +175,12 @@ export const validateScoreTemp = (
     initialPage.manualGradingQuestions +
     newPageStats.manualGrading;
 
-  const absTotal = Math.abs(finalTotal);
   const absScored = Math.abs(finalScored);
   const absAutoScorable = Math.abs(finalAutoScorable);
   const absManual = Math.abs(finalManual);
 
   return {
     ...prevRes,
-    totalQuestions: absTotal,
     scoredQuestions: absScored,
     autoScorableQuestions: absAutoScorable,
     manualGradingQuestions: absManual,

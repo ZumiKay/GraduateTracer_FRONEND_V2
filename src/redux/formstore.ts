@@ -7,7 +7,10 @@ import {
 import ApiRequest from "../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 import { ShowLinkedQuestionType } from "../types/Global.types";
-import { validateRealtimeQuestions, hasQuestionValidationIssues } from "../component/Response/utils/validationUtils";
+import {
+  validateRealtimeQuestions,
+  hasQuestionValidationIssues,
+} from "../component/Response/utils/validationUtils";
 
 export const AsyncSaveForm = createAsyncThunk(
   "form/save",
@@ -31,7 +34,8 @@ export const AsyncSaveForm = createAsyncThunk(
         ErrorToast({
           toastid: "save-validation-issue",
           title: "Validation Error",
-          content: "Cannot save form: Please resolve all question validation issues first.",
+          content:
+            "Cannot save form: Please resolve all question validation issues first.",
         });
       }
       return rejectWithValue("Form contains validation issues");
