@@ -439,8 +439,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
   const isConditionalQuestion = !!content.parentcontent;
 
   useEffect(() => {
-    // content.answer can be AnswerKey | AnswerKeyPairValueType | AnswerKeyPairValueType[]
-    // Only AnswerKey carries an `.answer` field — guard before accessing it.
     const raw = content.answer;
     const newAnswer =
       raw && !Array.isArray(raw) && "answer" in raw
@@ -580,8 +578,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     if (isChildHasScore) setWarningMessage("Child Score Will Reset");
   }, [errorMessage, isChildHasScore]);
 
-  // --- Derived state -------------------------------------------------------
-
   const validationStatus = useMemo(() => {
     if (content.type === QuestionType.Text) {
       return { color: "success" as const, text: "Display text" };
@@ -657,8 +653,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     remainingScore !== undefined &&
     parentScore !== undefined &&
     parentScore - (childSiblingScore ?? 0) - scoreInputValue < 0;
-
-  // --- Render answer input --------------------------------------------------
 
   const renderAnswerInput = useMemo(() => {
     switch (content.type) {

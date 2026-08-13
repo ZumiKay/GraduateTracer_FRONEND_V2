@@ -333,12 +333,15 @@ const OverviewContainer = ({
     [issues],
   );
 
-  const highlightQuestionCard = (targetElement: HTMLElement) => {
+  //Temporary Highlight Question Card
+  const highlightQuestionCard = (
+    targetElement: HTMLElement,
+    issueType: "warning" | "error",
+  ) => {
     targetElement.classList.add(
       "ring-4",
-      "ring-blue-500",
-      "ring-offset-2",
-      "border-blue-500",
+      `ring-${issueType === "error" ? "red" : "yellow"}-500`,
+      "ring-offset-10",
       "shadow-2xl",
       "transition-all",
       "duration-300",
@@ -347,15 +350,17 @@ const OverviewContainer = ({
     setTimeout(() => {
       targetElement.classList.remove(
         "ring-4",
-        "ring-blue-500",
-        "ring-offset-2",
-        "border-blue-500",
+        `ring-${issueType === "error" ? "red" : "yellow"}-500`,
+        "ring-offset-10",
         "shadow-2xl",
       );
     }, 3000);
   };
 
-  const scrollToAndHighlightQuestion = (targetId?: string) => {
+  const scrollToAndHighlightQuestion = (
+    issuetype: SeverityType,
+    targetId?: string,
+  ) => {
     if (!targetId) return;
 
     let attempts = 0;
@@ -364,7 +369,6 @@ const OverviewContainer = ({
     const interval = setInterval(() => {
       attempts++;
       const element = document.getElementById(targetId);
-      console.log(element);
 
       if (element) {
         clearInterval(interval);
@@ -372,14 +376,14 @@ const OverviewContainer = ({
           behavior: "smooth",
           block: "center",
         });
-        highlightQuestionCard(element as HTMLElement);
+        highlightQuestionCard(element as HTMLElement, issuetype);
       } else if (attempts >= maxAttempts) {
         clearInterval(interval);
       }
     }, 100);
   };
 
-  const handleQuestionCardClick = (issue: IssueItem) => {
+  const handleQuestionCardClick = (issue: IssueItem, type: SeverityType) => {
     if (isMobile) {
       setIsContentVisible(false);
       dispatch(setShowOverview(false));
@@ -395,7 +399,10 @@ const OverviewContainer = ({
     });
 
     if (targetId !== undefined) {
-      scrollToAndHighlightQuestion(`${issue?.page ?? 1}-${issue.targetId}`);
+      scrollToAndHighlightQuestion(
+        type,
+        `${issue?.page ?? 1}-${issue.targetId}`,
+      );
     }
   };
 
@@ -567,7 +574,7 @@ const OverviewContainer = ({
                     key={issue.id}
                     type="button"
                     className="w-full text-left rounded-lg border border-amber-100 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-900/20 px-3 py-2 hover:bg-amber-100/80 dark:hover:bg-amber-900/35 transition-colors"
-                    onClick={() => handleQuestionCardClick(issue)}
+                    onClick={() => handleQuestionCardClick(issue, "warning")}
                   >
                     <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
                       {issue.label}
@@ -605,7 +612,7 @@ const OverviewContainer = ({
                     key={issue.id}
                     type="button"
                     className="w-full text-left rounded-lg border border-red-100 dark:border-red-700 bg-red-50/60 dark:bg-red-900/20 px-3 py-2 hover:bg-red-100/80 dark:hover:bg-red-900/35 transition-colors"
-                    onClick={() => handleQuestionCardClick(issue)}
+                    onClick={() => handleQuestionCardClick(issue, "error")}
                   >
                     <p className="text-xs font-semibold text-red-700 dark:text-red-300">
                       {issue.label}

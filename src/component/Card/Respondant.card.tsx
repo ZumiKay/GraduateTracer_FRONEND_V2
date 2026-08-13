@@ -54,18 +54,30 @@ const Respondant_Question_Card = memo(
 
     const questionTypeLabel = useMemo(() => {
       switch (content.type) {
-        case QuestionType.MultipleChoice:  return "Multiple Choice";
-        case QuestionType.CheckBox:        return "Checkbox";
-        case QuestionType.Text:            return "Text Display";
-        case QuestionType.ShortAnswer:     return "Short Answer";
-        case QuestionType.Paragraph:       return "Paragraph";
-        case QuestionType.Number:          return "Number";
-        case QuestionType.Date:            return "Date";
-        case QuestionType.RangeDate:       return "Date Range";
-        case QuestionType.RangeNumber:     return "Number Range";
-        case QuestionType.Selection:       return "Selection";
-        case QuestionType.MultipleSelection: return "Multiple Selection";
-        default:                           return "Question";
+        case QuestionType.MultipleChoice:
+          return "Multiple Choice";
+        case QuestionType.CheckBox:
+          return "Checkbox";
+        case QuestionType.Text:
+          return "Text Display";
+        case QuestionType.ShortAnswer:
+          return "Short Answer";
+        case QuestionType.Paragraph:
+          return "Paragraph";
+        case QuestionType.Number:
+          return "Number";
+        case QuestionType.Date:
+          return "Date";
+        case QuestionType.RangeDate:
+          return "Date Range";
+        case QuestionType.RangeNumber:
+          return "Number Range";
+        case QuestionType.Selection:
+          return "Selection";
+        case QuestionType.MultipleSelection:
+          return "Multiple Selection";
+        default:
+          return "Question";
       }
     }, [content.type]);
 
@@ -138,7 +150,9 @@ const Respondant_Question_Card = memo(
                 value={
                   answerkey?.answer
                     ? Array.isArray(answerkey.answer)
-                      ? (answerkey.answer as number[]).includes(choice.idx ?? cIdx)
+                      ? (answerkey.answer as number[]).includes(
+                          choice.idx ?? cIdx,
+                        )
                         ? (choice.idx ?? cIdx)
                         : -1
                       : -1
@@ -151,7 +165,9 @@ const Respondant_Question_Card = memo(
                     : [];
                   const choiceValue = choice.idx ?? cIdx;
                   if (val === -1) {
-                    handleAnswer(currentAnswers.filter((a) => a !== choiceValue));
+                    handleAnswer(
+                      currentAnswers.filter((a) => a !== choiceValue),
+                    );
                   } else {
                     if (!currentAnswers.includes(choiceValue)) {
                       handleAnswer([...currentAnswers, choiceValue]);
@@ -186,7 +202,9 @@ const Respondant_Question_Card = memo(
                 value={
                   answerkey?.answer
                     ? Array.isArray(answerkey.answer)
-                      ? (answerkey.answer as number[]).includes(choice.idx ?? cIdx)
+                      ? (answerkey.answer as number[]).includes(
+                          choice.idx ?? cIdx,
+                        )
                         ? (choice.idx ?? cIdx)
                         : -1
                       : -1
@@ -199,7 +217,9 @@ const Respondant_Question_Card = memo(
                     : [];
                   const choiceValue = choice.idx ?? cIdx;
                   if (val === -1) {
-                    handleAnswer(currentAnswers.filter((a) => a !== choiceValue));
+                    handleAnswer(
+                      currentAnswers.filter((a) => a !== choiceValue),
+                    );
                   } else {
                     if (!currentAnswers.includes(choiceValue)) {
                       handleAnswer([...currentAnswers, choiceValue]);
@@ -220,7 +240,9 @@ const Respondant_Question_Card = memo(
 
       const parseFlexibleDate = (dateStr: string): DateValue => {
         try {
-          const cleanDateStr = dateStr.replace(/\.\d{3}Z?$/, "").replace("Z", "");
+          const cleanDateStr = dateStr
+            .replace(/\.\d{3}Z?$/, "")
+            .replace("Z", "");
           return parseDate(cleanDateStr.split("T")[0]);
         } catch (error) {
           console.error("Error parsing date:", error, dateStr);
@@ -230,8 +252,12 @@ const Respondant_Question_Card = memo(
 
       const rangeData: RangeValue<DateValue> | undefined = value
         ? {
-            start: value.start ? parseFlexibleDate(value.start) : now(getLocalTimeZone()),
-            end:   value.end   ? parseFlexibleDate(value.end)   : now(getLocalTimeZone()),
+            start: value.start
+              ? parseFlexibleDate(value.start)
+              : now(getLocalTimeZone()),
+            end: value.end
+              ? parseFlexibleDate(value.end)
+              : now(getLocalTimeZone()),
           }
         : undefined;
 
@@ -270,7 +296,9 @@ const Respondant_Question_Card = memo(
         case QuestionType.Paragraph:
           return (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Your answer:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Your answer:
+              </p>
               <ParagraphAnswer
                 value={String(answerKey?.answer || "")}
                 onChange={handleAnswer}
@@ -282,7 +310,9 @@ const Respondant_Question_Card = memo(
         case QuestionType.RangeNumber:
           return (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Select range:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Select range:
+              </p>
               <RangeNumberAnswer
                 onChange={handleAnswer}
                 value={content.rangenumber}
@@ -295,7 +325,9 @@ const Respondant_Question_Card = memo(
         case QuestionType.Date:
           return (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Select date:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Select date:
+              </p>
               <DateQuestionType
                 value={answerKey?.answer as string}
                 placeholder="Select Date"
@@ -309,7 +341,9 @@ const Respondant_Question_Card = memo(
         case QuestionType.Number:
           return (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Enter number:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Enter number:
+              </p>
               <Input
                 size="md"
                 radius="sm"
@@ -329,7 +363,9 @@ const Respondant_Question_Card = memo(
         case QuestionType.ShortAnswer:
           return (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Your answer:</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Your answer:
+              </p>
               <Input
                 fullWidth
                 size="md"
@@ -389,12 +425,10 @@ const Respondant_Question_Card = memo(
             : "hover:shadow-xl hover:border-gray-200 dark:hover:border-gray-600 hover:-translate-y-1"
         }`}
       >
-        {/* Colour accent bar */}
         <div style={colorAccentStyle} className="h-2 sm:h-3 w-full relative">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         </div>
 
-        {/* Badge row — flex, never overlaps */}
         <div className="flex items-center justify-between gap-2 px-3 py-2.5 sm:px-5 sm:py-3">
           <Chip
             color="primary"

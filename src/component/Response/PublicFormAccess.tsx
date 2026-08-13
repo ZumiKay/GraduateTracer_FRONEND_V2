@@ -645,6 +645,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         />
 
         <div className="w-full min-h-screen">
+          <title>{formReqData.formState?.title ?? "Form"}</title>
           {!inactivityWarning.showWarning &&
             formReqData.formState?.setting?.email && (
               <div className="fixed top-4 right-4 z-10">

@@ -15,6 +15,7 @@ import {
 import {
   ChangeEvent,
   FormEvent,
+  SyntheticEvent,
   useCallback,
   useEffect,
   useRef,
@@ -665,7 +666,7 @@ export default function AuthenticationPage() {
   }, []);
 
   const handleSubmit = useCallback(
-    async (e: FormEvent<HTMLFormElement>) => {
+    async (e: SyntheticEvent) => {
       e.preventDefault();
 
       if (page === "prelogin") {

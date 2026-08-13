@@ -1,4 +1,5 @@
-import { Tab, Tabs } from "@heroui/react";
+import { Button, Tab, Tabs } from "@heroui/react";
+import { EyeIcon } from "@heroicons/react/24/outline";
 import { useNavigate, useParams } from "react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -392,13 +393,24 @@ function FormPage() {
 
   return (
     <div
-      className={`formpage w-full min-h-screen h-full pb-5 ${
+      className={`formpage relative w-full min-h-screen h-full pb-5 ${
         formstate.setting?.bg ? `bg-[${formstate.setting.bg}]` : ""
       }`}
     >
+      <title>{`${formstate.title} | ${tab.toUpperCase()}`}</title>
+      <Button
+        className="ml-[90%] font-bold"
+        variant="solid"
+        size="md"
+        color="secondary"
+        startContent={<EyeIcon className="w-4 h-4" />}
+      >
+        Preview
+      </Button>
       {(tab === "question" || tab === "solution") && (
         <OverviewContainer tab={tab} loading={isFetching} />
       )}
+
       <Tabs
         className="w-full h-fit bg-white dark:bg-black"
         variant="underlined"
