@@ -23,6 +23,7 @@ import { ErrorToast } from "../component/Modal/AlertModal";
 import Solution_Tab from "../component/FormComponent/Solution/Solution_Tab";
 import QuestionTab from "../component/FormComponent/Question/Question_Tab";
 import SettingTab from "../component/FormComponent/Setting/Setting_Tab";
+import PreviewTab from "../component/FormComponent/Preview/PreviewTab";
 import ResponseDashboard from "../component/Response/ResponseDashboard";
 import ResponseAnalytics from "../component/Response/ResponseAnalytics";
 import { setopenmodal } from "../redux/openmodal";
@@ -142,7 +143,7 @@ function FormPage() {
   const { data, isSuccess, error, isError, isFetching } = useQuery({
     queryKey: ["FormInfo", formId, page, tab],
     queryFn: () => fetchFormTab({ tab, page, formId }),
-    enabled: !!formId || !!userSession.error,
+    enabled: (!!formId || !!userSession.error) && tab !== "preview",
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchOnMount: true,
@@ -404,6 +405,7 @@ function FormPage() {
         size="md"
         color="secondary"
         startContent={<EyeIcon className="w-4 h-4" />}
+        onClick={() => handleTabs("preview")}
       >
         Preview
       </Button>
@@ -441,6 +443,25 @@ function FormPage() {
               exit="exit"
             >
               <Solution_Tab isLoading={isFetching} />
+            </motion.div>
+          </AnimatePresence>
+        </Tab>
+        <Tab key={"preview"} title="Preview">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="preview-tab"
+              variants={tabVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              {formId ? (
+                <PreviewTab formId={formId} />
+              ) : (
+                <div className="w-full h-40 flex items-center justify-center">
+                  <p className="text-gray-500">Loading preview...</p>
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
         </Tab>

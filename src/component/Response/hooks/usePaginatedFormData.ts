@@ -16,7 +16,7 @@ import { SessionState } from "../../../redux/user.store";
 import { generateStorageKey } from "../../../helperFunc";
 
 export type accessModeType = "login" | "authenticated" | "error";
-type fetchtype = "data" | "initial";
+type fetchtype = "data" | "initial" | "preview";
 export interface GetFormStateResponseType extends FormDataType {
   isResponsed?: SubmittionProcessionReturnType;
   isLoggedin?: boolean;
@@ -53,6 +53,7 @@ type useRespondentFormPaginationProps = {
   formsession?: RespondentSessionType;
   accessMode: accessModeType;
   enabled?: boolean;
+  isPreview?: boolean;
 };
 
 interface FetchContentReturnType extends ApiRequestReturnType {
@@ -64,10 +65,13 @@ const useRespondentFormPaginaition = ({
   formsession,
   accessMode,
   enabled = false,
+  isPreview = false,
 }: useRespondentFormPaginationProps): UseRespondentFormPaginationReturn => {
   const navigate = useNavigate();
   const [currentPage, setcurrentPage] = useState<number | null>(null);
-  const [fetchType, setfetchType] = useState<fetchtype>("initial");
+  const [fetchType, setfetchType] = useState<fetchtype>(
+    isPreview ? "preview" : "initial",
+  );
   const [localformsession, setlocalformsession] =
     useState<RespondentSessionType>();
   const accessModeRef = useRef(accessMode);
@@ -86,7 +90,7 @@ const useRespondentFormPaginaition = ({
   );
 
   const savedPageData = useMemo(() => {
-    if (!formId) return null;
+    if (!formId || isPreview) return null;
     if (storageKey) {
       try {
         const storedData = localStorage.getItem(storageKey);
@@ -107,7 +111,7 @@ const useRespondentFormPaginaition = ({
       }
     }
     return null;
-  }, [storageKey, formId, enabled]);
+  }, [storageKey, formId, enabled, isPreview]);
 
   useEffect(() => {
     if (currentPage !== null) return; // already initialized
@@ -211,6 +215,10 @@ const useRespondentFormPaginaition = ({
   }, [data]);
 
   useEffect(() => {
+    if (isPreview) {
+      setfetchType("preview");
+      return;
+    }
     if (accessMode === "authenticated" && !formState?.isAuthenticated) {
       setfetchType("initial");
     } else if (
@@ -226,6 +234,7 @@ const useRespondentFormPaginaition = ({
     formState?.isAuthenticated,
     formState?.isResponsed,
     formState?.setting?.email,
+    isPreview,
   ]);
 
   useEffect(() => {

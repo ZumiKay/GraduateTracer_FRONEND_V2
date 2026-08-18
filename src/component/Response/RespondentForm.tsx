@@ -53,6 +53,7 @@ export interface RespondentFormProps {
   accessMode?: "login" | "guest" | "authenticated";
   isUserActive?: boolean;
   isLoading?: boolean;
+  isPreview?: boolean;
 }
 
 const LoadingFallback = memo(() => (
@@ -82,6 +83,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     isUserActive = true,
     formSessionInfo,
     isLoading,
+    isPreview,
   }) => {
     const {
       formState,
@@ -93,6 +95,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       canGoPrev,
       totalPages,
     } = data;
+
+    const isPreviewMode = isPreview || Boolean(formState?.isPreview);
 
     const dispatch = useDispatch();
     const { checkSession } = useSessionContext();
@@ -156,6 +160,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       accessMode,
       isUserActive,
       submitting,
+      isPreview: isPreviewMode,
     });
 
     const scoreData = useMemo(() => {
@@ -181,6 +186,11 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       if (questions.length > 0 && formState?._id) {
         const questionsWithoutIds = questions.filter((q) => !q._id);
         if (questionsWithoutIds.length > 0) {
+          return;
+        }
+
+        if (isPreviewMode) {
+          setProgressLoaded(true);
           return;
         }
 
@@ -212,6 +222,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       goToPage,
       data,
       setProgressLoaded,
+      isPreviewMode,
     ]);
 
     // Apply the form setting style
@@ -512,7 +523,9 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
           <div className="mb-4 text-center">
             <small className="text-gray-500 italic">
-              {progressLoaded ? (
+              {isPreviewMode ? (
+                "Preview Mode — Answers are not saved to localStorage"
+              ) : progressLoaded ? (
                 accessMode === "guest" || isUserActive ? (
                   "Your progress is automatically saved as you fill out the form"
                 ) : (

@@ -13,6 +13,7 @@ interface UseProgressStorageProps {
   accessMode?: "login" | "guest" | "authenticated";
   isUserActive?: boolean;
   submitting: boolean;
+  isPreview?: boolean;
 }
 
 export const useProgressStorage = ({
@@ -25,6 +26,7 @@ export const useProgressStorage = ({
   accessMode = "authenticated",
   isUserActive = true,
   submitting,
+  isPreview = false,
 }: UseProgressStorageProps) => {
   const [progressLoaded, setProgressLoaded] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,7 +42,13 @@ export const useProgressStorage = ({
 
   const saveProgressToStorage = useCallback(
     (value?: Record<string, unknown>) => {
-      if (!formId || !progressLoaded || !progressStorageKey || success) {
+      if (
+        !formId ||
+        !progressLoaded ||
+        !progressStorageKey ||
+        success ||
+        isPreview
+      ) {
         return;
       }
 
@@ -192,7 +200,7 @@ export const useProgressStorage = ({
       goToPage: (page: number) => void,
       dataGoToPage: (page: number) => void,
     ) => {
-      if (!formId || !progressStorageKey) {
+      if (!formId || !progressStorageKey || isPreview) {
         return false;
       }
 
