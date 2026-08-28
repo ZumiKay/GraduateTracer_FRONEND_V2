@@ -1,6 +1,5 @@
 import {
   hasObjectChanged,
-  hasArrayChange,
   FormatDate,
   isMoreThanDay,
   CalculateNewIdx,
