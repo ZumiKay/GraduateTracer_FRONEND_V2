@@ -1,265 +1,224 @@
-import { useEffect, useState, useCallback, useMemo, memo } from "react";
-import { useDispatch, useSelector, shallowEqual } from "react-redux";
+import { useEffect, useCallback, useMemo, memo } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../../redux/store";
 import { QuestionLoading } from "../../Loading/ContainerLoading";
 import {
   setallquestion,
-  setdisbounceQuestion,
   setRevalidateContent,
+  setShowOverview,
 } from "../../../redux/formstore";
-import { ContentType, FormValidationSummary } from "../../../types/Form.types";
-import ApiRequest from "../../../hooks/ApiHook";
+import { ContentType } from "../../../types/Form.types";
 import useFormValidation from "../../../hooks/ValidationHook";
-import { ErrorToast, InfoToast } from "../../Modal/AlertModal";
-import { useQuery } from "@tanstack/react-query";
 import FormSummaryHeader from "./FormSummaryHeader";
 import ValidationStatusDisplay from "./ValidationStatusDisplay";
 import QuestionItem from "./QuestionItem";
-import { ContentAnswerType } from "../../Response/Response.type";
+import { useSolutionScoreMaps } from "./useSolutionScoreMaps";
+import { emitAutoSaveEvent } from "../../../services/autoSaveEventBus";
 
-interface FormTotalSummary {
-  totalpage: number;
-  totalquestion: number;
-  totalscore: number;
+/* --------------------------------- Banners -------------------------------- */
+
+interface ErrorBannerProps {
+  errorCount: number;
+  onNavigateToOverview: () => void;
 }
 
-const fetchFormTotalSummary = async (
-  formId: string
-): Promise<FormTotalSummary> => {
-  const response = await ApiRequest({
-    url: `/filteredform?ty=total&q=${formId}`,
-    method: "GET",
-    cookie: true,
-    reactQuery: true,
-  });
+const ErrorBanner = memo(
+  ({ errorCount, onNavigateToOverview }: ErrorBannerProps) => (
+    <div
+      onClick={onNavigateToOverview}
+      className="p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-gray-700 cursor-pointer hover:bg-red-100 dark:hover:bg-gray-600 transition-colors"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onNavigateToOverview();
+      }}
+    >
+      <h3 className="text-sm font-medium text-red-600 dark:text-red-400">
+        {errorCount} Error Question{errorCount !== 1 ? "s" : ""} Detected
+      </h3>
+      <p className="text-xs text-red-400 dark:text-red-300 mt-1">
+        Form cannot be published with errors
+      </p>
+    </div>
+  ),
+);
+ErrorBanner.displayName = "ErrorBanner";
 
-  return response.data as FormTotalSummary;
-};
+interface ConditionalBannerProps {
+  count: number;
+}
 
-const Solution_Tab = memo(() => {
+const ConditionalBanner = memo(({ count }: ConditionalBannerProps) => (
+  <div className="p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-gray-700">
+    <h3 className="text-sm font-medium text-blue-800 dark:text-white">
+      Conditional Questions Detected
+    </h3>
+    <p className="text-xs text-blue-600 mt-1 dark:text-white">
+      This form contains {count} conditional question(s) that appear based on
+      parent question answers. You can assign scores and answer keys to these
+      questions — they will be used when the conditions are met during form
+      submission.
+    </p>
+  </div>
+));
+ConditionalBanner.displayName = "ConditionalBanner";
+
+/* ----------------------------- Main Component ----------------------------- */
+
+const OVERVIEW_SELECTOR = ".OverviewContainer";
+
+interface SolutionTabProps {
+  isLoading: boolean;
+}
+
+const SolutionTab = memo(({ isLoading }: SolutionTabProps) => {
   const dispatch = useDispatch();
 
-  // Selectors
-  const allquestion = useSelector(
+  const allQuestions = useSelector(
     (root: RootState) => root.allform.allquestion,
-    shallowEqual
   );
-
-  const fetchloading = useSelector(
-    (root: RootState) => root.allform.fetchloading
-  );
-  const formId = useSelector((root: RootState) => root.allform.formstate._id);
-  const formTotalScore = useSelector(
-    (root: RootState) => root.allform.formstate.totalscore
-  );
-  const formType = useSelector(
-    (root: RootState) => root.allform.formstate.type
-  );
-  const formColor = useSelector(
-    (root: RootState) => root.allform.formstate.setting?.qcolor
-  );
-  const autosaveEnabled = useSelector(
-    (root: RootState) => root.allform.formstate.setting?.autosave
-  );
-  const returnScore = useSelector(
-    (root: RootState) => root.allform.formstate.setting?.returnscore
+  const fetchLoading = useSelector(
+    (root: RootState) => root.allform.fetchloading,
   );
   const revalidateContent = useSelector(
-    (root: RootState) => root.allform.revalidateContent
+    (root: RootState) => root.allform.revalidateContent,
   );
 
-  const [validationSummary, setValidationSummary] =
-    useState<FormValidationSummary | null>(null);
-
-  const { validateForm, isValidating } = useFormValidation();
-
-  // Query for form summary
   const {
-    data: totalsummerize,
-    isLoading: loading,
-    refetch: refetchTotal,
-  } = useQuery({
-    queryKey: ["formTotalSummary", formId],
-    queryFn: () => fetchFormTotalSummary(formId!),
-    enabled: !!formId,
-    staleTime: 30000,
-    gcTime: 60000,
-    retry: 2,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
+    _id: formId,
+    validation,
+    formType,
+    totalpage,
+    totalQuestions,
+    totalScores,
+    extraScore,
+    currentPageTotalScores,
+    setting,
+  } = useSelector((root: RootState) => root.allform.formstate);
 
-  // Parent score/index maps for conditional questions
-  const { parentScoreMap, parentQIdxMap } = useMemo(() => {
-    const scoreMap = new Map<string, number>();
-    const idxMap = new Map<string, number>();
+  const formColor = setting?.qcolor;
+  const returnScore = setting?.returnscore;
+  const autosaveEnabled = setting?.autosave;
 
-    for (const question of allquestion) {
-      if (question._id) {
-        if (question.score) scoreMap.set(question._id, question.score);
-        if (question.qIdx !== undefined)
-          idxMap.set(question._id, question.qIdx);
-      }
-    }
+  const { validateFormReq, processedTotalScore } = useFormValidation();
 
-    return { parentScoreMap: scoreMap, parentQIdxMap: idxMap };
-  }, [allquestion]);
+  const {
+    parentScoreMap,
+    isChildHasScoreMap,
+    childSiblingScoreMap,
+    parentUseChildSumMap,
+  } = useSolutionScoreMaps(allQuestions);
 
-  // Conditional questions count
   const conditionalCount = useMemo(
-    () => allquestion.filter((q) => q.parentcontent).length,
-    [allquestion]
+    () => allQuestions.filter((q) => q.parentcontent).length,
+    [allQuestions],
   );
 
-  // Initial validation on mount
-  useEffect(() => {
-    if (!formId) return;
+  const errorCount = validation?.validationResults?.errors?.length ?? 0;
 
-    let isMounted = true;
-    const timeoutId = setTimeout(async () => {
-      try {
-        const validation = await validateForm(formId, "solution");
-        if (validation && isMounted) {
-          setValidationSummary(validation);
-        }
-      } catch (error) {
-        console.error("Validation error:", error);
-      }
-    }, 300);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(timeoutId);
-    };
-  }, [formId, validateForm]);
-
-  // Update question handler
   const updateQuestion = useCallback(
     (newVal: Partial<ContentType>, qIdx: number) => {
-      const toUpdateQuestion = [
-        ...allquestion.map((ques, idx) => {
-          return idx === qIdx ? { ...ques, ...newVal } : ques;
-        }),
-      ];
+      dispatch(
+        setallquestion((prev) =>
+          prev.map((ques, idx) =>
+            idx === qIdx ? { ...ques, ...newVal } : ques,
+          ),
+        ),
+      );
 
-      //Autosaved
-      if (autosaveEnabled)
-        dispatch(setdisbounceQuestion(toUpdateQuestion[qIdx]));
-      //Update overallstate
-      dispatch(setallquestion(toUpdateQuestion));
+      // Emit autosave event so the hook debounces and persists the change
+      if (autosaveEnabled) {
+        emitAutoSaveEvent({ tab: "solution" });
+      }
     },
-    [allquestion, autosaveEnabled, dispatch]
+    [dispatch, autosaveEnabled],
   );
 
-  // Validate all handler
-  const handleValidateAll = useCallback(async () => {
-    if (!formId) return;
+  const navigateToOverview = useCallback(() => {
+    dispatch(setShowOverview(true));
+    document
+      .querySelector(OVERVIEW_SELECTOR)
+      ?.scrollIntoView({ behavior: "smooth" });
+  }, [dispatch]);
 
-    try {
-      const validation = await validateForm(formId, "send_form");
-      if (validation) {
-        setValidationSummary(validation);
-        refetchTotal();
-
-        if (validation.validationResults.errors?.length) {
-          console.log("Debug validation result", validation.validationResults);
-        } else {
-          InfoToast({
-            title: "Validation Success",
-            content: "All questions are properly configured!",
-            toastid: "validation-success",
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Validation error:", error);
-      ErrorToast({
-        title: "Validation Error",
-        content: "Failed to validate form",
-        toastid: "validation-error",
-      });
-    }
-  }, [formId, validateForm, refetchTotal]);
-
-  //Trigger Revalidate Solution Content
   useEffect(() => {
-    if (revalidateContent) {
-      handleValidateAll();
+    if (revalidateContent && formId) {
+      validateFormReq.mutate({ formId: formId as string, tab: "solution" });
     }
-
-    //Reset state
     return () => {
       dispatch(setRevalidateContent(false));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revalidateContent]);
 
-  // Select answer handler
-  const handleSelectAnswer = useCallback(
-    (answerData: { answer: ContentAnswerType }, idx: number) => {
-      updateQuestion({ answer: { answer: answerData.answer } }, idx);
-    },
-    [updateQuestion]
-  );
+  const isEmpty = !allQuestions || allQuestions.length === 0;
 
   return (
     <div className="solution_tab w-full h-fit flex flex-col items-center">
       <FormSummaryHeader
-        loading={loading}
-        isValidating={isValidating}
-        totalsummerize={totalsummerize}
-        formTotalScore={formTotalScore}
-        validationSummary={validationSummary}
-        onValidateAll={handleValidateAll}
+        isValidating={validateFormReq.isPending || isLoading}
+        formTotalScore={processedTotalScore({
+          allQuestion: allQuestions,
+          formState: { currentPageTotalScores, totalScores } as never,
+        })}
+        formTotalQuestion={totalQuestions}
+        formTotalPage={totalpage}
+        formExtraScore={extraScore}
       />
 
-      <div className="question_card w-full h-fit flex flex-col items-center gap-20 pt-8 pb-20">
-        <ValidationStatusDisplay
-          validationSummary={validationSummary}
-          formstate={{
-            type: formType,
-            setting: { returnscore: returnScore },
-          }}
-        />
+      <div className="question_card w-full h-fit flex flex-col items-center gap-8 md:gap-20 pt-4 pb-12 sm:pt-8 sm:pb-20">
+        {isEmpty ? (
+          <div className="emptyQuestion p-2 bg-red-300 w-[200px] h-[100px] grid place-content-center rounded-xl text-white font-bold">
+            Please Add Question
+          </div>
+        ) : (
+          <ValidationStatusDisplay
+            formstate={{
+              setting: { returnscore: returnScore },
+              type: formType as never,
+              validation,
+              totalQuestions: totalQuestions,
+            }}
+            content={allQuestions}
+          />
+        )}
 
-        {fetchloading ? (
+        {fetchLoading ? (
           <QuestionLoading count={3} />
         ) : (
-          <div className="w-full max-w-4xl space-y-8">
-            {conditionalCount > 0 && (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-gray-700">
-                <h3 className="text-sm font-medium text-blue-800 dark:text-white">
-                  📋 Conditional Questions Detected
-                </h3>
-                <p className="text-xs text-blue-600 mt-1 dark:text-white">
-                  This form contains {conditionalCount} conditional question(s)
-                  that appear based on parent question answers. You can assign
-                  scores and answer keys to these questions - they will be used
-                  when the conditions are met during form submission.
-                </p>
-              </div>
+          <div className="w-full max-w-4xl space-y-4 sm:space-y-8 px-2 sm:px-0">
+            {errorCount > 0 && (
+              <ErrorBanner
+                errorCount={errorCount}
+                onNavigateToOverview={navigateToOverview}
+              />
             )}
 
-            {allquestion.map((question, idx) => (
-              <QuestionItem
-                key={question._id || `question-${idx}`}
-                question={question}
-                idx={idx}
-                formColor={formColor}
-                onUpdateContent={updateQuestion}
-                onSelectAnswer={handleSelectAnswer}
-                parentScore={
-                  question.parentcontent?.qId
-                    ? parentScoreMap.get(question.parentcontent.qId)
-                    : undefined
-                }
-                parentQIdx={
-                  question.parentcontent?.qId
-                    ? parentQIdxMap.get(question.parentcontent.qId)
-                    : undefined
-                }
-              />
-            ))}
+            {conditionalCount > 0 && (
+              <ConditionalBanner count={conditionalCount} />
+            )}
+
+            {allQuestions.map((question, idx) => {
+              const selfKey = question._id ?? question.qIdx;
+              return (
+                <QuestionItem
+                  key={question._id || `question-${idx}`}
+                  question={question}
+                  idx={idx}
+                  formColor={formColor}
+                  onUpdateContent={updateQuestion}
+                  isBonusScore={question.isBonusScore}
+                  isChildHasScore={isChildHasScoreMap.get(selfKey)}
+                  childSiblingScore={childSiblingScoreMap.get(selfKey)}
+                  parentUseChildSum={parentUseChildSumMap.get(selfKey)}
+                  parentScore={
+                    question.parentcontent?.qId
+                      ? parentScoreMap.get(question.parentcontent.qId)
+                      : undefined
+                  }
+                />
+              );
+            })}
           </div>
         )}
       </div>
@@ -267,6 +226,6 @@ const Solution_Tab = memo(() => {
   );
 });
 
-Solution_Tab.displayName = "Solution_Tab";
+SolutionTab.displayName = "SolutionTab";
 
-export default Solution_Tab;
+export default SolutionTab;

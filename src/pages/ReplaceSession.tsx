@@ -8,192 +8,124 @@ import {
   FiShield,
   FiCheckCircle,
 } from "react-icons/fi";
-import { useMutation } from "@tanstack/react-query";
-import ApiRequest from "../hooks/ApiHook";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
-import { generateStorageKey } from "../helperFunc";
-import { useSelector } from "react-redux";
-import { RootState } from "../redux/store";
-
-interface SessionData {
-  session_id?: string;
-  formId?: string;
-  expiredAt?: string;
-}
-
-interface ReplaceSessionResponse {
-  data?: SessionData;
-  message?: string;
-}
+import useFormsessionAPI from "../hooks/useFormsessionAPI";
+import ApiRequest, { ApiRequestReturnType } from "../hooks/APIHook/ApiHook";
+import { useQuery } from "@tanstack/react-query";
 
 interface ReplaceSessionPageParamsType {
   code: string;
   formId: string;
 }
 
-// Memoized async function to prevent recreations
-const asyncReplaceSession = async (
-  code: string,
-  isSkipLogin?: number
-): Promise<ReplaceSessionResponse> => {
-  const url = isSkipLogin
-    ? `/response/sessionremoval/${code}?skiplogin=${isSkipLogin}`
-    : `/response/sessionremoval/${code}`;
-
-  const replaceReq = await ApiRequest({
-    url,
-    method: "PATCH",
-    cookie: true,
-    reactQuery: true,
-  });
-
-  if (!replaceReq.success) {
-    throw new Error(replaceReq.error ?? "Error occurred");
-  }
-
-  return replaceReq.data as ReplaceSessionResponse;
-};
-
 const ReplaceSessionPage = () => {
   const { code, formId } =
     useParams() as unknown as ReplaceSessionPageParamsType;
+  const { replaceSession, error } = useFormsessionAPI();
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
   const [sessionReplaced, setSessionReplaced] = useState(false);
 
-  // Memoized decoded values to prevent unnecessary recalculations
+  const {
+    isLoading: isVerify,
+    isError: isVerifyError,
+    isSuccess: isVerified,
+  } = useQuery({
+    queryKey: ["SessionRemoval", code],
+    queryFn: () => {
+      return ApiRequest({
+        method: "PATCH",
+        url: `/response/sessionremoval/${code}?verify=1`,
+        reactQuery: true,
+      });
+    },
+    networkMode: "always",
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!isVerify && isVerifyError) {
+      navigate("/notfound", { replace: true });
+    }
+  }, [isVerify, isVerifyError, navigate]);
+
   const { decodedCode, decodedFormId } = useMemo(
     () => ({
       decodedCode: decodeURIComponent(code),
       decodedFormId: decodeURIComponent(formId),
     }),
-    [code, formId]
+    [code, formId],
   );
 
-  // Get user data from Redux store with memoized selector
-  const userEmail = useSelector(
-    (state: RootState) => state.usersession?.user?.email
-  );
-
-  // Memoized navigation URLs
   const { formAccessURL, notFoundURL } = useMemo(
     () => ({
       formAccessURL: `/form-access/${decodedFormId}`,
       notFoundURL: "/notfound",
     }),
-    [decodedFormId]
+    [decodedFormId],
   );
 
-  // Memoized callbacks to prevent unnecessary re-renders
-  const handleNavigateToForm = useCallback(
-    (delay = 2000) => {
+  const handleNavigate = useCallback(
+    (accessUrl: string, delay = 2000) => {
       setTimeout(() => {
-        navigate(formAccessURL, { replace: true });
+        navigate(accessUrl, { replace: true });
       }, delay);
     },
-    [navigate, formAccessURL]
+    [navigate],
   );
 
-  const handleNavigateToNotFound = useCallback(
-    (delay = 3000) => {
-      setTimeout(() => {
-        navigate(notFoundURL, { replace: true });
-      }, delay);
+  const handleReplaceOrDismiss = useCallback(
+    (isSkipLogin: boolean) => {
+      const replaceSessionOpt: typeof replaceSession.variables = {
+        code: decodedCode,
+        isSkipLogin,
+      };
+
+      replaceSession.mutate(replaceSessionOpt, {
+        onSuccess(res) {
+          console.log({ res });
+          setSessionReplaced(true);
+          SuccessToast({
+            toastid: "SuccessReplace",
+            title: "Success",
+            content: (res?.data as ApiRequestReturnType)?.message ?? "",
+          });
+          handleNavigate(formAccessURL, 2000);
+        },
+
+        onError() {
+          const toastid = "uniqueToastId";
+          if (error?.status === 500) {
+            ErrorToast({
+              toastid,
+              title: "Error",
+              content: "Error replacing session",
+            });
+
+            return;
+          }
+          if (error?.status === 404) {
+            ErrorToast({ toastid, title: "Invalid", content: "" });
+            return;
+          }
+        },
+      });
     },
-    [navigate, notFoundURL]
+    [decodedCode, error?.status, formAccessURL, handleNavigate, replaceSession],
   );
 
-  // Separate mutation for terminate and login
-  const terminateAndLoginMutation = useMutation({
-    mutationFn: () => asyncReplaceSession(decodedCode),
-    onSuccess: () => {
-      setSessionReplaced(true);
-      SuccessToast({
-        title: "Success",
-        content: "Session replaced successfully! Redirecting...",
-      });
-
-      handleNavigateToForm();
-    },
-    onError: (error) => {
-      ErrorToast({
-        title: "Error",
-        content:
-          error instanceof Error ? error.message : "Failed to replace session",
-      });
-      handleNavigateToNotFound();
-    },
-  });
-
-  // Separate mutation for dismiss (skip auto-login)
-  const dismissMutation = useMutation({
-    mutationFn: () => asyncReplaceSession(decodedCode, 1),
-    onSuccess: () => {
-      SuccessToast({
-        title: "Session Dismissed",
-        content:
-          "Auto-login has been disabled for this form. You can manually login when needed.",
-      });
-      handleNavigateToForm(1500);
-    },
-    onError: (error) => {
-      console.error("Error setting dismiss state:", error);
-      ErrorToast({
-        title: "Warning",
-        content: error.message ?? "Something Wrong",
-      });
-      if (error.message === "Invalid code") {
-        handleNavigateToNotFound(300);
-      }
-    },
-  });
-
-  // Early return effect for invalid parameters
   useEffect(() => {
     if (!code || !formId) {
       navigate(notFoundURL, { replace: true });
       return;
     }
 
-    // Delayed animation trigger
     const timer = setTimeout(() => setIsVisible(true), 100);
     return () => clearTimeout(timer);
   }, [code, formId, navigate, notFoundURL]);
 
-  const handleTerminateAndLogin = useCallback(() => {
-    terminateAndLoginMutation.mutate();
-  }, [terminateAndLoginMutation]);
-
-  const handleDismiss = useCallback(async () => {
-    try {
-      await dismissMutation.mutateAsync();
-
-      // Set session state and storage keys after successful API call
-      if (userEmail) {
-        const sessionState = {
-          isActive: false,
-          isSwitchedUser: true,
-        };
-
-        const key = generateStorageKey({
-          suffix: "state",
-          formId: formId,
-          userKey: userEmail,
-        });
-
-        localStorage.setItem(key, JSON.stringify(sessionState));
-      }
-    } catch (error) {
-      // Error is already handled by the mutation's onError
-      console.error("Dismiss operation failed:", error);
-    }
-  }, [dismissMutation, userEmail, formId]);
-
-  // Check if any mutation is pending
-  const isAnyMutationPending =
-    terminateAndLoginMutation.isPending || dismissMutation.isPending;
-
-  // Memoized Success Component to prevent unnecessary re-renders
   const SuccessScreen = memo(() => (
     <div className="min-h-screen w-full bg-gradient-to-br from-green-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800 flex items-center justify-center p-4">
       <Card className="shadow-2xl border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md p-8">
@@ -204,9 +136,7 @@ const ReplaceSessionPage = () => {
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
             Session Replaced Successfully!
           </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Redirecting you to the dashboard...
-          </p>
+
           <Spinner size="sm" color="success" />
         </div>
       </Card>
@@ -215,7 +145,6 @@ const ReplaceSessionPage = () => {
 
   SuccessScreen.displayName = "SuccessScreen";
 
-  // Memoized Background Animation Component
   const AnimatedBackground = memo(() => (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
@@ -228,6 +157,20 @@ const ReplaceSessionPage = () => {
   // Success state after session replacement
   if (sessionReplaced) {
     return <SuccessScreen />;
+  }
+
+  // Block render until code is verified
+  if (isVerify || !isVerified) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800">
+        <div className="flex flex-col items-center gap-4">
+          <Spinner size="lg" color="primary" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Verifying...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -289,18 +232,18 @@ const ReplaceSessionPage = () => {
                 type="button"
                 size="lg"
                 startContent={
-                  terminateAndLoginMutation.isPending ? (
+                  replaceSession.isPending ? (
                     <Spinner size="sm" color="current" />
                   ) : (
                     <FiLogIn size={18} />
                   )
                 }
-                onPress={handleTerminateAndLogin}
+                onPress={() => handleReplaceOrDismiss(false)}
                 radius="lg"
-                isDisabled={isAnyMutationPending}
-                isLoading={terminateAndLoginMutation.isPending}
+                isDisabled={replaceSession.isPending}
+                isLoading={replaceSession.isPending}
               >
-                {terminateAndLoginMutation.isPending
+                {replaceSession.isPending
                   ? "Processing..."
                   : "Terminate and Login"}
               </Button>
@@ -311,18 +254,18 @@ const ReplaceSessionPage = () => {
                 size="lg"
                 variant="bordered"
                 startContent={
-                  dismissMutation.isPending ? (
+                  replaceSession.isPending ? (
                     <Spinner size="sm" color="current" />
                   ) : (
                     <FiX size={18} />
                   )
                 }
-                onPress={handleDismiss}
-                isLoading={dismissMutation.isPending}
+                onPress={() => handleReplaceOrDismiss(true)}
+                isLoading={replaceSession.isPending}
                 radius="lg"
-                isDisabled={isAnyMutationPending}
+                isDisabled={replaceSession.isPending}
               >
-                {dismissMutation.isPending
+                {replaceSession.isPending
                   ? "Dismissing..."
                   : "Dismiss & Skip Auto-Login"}
               </Button>
@@ -341,7 +284,6 @@ const ReplaceSessionPage = () => {
                     <br />• <strong>Terminate:</strong> End other session and
                     log into this device
                     <br />• <strong>Dismiss:</strong> Keep other session active
-                    and disable auto-login for this form
                   </p>
                 </div>
               </div>

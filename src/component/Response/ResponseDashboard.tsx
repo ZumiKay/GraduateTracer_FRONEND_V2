@@ -17,6 +17,7 @@ import { FilterBar } from "./components/FilterBar";
 import { FilterModal } from "./components/FilterModal";
 import { EmailModal, LinkModal } from "./components/FormLinkModals";
 import { ResponseListSection } from "./components/ResponseListSection";
+import { ResponseSummarySection } from "./components/ResponseSummarySection";
 
 interface ResponseDashboardProps {
   formId: string;
@@ -31,7 +32,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
 }) => {
   // Table view mode state (normal or grouped)
   const [tableViewMode, setTableViewMode] = useState<"normal" | "grouped">(
-    "normal"
+    "normal",
   );
 
   const [selectedResponse, setSelectedResponse] =
@@ -108,7 +109,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
       if (!selectedResponse?._id || !formId) {
         throw new Error("Response ID and Form ID are required");
       }
-      return await fetchResponseDetails(selectedResponse._id);
+      return await fetchResponseDetails(selectedResponse._id, formId);
     },
     enabled: !!selectedResponse?._id && !!formId,
     staleTime: 30000,
@@ -223,6 +224,8 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         isGeneratingLink={generateLinkMutation.isPending}
       />
 
+      <ResponseSummarySection formId={formId} isQuizForm={isQuizForm} />
+
       <FilterBar
         filterValue={filterValue}
         handleChange={handleChange}
@@ -241,7 +244,6 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         isLoading={isLoading}
         isQuizForm={isQuizForm}
         formId={formId}
-        form={form}
         tableViewMode={tableViewMode}
         onTableViewModeChange={setTableViewMode}
         onEditScore={(response) => {
@@ -257,6 +259,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         currentPage={currentPage}
         limit={limit}
         handlePageChange={handlePageChange}
+        handleLimitChange={handleLimitChange}
       />
 
       <EmailModal

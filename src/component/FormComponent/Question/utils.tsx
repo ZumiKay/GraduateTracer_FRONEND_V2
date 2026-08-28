@@ -12,6 +12,7 @@ export const getQuestionTypeLabel = (type: QuestionType): string => {
     [QuestionType.RangeNumber]: "Range Number",
     [QuestionType.RangeDate]: "Range Date",
     [QuestionType.Selection]: "Selection",
+    [QuestionType.MultipleSelection]: "Multiple Selection",
   };
   return typeMap[type] || "Unknown";
 };
@@ -41,7 +42,7 @@ export const canToggleVisibility = (question: ContentType): boolean => {
 
 export const generateQuestionKey = (
   question: ContentType,
-  index: number = 0
+  index: number = 0,
 ): string => {
   if (question._id) return question._id.toString();
 
@@ -50,7 +51,37 @@ export const generateQuestionKey = (
       ? question.title.slice(0, 10)
       : JSON.stringify(question.title).slice(0, 20);
 
-  return `${question.type}-${index}-${titleHash.replace(/[^a-zA-Z0-9]/g, "")}`;
+  return `${question.type}-${index}-${titleHash.replace(/[^a-zA-Z0-9]/g, "")}`; //Generate with removed space title
+};
+
+export const validateQuestionStructure = (
+  questions: Array<ContentType>,
+): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  const qIdxSet = new Set<number>();
+
+  questions.forEach((question, index) => {
+    if (qIdxSet.has(question.qIdx)) {
+      errors.push(`Duplicate qIdx ${question.qIdx} found at position ${index}`);
+    }
+    qIdxSet.add(question.qIdx);
+
+    question.conditional?.forEach((cond, condIndex) => {
+      if (cond.contentIdx !== undefined && !questions.find((q) => q.qIdx === cond.contentIdx)) {
+        errors.push(
+          `Question ${index}: Conditional ${condIndex} references non-existent qIdx ${cond.contentIdx}`,
+        );
+      }
+    });
+
+    if (question.parentcontent?.qIdx !== undefined && !questions.find((q) => q.qIdx === question.parentcontent!.qIdx)) {
+      errors.push(
+        `Question ${index}: Parent content references non-existent qIdx ${question.parentcontent.qIdx}`,
+      );
+    }
+  });
+
+  return { isValid: errors.length === 0, errors };
 };
 
 export const filterQuestions = {
@@ -70,7 +101,7 @@ export const filterQuestions = {
         return questions.filter((q) => q.require);
       case "conditional":
         return questions.filter(
-          (q) => q.conditional && q.conditional.length > 0
+          (q) => q.conditional && q.conditional.length > 0,
         );
       case "multiple":
         return questions.filter((q) => q.type === QuestionType.MultipleChoice);
@@ -80,15 +111,15 @@ export const filterQuestions = {
             QuestionType.Text,
             QuestionType.ShortAnswer,
             QuestionType.Paragraph,
-          ].includes(q.type)
+          ].includes(q.type),
         );
       case "number":
         return questions.filter((q) =>
-          [QuestionType.Number, QuestionType.RangeNumber].includes(q.type)
+          [QuestionType.Number, QuestionType.RangeNumber].includes(q.type),
         );
       case "date":
         return questions.filter((q) =>
-          [QuestionType.Date, QuestionType.RangeDate].includes(q.type)
+          [QuestionType.Date, QuestionType.RangeDate].includes(q.type),
         );
       default:
         return questions;

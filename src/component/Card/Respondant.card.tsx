@@ -23,6 +23,7 @@ import {
 import DateRangeSelector from "../FormComponent/DateRanageSelector";
 import { getLocalTimeZone, now, parseDate } from "@internationalized/date";
 import Selection from "../FormComponent/Selection";
+import { JSONContent } from "@tiptap/react";
 
 interface TextCardProps {
   content: ContentType;
@@ -41,15 +42,12 @@ const Respondant_Question_Card = memo(
           onSelectAnswer({ answer: ans as never });
         }
       },
-      [onSelectAnswer, isDisable]
+      [onSelectAnswer, isDisable],
     );
 
-    //Question numbering
     const contentTitle = useMemo(() => {
       if (content.parentcontent) {
-        return `Question ${content.questionId} (Sub of Q-${
-          content.parentcontent.questionId
-        } option ${content.parentcontent.optIdx + 1})`;
+        return `Q${content.questionId} (Sub Q-${content.parentcontent.questionId} opt ${content.parentcontent.optIdx + 1})`;
       }
       return `Question ${content.questionId}`;
     }, [content.parentcontent, content.questionId]);
@@ -76,6 +74,8 @@ const Respondant_Question_Card = memo(
           return "Number Range";
         case QuestionType.Selection:
           return "Selection";
+        case QuestionType.MultipleSelection:
+          return "Multiple Selection";
         default:
           return "Question";
       }
@@ -88,19 +88,16 @@ const Respondant_Question_Card = memo(
           ? `linear-gradient(135deg, ${color}, ${color}dd)`
           : undefined,
       }),
-      [color]
+      [color],
     );
 
     const questionBadgeStyle = useMemo(
-      () => ({
-        backgroundColor: color,
-      }),
-      [color]
+      () => ({ backgroundColor: color }),
+      [color],
     );
 
     const MultipleChoiceComponent = useMemo(() => {
       if (content.type !== QuestionType.MultipleChoice) return null;
-
       const options = content[content.type];
       if (!options || options.length === 0) return null;
 
@@ -119,11 +116,11 @@ const Respondant_Question_Card = memo(
             {options.map((choice, cIdx) => (
               <Radio
                 key={`choice-${content.idx}-${cIdx}`}
-                className="w-full h-fit p-3 mb-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-colors duration-200"
+                className="w-full h-fit p-2.5 sm:p-3 mb-2 sm:mb-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-colors duration-200"
                 value={String(choice.idx ?? cIdx)}
                 aria-label={`Option ${cIdx}`}
               >
-                <p className="text-base font-medium text-gray-800 dark:text-gray-200 w-full h-full leading-relaxed">
+                <p className="text-sm sm:text-base font-medium text-gray-800 dark:text-gray-200 w-full h-full leading-relaxed">
                   {choice.content}
                 </p>
               </Radio>
@@ -135,10 +132,8 @@ const Respondant_Question_Card = memo(
 
     const CheckboxComponent = useMemo(() => {
       if (content.type !== QuestionType.CheckBox) return null;
-
       const options = content[content.type];
       if (!options || options.length === 0) return null;
-
       const answerkey = content.answer as AnswerKey;
 
       return (
@@ -156,28 +151,75 @@ const Respondant_Question_Card = memo(
                   answerkey?.answer
                     ? Array.isArray(answerkey.answer)
                       ? (answerkey.answer as number[]).includes(
-                          choice.idx ?? cIdx
+                          choice.idx ?? cIdx,
                         )
-                        ? choice.idx ?? cIdx
+                        ? (choice.idx ?? cIdx)
                         : -1
                       : -1
                     : -1
                 }
-                data={{
-                  label: choice.content,
-                  value: choice.idx ?? cIdx,
-                }}
+                data={{ label: choice.content, value: choice.idx ?? cIdx }}
                 onChange={(val) => {
                   const currentAnswers = Array.isArray(answerkey.answer)
                     ? answerkey.answer
                     : [];
                   const choiceValue = choice.idx ?? cIdx;
-
                   if (val === -1) {
-                    const newAnswers = currentAnswers.filter(
-                      (a) => a !== choiceValue
+                    handleAnswer(
+                      currentAnswers.filter((a) => a !== choiceValue),
                     );
-                    handleAnswer(newAnswers);
+                  } else {
+                    if (!currentAnswers.includes(choiceValue)) {
+                      handleAnswer([...currentAnswers, choiceValue]);
+                    }
+                  }
+                }}
+                isDisable={isDisable}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }, [content, handleAnswer, isDisable]);
+
+    const MultipleSelectionComponent = useMemo(() => {
+      if (content.type !== QuestionType.MultipleSelection) return null;
+      const options = content.selection;
+      if (!options || options.length === 0) return null;
+      const answerkey = content.answer as AnswerKey;
+
+      return (
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Select multiple options:
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            {options.map((choice, cIdx) => (
+              <ChoiceAnswer
+                key={`choice-${content.idx}-${cIdx}`}
+                name={`choicename${cIdx}`}
+                choicety={content.type as never}
+                value={
+                  answerkey?.answer
+                    ? Array.isArray(answerkey.answer)
+                      ? (answerkey.answer as number[]).includes(
+                          choice.idx ?? cIdx,
+                        )
+                        ? (choice.idx ?? cIdx)
+                        : -1
+                      : -1
+                    : -1
+                }
+                data={{ label: choice.content, value: choice.idx ?? cIdx }}
+                onChange={(val) => {
+                  const currentAnswers = Array.isArray(answerkey.answer)
+                    ? answerkey.answer
+                    : [];
+                  const choiceValue = choice.idx ?? cIdx;
+                  if (val === -1) {
+                    handleAnswer(
+                      currentAnswers.filter((a) => a !== choiceValue),
+                    );
                   } else {
                     if (!currentAnswers.includes(choiceValue)) {
                       handleAnswer([...currentAnswers, choiceValue]);
@@ -194,7 +236,6 @@ const Respondant_Question_Card = memo(
 
     const RangeDateComponent = useMemo(() => {
       if (content.type !== QuestionType.RangeDate) return null;
-
       const value = content.rangedate;
 
       const parseFlexibleDate = (dateStr: string): DateValue => {
@@ -202,11 +243,7 @@ const Respondant_Question_Card = memo(
           const cleanDateStr = dateStr
             .replace(/\.\d{3}Z?$/, "")
             .replace("Z", "");
-
-          // Extract just the date part
-          const datePart = cleanDateStr.split("T")[0];
-
-          return parseDate(datePart);
+          return parseDate(cleanDateStr.split("T")[0]);
         } catch (error) {
           console.error("Error parsing date:", error, dateStr);
           return now(getLocalTimeZone());
@@ -250,10 +287,13 @@ const Respondant_Question_Card = memo(
         case QuestionType.CheckBox:
           return CheckboxComponent;
 
+        case QuestionType.MultipleSelection:
+          return MultipleSelectionComponent;
+
         case QuestionType.RangeDate:
           return RangeDateComponent;
 
-        case QuestionType.Paragraph: {
+        case QuestionType.Paragraph:
           return (
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -266,7 +306,6 @@ const Respondant_Question_Card = memo(
               />
             </div>
           );
-        }
 
         case QuestionType.RangeNumber:
           return (
@@ -332,9 +371,7 @@ const Respondant_Question_Card = memo(
                 size="md"
                 radius="sm"
                 type="text"
-                classNames={{
-                  input: "dark:text-white",
-                }}
+                classNames={{ input: "dark:text-white" }}
                 placeholder="Enter your answer"
                 value={String(answerKey?.answer || "")}
                 onChange={(e) => handleAnswer(e.target.value)}
@@ -346,28 +383,23 @@ const Respondant_Question_Card = memo(
             </div>
           );
 
-        case QuestionType.Selection: {
+        case QuestionType.Selection:
           return (
-            <>
-              <Selection
-                items={
-                  content.selection?.map((i) => ({
-                    label: i.content,
-                    value: i.idx.toString(),
-                  })) as never
-                }
-                selectedKeys={[answerKey?.answer?.toString()]}
-                onChange={(val) => {
-                  handleAnswer(val.target.value);
-                }}
-                placeholder="Select"
-                isDisabled={!ty || isDisable}
-                isRequired={content.require}
-                aria-label={`selection${content._id ?? content.qIdx}`}
-              />
-            </>
+            <Selection
+              items={
+                content.selection?.map((i) => ({
+                  label: i.content,
+                  value: i.idx.toString(),
+                })) as never
+              }
+              selectedKeys={[answerKey?.answer?.toString()]}
+              onChange={(val) => handleAnswer(val.target.value)}
+              placeholder="Select"
+              isDisabled={!ty || isDisable}
+              isRequired={content.require}
+              aria-label={`selection${content._id ?? content.qIdx}`}
+            />
           );
-        }
 
         default:
           return null;
@@ -376,41 +408,44 @@ const Respondant_Question_Card = memo(
       content,
       MultipleChoiceComponent,
       CheckboxComponent,
+      MultipleSelectionComponent,
       RangeDateComponent,
       handleAnswer,
       isDisable,
       ty,
     ]);
 
+    const answers = RenderAnswers();
+
     return (
       <div
-        className={`relative w-card_respondant_width h-fit rounded-xl bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 ${
+        className={`relative w-full sm:w-card_respondant_width h-fit rounded-xl bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 ${
           isDisable
             ? "cursor-not-allowed"
             : "hover:shadow-xl hover:border-gray-200 dark:hover:border-gray-600 hover:-translate-y-1"
         }`}
       >
-        <div style={colorAccentStyle} className="h-3 w-full relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+        <div style={colorAccentStyle} className="h-2 sm:h-3 w-full relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         </div>
 
-        <div
-          style={questionBadgeStyle}
-          className="absolute top-5 right-5 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg border-2 border-white/20 backdrop-blur-sm"
-        >
-          {contentTitle}
-        </div>
-
-        <div className="absolute top-5 left-5">
+        <div className="flex items-center justify-between gap-2 px-3 py-2.5 sm:px-5 sm:py-3">
           <Chip
             color="primary"
             size="sm"
             variant="flat"
-            className="text-xs font-medium"
+            className="text-xs font-medium flex-shrink-0"
             aria-label={`Question type: ${questionTypeLabel}`}
           >
             {questionTypeLabel}
           </Chip>
+
+          <div
+            style={questionBadgeStyle}
+            className="text-white text-[10px] sm:text-xs font-bold px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-md border-2 border-white/20 backdrop-blur-sm truncate max-w-[55%]"
+          >
+            {contentTitle}
+          </div>
         </div>
 
         {isDisable && (
@@ -418,17 +453,18 @@ const Respondant_Question_Card = memo(
         )}
 
         {/* Main content */}
-        <div className="p-6 pt-16 space-y-6">
-          <div className="pr-4">
+        <div className="px-3 pb-4 sm:px-6 sm:pb-6 space-y-4 sm:space-y-6">
+          {/* Question title */}
+          <div>
             <div
               className={`tiptab_container w-full ${
                 content.type !== QuestionType.Text
-                  ? "pb-4 border-b border-gray-200"
+                  ? "pb-3 sm:pb-4 border-b border-gray-200"
                   : ""
               } dark:bg-white dark:rounded-md dark:p-2`}
             >
               <StyledTiptap
-                value={content.title as never}
+                value={content.title as JSONContent}
                 readonly
                 variant="question"
               />
@@ -436,25 +472,25 @@ const Respondant_Question_Card = memo(
           </div>
 
           {/* Answer section */}
-          {RenderAnswers() && (
+          {answers && (
             <div
-              className={`answer_container w-full min-h-[60px] p-4 rounded-lg border transition-colors duration-200 ${
+              className={`answer_container w-full min-h-[50px] sm:min-h-[60px] p-3 sm:p-4 rounded-lg border transition-colors duration-200 ${
                 isDisable
                   ? "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
                   : "bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-700/50 dark:to-gray-600/50 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
               }`}
             >
-              {RenderAnswers()}
+              {answers}
             </div>
           )}
 
-          {/* Status indicators */}
-          <div className="flex justify-between items-center">
-            <div className="flex gap-2">
+          {/* Status chips */}
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <div className="flex flex-wrap gap-2">
               {content.require && (
                 <Chip
                   color="danger"
-                  size="lg"
+                  size="sm"
                   variant="flat"
                   aria-label="This question is required"
                 >
@@ -464,16 +500,14 @@ const Respondant_Question_Card = memo(
               {content.score && content.score > 0 ? (
                 <Chip
                   color="success"
-                  size="lg"
+                  size="sm"
                   variant="flat"
                   className="font-bold dark:text-white"
                   aria-label={`This question is worth ${content.score} points`}
                 >
                   {content.score} pts
                 </Chip>
-              ) : (
-                ""
-              )}
+              ) : null}
             </div>
 
             {isDisable && (
@@ -490,7 +524,7 @@ const Respondant_Question_Card = memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 Respondant_Question_Card.displayName = "Respondant_Question_Card";

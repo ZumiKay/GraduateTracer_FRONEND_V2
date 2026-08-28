@@ -4,9 +4,13 @@ import {
   DefaultFormState,
   FormDataType,
 } from "../types/Form.types";
-import ApiRequest from "../hooks/ApiHook";
+import ApiRequest from "../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 import { ShowLinkedQuestionType } from "../types/Global.types";
+import {
+  validateRealtimeQuestions,
+  hasQuestionValidationIssues,
+} from "../component/Response/utils/validationUtils";
 
 export const AsyncSaveForm = createAsyncThunk(
   "form/save",
@@ -19,8 +23,24 @@ export const AsyncSaveForm = createAsyncThunk(
       type: "save" | "edit";
       page?: number;
     },
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
+    if (
+      data.type === "save" &&
+      Array.isArray(data.data) &&
+      hasQuestionValidationIssues(data.data as ContentType[])
+    ) {
+      if (!data.notoast) {
+        ErrorToast({
+          toastid: "save-validation-issue",
+          title: "Validation Error",
+          content:
+            "Cannot save form: Please resolve all question validation issues first.",
+        });
+      }
+      return rejectWithValue("Form contains validation issues");
+    }
+
     const url = data.type === "save" ? "/savecontent" : "/editform";
     try {
       const response = await ApiRequest({
@@ -45,7 +65,7 @@ export const AsyncSaveForm = createAsyncThunk(
       console.log("Save Form", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 const searchParams = new URLSearchParams(window.location.search);
@@ -68,10 +88,25 @@ const formstore = createSlice({
     showLinkedQuestions: null as Array<ShowLinkedQuestionType> | null,
     revalidateContent: false,
     testQuestonState: undefined as Array<ContentType> | undefined,
+    showOverview: false,
   },
   reducers: {
+    setShowOverview: (state, action: PayloadAction<boolean>) => {
+      state.showOverview = action.payload;
+    },
     setformstate: (state, action: PayloadAction<FormDataType>) => {
+      //Force to prevent to replace the whole formstate
+      if (action.type) {
+        state.formstate[action.type as never] = action.payload as never;
+      }
       state.formstate = action.payload;
+    },
+
+    setvalidation: (
+      state,
+      action: PayloadAction<Pick<FormDataType, "validation">>,
+    ) => {
+      state.formstate.validation = action.payload.validation;
     },
     setisFormEdit: (state, action: PayloadAction<boolean>) => {
       state.isFormEdit = action.payload;
@@ -83,14 +118,22 @@ const formstore = createSlice({
       state,
       action: PayloadAction<
         Array<ContentType> | ((prev: Array<ContentType>) => Array<ContentType>)
-      >
+      >,
     ) => {
+      let newQuestions: ContentType[];
       if (typeof action.payload === "function") {
-        const newQuestions = action.payload(state.allquestion as ContentType[]);
-
-        state.allquestion = newQuestions;
+        newQuestions = action.payload(state.allquestion as ContentType[]);
       } else {
-        state.allquestion = action.payload;
+        newQuestions = action.payload;
+      }
+
+      const currentTab =
+        new URLSearchParams(window.location.search).get("tab") ?? "question";
+
+      if (currentTab === "question") {
+        state.allquestion = validateRealtimeQuestions(newQuestions, "question");
+      } else {
+        state.allquestion = newQuestions;
       }
     },
     setprevallquestion: (state, action: PayloadAction<Array<ContentType>>) => {
@@ -101,7 +144,7 @@ const formstore = createSlice({
       state,
       action: PayloadAction<{
         savedData: Array<ContentType>;
-      }>
+      }>,
     ) => {
       const { savedData } = action.payload;
       const currentQuestions = state.allquestion as Array<ContentType>;
@@ -124,7 +167,8 @@ const formstore = createSlice({
 
         // For questions without _id, try to find matching saved version by qIdx and page
         const matchingSaved = savedData.find(
-          (s) => s.qIdx === existingQ.qIdx && s.page === existingQ.page && s._id
+          (s) =>
+            s.qIdx === existingQ.qIdx && s.page === existingQ.page && s._id,
         );
 
         if (matchingSaved) {
@@ -165,7 +209,7 @@ const formstore = createSlice({
     },
     setshowLinkedQuestion: (
       state,
-      action: PayloadAction<Array<ShowLinkedQuestionType>>
+      action: PayloadAction<Array<ShowLinkedQuestionType>>,
     ) => {
       state.showLinkedQuestions = action.payload;
     },
@@ -174,7 +218,7 @@ const formstore = createSlice({
     },
     settTestQuestionState: (
       state,
-      action: PayloadAction<ContentType[] | undefined>
+      action: PayloadAction<ContentType[] | undefined>,
     ) => {
       state.testQuestonState = action.payload;
     },
@@ -205,5 +249,7 @@ export const {
   setshowLinkedQuestion,
   setRevalidateContent,
   settTestQuestionState,
+  setvalidation,
+  setShowOverview,
 } = formstore.actions;
 export default formstore;

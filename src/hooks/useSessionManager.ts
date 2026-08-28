@@ -10,12 +10,12 @@ interface UseSessionManagerProps {
   setformsession: React.Dispatch<
     React.SetStateAction<Partial<RespondentSessionType> | undefined>
   >;
-  onAutoSignOut?: () => Promise<void>;
+  onAutoSignOut?: () => void;
 }
 
 const INACTIVITY_WARNING_TIMEOUT = 10 * 60 * 1000; // 10 minute
 const AUTO_SIGNOUT_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-const PAGE_VISIBILITY_ALERT_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+const PAGE_VISIBILITY_ALERT_THRESHOLD = 5 * 1000; // 5 minutes
 const ACTIVITY_EVENTS = [
   "mousedown",
   "mousemove",
@@ -32,25 +32,21 @@ export const useSessionManager = ({
   setformsession,
   onAutoSignOut,
 }: UseSessionManagerProps) => {
-  // Core state
   const [userInactive, setUserInactive] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [lastActivityTime, setLastActivityTime] = useState<Date>(new Date());
   const [isPageVisible, setIsPageVisible] = useState<boolean>(true);
   const [alertDismissed, setAlertDismissed] = useState<boolean>(false);
-
-  // Refs for persistence
   const activityTimeoutRef = useRef<number | null>(null);
   const autoSignoutTimeoutRef = useRef<number | null>(null);
   const isMountedRef = useRef<boolean>(true);
   const lastActivityTimeRef = useRef<Date>(new Date());
   const lastResetTimeRef = useRef<number>(0);
 
-  // Reset activity timer and clear any existing timers - optimized with throttling
+  /**Track respondent activitiy with event */
   const resetActivityTimer = useCallback(() => {
     if (!isMountedRef.current) return;
 
-    // Throttle: Only reset if at least 1 second has passed since last reset
     const currentTime = Date.now();
     const timeSinceLastReset = currentTime - lastResetTimeRef.current;
     if (timeSinceLastReset < 1000) {
@@ -58,9 +54,7 @@ export const useSessionManager = ({
     }
     lastResetTimeRef.current = currentTime;
 
-    console.log("🔄 Activity detected - resetting timer");
-
-    // Clear existing timers
+    //Clear exists timer
     if (activityTimeoutRef.current !== null) {
       clearTimeout(activityTimeoutRef.current);
       activityTimeoutRef.current = null;
@@ -79,7 +73,6 @@ export const useSessionManager = ({
     activityTimeoutRef.current = window.setTimeout(() => {
       if (!isMountedRef.current) return;
 
-      console.log("⚠️ User inactive - showing warning");
       setUserInactive(true);
       setShowWarning(true);
 
@@ -93,11 +86,9 @@ export const useSessionManager = ({
       autoSignoutTimeoutRef.current = window.setTimeout(async () => {
         if (!isMountedRef.current) return;
 
-        console.log("🚪 Auto signout due to inactivity");
         try {
-          // Use callback directly from closure - it's stable
           if (onAutoSignOut) {
-            await onAutoSignOut();
+            onAutoSignOut();
           }
         } catch (error) {
           console.error("Error during auto signout:", error);
@@ -106,28 +97,9 @@ export const useSessionManager = ({
     }, INACTIVITY_WARNING_TIMEOUT);
   }, [setformsession, onAutoSignOut]);
 
-  // Use ref for activity handler to avoid recreating listeners
-  const resetActivityTimerRef = useRef(resetActivityTimer);
-
-  // Keep ref updated
-  useEffect(() => {
-    resetActivityTimerRef.current = resetActivityTimer;
-  }, [resetActivityTimer]);
-
-  // Activity event handler - stable reference using ref
-  const handleActivity = useCallback(() => {
-    if (!isMountedRef.current) return;
-    resetActivityTimerRef.current();
-  }, []);
-
-  // Helper function to reactivate session
   const handleReactivateSession = useCallback(() => {
-    console.log("🔄 Reactivating session...");
-
-    // Reset the throttle timestamp to allow immediate reset
     lastResetTimeRef.current = 0;
 
-    // Clear existing timers
     if (activityTimeoutRef.current !== null) {
       clearTimeout(activityTimeoutRef.current);
       activityTimeoutRef.current = null;
@@ -137,7 +109,6 @@ export const useSessionManager = ({
       autoSignoutTimeoutRef.current = null;
     }
 
-    // Reset all state
     setUserInactive(false);
     setShowWarning(false);
     setformsession((prev) => ({
@@ -145,22 +116,15 @@ export const useSessionManager = ({
       isActive: true,
     }));
 
-    // Now reset the activity timer
-    resetActivityTimerRef.current();
+    //reset the activity timer
+    resetActivityTimer();
+  }, [resetActivityTimer, setformsession]);
 
-    console.log("✅ Session reactivated successfully");
-  }, [setformsession]);
-
-  // Initialize timer when form loads - optimized with ref
+  //Only enable acitivity timer when form required email
   useEffect(() => {
-    if (
-      (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
-      accessMode === "guest"
-    ) {
-      console.log(`🚀 Initialize timer for ${accessMode}`);
-      // Reset throttle on initialization to allow immediate execution
+    if (accessMode === "authenticated" && isFormRequiredSessionChecked) {
       lastResetTimeRef.current = 0;
-      resetActivityTimerRef.current();
+      resetActivityTimer();
     }
     return () => {
       if (activityTimeoutRef.current) {
@@ -170,14 +134,16 @@ export const useSessionManager = ({
         clearTimeout(autoSignoutTimeoutRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessMode, isFormRequiredSessionChecked]);
 
-  // Event listeners
+  //Enable timer base on activity mode (click , scroll , etc ...)
   useEffect(() => {
-    if (
-      (accessMode === "authenticated" && isFormRequiredSessionChecked) ||
-      accessMode === "guest"
-    ) {
+    const handleActivity = () => {
+      if (!isMountedRef.current) return;
+      resetActivityTimer();
+    };
+    if (accessMode === "authenticated" && isFormRequiredSessionChecked) {
       ACTIVITY_EVENTS.forEach((event) => {
         document.addEventListener(event, handleActivity, { passive: true });
       });
@@ -188,9 +154,9 @@ export const useSessionManager = ({
         });
       };
     }
-  }, [accessMode, isFormRequiredSessionChecked, handleActivity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessMode, isFormRequiredSessionChecked]);
 
-  // Visibility change handler - optimized with ref
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!isMountedRef.current) return;
@@ -200,7 +166,6 @@ export const useSessionManager = ({
 
       if (isVisible) {
         setAlertDismissed(false);
-        resetActivityTimerRef.current();
       }
     };
 
@@ -208,7 +173,7 @@ export const useSessionManager = ({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []); // No dependencies needed - all stable
+  }, []);
 
   // Show page visibility alert
   useEffect(() => {

@@ -1,13 +1,19 @@
 import { QuestionType } from "../../types/Form.types";
+import { FormDataType } from "../../types/Form.types";
+
+export enum GraphType {
+  BAR = "Bar",
+  PIE = "Pie",
+  SCATTER = "Scatter",
+  DOUGHNUT = "Doughnut",
+  LINE = "Line",
+  TIMESERIES = "Timeseries",
+}
 
 export interface ResponseAnalyticsProps {
   formId: string;
   form: FormDataType;
 }
-
-// Forward declare FormDataType to avoid circular import issues if needed
-// If FormDataType is required elsewhere, adjust the import path accordingly
-import { FormDataType } from "../../types/Form.types";
 
 export interface FormStats {
   totalResponses: number;
@@ -57,7 +63,7 @@ export interface QuestionAnalytics {
       pie?: GraphData;
       line?: GraphData;
     };
-    recommendedGraphs?: string[];
+    recommendedGraphs?: Array<GraphType>;
     statistics?: {
       min?: number | string;
       max?: number | string;
@@ -124,4 +130,43 @@ export interface AnalyticsData {
   questions: QuestionAnalytics[];
   timestamp: string;
   isResponse: boolean;
+}
+
+export type PeriodType = "7d" | "30d" | "90d" | "all";
+
+export interface TimeSeriesPoint {
+  date: string;
+  responses: number;
+  averageScore: number;
+}
+
+export interface TopPerformer {
+  name: string;
+  email: string | null;
+  score: number;
+}
+
+export interface DifficultQuestion {
+  questionId: string;
+  title: string;
+  accuracy: number; // full-mark rate  (0–1)
+  partialAccuracy: number; // any-credit rate (0–1)
+  averageScore: number; // raw avg earned
+  maxScore: number;
+  averagePercent: number; // avg earned as % of max (0–100)
+  responseCount: number;
+  isConditional: boolean;
+}
+
+export interface OverviewPerformanceData {
+  totalResponses: number;
+  completedResponses: number;
+  averageScore: number;
+  responseRate: number;
+  averageCompletionTime: string;
+  timeSeriesData: TimeSeriesPoint[];
+  performanceMetrics: {
+    topPerformers: TopPerformer[];
+    difficultQuestions: DifficultQuestion[];
+  };
 }

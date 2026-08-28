@@ -1,8 +1,14 @@
-import { Tab, Tabs } from "@heroui/react";
+import { Button, Tab, Tabs } from "@heroui/react";
+import { EyeIcon } from "@heroicons/react/24/outline";
 import { useNavigate, useParams } from "react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FormDataType } from "../types/Form.types";
+import {
+  FormDataType,
+  ErrorValidataionPropsType,
+  QuestionValidationIssue,
+  ValidationResult,
+} from "../types/Form.types";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 import {
@@ -17,19 +23,18 @@ import { ErrorToast } from "../component/Modal/AlertModal";
 import Solution_Tab from "../component/FormComponent/Solution/Solution_Tab";
 import QuestionTab from "../component/FormComponent/Question/Question_Tab";
 import SettingTab from "../component/FormComponent/Setting/Setting_Tab";
+import PreviewTab from "../component/FormComponent/Preview/PreviewTab";
 import ResponseDashboard from "../component/Response/ResponseDashboard";
 import ResponseAnalytics from "../component/Response/ResponseAnalytics";
 import { setopenmodal } from "../redux/openmodal";
 import { useSetSearchParam } from "../hooks/CustomHook";
-import useFormValidation from "../hooks/ValidationHook";
-import ImprovedAutoSave from "../component/AutoSave/ImprovedAutoSave";
 import { useQuery } from "@tanstack/react-query";
-import { checkUnsavedQuestions } from "../utils/formValidation";
 import Pagination from "../component/Navigator/PaginationComponent";
 import { useFormAPI } from "../hooks/useFormAPI";
 import useUserSession from "../hooks/useUserSession";
+import OverviewContainer from "../component/FormComponent/Overview/component";
 
-type alltabs =
+export type alltabs =
   | "question"
   | "solution"
   | "preview"
@@ -37,7 +42,6 @@ type alltabs =
   | "analytics"
   | "setting";
 
-// Define error type for React Query
 interface ApiError extends Error {
   status?: number;
   response?: {
@@ -46,31 +50,100 @@ interface ApiError extends Error {
   };
 }
 
+function extractQuestionValidationIssues(
+  validationResults?: ValidationResult,
+): Map<string, QuestionValidationIssue[]> {
+  const map = new Map<string, QuestionValidationIssue[]>();
+  if (!validationResults) return map;
+
+  const getIssueMessage = (
+    item: ErrorValidataionPropsType,
+    fallback: string,
+  ): string => {
+    if (!item.message) return fallback;
+    if (typeof item.message === "string") return item.message;
+    if (typeof item.message === "object" && item.message.message) {
+      return item.message.message;
+    }
+    return fallback;
+  };
+
+  const addIssue = (
+    item: ErrorValidataionPropsType,
+    type: "error" | "warning",
+    message: string,
+  ) => {
+    const key = item._id || String(item.qIdx ?? "");
+    if (!key) return;
+    const existing = map.get(key) || [];
+    existing.push({ type, message });
+    map.set(key, existing);
+  };
+
+  validationResults.errors?.forEach((item) => {
+    if (typeof item === "object" && item !== null) {
+      addIssue(
+        item,
+        "error",
+        getIssueMessage(item, `Validation error on ${item.questionId}`),
+      );
+    }
+  });
+
+  validationResults.warnings?.forEach((item) => {
+    if (typeof item === "object" && item !== null) {
+      addIssue(
+        item,
+        "warning",
+        getIssueMessage(item, `Warning on ${item.questionId}`),
+      );
+    }
+  });
+
+  validationResults.missingAnswers?.forEach((item) => {
+    if (typeof item === "object" && item !== null) {
+      addIssue(item, "error", getIssueMessage(item, "Missing answer key"));
+    }
+  });
+
+  validationResults.missingScores?.forEach((item) => {
+    if (typeof item === "object" && item !== null) {
+      addIssue(item, "warning", getIssueMessage(item, "Missing score value"));
+    }
+  });
+
+  validationResults.wrongScores?.forEach((item) => {
+    if (typeof item === "object" && item !== null) {
+      addIssue(item, "error", getIssueMessage(item, "Invalid score setting"));
+    }
+  });
+
+  return map;
+}
+
 function FormPage() {
   const param = useParams();
   const dispatch = useDispatch();
   const userSession = useUserSession();
   const { fetchFormTab } = useFormAPI();
-  const { formstate, page, allquestion, prevAllQuestion } = useSelector(
-    (root: RootState) => root.allform
+  const { formstate, page, allquestion } = useSelector(
+    (root: RootState) => root.allform,
   );
   const navigate = useNavigate();
-  const { validateForm, showValidationWarnings } = useFormValidation();
-
   const { searchParam, setParams } = useSetSearchParam();
   const [tab, setTab] = useState<alltabs>(
-    (searchParam.get("tab") ?? "question") as alltabs
+    (searchParam.get("tab") ?? "question") as alltabs,
   );
+  const [isSettingUnsaved, setIsSettingUnsaved] = useState(false);
 
-  // Compute reliable form ID
   const formId = useMemo(() => {
     return param.id || formstate._id || "";
   }, [param.id, formstate._id]);
 
-  const { data, error, isLoading, isFetching } = useQuery({
+  const { data, isSuccess, error, isError, isFetching } = useQuery({
     queryKey: ["FormInfo", formId, page, tab],
     queryFn: () => fetchFormTab({ tab, page, formId }),
-    enabled: !!formId || !!userSession.error,
+    enabled: (!!formId || !!userSession.error) && tab !== "preview",
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchOnMount: true,
@@ -85,8 +158,8 @@ function FormPage() {
   });
 
   const isUnSavedQuestion = useMemo(
-    () => checkUnsavedQuestions(allquestion, prevAllQuestion, page),
-    [allquestion, page, prevAllQuestion]
+    () => allquestion.some((i) => !i._id),
+    [allquestion],
   );
 
   //Initiallize Page
@@ -98,18 +171,17 @@ function FormPage() {
   }, [dispatch, searchParam]);
 
   useEffect(() => {
-    dispatch(setfetchloading(isLoading || isFetching));
-
     if (!param.id) {
       navigate("/dashboard", { replace: true });
       return;
     }
 
-    if (data && !error) {
-      const result = data as FormDataType;
+    if (isSuccess && data.data) {
+      const result = data.data as FormDataType;
 
       const hasAccess = result.isOwner || result.isCreator || result.isEditor;
 
+      //Access Verification
       if (
         result.isOwner === undefined &&
         result.isCreator === undefined &&
@@ -142,46 +214,42 @@ function FormPage() {
         setformstate({
           ...result,
           contents: undefined,
-          totalscore: result.totalscore,
-          totalpage: result.totalpage,
-        })
+          validation: result.validation,
+        }),
       );
 
       // Update questions only for question/solution tabs
       if (shouldUpdateQuestions && result.contents) {
         const currentPage = Number(searchParam.get("page") ?? 1);
-        const normalizedContents = (result.contents ?? []).map((q) => ({
-          ...q,
-          page: q.page ?? currentPage,
-          isChildVisibility:
-            q.conditional && q.conditional.length > 0 ? true : undefined,
-          isVisible: q.parentcontent ? true : undefined,
-        }));
 
-        // Check unsaved directly using current allquestion/prevAllQuestion from store
-        // This avoids stale closure issues with isUnSavedQuestion memo
-        const hasUnsavedChanges = checkUnsavedQuestions(
-          allquestion,
-          prevAllQuestion,
-          currentPage
+        // Extract per-question validation issues from combined validation
+        const validationMap = extractQuestionValidationIssues(
+          result.validation?.validationResults,
         );
 
-        // Only update both states if there are no unsaved changes or this is initial load
-        // This prevents the "hasChange" state from resetting during refetch
-        if (!hasUnsavedChanges) {
-          dispatch(setallquestion(normalizedContents));
-          if (!result.setting?.autosave)
-            dispatch(setprevallquestion(normalizedContents));
-        }
+        const normalizedContents = (result.contents ?? []).map((q) => {
+          const key = q._id || String(q.qIdx);
+          return {
+            ...q,
+            page: q.page ?? currentPage,
+            isChildVisibility:
+              q.conditional && q.conditional.length > 0 ? true : undefined,
+            isVisible: q.parentcontent ? true : undefined,
+            validationIssues: validationMap.get(key) ?? [],
+          };
+        });
+
+        //Check for unsavedquestion
+
+        dispatch(setallquestion(normalizedContents));
+        dispatch(setprevallquestion(normalizedContents));
       }
 
       dispatch(setfetchloading(false));
     }
 
     // Handle errors
-    if (error && !isLoading) {
-      console.error("React Query error:", error);
-
+    if (isError && error) {
       const apiError = error as ApiError;
 
       if (apiError?.status === 403) {
@@ -200,55 +268,53 @@ function FormPage() {
         ErrorToast({
           toastid: "FormError",
           title: "Error",
-          content: apiError?.message || "Failed to load form",
+          content: "Failed to load form",
         });
       }
 
       navigate("/dashboard", { replace: true });
     }
+  }, [
+    data,
+    isFetching,
+    param.id,
+    error,
+    navigate,
+    dispatch,
+    isError,
+    searchParam,
+    isSuccess,
+  ]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, isLoading, isFetching, param.id, error, navigate, dispatch]);
+  const handleTabs = async (val: alltabs) => {
+    const proceedFunc = () => {
+      setParams({ tab: val, page: "1" });
+      setTab(val);
+      dispatch(setfetchloading(true));
+      dispatch(setpage(1));
+      dispatch(setreloaddata(true));
+    };
 
-  const continueTabSwitching = useCallback(
-    async (val: alltabs, proceedFunc: () => void) => {
-      // Validate before switching to solution tab
-      if (val === "solution" && formId) {
-        try {
-          const validation = await validateForm(formId, "switch_tab");
-          if (
-            validation &&
-            validation.validationResults.warnings &&
-            validation.validationResults.warnings.length > 0
-          ) {
-            showValidationWarnings(validation);
-          }
-        } catch (error) {
-          console.error("Validation error:", error);
-        }
-      }
+    if (tab === "setting" && isSettingUnsaved) {
+      dispatch(
+        setopenmodal({
+          state: "confirm",
+          value: {
+            open: true,
+            data: {
+              question:
+                "You have unsaved settings. Are you sure you want to leave without saving?",
+              btn: { agree: "Leave", disagree: "Stay" },
+              onAgree: () => proceedFunc(),
+            },
+          },
+        }),
+      );
+      return;
+    }
 
-      // Note: Removed required question validation for admin interface
-      // Required validation should only apply to respondent forms, not admin form builder
-      proceedFunc();
-    },
-    [formId, validateForm, showValidationWarnings]
-  );
-
-  const handleTabs = useCallback(
-    async (val: alltabs) => {
-      const proceedFunc = () => {
-        setParams({ tab: val, page: "1" });
-        setTab(val);
-        dispatch(setfetchloading(true));
-        dispatch(setpage(1));
-        dispatch(setreloaddata(true));
-      };
-
-      continueTabSwitching(val, proceedFunc);
-    },
-    [continueTabSwitching, setParams, dispatch]
-  );
+    proceedFunc();
+  };
 
   const handlePageChange = useCallback(
     (val: number) => {
@@ -258,7 +324,7 @@ function FormPage() {
       dispatch(setreloaddata(true));
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [dispatch, setParams]
+    [dispatch, setParams],
   );
 
   const handlePage = useCallback(
@@ -286,7 +352,7 @@ function FormPage() {
                 },
               },
             },
-          })
+          }),
         );
 
         return;
@@ -294,12 +360,12 @@ function FormPage() {
 
       handlePageChange(val);
     },
-    [isUnSavedQuestion, handlePageChange, dispatch, page]
+    [isUnSavedQuestion, handlePageChange, dispatch, page],
   );
 
   const selectedKey = useMemo(
     () => searchParam.get("tab") ?? "question",
-    [searchParam]
+    [searchParam],
   );
 
   // Tab animation variants
@@ -328,10 +394,25 @@ function FormPage() {
 
   return (
     <div
-      className={`formpage w-full min-h-screen h-full pb-5 ${
+      className={`formpage relative w-full min-h-screen h-full pb-5 ${
         formstate.setting?.bg ? `bg-[${formstate.setting.bg}]` : ""
       }`}
     >
+      <title>{`${formstate.title} | ${tab.toUpperCase()}`}</title>
+      <Button
+        className="ml-[90%] font-bold"
+        variant="solid"
+        size="md"
+        color="secondary"
+        startContent={<EyeIcon className="w-4 h-4" />}
+        onClick={() => handleTabs("preview")}
+      >
+        Preview
+      </Button>
+      {(tab === "question" || tab === "solution") && (
+        <OverviewContainer tab={tab} loading={isFetching} />
+      )}
+
       <Tabs
         className="w-full h-fit bg-white dark:bg-black"
         variant="underlined"
@@ -349,7 +430,6 @@ function FormPage() {
               className="relative"
             >
               <QuestionTab />
-              <ImprovedAutoSave />
             </motion.div>
           </AnimatePresence>
         </Tab>
@@ -362,7 +442,26 @@ function FormPage() {
               animate="animate"
               exit="exit"
             >
-              <Solution_Tab />
+              <Solution_Tab isLoading={isFetching} />
+            </motion.div>
+          </AnimatePresence>
+        </Tab>
+        <Tab key={"preview"} title="Preview">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="preview-tab"
+              variants={tabVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              {formId ? (
+                <PreviewTab formId={formId} />
+              ) : (
+                <div className="w-full h-40 flex items-center justify-center">
+                  <p className="text-gray-500">Loading preview...</p>
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
         </Tab>
@@ -404,7 +503,17 @@ function FormPage() {
             </motion.div>
           </AnimatePresence>
         </Tab>
-        <Tab key={"setting"} title="Setting">
+        <Tab
+          key={"setting"}
+          title={
+            <div className="flex items-center gap-1.5">
+              Setting
+              {isSettingUnsaved && (
+                <span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />
+              )}
+            </div>
+          }
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key="setting-tab"
@@ -414,7 +523,7 @@ function FormPage() {
               exit="exit"
               className="w-full min-h-screen h-full grid place-items-center"
             >
-              <SettingTab />
+              <SettingTab onUnsavedChange={setIsSettingUnsaved} />
             </motion.div>
           </AnimatePresence>
         </Tab>
@@ -423,7 +532,9 @@ function FormPage() {
       {/* Pagination */}
 
       {(tab === "question" || tab === "solution") && formstate.totalpage ? (
-        <div className="sticky bottom-0 left-0 right-0 w-full h-fit py-3 grid place-content-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div
+          className={`w-full h-fit py-3 grid place-content-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]`}
+        >
           <Pagination
             page={page}
             setPage={handlePage}

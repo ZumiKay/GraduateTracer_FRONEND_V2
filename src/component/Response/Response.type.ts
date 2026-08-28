@@ -34,6 +34,7 @@ export interface RespondentInfoType {
   respondentEmail: string;
   respondentName?: string;
   isGuest?: boolean;
+  expiresAt?: string | Date;
 }
 export interface SaveProgressType {
   currentPage: number;
@@ -42,6 +43,8 @@ export interface SaveProgressType {
   timestamp: string;
   formId: string;
   version: string;
+  /** ISO timestamp set the first time progress is saved, used to measure completion time on submit */
+  startedAt?: string;
   [x: string]: unknown | undefined;
 }
 
@@ -80,7 +83,7 @@ export interface ResponseDataType {
   totalScore?: number;
   scoringMethod: ScoringMethod;
   completionStatus?: ResponseCompletionStatus;
-  submittedAt?: Date;
+  submittedAt?: string | Date;
   respondentType?: respondentType;
   responseset: ResponseSetType[];
   isCompleted?: boolean;
@@ -93,11 +96,14 @@ export interface RespondentSessionType {
   session_id?: string;
   alert?: boolean;
   respondentinfo?: RespondentInfoType;
+  isSwitchedUser?: boolean;
+  expiresAt?: string | Date;
 }
 
 export interface SubmittionProcessionReturnType {
   maxScore: number;
   totalScore: number;
+  extraScore?: number;
   message: string;
   responseId?: string;
   respondentEmail?: string;

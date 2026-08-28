@@ -1,28 +1,59 @@
-import { useQuery } from "@tanstack/react-query";
-import ApiRequest from "./ApiHook";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import ApiRequest from "./APIHook/ApiHook";
 import { ROLE } from "../types/User.types";
+import { isSessionTokenValid } from "./useAccessTokenValidator";
+import { useEffect } from "react";
 
 export interface UserSessionData {
   _id: string;
   name: string;
   email: string;
   role: ROLE;
+  expiresAt?: string;
 }
 
 export interface UserSessionResponse {
   user: UserSessionData | null;
   isAuthenticated: boolean;
+  expiresAt?: string;
 }
 
 /**
+ * Main User Session Hook
  * Features:
- * - Automatic caching with 5 minute stale time
- * - Refetch on window focus to keep session fresh
+ * - Client-side token expiry validation before server check
+ * - Reduced server load by removing redundant refetchOnWindowFocus
+ * - Listens for app:session-expired events to handle server-side session eviction
  */
 export const useUserSession = (options?: { enabled?: boolean }) => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      queryClient.setQueryData(["userSession"], {
+        user: null,
+        isAuthenticated: false,
+      });
+      queryClient.invalidateQueries({ queryKey: ["userSession"] });
+    };
+
+    window.addEventListener("app:session-expired", handleSessionExpired);
+    return () => {
+      window.removeEventListener("app:session-expired", handleSessionExpired);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ["userSession"],
     queryFn: async (): Promise<UserSessionResponse> => {
+      // Check cached query data first to see if session is still valid locally
+      const cached = queryClient.getQueryData<UserSessionResponse>(["userSession"]);
+      if (cached?.isAuthenticated && cached.expiresAt) {
+        if (isSessionTokenValid(cached.expiresAt)) {
+          return cached;
+        }
+      }
+
       try {
         const response = await ApiRequest({
           method: "GET",
@@ -32,7 +63,6 @@ export const useUserSession = (options?: { enabled?: boolean }) => {
         });
 
         if (!response.success) {
-          // Return unauthenticated state instead of throwing
           return {
             user: null,
             isAuthenticated: false,
@@ -44,6 +74,7 @@ export const useUserSession = (options?: { enabled?: boolean }) => {
         return {
           user: sessionData?.user ?? null,
           isAuthenticated: sessionData?.isAuthenticated ?? false,
+          expiresAt: sessionData?.expiresAt,
         };
       } catch (error) {
         console.error("Session check failed:", error);
@@ -53,11 +84,11 @@ export const useUserSession = (options?: { enabled?: boolean }) => {
         };
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes - same as useSessionVerification
-    retry: 1,
-    enabled: options?.enabled ?? true, // Use the passed enabled option or default to true
-    refetchOnWindowFocus: true, // Recheck when user returns to tab
-    refetchOnReconnect: true, // Recheck on network reconnect
+    staleTime: 15 * 60 * 1000, // 15 minutes stale time
+    retry: false,
+    enabled: options?.enabled ?? true,
+    refetchOnWindowFocus: false, // Cut down unnecessary server requests on tab switch
+    refetchOnReconnect: true,
     refetchInterval: false,
   });
 };

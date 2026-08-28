@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { ROLE } from "../types/User.types";
-import ApiRequest from "../hooks/ApiHook";
+import ApiRequest from "../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 
 interface Usersessiontype {
@@ -46,7 +46,7 @@ const userstore = createSlice({
       action: PayloadAction<{
         user: Usersessiontype | null;
         isAuthenticated: boolean;
-      }>
+      }>,
     ) => {
       state.user = action.payload.user;
       state.isAuthenticated = action.payload.isAuthenticated;

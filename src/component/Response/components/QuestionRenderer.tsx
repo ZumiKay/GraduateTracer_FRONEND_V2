@@ -9,22 +9,22 @@ import { FormResponse } from "../hooks/useFormResponses";
 type QuestionType = ContentType<unknown>;
 
 const Respondant_Question_Card = lazy(
-  () => import("../../Card/Respondant.card")
+  () => import("../../Card/Respondant.card"),
 );
 const ConditionalIndicator = lazy(() =>
   import("./ConditionalIndicator").then((m) => ({
     default: m.ConditionalIndicator,
-  }))
+  })),
 );
 const CheckboxQuestion = lazy(() =>
   import("./CheckboxQuestion").then((m) => ({
     default: m.CheckboxQuestion,
-  }))
+  })),
 );
 const MultipleChoiceQuestion = lazy(() =>
   import("./MultipleChoiceQuestion").then((m) => ({
     default: m.MultipleChoiceQuestion,
-  }))
+  })),
 );
 
 interface QuestionRendererProps {

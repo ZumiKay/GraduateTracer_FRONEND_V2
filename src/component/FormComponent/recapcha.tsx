@@ -1,4 +1,4 @@
-import ApiRequest from "../../hooks/ApiHook";
+import ApiRequest from "../../hooks/APIHook/ApiHook";
 
 export default function RecaptchaButton() {
   const handleVerify = async () => {
@@ -11,7 +11,7 @@ export default function RecaptchaButton() {
         import.meta.env.VITE_RECAPTCHA_KEY,
         {
           action: "submit",
-        }
+        },
       );
 
       // Pass the token to your backend for verification

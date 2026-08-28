@@ -1,139 +1,190 @@
-import { ContentType } from "../types/Form.types";
+import {
+  AUTO_SCORABLE_TYPES,
+  MAYBE_AUTO_SCORABLE_TYPES,
+  DISPLAY_ONLY_TYPES,
+  ContentType,
+  ScoringAnalysis,
+  QuestionType,
+} from "../types/Form.types";
 
-/**
- * Check for unsaved questions in admin form builder (Question Tab)
- * This checks for structural changes to the form, not required field validation
- * @params allquestion , prevAllQuestion , currentPage
- * @returns boolean
- */
+/* -------------------------------- Constant -------------------------------- */
+const jsonChanged = <T = unknown>(val1?: T, val2?: T): boolean =>
+  JSON.stringify(val1) !== JSON.stringify(val2);
+
+const TYPE_KEY_OVERRIDES: Partial<Record<QuestionType, string>> = {
+  [QuestionType.MultipleSelection]: "selection",
+};
+
+const SCALAR_CONTENT_TYPES = new Set<QuestionType>([
+  QuestionType.ShortAnswer,
+  QuestionType.Paragraph,
+  QuestionType.Text,
+  QuestionType.Number,
+  QuestionType.Date,
+]);
+
+/* --------------------------------- Helper --------------------------------- */
 export const checkUnsavedQuestions = (
-  allQuestion: ContentType[],
-  prevAllQuestion: ContentType[],
-  currentPage: number
+  currentQuestion: ContentType[],
+  prevQuestion: ContentType[],
 ): boolean => {
-  // Filter questions for current page
-  const currentPageQuestions = allQuestion.filter(
-    (q) => q.page === currentPage
-  );
-  const prevPageQuestions = prevAllQuestion.filter(
-    (q) => q.page === currentPage
-  );
+  const allHaveId = currentQuestion.every((q) => q._id);
+  if (!allHaveId) return true;
 
-  // If different number of questions, there are changes
-  if (currentPageQuestions.length !== prevPageQuestions.length) {
-    return true;
+  const prevMap = new Map<string, ContentType>();
+  for (const q of prevQuestion) {
+    const key = q._id || q.questionId;
+    if (key) prevMap.set(key, q);
   }
 
-  // Check each question for structural changes (excluding required field validation)
-  return currentPageQuestions.some((currentQ, index) => {
-    const prevQ = prevPageQuestions[index];
+  return currentQuestion.some((curr) => {
+    const key = curr._id || curr.questionId;
+    const prev = key ? prevMap.get(key) : undefined;
 
-    if (!prevQ) {
+    if (!prev) return true;
+
+    // Quick comparisons
+    if (
+      curr.type !== prev.type ||
+      curr.require !== prev.require ||
+      curr.score !== prev.score ||
+      curr.isBonusScore !== prev.isBonusScore ||
+      curr.useChildScoreSum !== prev.useChildScoreSum
+    ) {
       return true;
     }
 
-    return (
-      currentPageQuestions.some((i) => !i._id) ||
-      JSON.stringify(currentQ.title) !== JSON.stringify(prevQ.title) ||
-      currentQ.type !== prevQ.type ||
-      currentQ.require !== prevQ.require ||
-      currentQ.score !== prevQ.score ||
-      JSON.stringify(currentQ.conditional) !==
-        JSON.stringify(prevQ.conditional) ||
-      JSON.stringify(currentQ[currentQ.type]) !==
-        JSON.stringify(prevQ[prevQ.type]) ||
-      JSON.stringify(currentQ.parentcontent) !==
-        JSON.stringify(prevQ.parentcontent)
-    );
+    // Deep comparisons for structured fields
+    if (
+      jsonChanged(curr.title, prev.title) ||
+      jsonChanged(curr.conditional, prev.conditional) ||
+      jsonChanged(curr.parentcontent, prev.parentcontent) ||
+      jsonChanged(curr.answer, prev.answer)
+    ) {
+      return true;
+    }
+
+    // Deep comparison for array and object
+    if (!SCALAR_CONTENT_TYPES.has(curr.type)) {
+      const contentKey = TYPE_KEY_OVERRIDES[curr.type] ?? curr.type;
+      if (jsonChanged(curr[contentKey], prev[contentKey])) return true;
+    }
+
+    return false;
   });
 };
 
 /**
- * Check for required field validation in respondent forms
- * This only checks if required questions have been answered
+ * Computes scoring breakdown stats for a list of questions.
  */
-export const checkRequiredFieldsValidation = (
-  questions: ContentType[],
-  userResponses: Record<string, string | string[] | number | boolean>,
-  currentPage: number
-): { isValid: boolean; missingFields: string[] } => {
-  const currentPageQuestions = questions.filter(
-    (q) => q.page === currentPage && q.require
+export const calcContentScoringStats = (questions: Array<ContentType>) => {
+  if (!questions || !Array.isArray(questions)) {
+    return {
+      total: 0,
+      scored: 0,
+      autoScorable: 0,
+      manualGrading: 0,
+    };
+  }
+
+  const scoredList = questions.filter(
+    (q) => typeof q.score === "number" && q.score > 0,
   );
 
-  const missingFields: string[] = [];
+  const autoScorableList = scoredList.filter((q) => {
+    const isAutoType =
+      AUTO_SCORABLE_TYPES.has(q.type) || MAYBE_AUTO_SCORABLE_TYPES.has(q.type);
+    const hasAnswer = !!q.answer;
+    const hasScore = q.score !== undefined && q.score > 0;
 
-  currentPageQuestions.forEach((question) => {
-    const questionId = question._id || question.title?.toString() || "";
-    const userResponse = userResponses[questionId];
+    return isAutoType && hasAnswer && hasScore;
+  });
 
-    // Check if required question is answered
-    if (
-      !userResponse ||
-      (Array.isArray(userResponse) && userResponse.length === 0) ||
-      (typeof userResponse === "string" && userResponse.trim() === "")
-    ) {
-      missingFields.push(
-        question.title?.toString() || `Question ${questionId}`
-      );
-    }
+  const manualGradingList = questions.filter((q) => {
+    if (DISPLAY_ONLY_TYPES.has(q.type)) return false;
+    const isMaybeAutoType = MAYBE_AUTO_SCORABLE_TYPES.has(q.type);
+    const hasScore = typeof q.score === "number" && q.score > 0;
+    const hasNoAnswer = !q.answer;
+    return isMaybeAutoType && hasScore && hasNoAnswer;
   });
 
   return {
-    isValid: missingFields.length === 0,
-    missingFields,
+    total: questions.length, // total for current page
+    scored: scoredList.length,
+    autoScorable: autoScorableList.length,
+    manualGrading: manualGradingList.length,
   };
 };
 
+export const calculateCurrentVal = (
+  prev: number,
+  current: number,
+  total: number,
+) => Math.abs(total - prev) + current;
+
 /**
- * Get count of unsaved questions on a specific page
- * @param allQuestion - Array of current questions
- * @param prevAllQuestion - Array of previously saved questions
- * @param currentPage - Current page number
- * @returns number - count of questions with changes
+ * @param prevRes        Form ScoringAnalysis (covering all pages).
+ * @param currentContent New (edited) questions for the current page.
+ * @param prevContent    Optional snapshot of the same page *before* the edit.
+ *                       current-page counts replace the form total directly.
  */
-export const getUnsavedQuestionsCount = (
-  allQuestion: ContentType[],
-  prevAllQuestion: ContentType[],
-  currentPage: number
-): number => {
-  const currentPageQuestions = allQuestion.filter(
-    (q) => q.page === currentPage
-  );
-  const prevPageQuestions = prevAllQuestion.filter(
-    (q) => q.page === currentPage
-  );
-
-  // Count new questions
-  let changedCount = Math.max(
-    0,
-    currentPageQuestions.length - prevPageQuestions.length
-  );
-
-  // Count modified questions
-  const minLength = Math.min(
-    currentPageQuestions.length,
-    prevPageQuestions.length
-  );
-  for (let i = 0; i < minLength; i++) {
-    const currentQ = currentPageQuestions[i];
-    const prevQ = prevPageQuestions[i];
-
-    if (
-      JSON.stringify(currentQ.title) !== JSON.stringify(prevQ.title) ||
-      currentQ.type !== prevQ.type ||
-      currentQ.require !== prevQ.require ||
-      currentQ.score !== prevQ.score ||
-      JSON.stringify(currentQ.conditional) !==
-        JSON.stringify(prevQ.conditional) ||
-      JSON.stringify(currentQ[currentQ.type]) !==
-        JSON.stringify(prevQ[prevQ.type]) ||
-      JSON.stringify(currentQ.parentcontent) !==
-        JSON.stringify(prevQ.parentcontent)
-    ) {
-      changedCount++;
-    }
+export const validateScoreTemp = (
+  initialCurrentPageScoreAnalysis: ScoringAnalysis,
+  prevRes: ScoringAnalysis,
+  currentContent: Array<ContentType>,
+): ScoringAnalysis => {
+  if (!prevRes) {
+    const stats = calcContentScoringStats(currentContent ?? []);
+    return {
+      isAutoScoreable:
+        stats.scored > 0 &&
+        stats.manualGrading === 0 &&
+        stats.scored === stats.autoScorable,
+      scoredQuestions: stats.scored,
+      autoScorableQuestions: stats.autoScorable,
+      manualGradingQuestions: stats.manualGrading,
+      missingAnswerKeys: {},
+      unsupportedTypes: {},
+    };
   }
 
-  return changedCount;
+  if (!currentContent || !Array.isArray(currentContent)) {
+    return prevRes;
+  }
+
+  // Compute stats for the incoming (new) page.
+  const newPageStats = calcContentScoringStats(currentContent);
+
+  const initialPage = initialCurrentPageScoreAnalysis || {
+    totalQuestions: 0,
+    scoredQuestions: 0,
+    autoScorableQuestions: 0,
+    manualGradingQuestions: 0,
+  };
+
+  const finalScored =
+    prevRes.scoredQuestions - initialPage.scoredQuestions + newPageStats.scored;
+
+  const finalAutoScorable =
+    prevRes.autoScorableQuestions -
+    initialPage.autoScorableQuestions +
+    newPageStats.autoScorable;
+
+  const finalManual =
+    prevRes.manualGradingQuestions -
+    initialPage.manualGradingQuestions +
+    newPageStats.manualGrading;
+
+  const absScored = Math.abs(finalScored);
+  const absAutoScorable = Math.abs(finalAutoScorable);
+  const absManual = Math.abs(finalManual);
+
+  return {
+    ...prevRes,
+    scoredQuestions: absScored,
+    autoScorableQuestions: absAutoScorable,
+    manualGradingQuestions: absManual,
+    isAutoScoreable:
+      absScored > 0 && absManual === 0 && absScored === absAutoScorable,
+  };
 };

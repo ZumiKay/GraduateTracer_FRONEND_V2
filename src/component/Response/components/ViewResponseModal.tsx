@@ -314,6 +314,7 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
     const renderAnswer = useCallback(
       (response: ResponseValueType, qType: QuestionType) => {
         switch (qType) {
+          case QuestionType.MultipleSelection:
           case QuestionType.CheckBox: {
             const ress = response as AnswerKeyPairValueType;
             return (

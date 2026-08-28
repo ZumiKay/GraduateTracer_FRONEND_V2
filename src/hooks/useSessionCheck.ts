@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { UseMutationResult } from "@tanstack/react-query";
-import { ApiRequestReturnType } from "./ApiHook";
+import { ApiRequestReturnType } from "./APIHook/ApiHook";
 
 interface UseSessionCheckProps {
   manuallyCheckSession?: UseMutationResult<
@@ -74,7 +74,7 @@ export const useSessionCheck = ({
       }
       return false;
     },
-    [checkSession]
+    [checkSession],
   );
 
   return {

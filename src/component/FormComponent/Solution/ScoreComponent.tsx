@@ -21,7 +21,7 @@ export const ScoreModeInput = ({
   const [score, setScore] = useState<string>(initialScore.toString());
   const localScore = useMemo(
     () => (isNaN(Number(score)) ? 0 : Number(score)),
-    [score]
+    [score],
   );
   const [comment, setComment] = useState<string>(initialComment);
   const [hasChanged, setHasChanged] = useState(false);
@@ -58,7 +58,7 @@ export const ScoreModeInput = ({
       setError("");
       return true;
     },
-    [maxScore]
+    [maxScore],
   );
 
   // Handle score change
@@ -71,7 +71,7 @@ export const ScoreModeInput = ({
         setHasChanged(true);
       }
     },
-    [validateScore]
+    [validateScore],
   );
 
   // Handle comment change
@@ -221,14 +221,14 @@ export const ScoreModeInput = ({
               {localScore === 0
                 ? "✏️ Enter a score to get started"
                 : localScore === maxScore
-                ? "🎉 Perfect score achieved!"
-                : `${score} out of ${maxScore} points (${
-                    scorePercentage >= 80
-                      ? "👍 Great!"
-                      : scorePercentage >= 50
-                      ? "👌 Good!"
-                      : "👊 Keep going!"
-                  })`}
+                  ? "🎉 Perfect score achieved!"
+                  : `${score} out of ${maxScore} points (${
+                      scorePercentage >= 80
+                        ? "👍 Great!"
+                        : scorePercentage >= 50
+                          ? "👌 Good!"
+                          : "👊 Keep going!"
+                    })`}
             </div>
           </div>
         </div>

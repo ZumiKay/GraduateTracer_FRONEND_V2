@@ -2,14 +2,14 @@ import { Route, Routes, useLocation } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "./redux/store";
 import OpenModal from "./redux/openmodal";
-import { useEffect, lazy, Suspense, memo, useMemo } from "react";
+import { useEffect, lazy, Suspense, memo, useMemo, useState } from "react";
 import { ConfirmModal } from "./component/Modal/AlertModal";
-import { setUser } from "./redux/user.store";
+import { setUser, logout } from "./redux/user.store";
 import PrivateRoute, { PublichRoute } from "./route/PrivateRoute";
 import ReplaceSessionPage from "./pages/ReplaceSession";
-import { setupAxiosInterceptors } from "./config/axiosInterceptor";
 import { useUserSession } from "./hooks/useUserSession";
 import { AppLoading, PageLoading } from "./component/Loading/AppLoading";
+import { AutoLogoutModal } from "./component/Modal/AutoLogoutModal";
 const AuthenticationPage = lazy(() => import("./pages/Authentication"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const FilledFormPage = lazy(() => import("./pages/FilledFormPage"));
@@ -19,14 +19,14 @@ const FormPage = lazy(() => import("./pages/FormPage"));
 const UserResponsesPage = lazy(() => import("./pages/UserResponsesPage"));
 const ViewResponsePage = lazy(() => import("./pages/ViewResponsePage"));
 const PublicFormAccess = lazy(
-  () => import("./component/Response/PublicFormAccess")
+  () => import("./component/Response/PublicFormAccess"),
 );
 const CookieConsent = lazy(() => import("./component/Cookie/CookieConsent"));
 const Footer = lazy(() => import("./component/Cookie/Footer"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CollaboratorConfirmPage = lazy(
-  () => import("./pages/CollaboratorConfirmPage")
+  () => import("./pages/CollaboratorConfirmPage"),
 );
 const OwnershipConfirmPage = lazy(() => import("./pages/OwnershipConfirmPage"));
 
@@ -38,8 +38,11 @@ const App = memo(() => {
     () =>
       pathname === "/" ||
       pathname === "/form-access" ||
-      pathname.startsWith("/form-access/"),
-    [pathname]
+      pathname.startsWith("/form-access/") ||
+      pathname === "/notfound" ||
+      pathname.includes("/response/session/replace"),
+
+    [pathname],
   );
 
   const {
@@ -48,13 +51,12 @@ const App = memo(() => {
     isLoading,
   } = useUserSession({ enabled: !isPublicRoute });
 
-  // Memoize pathname checks for performance
   const shouldShowNavigation = useMemo(
     () =>
       pathname !== "/" &&
       pathname !== "/form-access" &&
       !pathname.startsWith("/form-access/"),
-    [pathname]
+    [pathname],
   );
 
   const shouldShowFooter = useMemo(
@@ -63,34 +65,54 @@ const App = memo(() => {
       pathname !== "/form-access" &&
       !pathname.startsWith("/form-access/") &&
       pathname !== "/privacy-policy",
-    [pathname]
+    [pathname],
   );
 
-  useEffect(() => {
-    // Initialize axios interceptors for token refresh
-    setupAxiosInterceptors();
-  }, []);
+  const [showAutoLogoutModal, setShowAutoLogoutModal] = useState(false);
 
-  // Sync React Query data with Redux store for components that still use Redux
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      if (!isPublicRoute) {
+        setShowAutoLogoutModal(true);
+      }
+    };
+
+    window.addEventListener("app:session-expired", handleSessionExpired);
+    return () => {
+      window.removeEventListener("app:session-expired", handleSessionExpired);
+    };
+  }, [isPublicRoute]);
+
+  const handleModalLogout = () => {
+    dispatch(logout());
+    setShowAutoLogoutModal(false);
+    window.location.href = "/";
+  };
+
   useEffect(() => {
     if (sessionData && !isFetching) {
       dispatch(
         setUser({
           user: sessionData.user,
           isAuthenticated: sessionData.isAuthenticated,
-        })
+        }),
       );
     }
   }, [dispatch, isFetching, sessionData]);
 
-  // Show loading spinner while session is being initially fetched
   if (isLoading) {
     return <AppLoading />;
   }
 
   return (
     <Suspense fallback={<AppLoading />}>
-      {/* Modal Setting */}
+      <AutoLogoutModal
+        isOpen={showAutoLogoutModal}
+        onConfirm={handleModalLogout}
+        reason="expired"
+      />
+
+      {/* Modal */}
       {redux.setting && (
         <Suspense fallback={null}>
           <SettingModal
@@ -100,7 +122,7 @@ const App = memo(() => {
                 OpenModal.actions.setopenmodal({
                   state: "setting",
                   value: false,
-                })
+                }),
               )
             }
           />
@@ -115,7 +137,7 @@ const App = memo(() => {
               OpenModal.actions.setopenmodal({
                 state: "confirm",
                 value: { open: false },
-              })
+              }),
             )
           }
         />

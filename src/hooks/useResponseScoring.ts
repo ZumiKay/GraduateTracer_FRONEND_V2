@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import ApiRequest from "./ApiHook";
+import ApiRequest from "./APIHook/ApiHook";
 import { ResponseDataType } from "../component/Response/Response.type";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 
@@ -25,7 +25,7 @@ export const useResponseScoring = ({
 
   // Debounce timers for auto-save
   const saveTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>(
-    {}
+    {},
   );
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,13 +74,13 @@ export const useResponseScoring = ({
             if (!old) return old;
 
             const updatedResponseSet = old.responseset?.map((resp) =>
-              resp.question._id === questionId ? { ...resp, score } : resp
+              resp.question._id === questionId ? { ...resp, score } : resp,
             );
 
             const newTotalScore =
               updatedResponseSet?.reduce(
                 (sum, resp) => sum + (resp.score || 0),
-                0
+                0,
               ) || 0;
 
             return {
@@ -88,7 +88,7 @@ export const useResponseScoring = ({
               responseset: updatedResponseSet,
               totalScore: newTotalScore,
             };
-          }
+          },
         );
       }
 
@@ -106,7 +106,7 @@ export const useResponseScoring = ({
       if (context?.previousResponse) {
         queryClient.setQueryData(
           ["responseDetails", responseId, formId],
-          context.previousResponse
+          context.previousResponse,
         );
       }
       ErrorToast({
@@ -146,14 +146,13 @@ export const useResponseScoring = ({
         delete saveTimeoutRef.current[questionId];
       }, 1500);
     },
-    [responseId, updateQuestionScoreMutation]
+    [responseId, updateQuestionScoreMutation],
   );
 
-  // Handle save all scores (optimized batch save)
+  // Handle save all scores
   const handleSaveAllScores = useCallback(async () => {
     if (!selectedResponse || !responseId) return;
 
-    // Clear any pending debounce timers first
     Object.values(saveTimeoutRef.current).forEach(clearTimeout);
     saveTimeoutRef.current = {};
 
@@ -174,7 +173,7 @@ export const useResponseScoring = ({
       ([questionId, score]) => ({
         questionId,
         score,
-      })
+      }),
     );
 
     setIsBatchSaving(true);
@@ -186,7 +185,7 @@ export const useResponseScoring = ({
           if (!old) return old;
 
           const scoreMap = new Map(
-            scoresArray.map((s) => [s.questionId, s.score as number])
+            scoresArray.map((s) => [s.questionId, s.score as number]),
           );
 
           const updatedResponseSet = old.responseset?.map((resp) => {
@@ -197,7 +196,7 @@ export const useResponseScoring = ({
           const newTotalScore =
             updatedResponseSet?.reduce(
               (sum, resp) => sum + ((resp.score as number) || 0),
-              0
+              0,
             ) || 0;
 
           return {
@@ -205,7 +204,7 @@ export const useResponseScoring = ({
             responseset: updatedResponseSet,
             totalScore: newTotalScore,
           };
-        }
+        },
       );
 
       const res = await ApiRequest({

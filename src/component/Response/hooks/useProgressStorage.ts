@@ -13,6 +13,7 @@ interface UseProgressStorageProps {
   accessMode?: "login" | "guest" | "authenticated";
   isUserActive?: boolean;
   submitting: boolean;
+  isPreview?: boolean;
 }
 
 export const useProgressStorage = ({
@@ -25,6 +26,7 @@ export const useProgressStorage = ({
   accessMode = "authenticated",
   isUserActive = true,
   submitting,
+  isPreview = false,
 }: UseProgressStorageProps) => {
   const [progressLoaded, setProgressLoaded] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,7 +42,13 @@ export const useProgressStorage = ({
 
   const saveProgressToStorage = useCallback(
     (value?: Record<string, unknown>) => {
-      if (!formId || !progressLoaded || !progressStorageKey || success) {
+      if (
+        !formId ||
+        !progressLoaded ||
+        !progressStorageKey ||
+        success ||
+        isPreview
+      ) {
         return;
       }
 
@@ -59,7 +67,7 @@ export const useProgressStorage = ({
         } catch (parseError) {
           console.warn(
             "Failed to parse previously stored progress data:",
-            parseError
+            parseError,
           );
         }
 
@@ -88,7 +96,7 @@ export const useProgressStorage = ({
 
           nonNullResponses.forEach((meaningfulRes) => {
             const existingIndex = mergedResponses.findIndex(
-              (prevRes) => prevRes.question === meaningfulRes.question
+              (prevRes) => prevRes.question === meaningfulRes.question,
             );
 
             if (existingIndex !== -1) {
@@ -121,6 +129,8 @@ export const useProgressStorage = ({
           timestamp: new Date().toISOString(),
           formId,
           version: "1.0",
+          // can be measured from the first save through to submission.
+          startedAt: previousStoredData?.startedAt ?? new Date().toISOString(),
           ...(value ?? {}),
         };
 
@@ -142,7 +152,7 @@ export const useProgressStorage = ({
             if (import.meta.env.DEV) {
               console.log(
                 "Removed duplicate progress key without email:",
-                keyWithoutEmail
+                keyWithoutEmail,
               );
             }
           }
@@ -171,7 +181,7 @@ export const useProgressStorage = ({
       currentPage,
       formSessionInfo,
       respondentEmail,
-    ]
+    ],
   );
 
   const debouncedSaveProgress = useCallback(() => {
@@ -188,9 +198,9 @@ export const useProgressStorage = ({
     (
       updateResponse: (responses: never) => void,
       goToPage: (page: number) => void,
-      dataGoToPage: (page: number) => void
+      dataGoToPage: (page: number) => void,
     ) => {
-      if (!formId || !progressStorageKey) {
+      if (!formId || !progressStorageKey || isPreview) {
         return false;
       }
 
@@ -213,7 +223,7 @@ export const useProgressStorage = ({
                 if (import.meta.env.DEV) {
                   console.log(
                     "Restored current page:",
-                    progressData.currentPage
+                    progressData.currentPage,
                   );
                 }
               }, 100);
@@ -239,7 +249,7 @@ export const useProgressStorage = ({
       }
       return false;
     },
-    [formId, progressStorageKey]
+    [formId, progressStorageKey],
   );
 
   // Auto-save progress

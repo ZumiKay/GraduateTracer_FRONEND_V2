@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import ApiRequest from "../../../hooks/ApiHook";
+import ApiRequest from "../../../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../../Modal/AlertModal";
 import queryClient from "../../../hooks/ReactQueryClient";
 

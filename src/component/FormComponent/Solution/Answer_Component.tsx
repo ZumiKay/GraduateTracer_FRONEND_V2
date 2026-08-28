@@ -333,21 +333,3 @@ export const DateRangePickerQuestionType = ({
     </div>
   );
 };
-export const ShortAnswer = (props: AnswerComponent_Props<string>) => {
-  return (
-    <Input
-      fullWidth
-      size="lg"
-      variant="bordered"
-      classNames={{
-        input: "dark:text-white",
-      }}
-      placeholder={props.placeholder ?? "Type your answer here"}
-      onChange={(e) => props.onChange && props.onChange(e.target.value)}
-      value={props.value}
-      aria-label={props.name}
-      isReadOnly={props.readonly}
-      isDisabled={props.isDisable}
-    />
-  );
-};

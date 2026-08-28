@@ -1,4 +1,4 @@
-import ApiRequest from "../hooks/ApiHook";
+import ApiRequest from "../hooks/APIHook/ApiHook";
 import { ResponseDataType } from "../component/Response/Response.type";
 
 export enum responseCompletionStatus {
@@ -145,7 +145,7 @@ export const fetchUserResponse = async (data: {
 
 export const fetchResponseDetails = async (
   responseId: string,
-  formId: string
+  formId: string,
 ): Promise<ResponseDataType> => {
   const result = await ApiRequest({
     url: `response/getresponseById/${responseId}/${formId}`,
@@ -157,48 +157,26 @@ export const fetchResponseDetails = async (
   return result.data as ResponseDataType;
 };
 
-export const updateResponseScores = async (
-  responseId: string,
-  scores: Array<{ questionId: string; score: number }>,
-  sendEmail: boolean = false
-) => {
+
+export interface ResponseSummary {
+  toScore: number;
+  completed: number;
+  submitted: number;
+}
+
+export const fetchResponseSummary = async (
+  formId: string,
+): Promise<ResponseSummary | null> => {
   const result = await ApiRequest({
-    url: "/updateresponsescore",
-    method: "PUT",
+    url: `/response/getResponseSummary/${formId}`,
+    method: "GET",
     cookie: true,
-    data: {
-      responseId,
-      scores,
-      sendEmail,
-    },
+    reactQuery: true,
   });
 
-  return result;
-};
+  if (!result.success) {
+    throw new Error(result.error ?? "Failed to fetch response summary");
+  }
 
-export const deleteResponse = async (responseId: string) => {
-  const result = await ApiRequest({
-    url: `/deleteresponse/${responseId}`,
-    method: "DELETE",
-    cookie: true,
-  });
-
-  return result;
-};
-
-export const bulkDeleteResponses = async (
-  responseIds: string[],
-  formId: string
-) => {
-  const result = await ApiRequest({
-    url: "/bulkdeleteresponses",
-    method: "DELETE",
-    cookie: true,
-    data: {
-      responseIds,
-      formId,
-    },
-  });
-
-  return result;
+  return (result.data as ResponseSummary) ?? null;
 };

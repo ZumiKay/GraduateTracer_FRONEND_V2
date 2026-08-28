@@ -18,13 +18,14 @@ import {
 } from "recharts";
 import { QuestionAnalytics } from "./ResponseAnalytics.types";
 import { COLORS, convertToRechartsFormat } from "./ResponseAnalytics.utils";
+import { QuestionType } from "../../types/Form.types";
+import StyledTiptap from "./components/StyledTiptap";
 
 interface GraphAnalyticsViewProps {
   questions: QuestionAnalytics[];
   formColor?: string;
 }
 
-// Custom tooltip component for dark mode support
 const CustomTooltip = ({
   active,
   payload,
@@ -108,9 +109,19 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                           {question.questionType}
                         </Chip>
                       </div>
-                      <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-3 leading-tight">
-                        {question.questionTitle}
-                      </h3>
+                      <div
+                        className={`tiptab_container w-full ${
+                          question.questionType !== QuestionType.Text
+                            ? "pb-4 border-b border-gray-200"
+                            : ""
+                        } dark:bg-white dark:rounded-md dark:p-2`}
+                      >
+                        <StyledTiptap
+                          value={question.questionTitle}
+                          readonly
+                          variant="question"
+                        />
+                      </div>
                       <div className="flex gap-2 flex-wrap">
                         <Chip
                           size="sm"
@@ -119,7 +130,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                           className="font-medium"
                           aria-label="totalResponses"
                         >
-                          📊 {question.totalResponses} responses
+                          {question.totalResponses} responses
                         </Chip>
                         {analytics.correctAnswerRate !== undefined && (
                           <Chip
@@ -129,7 +140,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                             className="font-medium"
                             aria-label="correctAnswerRate"
                           >
-                            ✓ {analytics.correctAnswerRate.toFixed(1)}% accuracy
+                            {analytics.correctAnswerRate.toFixed(1)}% accuracy
                           </Chip>
                         )}
                         {analytics.averageScore !== undefined && (
@@ -140,7 +151,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                             className="font-medium"
                             aria-label="averageScore"
                           >
-                            ⭐ Avg: {analytics.averageScore.toFixed(2)}
+                            Avg: {analytics.averageScore.toFixed(2)}
                           </Chip>
                         )}
                       </div>
@@ -196,7 +207,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                           <PieChart>
                             <Pie
                               data={convertToRechartsFormat(
-                                analytics.graphs?.doughnut
+                                analytics.graphs?.doughnut,
                               )}
                               cx="50%"
                               cy="50%"
@@ -207,7 +218,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                               label={({ name, value }) => `${name}: ${value}`}
                             >
                               {convertToRechartsFormat(
-                                analytics.graphs?.doughnut
+                                analytics.graphs?.doughnut,
                               ).map((entry, idx) => (
                                 <Cell key={`cell-${idx}`} fill={entry.color} />
                               ))}
@@ -218,7 +229,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                           <PieChart>
                             <Pie
                               data={convertToRechartsFormat(
-                                analytics.graphs?.pie
+                                analytics.graphs?.pie,
                               )}
                               cx="50%"
                               cy="50%"
@@ -228,7 +239,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                               label={({ name, value }) => `${name}: ${value}`}
                             >
                               {convertToRechartsFormat(
-                                analytics.graphs?.pie
+                                analytics.graphs?.pie,
                               ).map((entry, idx) => (
                                 <Cell key={`cell-${idx}`} fill={entry.color} />
                               ))}
@@ -238,7 +249,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                         ) : (
                           <BarChart
                             data={convertToRechartsFormat(
-                              analytics.graphs?.bar
+                              analytics.graphs?.bar,
                             )}
                           >
                             <CartesianGrid strokeDasharray="3 3" />
@@ -248,7 +259,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                             <Legend />
                             <Bar dataKey="value" name="Response Count">
                               {convertToRechartsFormat(
-                                analytics.graphs?.bar
+                                analytics.graphs?.bar,
                               ).map((entry, idx) => (
                                 <Cell key={`cell-${idx}`} fill={entry.color} />
                               ))}
@@ -261,7 +272,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                     {hasDistribution && analytics.distribution && (
                       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
                         <h4 className="font-bold text-lg mb-4 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                          📋 Distribution Details
+                          Distribution Details
                         </h4>
                         <div className="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                           {analytics.distribution.map((item, idx) => (
@@ -312,7 +323,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                 {hasHistogram && analytics.histogram && (
                   <div className="mt-6 bg-white dark:bg-gray-800 p-5 rounded-lg border border-gray-100 dark:border-gray-700">
                     <h4 className="font-bold text-lg mb-4 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                      📊 Distribution Histogram
+                      Distribution Histogram
                     </h4>
                     <ResponsiveContainer width="100%" height={350}>
                       <BarChart data={analytics.histogram.bins}>
@@ -334,7 +345,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                             <p className="font-bold text-gray-900 dark:text-gray-100">
                               {typeof analytics.statistics.min === "string"
                                 ? new Date(
-                                    analytics.statistics.min
+                                    analytics.statistics.min,
                                   ).toLocaleDateString()
                                 : analytics.statistics.min}
                             </p>
@@ -348,7 +359,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                             <p className="font-bold text-gray-900 dark:text-gray-100">
                               {typeof analytics.statistics.max === "string"
                                 ? new Date(
-                                    analytics.statistics.max
+                                    analytics.statistics.max,
                                   ).toLocaleDateString()
                                 : analytics.statistics.max}
                             </p>
@@ -362,11 +373,11 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                             <p className="font-bold text-gray-900 dark:text-gray-100">
                               {typeof analytics.statistics.mean === "string"
                                 ? new Date(
-                                    analytics.statistics.mean
+                                    analytics.statistics.mean,
                                   ).toLocaleDateString()
                                 : typeof analytics.statistics.mean === "number"
-                                ? analytics.statistics.mean.toFixed(2)
-                                : analytics.statistics.mean}
+                                  ? analytics.statistics.mean.toFixed(2)
+                                  : analytics.statistics.mean}
                             </p>
                           </div>
                         )}
@@ -378,12 +389,12 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                             <p className="font-bold text-gray-900 dark:text-gray-100">
                               {typeof analytics.statistics.median === "string"
                                 ? new Date(
-                                    analytics.statistics.median
+                                    analytics.statistics.median,
                                   ).toLocaleDateString()
                                 : typeof analytics.statistics.median ===
-                                  "number"
-                                ? analytics.statistics.median.toFixed(2)
-                                : analytics.statistics.median}
+                                    "number"
+                                  ? analytics.statistics.median.toFixed(2)
+                                  : analytics.statistics.median}
                             </p>
                           </div>
                         )}
@@ -395,7 +406,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                 {hasScatter && analytics.scatter && (
                   <div className="mt-6 bg-white dark:bg-gray-800 p-5 rounded-lg border border-gray-100 dark:border-gray-700">
                     <h4 className="font-bold text-lg mb-4 text-gray-700 dark:text-gray-200 flex items-center gap-2">
-                      📍 Scatter Plot - Start vs End Values
+                      Scatter Plot - Start vs End Values
                     </h4>
                     <ResponsiveContainer width="100%" height={450}>
                       <ScatterChart
@@ -459,7 +470,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                                     </span>{" "}
                                     {isDate
                                       ? new Date(
-                                          data.startValue
+                                          data.startValue,
                                         ).toLocaleDateString()
                                       : data.startValue}
                                   </p>
@@ -469,7 +480,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                                     </span>{" "}
                                     {isDate
                                       ? new Date(
-                                          data.endValue
+                                          data.endValue,
                                         ).toLocaleDateString()
                                       : data.endValue}
                                   </p>
@@ -493,7 +504,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                 {hasTextMetrics && analytics.textMetrics && (
                   <div className="space-y-6 mt-6">
                     <h4 className="font-bold text-lg text-gray-700 dark:text-white flex items-center gap-2">
-                      📝 Text Metrics
+                      Text Metrics
                     </h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg shadow-sm border border-blue-200 dark:border-blue-700">
@@ -533,7 +544,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                     {analytics.topWords && analytics.topWords.length > 0 && (
                       <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                         <h4 className="font-bold text-base mb-3 text-gray-700 dark:text-gray-200">
-                          💬 Most Common Words
+                          Most Common Words
                         </h4>
                         <div className="flex flex-wrap gap-2">
                           {analytics.topWords.slice(0, 15).map((word, idx) => (
@@ -554,7 +565,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                       analytics.sampleResponses.length > 0 && (
                         <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                           <h4 className="font-bold text-base mb-3 text-gray-700 dark:text-gray-200">
-                            💭 Sample Responses
+                            Sample Responses
                           </h4>
                           <div className="space-y-2">
                             {analytics.sampleResponses.map((sample) => (
@@ -599,11 +610,11 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
                                   ? new Date(value).toLocaleDateString()
                                   : value
                                 : typeof value === "number"
-                                ? value.toFixed(2)
-                                : value}
+                                  ? value.toFixed(2)
+                                  : value}
                             </p>
                           </div>
-                        )
+                        ),
                       )}
                     </div>
                   )}
@@ -621,7 +632,7 @@ const GraphAnalyticsView: React.FC<GraphAnalyticsViewProps> = memo(
         })}
       </div>
     );
-  }
+  },
 );
 
 GraphAnalyticsView.displayName = "GraphAnalyticsView";

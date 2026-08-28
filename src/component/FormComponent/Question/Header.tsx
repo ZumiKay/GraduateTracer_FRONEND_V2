@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, Input, Chip } from "@heroui/react";
-import { XMarkIcon, SearchIcon, FilterIcon } from "./icons";
+import { XMarkIcon, SearchIcon, FilterIcon } from "./Assets";
 import { filterQuestions } from "./utils";
 
 interface HeaderProps {

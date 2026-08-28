@@ -37,6 +37,14 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
           {question.require && (
             <span className="text-red-500 text-sm ml-2">*Required</span>
           )}
+          {question.score !== undefined && question.score > 0 && (
+            <span
+              className="ml-2 inline-flex items-center rounded-full bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5"
+              aria-label={`This question is worth ${question.score} points`}
+            >
+              {question.score} pts
+            </span>
+          )}
         </div>
       </div>
       <div className="flex justify-between items-center">
@@ -63,8 +71,8 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
                 typeof v === "number"
                   ? v === value
                   : !isNaN(Number(v))
-                  ? Number(v) === value
-                  : false
+                    ? Number(v) === value
+                    : false,
               )
             : false;
 
@@ -83,8 +91,8 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
                           typeof v === "number"
                             ? v
                             : !isNaN(Number(v))
-                            ? Number(v)
-                            : NaN
+                              ? Number(v)
+                              : NaN,
                         )
                         .filter((v) => !isNaN(v))
                     : [];
@@ -97,6 +105,7 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
                     next.delete(value as number);
                   }
 
+                  //?CheckboxAnswer  as Array of number
                   const newSelections = Array.from(next).sort((a, b) => a - b);
 
                   updateResponse(question._id ?? "", newSelections);

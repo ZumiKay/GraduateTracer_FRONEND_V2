@@ -19,7 +19,7 @@ export interface ConditionalTestCase {
 export const testConditionalLogic = (
   question: ContentType,
   parentQuestion: ContentType,
-  testCases: ConditionalTestCase[]
+  testCases: ConditionalTestCase[],
 ) => {
   if (import.meta.env.DEV) {
     console.group(`🧪 Testing conditional logic for question: ${question._id}`);
@@ -27,7 +27,7 @@ export const testConditionalLogic = (
     testCases.forEach((testCase, index) => {
       const mockResponses: FormResponse[] = [
         {
-          questionId: parentQuestion._id || "",
+          question: parentQuestion._id || "",
           response: testCase.parentResponse,
         },
       ];
@@ -37,7 +37,7 @@ export const testConditionalLogic = (
         if (!question.parentcontent) return true;
 
         const parentResponse = mockResponses.find(
-          (r) => r.questionId === parentQuestion._id
+          (r) => r.question === parentQuestion._id,
         );
         if (!parentResponse || !parentResponse.response) return false;
 
@@ -59,8 +59,8 @@ export const testConditionalLogic = (
           const selectedIndices = Array.isArray(parentResponse.response)
             ? (parentResponse.response as number[])
             : typeof parentResponse.response === "number"
-            ? [parentResponse.response as number]
-            : [];
+              ? [parentResponse.response as number]
+              : [];
           return selectedIndices.includes(expectedAnswer);
         }
 
@@ -75,7 +75,7 @@ export const testConditionalLogic = (
           expectedVisible: testCase.expectedVisible,
           actualVisible: checkResult,
           passed,
-        }
+        },
       );
     });
 
@@ -86,7 +86,7 @@ export const testConditionalLogic = (
 // Helper function to test form submission data
 export const validateSubmissionData = (
   visibleQuestions: ContentType[],
-  responses: FormResponse[]
+  responses: FormResponse[],
 ) => {
   if (import.meta.env.DEV) {
     console.group("📤 Submission Data Validation");
@@ -96,7 +96,7 @@ export const validateSubmissionData = (
       requiredQuestions: visibleQuestions.filter((q) => q.require).length,
       responsesWithData: responses.filter(
         (r) =>
-          r.response !== "" && r.response !== null && r.response !== undefined
+          r.response !== "" && r.response !== null && r.response !== undefined,
       ).length,
       conditionalQuestions: visibleQuestions.filter((q) => q.parentcontent)
         .length,
@@ -109,7 +109,7 @@ export const validateSubmissionData = (
 
     const requiredQuestions = visibleQuestions.filter((q) => q.require);
     const missingRequired = requiredQuestions.filter((q) => {
-      const response = responses.find((r) => r.questionId === q._id);
+      const response = responses.find((r) => r.question === q._id);
       return !response || !response.response;
     });
 
@@ -119,10 +119,10 @@ export const validateSubmissionData = (
 
     const responseCount = responses.filter(
       (r) =>
-        visibleQuestions.some((q) => q._id === r.questionId) &&
+        visibleQuestions.some((q) => q._id === r.question) &&
         r.response !== "" &&
         r.response !== null &&
-        r.response !== undefined
+        r.response !== undefined,
     ).length;
 
     if (responseCount === 0 && requiredQuestions.length > 0) {
@@ -131,7 +131,7 @@ export const validateSubmissionData = (
 
     console.log(
       issues.length > 0 ? "⚠️ Issues found:" : "✅ No issues found:",
-      issues
+      issues,
     );
 
     console.groupEnd();

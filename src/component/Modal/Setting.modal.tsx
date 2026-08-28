@@ -8,7 +8,7 @@ import globalindex from "../../redux/globalindex";
 import { RootState } from "../../redux/store";
 import { PasswordInput } from "../FormComponent/Input";
 import CookieSettingsButton from "../Cookie/CookieSettingsButton";
-import ApiRequest from "../../hooks/ApiHook";
+import ApiRequest from "../../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
 import { AsyncLoggout } from "../../redux/user.store";
 import queryClient from "../../hooks/ReactQueryClient";
@@ -269,7 +269,7 @@ const GeneralOption = () => {
             },
           },
         },
-      })
+      }),
     );
   };
 

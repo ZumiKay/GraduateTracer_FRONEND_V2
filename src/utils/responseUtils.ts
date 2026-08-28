@@ -1,5 +1,5 @@
 import { RangeValue } from "@heroui/react";
-import { AnswerKey, QuestionType } from "../types/Form.types";
+import { QuestionType } from "../types/Form.types";
 import {
   AnswerKeyPairValueType,
   ResponseValueType,
@@ -10,7 +10,7 @@ import {
  */
 export const isResponseEmpty = (
   response: ResponseValueType,
-  qType?: QuestionType
+  qType?: QuestionType,
 ): boolean => {
   if (response === undefined || response === null || response === "") {
     return true;
@@ -24,8 +24,8 @@ export const isResponseEmpty = (
     return true;
   }
 
-  // Check for empty CheckBox responses
-  if (qType === QuestionType.CheckBox) {
+  // Check for empty CheckBox / MultipleSelection responses
+  if (qType === QuestionType.CheckBox || qType === QuestionType.MultipleSelection) {
     const ress = response as AnswerKeyPairValueType;
     if (!ress.key || !Array.isArray(ress.key) || ress.key.length === 0) {
       return true;

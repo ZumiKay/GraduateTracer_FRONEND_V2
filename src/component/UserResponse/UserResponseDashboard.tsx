@@ -29,7 +29,7 @@ import {
   FiTrendingUp,
   FiTarget,
 } from "react-icons/fi";
-import ApiRequest, { ApiRequestReturnType } from "../../hooks/ApiHook";
+import ApiRequest, { ApiRequestReturnType } from "../../hooks/APIHook/ApiHook";
 import { ErrorToast } from "../Modal/AlertModal";
 
 interface UserResponseData {
@@ -118,14 +118,14 @@ const UserResponseDashboard: React.FC = () => {
       filtered = filtered.filter((response) =>
         response.formTitle
           .toLowerCase()
-          .includes(filters.searchTerm.toLowerCase())
+          .includes(filters.searchTerm.toLowerCase()),
       );
     }
 
     // Form type filter
     if (filters.formType) {
       filtered = filtered.filter(
-        (response) => response.formType === filters.formType
+        (response) => response.formType === filters.formType,
       );
     }
 
@@ -181,7 +181,7 @@ const UserResponseDashboard: React.FC = () => {
 
   // Get form type color
   const getFormTypeColor = (
-    type: string
+    type: string,
   ): "primary" | "secondary" | "success" | "warning" | "danger" | "default" => {
     switch (type.toLowerCase()) {
       case "quiz":

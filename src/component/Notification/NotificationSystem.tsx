@@ -7,7 +7,7 @@ import {
   ClockIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
-import ApiRequest from "../../hooks/ApiHook";
+import ApiRequest from "../../hooks/APIHook/ApiHook";
 import { formatDistanceToNow } from "date-fns";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
@@ -46,8 +46,11 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [markLoading, setmarkLoading] = useState(false);
+
   const [unreadCount, setUnreadCount] = useState(0);
 
+  //Fetch method
   const fetchNotifications = useCallback(async () => {
     if (!users.user?._id) return;
     try {
@@ -82,12 +85,6 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
 
     const apiUrl =
       import.meta.env.VITE_API_URL || "http://localhost:4000/v0/api";
-
-    //Debug
-    console.log(
-      "[SSE] Establishing connection to:",
-      `${apiUrl}/notifications/stream`
-    );
 
     const eventSource = new EventSource(`${apiUrl}/notifications/stream`, {
       withCredentials: true,
@@ -136,25 +133,27 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
     }
 
     return () => {
+      //close connection
       eventSource.close();
-      console.log("[SSE] Connection closed");
     };
   }, [users.user?._id, fetchNotifications]);
 
   const markAsRead = async (notificationId: string) => {
     try {
+      setmarkLoading(true);
       await ApiRequest({
         url: `/notifications/${notificationId}/read`,
         method: "PUT",
         cookie: true,
       });
+      setmarkLoading(false);
 
       setNotifications((prev) =>
         prev.map((notification) =>
           notification._id === notificationId
             ? { ...notification, isRead: true }
-            : notification
-        )
+            : notification,
+        ),
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
@@ -164,15 +163,17 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
 
   const markAllAsRead = async () => {
     try {
+      setLoading(true);
       await ApiRequest({
         url: `/notifications/mark-all-read`,
         method: "PUT",
         cookie: true,
         data: { userId },
       });
+      setLoading(false);
 
       setNotifications((prev) =>
-        prev.map((notification) => ({ ...notification, isRead: true }))
+        prev.map((notification) => ({ ...notification, isRead: true })),
       );
       setUnreadCount(0);
     } catch (error) {
@@ -182,14 +183,16 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
 
   const deleteNotification = async (notificationId: string) => {
     try {
+      setmarkLoading(true);
       await ApiRequest({
         url: `/notifications/${notificationId}`,
         method: "DELETE",
         cookie: true,
       });
+      setmarkLoading(false);
 
       setNotifications((prev) =>
-        prev.filter((notification) => notification._id !== notificationId)
+        prev.filter((notification) => notification._id !== notificationId),
       );
     } catch (error) {
       console.error("Failed to delete notification:", error);
@@ -232,7 +235,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
   };
 
   const getPriorityColor = (
-    priority: string
+    priority: string,
   ): "danger" | "warning" | "success" | "default" => {
     switch (priority) {
       case "high":
@@ -400,17 +403,17 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
                         <div className="flex flex-wrap gap-1.5 mb-2.5">
                           {notification.metadata.responseCount && (
                             <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
-                              📊 {notification.metadata.responseCount} responses
+                              {notification.metadata.responseCount} responses
                             </span>
                           )}
                           {notification.metadata.score && (
                             <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full font-medium">
-                              ⭐ Score: {notification.metadata.score}
+                              Score: {notification.metadata.score}
                             </span>
                           )}
                           {notification.metadata.completionRate && (
                             <span className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-medium">
-                              ✓ {notification.metadata.completionRate}% complete
+                              {notification.metadata.completionRate}% complete
                             </span>
                           )}
                         </div>
@@ -423,7 +426,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
                             new Date(notification.createdAt),
                             {
                               addSuffix: true,
-                            }
+                            },
                           )}
                         </span>
 
@@ -438,6 +441,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
                                 size="sm"
                                 variant="flat"
                                 color="success"
+                                isLoading={markLoading}
                                 onPress={() => markAsRead(notification._id)}
                                 className="hover:scale-110 transition-transform"
                               >
@@ -452,6 +456,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
                               size="sm"
                               variant="flat"
                               color="danger"
+                              isLoading={markLoading}
                               onPress={() =>
                                 deleteNotification(notification._id)
                               }

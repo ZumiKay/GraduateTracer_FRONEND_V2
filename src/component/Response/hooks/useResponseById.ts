@@ -2,7 +2,7 @@ import { useState } from "react";
 import { PaginationType } from "../../../services/responseService";
 import { ResponseDataType } from "../Response.type";
 import { useQuery } from "@tanstack/react-query";
-import ApiRequest from "../../../hooks/ApiHook";
+import ApiRequest from "../../../hooks/APIHook/ApiHook";
 
 interface useResponseByIdType {
   responses: ResponseDataType[];

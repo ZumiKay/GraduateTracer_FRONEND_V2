@@ -4,7 +4,6 @@ import { toast, ToastContentProps } from "react-toastify";
 import ModalWrapper from "./Modal";
 import { useSelector, shallowEqual } from "react-redux";
 import { RootState } from "../../redux/store";
-import { ApiRequestReturnType } from "../../hooks/ApiHook";
 
 type ToastContenttype = {
   title: string;
@@ -35,8 +34,8 @@ const CustomNofication = ({ data }: CustomNotificationProps) => {
               data.type === "success"
                 ? "success"
                 : data.type === "info"
-                ? "primary"
-                : "danger"
+                  ? "primary"
+                  : "danger"
             }
           >
             {data.btn.content}
@@ -85,55 +84,6 @@ export function InfoToast(data: ToastContenttype) {
     closeButton: true,
   });
 }
-
-export const PromiseToast = (
-  data: { promise: Promise<ApiRequestReturnType> },
-  custom?: { pending?: string; success?: string; error?: string }
-) => {
-  const toastId = "uniquepromise";
-  if (toast.isActive(toastId)) toast.dismiss(toastId);
-
-  let showToast = true;
-
-  const delayPromise = new Promise<ApiRequestReturnType>((resolve, reject) => {
-    if (showToast) {
-      toast.promise(
-        data.promise.then((res) => {
-          if (!res.success) reject(res);
-          resolve(res);
-        }),
-        {
-          pending: custom?.pending ?? "Loading...",
-          success: custom?.success,
-          error: custom?.error ?? "Error Occurred",
-        },
-        {
-          toastId,
-          position: "bottom-right",
-          autoClose: 2000,
-          closeOnClick: true,
-          closeButton: true,
-        }
-      );
-    }
-
-    data.promise
-      .then((res) => {
-        if (!res.success) {
-          reject(res);
-          return;
-        }
-
-        showToast = false; // Prevent toast from showing if completed in <1s
-        resolve(res);
-      })
-      .catch((err) => {
-        reject(err);
-      });
-  });
-
-  return delayPromise;
-};
 
 type ConfirmModalProps = {
   open: boolean;
@@ -194,7 +144,7 @@ const ConfirmModalButtons = memo(function ConfirmModalButtons({
  * Optimized with memoization and stable callbacks
  */
 export const ConfirmModal = memo(function ConfirmModal(
-  props: ConfirmModalProps
+  props: ConfirmModalProps,
 ) {
   const confirmdata = useSelector(selectConfirmData, shallowEqual);
   const saveformLoading = useSelector(selectSaveFormLoading);
@@ -203,15 +153,15 @@ export const ConfirmModal = memo(function ConfirmModal(
   // Memoized button labels
   const agreeLabel = useMemo(
     () => confirmdata?.btn?.agree ?? "Yes",
-    [confirmdata?.btn?.agree]
+    [confirmdata?.btn?.agree],
   );
   const disagreeLabel = useMemo(
     () => confirmdata?.btn?.disagree ?? "No",
-    [confirmdata?.btn?.disagree]
+    [confirmdata?.btn?.disagree],
   );
   const question = useMemo(
     () => confirmdata?.question ?? "Are you sure?",
-    [confirmdata?.question]
+    [confirmdata?.question],
   );
 
   // Memoized loading state
@@ -259,7 +209,7 @@ export const ConfirmModal = memo(function ConfirmModal(
         onDisagree={handleDisagree}
       />
     ),
-    [isLoadingOrSaving, agreeLabel, disagreeLabel, handleAgree, handleDisagree]
+    [isLoadingOrSaving, agreeLabel, disagreeLabel, handleAgree, handleDisagree],
   );
 
   return (
