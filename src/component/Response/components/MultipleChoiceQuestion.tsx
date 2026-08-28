@@ -80,6 +80,7 @@ export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
                 name={`radio-${question._id}`}
                 checked={isSelected}
                 onChange={() => {
+                  //?Checkbox answer in Array of number
                   updateResponse(question._id ?? "", [choiceValue]);
                 }}
                 className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2"

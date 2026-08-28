@@ -29,7 +29,7 @@ const PreviewTab: React.FC<PreviewTabProps> = ({ formId }) => {
       userId: user.user?._id,
       formSessionInfo: {
         respondentEmail: user.user?.email || "preview_mode@local",
-        respondentName: user.user?.username || "Form Owner",
+        respondentName: user.user?.name || "Form Owner",
         isGuest: false,
       } as RespondentInfoType,
       accessMode: "authenticated",
@@ -37,7 +37,7 @@ const PreviewTab: React.FC<PreviewTabProps> = ({ formId }) => {
       isLoading: formReqData.isFetching,
       isPreview: true,
     }),
-    [formReqData, user.user?._id, user.user?.email, user.user?.username],
+    [formReqData, user.user?._id, user.user?.email, user.user?.name],
   );
 
   return (

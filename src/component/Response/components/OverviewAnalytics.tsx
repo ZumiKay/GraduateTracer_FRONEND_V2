@@ -353,6 +353,7 @@ const OverviewAnayticsTabs = memo(
                                       </span>
                                       <span className="text-sm font-medium text-gray-800 line-clamp-2">
                                         Question {q.questionId}
+                                        {q.title ? `: ${q.title}` : ""}
                                       </span>
                                       {q.isConditional && (
                                         <span className="shrink-0 text-xs font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-200">
