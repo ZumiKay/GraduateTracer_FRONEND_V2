@@ -58,6 +58,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
 
   const {
     updateScoreMutation,
+    batchUpdateScoresMutation,
     sendLinksMutation,
     generateLinkMutation,
     deleteResponseMutation,
@@ -254,6 +255,15 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
         onBulkDelete={(ids: string[]) =>
           bulkDeleteResponsesMutation.mutate(ids)
         }
+        onBatchUpdateScores={(selectedIds: string[], newScore: number) => {
+          batchUpdateScoresMutation.mutate({
+            updates: selectedIds.map((id) => ({
+              responseId: id,
+              score: newScore,
+            })),
+          });
+        }}
+        isBatchUpdatingScores={batchUpdateScoresMutation.isPending}
         getStatusColor={getStatusColor}
         pagination={pagination}
         currentPage={currentPage}

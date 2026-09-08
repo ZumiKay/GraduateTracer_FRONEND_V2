@@ -1,6 +1,8 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { useState, useEffect } from "react";
-import useFormsessionAPI from "../hooks/useFormsessionAPI";
+import useFormsessionAPI, {
+  SessionVerificationResponse,
+} from "../hooks/useFormsessionAPI";
 import { generateStorageKey } from "../helperFunc";
 import { SessionState } from "../redux/user.store";
 
@@ -15,7 +17,7 @@ jest.mock("../hooks/useFormsessionAPI", () => ({
 // Mock helper functions
 jest.mock("../helperFunc", () => ({
   generateStorageKey: jest.fn(
-    ({ suffix, userKey, formId }) => `${formId}_${userKey}_${suffix}`
+    ({ suffix, userKey, formId }) => `${formId}_${userKey}_${suffix}`,
   ),
   cleanupUnrelatedLocalStorage: jest.fn(),
   saveFormSateToLocalStorage: jest.fn(),
@@ -57,11 +59,7 @@ const useFormInitialization = ({
   const [isInitializing, setIsInitializing] = useState(true);
   const { useSessionVerification } = useFormsessionAPI();
 
-  const sessionVerificationEnabled = Boolean(formId);
-  const verifiedSession = useSessionVerification(
-    sessionVerificationEnabled,
-    formId
-  );
+  const verifiedSession = useSessionVerification(formId);
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -74,14 +72,15 @@ const useFormInitialization = ({
           return;
         }
 
-        if (verifiedSession.isLoading || verifiedSession.isFetching) {
+        if (verifiedSession.isPending) {
           return;
         }
 
         if (verifiedSession.data?.data) {
+          const data = verifiedSession.data as SessionVerificationResponse;
           const key = generateStorageKey({
             suffix: "state",
-            userKey: verifiedSession.data.data.respondentEmail,
+            userKey: data.data?.respondentEmail,
             formId: formId,
           });
 
@@ -111,7 +110,7 @@ const useFormInitialization = ({
         console.error("Form initialization error:", error);
         setIsInitialized(true);
       } finally {
-        if (!verifiedSession.isLoading && !verifiedSession.isFetching) {
+        if (!verifiedSession.isPending) {
           setIsInitializing(false);
         }
       }
@@ -123,8 +122,7 @@ const useFormInitialization = ({
     user.isAuthenticated,
     dispatch,
     user.user,
-    verifiedSession.isLoading,
-    verifiedSession.isFetching,
+    verifiedSession.isPending,
     verifiedSession.data,
     verifiedSession.error,
   ]);
@@ -132,8 +130,7 @@ const useFormInitialization = ({
   return {
     isInitialized,
     isInitializing,
-    sessionVerificationLoading:
-      verifiedSession.isLoading || verifiedSession.isFetching,
+    sessionVerificationLoading: verifiedSession.isPending,
     sessionVerificationError: verifiedSession.error,
     sessionData: verifiedSession.data,
   };
@@ -150,12 +147,14 @@ describe("useFormInitialization", () => {
 
   const createSessionVerificationMock = (
     overrides: Partial<{
+      isPending: boolean;
       isLoading: boolean;
       isFetching: boolean;
       data: unknown;
       error: unknown;
-    }> = {}
+    }> = {},
   ) => ({
+    isPending: false,
     isLoading: false,
     isFetching: false,
     data: null,
@@ -177,7 +176,7 @@ describe("useFormInitialization", () => {
     it("should initialize immediately when formId is undefined", async () => {
       const formId = undefined;
       mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock()
+        createSessionVerificationMock(),
       );
 
       const { result } = renderHook(() =>
@@ -185,7 +184,7 @@ describe("useFormInitialization", () => {
           formId,
           user: defaultUser,
           dispatch: mockDispatch,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -193,14 +192,18 @@ describe("useFormInitialization", () => {
         expect(result.current.isInitializing).toBe(false);
       });
 
-      // Should not call session verification when formId is undefined
-      expect(mockUseSessionVerification).toHaveBeenCalledWith(false, undefined);
+      // Should call session verification with undefined when formId is undefined
+      expect(mockUseSessionVerification).toHaveBeenCalledWith(undefined);
     });
 
     it("should remain in loading state while session verification is in progress", async () => {
       const formId = "test-form-123";
       mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({ isLoading: true, isFetching: true })
+        createSessionVerificationMock({
+          isPending: true,
+          isLoading: true,
+          isFetching: true,
+        }),
       );
 
       const { result } = renderHook(() =>
@@ -208,7 +211,7 @@ describe("useFormInitialization", () => {
           formId,
           user: defaultUser,
           dispatch: mockDispatch,
-        })
+        }),
       );
 
       // Should remain in initializing state
@@ -228,7 +231,7 @@ describe("useFormInitialization", () => {
       mockUseSessionVerification.mockReturnValue(
         createSessionVerificationMock({
           data: { data: respondentData },
-        })
+        }),
       );
 
       const { result } = renderHook(() =>
@@ -236,7 +239,7 @@ describe("useFormInitialization", () => {
           formId,
           user: defaultUser,
           dispatch: mockDispatch,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -271,7 +274,7 @@ describe("useFormInitialization", () => {
               isGuest: false,
             },
           },
-        })
+        }),
       );
 
       const { result } = renderHook(() =>
@@ -279,7 +282,7 @@ describe("useFormInitialization", () => {
           formId,
           user: defaultUser,
           dispatch: mockDispatch,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -309,7 +312,7 @@ describe("useFormInitialization", () => {
       mockUseSessionVerification.mockReturnValue(
         createSessionVerificationMock({
           data: { data: respondentData },
-        })
+        }),
       );
 
       const { result } = renderHook(() =>
@@ -317,7 +320,7 @@ describe("useFormInitialization", () => {
           formId,
           user: defaultUser,
           dispatch: mockDispatch,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -330,7 +333,7 @@ describe("useFormInitialization", () => {
         JSON.stringify({
           isActive: true,
           respondentinfo: respondentData,
-        })
+        }),
       );
     });
 
@@ -351,7 +354,7 @@ describe("useFormInitialization", () => {
               respondentName: "Test User",
             },
           },
-        })
+        }),
       );
 
       const { result } = renderHook(() =>
@@ -359,7 +362,7 @@ describe("useFormInitialization", () => {
           formId,
           user: defaultUser,
           dispatch: mockDispatch,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -378,7 +381,7 @@ describe("useFormInitialization", () => {
       const error = new Error("Session verification failed");
 
       mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({ error })
+        createSessionVerificationMock({ error }),
       );
 
       const { result } = renderHook(() =>
@@ -386,7 +389,7 @@ describe("useFormInitialization", () => {
           formId,
           user: defaultUser,
           dispatch: mockDispatch,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -407,7 +410,7 @@ describe("useFormInitialization", () => {
       mockUseSessionVerification.mockReturnValue(
         createSessionVerificationMock({
           data: {}, // Empty data object, no nested data property
-        })
+        }),
       );
 
       const { result } = renderHook(() =>
@@ -415,7 +418,7 @@ describe("useFormInitialization", () => {
           formId,
           user: defaultUser,
           dispatch: mockDispatch,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -432,7 +435,7 @@ describe("useFormInitialization", () => {
   describe("Effect Dependencies", () => {
     it("should re-initialize when formId changes", async () => {
       mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock()
+        createSessionVerificationMock(),
       );
 
       const { result, rerender } = renderHook(
@@ -444,7 +447,7 @@ describe("useFormInitialization", () => {
           }),
         {
           initialProps: { formId: "form-1" },
-        }
+        },
       );
 
       await waitFor(() => {
@@ -456,10 +459,7 @@ describe("useFormInitialization", () => {
 
       // Should re-initialize
       await waitFor(() => {
-        expect(mockUseSessionVerification).toHaveBeenLastCalledWith(
-          true,
-          "form-2"
-        );
+        expect(mockUseSessionVerification).toHaveBeenLastCalledWith("form-2");
       });
     });
 
@@ -474,7 +474,7 @@ describe("useFormInitialization", () => {
       mockUseSessionVerification.mockReturnValue(
         createSessionVerificationMock({
           data: { data: respondentData },
-        })
+        }),
       );
 
       const storageKey = `test-form_${respondentData.respondentEmail}_state`;
@@ -489,7 +489,7 @@ describe("useFormInitialization", () => {
           }),
         {
           initialProps: { user: { isAuthenticated: false, user: null } },
-        }
+        },
       );
 
       await waitFor(() => {
@@ -512,10 +512,10 @@ describe("useFormInitialization", () => {
       await waitFor(
         () => {
           expect(localStorageMock.getItem.mock.calls.length).toBeGreaterThan(
-            initialGetItemCallCount
+            initialGetItemCallCount,
           );
         },
-        { timeout: 2000 }
+        { timeout: 2000 },
       );
     });
   });
@@ -523,7 +523,7 @@ describe("useFormInitialization", () => {
   describe("Edge Cases", () => {
     it("should handle rapid formId changes gracefully", async () => {
       mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock()
+        createSessionVerificationMock(),
       );
 
       const { rerender } = renderHook(
@@ -535,7 +535,7 @@ describe("useFormInitialization", () => {
           }),
         {
           initialProps: { formId: "form-1" },
-        }
+        },
       );
 
       // Rapidly change formId
@@ -553,7 +553,7 @@ describe("useFormInitialization", () => {
       mockUseSessionVerification.mockReturnValue(
         createSessionVerificationMock({
           data: null,
-        })
+        }),
       );
 
       const { result } = renderHook(() =>
@@ -561,7 +561,7 @@ describe("useFormInitialization", () => {
           formId: "test-form",
           user: defaultUser,
           dispatch: mockDispatch,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -576,7 +576,7 @@ describe("useFormInitialization", () => {
       mockUseSessionVerification.mockReturnValue(
         createSessionVerificationMock({
           data: undefined,
-        })
+        }),
       );
 
       const { result } = renderHook(() =>
@@ -584,7 +584,7 @@ describe("useFormInitialization", () => {
           formId: "test-form",
           user: defaultUser,
           dispatch: mockDispatch,
-        })
+        }),
       );
 
       await waitFor(() => {

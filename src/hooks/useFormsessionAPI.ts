@@ -80,7 +80,7 @@ export const useFormsessionAPI = () => {
     onError: setError,
   });
 
-  const useSessionVeriftication = (
+  const useSessionVerification = (
     formId?: string,
     handleSessionExpired?: () => void,
   ) => {
@@ -185,7 +185,7 @@ export const useFormsessionAPI = () => {
     replaceSession,
     signOut,
     sendRemovalEmail,
-    useSessionVeriftication,
+    useSessionVerification,
     refreshSession,
     clearSessionData,
     clearError,

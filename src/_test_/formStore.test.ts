@@ -26,7 +26,7 @@ describe("setallquestion reducer", () => {
       });
     });
 
-    it("sets allquestion from a plain array and runs validation", () => {
+    test("sets allquestion from a plain array and runs validation", () => {
       const questions = [makeQuestion({ _id: "q1", qIdx: 0 })];
       const nextState = reducer(defaultState(), setallquestion(questions));
 
@@ -34,7 +34,7 @@ describe("setallquestion reducer", () => {
       expect(nextState.allquestion[0].qIdx).toBe(0);
     });
 
-    it("sets allquestion using a function updater (prev => next)", () => {
+    test("sets allquestion using a function updater", () => {
       const initial = defaultState();
       const existing = [makeQuestion({ _id: "q1", qIdx: 0 })];
       const seeded = reducer(initial, setallquestion(existing));
@@ -58,7 +58,7 @@ describe("setallquestion reducer", () => {
       });
     });
 
-    it("sets allquestion directly WITHOUT overwriting existing validationIssues", () => {
+    test("sets allquestion directly WITHOUT overwriting existing validationIssues", () => {
       const questionWithIssues = makeQuestion({
         _id: "q1",
         validationIssues: [
@@ -77,7 +77,7 @@ describe("setallquestion reducer", () => {
       ]);
     });
 
-    it("handles function updater when tab != question", () => {
+    test("handles function updater when tab != question", () => {
       const base = makeQuestion({ _id: "q1", qIdx: 0 });
       const seeded = reducer(defaultState(), setallquestion([base]));
 
@@ -92,7 +92,7 @@ describe("setallquestion reducer", () => {
 });
 
 describe("syncQuestionsAfterSave reducer", () => {
-  it("syncs prevAllQuestion to allquestion when savedData is empty", () => {
+  test("syncs prevAllQuestion to allquestion when savedData is empty", () => {
     const q = makeQuestion({ _id: "q1", qIdx: 0 });
     const state = { ...defaultState(), allquestion: [q], prevAllQuestion: [] };
 
@@ -102,7 +102,7 @@ describe("syncQuestionsAfterSave reducer", () => {
     expect(nextState.allquestion).toEqual([q]); // unchanged
   });
 
-  it("only syncs prevAllQuestion when all questions already have _id", () => {
+  test("only syncs prevAllQuestion when all questions already have _id", () => {
     const q1 = makeQuestion({ _id: "existing-id-1", qIdx: 0 });
     const q2 = makeQuestion({ _id: "existing-id-2", qIdx: 1 });
     const savedData = [
@@ -122,7 +122,7 @@ describe("syncQuestionsAfterSave reducer", () => {
     expect(nextState.allquestion).toEqual([q1, q2]); // unchanged
   });
 
-  it("merges _id from savedData into questions that had no _id", () => {
+  test("merges _id from savedData into questions that had no _id", () => {
     const newQuestion = makeQuestion({ qIdx: 2, page: 1 }); // no _id
     const savedVersion = { ...newQuestion, _id: "brand-new-id" };
 
@@ -141,7 +141,7 @@ describe("syncQuestionsAfterSave reducer", () => {
     expect(nextState.prevAllQuestion[0]._id).toBe("brand-new-id");
   });
 
-  it("preserves all other fields when merging _id", () => {
+  test("preserves all other fields when merging _id", () => {
     const newQuestion = makeQuestion({ qIdx: 3, page: 1, score: 10 }); // no _id
     const savedVersion = { ...newQuestion, _id: "saved-id" };
 
@@ -160,7 +160,7 @@ describe("syncQuestionsAfterSave reducer", () => {
     expect(nextState.allquestion[0]._id).toBe("saved-id");
   });
 
-  it("does not assign _id when qIdx/page do not match any savedData entry", () => {
+  test("does not assign _id when qIdx/page do not match any savedData entry", () => {
     const newQuestion = makeQuestion({ qIdx: 99, page: 5 }); // no _id, no match
     const savedVersion = makeQuestion({ qIdx: 0, page: 1, _id: "irrelevant" });
 
@@ -180,7 +180,7 @@ describe("syncQuestionsAfterSave reducer", () => {
     expect(nextState.prevAllQuestion[0]._id).toBeUndefined();
   });
 
-  it("some questions have _id, some don't", () => {
+  test("some questions have _id, some don't", () => {
     const withId = makeQuestion({ _id: "old-id", qIdx: 0, page: 1 });
     const withoutId = makeQuestion({ qIdx: 1, page: 1 }); // no _id
 

@@ -131,4 +131,62 @@ export const ScoreEditModal: React.FC<ScoreEditModalProps> = ({
   );
 };
 
+// Batch Score Edit Modal Component
+interface BatchScoreEditModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedCount: number;
+  onConfirm: (newScore: number) => void;
+  isLoading: boolean;
+}
+
+export const BatchScoreEditModal: React.FC<BatchScoreEditModalProps> = ({
+  isOpen,
+  onClose,
+  selectedCount,
+  onConfirm,
+  isLoading,
+}) => {
+  const [newScore, setNewScore] = React.useState("");
+
+  const handleConfirm = () => {
+    onConfirm(parseInt(newScore) || 0);
+    setNewScore("");
+  };
+
+  return (
+    <SimpleModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Batch Update Scores (${selectedCount} selected)`}
+      onConfirm={handleConfirm}
+      confirmText="Update All Scores"
+      isLoading={isLoading}
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Apply a new overall score to all {selectedCount} selected responses.
+        </p>
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            New Overall Score
+          </label>
+          <Input
+            type="number"
+            placeholder="Enter new score"
+            value={newScore}
+            onChange={(e) => setNewScore(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleConfirm();
+              }
+            }}
+            min={0}
+          />
+        </div>
+      </div>
+    </SimpleModal>
+  );
+};
+
 export default SimpleModal;

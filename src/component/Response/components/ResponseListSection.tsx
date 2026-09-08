@@ -21,6 +21,8 @@ interface ResponseListSectionProps {
   onEditScore: (response: ResponseListItem) => void;
   onDeleteResponse: (id: string) => void;
   onBulkDelete: (ids: string[]) => void;
+  onBatchUpdateScores?: (selectedIds: string[], newScore: number) => void;
+  isBatchUpdatingScores?: boolean;
   getStatusColor: (status: string) => statusColor;
   pagination?: {
     totalPages: number;
@@ -42,6 +44,8 @@ export const ResponseListSection: React.FC<ResponseListSectionProps> = ({
   onEditScore,
   onDeleteResponse,
   onBulkDelete,
+  onBatchUpdateScores,
+  isBatchUpdatingScores,
   getStatusColor,
   pagination,
   currentPage,
@@ -67,6 +71,8 @@ export const ResponseListSection: React.FC<ResponseListSectionProps> = ({
           onEditScore={onEditScore}
           onDeleteResponse={onDeleteResponse}
           onBulkDelete={onBulkDelete}
+          onBatchUpdateScores={onBatchUpdateScores}
+          isBatchUpdatingScores={isBatchUpdatingScores}
           getStatusColor={getStatusColor}
           currentPage={currentPage}
           limit={limit}

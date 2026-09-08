@@ -102,13 +102,14 @@ export interface RespondentSessionType {
 
 export interface SubmittionProcessionReturnType {
   maxScore: number;
-  totalScore: number;
+  totalScore?: number;
   extraScore?: number;
   message: string;
   responseId?: string;
   respondentEmail?: string;
   isComplete?: boolean;
   isNonScore?: boolean;
+  isScoreReleased?: boolean;
 }
 
 export interface ResponseDashboardFilterType {

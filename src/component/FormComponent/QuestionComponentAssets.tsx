@@ -76,7 +76,7 @@ export const ChoiceQuestionEdit = ({
       const isQuestion = questionstate.conditional?.find(
         (cond) => cond.key === key
       );
-      if (!isQuestion || !isQuestion.contentIdx) {
+      if (!isQuestion || isQuestion.contentIdx === undefined) {
         ErrorToast({
           toastid: "Unique scroll to opt question",
           title: "Error",
