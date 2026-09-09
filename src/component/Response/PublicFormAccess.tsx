@@ -19,7 +19,6 @@ import { ErrorToast } from "../Modal/AlertModal";
 import SuccessToast from "../Modal/AlertModal";
 import RespondentForm, { RespondentFormProps } from "./RespondentForm";
 import useRespondentFormPaginaition from "./hooks/usePaginatedFormData";
-import { useQueryClient } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import { ErrorValidataionPropsType } from "../../types/Form.types";
@@ -44,6 +43,7 @@ import { FormState } from "./types/PublicFormAccessTypes";
 import { formStateReducer } from "./reducers/formStateReducer";
 import { SubmissionSuccessView } from "./components/SubmissionSuccessView";
 import { useSendResponseCopy } from "./hooks/useFormSubmission";
+import queryClient from "../../hooks/ReactQueryClient";
 
 export type PublicFormAccessProps = Record<string, never>;
 
@@ -57,7 +57,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
   const { formId } = useParams<{ formId: string; token: string }>();
   const user = useSelector((root: RootState) => root.usersession);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!formId) {
@@ -85,10 +84,10 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     allowPaginationLoading: false,
   });
 
-  const { respondentLogin, signOut, useSessionVeriftication, error } =
+  const { respondentLogin, useSessionVerification, signOut, error } =
     useFormsessionAPI();
 
-  const manuallyCheckSession = useSessionVeriftication(formId, () =>
+  const manuallyCheckSession = useSessionVerification(formId, () =>
     setShowExpiredAlert(true),
   );
 
@@ -372,7 +371,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     formId,
     formState.formsession?.respondentinfo?.respondentEmail,
     localFormSessionStateKey,
-    queryClient,
     signOut,
     user.isAuthenticated,
   ]);
@@ -414,7 +412,6 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     ],
   );
 
-  // --- Content validation calculations (derived before conditional returns for Rules of Hooks) ---
   const contentValidation = formReqData.formState?.contentValidation;
   const hasContentErrors =
     !contentValidation?.isValid &&

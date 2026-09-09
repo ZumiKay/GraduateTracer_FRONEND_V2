@@ -1,10 +1,10 @@
-import { renderHook, waitFor } from "@testing-library/react";
-import { useState, useEffect } from "react";
-import useFormsessionAPI, {
-  SessionVerificationResponse,
-} from "../hooks/useFormsessionAPI";
-import { generateStorageKey } from "../helperFunc";
-import { SessionState } from "../redux/user.store";
+import { renderHook } from "@testing-library/react";
+import { RespondentInfoType } from "../component/Response/Response.type";
+import { ROLE, UserType } from "../types/User.types";
+import { localStorageMock } from "./__mocks__/helper";
+import useFormInitialization from "../component/Response/hooks/useFormInitialization";
+import { FormAction } from "../component/Response/types/PublicFormAccessTypes";
+import { useQuery } from "@tanstack/react-query";
 
 // Mock the useFormsessionAPI module
 jest.mock("../hooks/useFormsessionAPI", () => ({
@@ -23,576 +23,245 @@ jest.mock("../helperFunc", () => ({
   saveFormSateToLocalStorage: jest.fn(),
 }));
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: jest.fn((key: string) => store[key] || null),
-    setItem: jest.fn((key: string, value: string) => {
-      store[key] = value;
-    }),
-    removeItem: jest.fn((key: string) => {
-      delete store[key];
-    }),
-    clear: jest.fn(() => {
-      store = {};
-    }),
-  };
-})();
+jest.mock("@tanstack/react-query", () => ({
+  useQuery: jest.fn(),
+}));
 
+//Mock localstorage
 Object.defineProperty(window, "localStorage", {
   value: localStorageMock,
   writable: true,
 });
 
-// Test of useFormInitialization hook
-const useFormInitialization = ({
-  formId,
-  user,
-  dispatch,
-}: {
-  formId: string | undefined;
-  user: SessionState;
-  dispatch: jest.Mock;
-}) => {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
-  const { useSessionVerification } = useFormsessionAPI();
+//Mock dispatch
+const mockedDispatch = jest.fn() as React.ActionDispatch<[action: FormAction]>;
 
-  const verifiedSession = useSessionVerification(formId);
+/**
+ * [x] Error Case
+ *  [x] invalid params
+ *  [x] invalid return data
+ *  [x] error parsing JSON
+ * [x] Logic CASE
+ *  [x] Default the form session should be set if no formsession exist.
+ *  [x] if data is successfully verified it should set correct data in the local storage
+ *  [x] if error occured in the proccess of set it should remove the data back.
+ */
 
-  useEffect(() => {
-    const initializeForm = async () => {
-      setIsInitializing(true);
-      setIsInitialized(false);
+describe("useFormInitialization Hook Test", () => {
+  let RespondentSessionMock: RespondentInfoType | undefined = undefined;
+  let SampleUserTest: UserType | undefined = undefined;
 
-      try {
-        if (!formId) {
-          setIsInitialized(true);
-          return;
-        }
-
-        if (verifiedSession.isPending) {
-          return;
-        }
-
-        if (verifiedSession.data?.data) {
-          const data = verifiedSession.data as SessionVerificationResponse;
-          const key = generateStorageKey({
-            suffix: "state",
-            userKey: data.data?.respondentEmail,
-            formId: formId,
-          });
-
-          const savedData = localStorage.getItem(key);
-          if (savedData) {
-            try {
-              const parsed = JSON.parse(savedData);
-              dispatch({
-                type: "SET_FORMSESSION",
-                payload: parsed,
-              });
-            } catch (error) {
-              console.error("Error parsing saved data:", error);
-              localStorage.removeItem(key);
-            }
-          } else {
-            const defaultSession = {
-              isActive: true,
-              respondentinfo: verifiedSession.data.data,
-            };
-            localStorage.setItem(key, JSON.stringify(defaultSession));
-          }
-        }
-
-        setIsInitialized(true);
-      } catch (error) {
-        console.error("Form initialization error:", error);
-        setIsInitialized(true);
-      } finally {
-        if (!verifiedSession.isPending) {
-          setIsInitializing(false);
-        }
-      }
+  beforeAll(() => {
+    SampleUserTest = {
+      email: "test@example.com",
+      role: ROLE.USER,
+      password: "password1234",
     };
-
-    initializeForm();
-  }, [
-    formId,
-    user.isAuthenticated,
-    dispatch,
-    user.user,
-    verifiedSession.isPending,
-    verifiedSession.data,
-    verifiedSession.error,
-  ]);
-
-  return {
-    isInitialized,
-    isInitializing,
-    sessionVerificationLoading: verifiedSession.isPending,
-    sessionVerificationError: verifiedSession.error,
-    sessionData: verifiedSession.data,
-  };
-};
-
-describe("useFormInitialization", () => {
-  const mockDispatch = jest.fn();
-  const mockUseSessionVerification = jest.fn();
-
-  const defaultUser = {
-    isAuthenticated: false,
-    user: null,
-  };
-
-  const createSessionVerificationMock = (
-    overrides: Partial<{
-      isPending: boolean;
-      isLoading: boolean;
-      isFetching: boolean;
-      data: unknown;
-      error: unknown;
-    }> = {},
-  ) => ({
-    isPending: false,
-    isLoading: false,
-    isFetching: false,
-    data: null,
-    error: null,
-    ...overrides,
+    RespondentSessionMock = {
+      respondentEmail: SampleUserTest.email,
+      respondentName: "TestUser",
+      expiresAt: new Date("2026-09-10T14:30:00Z"), //1 day
+    };
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
     localStorageMock.clear();
+  });
 
-    // Setup default mock implementation
-    (useFormsessionAPI as jest.Mock).mockReturnValue({
-      useSessionVerification: mockUseSessionVerification,
+  describe("Error handle", () => {
+    test("Initialized should be true if form is undefined", () => {
+      (useQuery as unknown as jest.Mock).mockReturnValue({
+        data: undefined,
+        error: null,
+        isPending: false,
+        isLoading: false,
+      });
+      const formIni = renderHook(() =>
+        useFormInitialization({ formId: undefined, dispatch: mockedDispatch }),
+      );
+
+      expect(formIni.result.current.isInitializing).toBe(false);
+      expect(formIni.result.current.isInitialized).toBe(true);
+      expect(formIni.result.current.sessionData).not.toBeDefined();
+    });
+
+    test("error sessionVerification isInitialized should be true and sessionVerificationError should be defined", () => {
+      (useQuery as unknown as jest.Mock).mockReturnValue({
+        error: new Error("Error occued"),
+        isPending: false,
+      });
+
+      const formIni = renderHook(() =>
+        useFormInitialization({
+          formId: "UniqueForm",
+          dispatch: mockedDispatch,
+        }),
+      );
+
+      expect(formIni.result.current.isInitializing).toBe(false);
+      expect(formIni.result.current.isInitialized).toBe(true);
+      expect(formIni.result.current.sessionData).not.toBeDefined();
+      expect(formIni.result.current.sessionVerificationError).toBeDefined();
+    });
+    test("parse json error should be handle", () => {
+      const consoleSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const formId = "uniqueForm";
+      const key = `${formId}_${RespondentSessionMock?.respondentEmail}_state`;
+
+      localStorage.setItem(key, "invalid-json-string{");
+
+      (useQuery as unknown as jest.Mock).mockReturnValue({
+        data: { data: RespondentSessionMock },
+        isPending: false,
+        isLoading: false,
+      });
+
+      const formIni = renderHook(() =>
+        useFormInitialization({
+          formId,
+          dispatch: mockedDispatch,
+        }),
+      );
+
+      expect(localStorage.removeItem).toHaveBeenCalledWith(key);
+      expect(localStorage.getItem(key)).toBeNull();
+      expect(mockedDispatch).not.toHaveBeenCalled();
+      expect(formIni.result.current.isInitialized).toBe(true);
+      expect(formIni.result.current.isInitializing).toBe(false);
+
+      consoleSpy.mockRestore();
     });
   });
 
-  describe("Initialization Flow", () => {
-    it("should initialize immediately when formId is undefined", async () => {
-      const formId = undefined;
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock(),
-      );
+  describe("Logic CASE", () => {
+    test("Default the form session should be set if no formsession exist", () => {
+      const formId = "uniqueForm";
+      const key = `${formId}_${RespondentSessionMock?.respondentEmail}_state`;
 
-      const { result } = renderHook(() =>
-        useFormInitialization({
-          formId,
-          user: defaultUser,
-          dispatch: mockDispatch,
-        }),
-      );
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
-        expect(result.current.isInitializing).toBe(false);
+      (useQuery as unknown as jest.Mock).mockReturnValue({
+        data: { data: RespondentSessionMock },
+        isPending: false,
+        isLoading: false,
       });
 
-      // Should call session verification with undefined when formId is undefined
-      expect(mockUseSessionVerification).toHaveBeenCalledWith(undefined);
-    });
-
-    it("should remain in loading state while session verification is in progress", async () => {
-      const formId = "test-form-123";
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({
-          isPending: true,
-          isLoading: true,
-          isFetching: true,
-        }),
-      );
-
-      const { result } = renderHook(() =>
+      const formIni = renderHook(() =>
         useFormInitialization({
           formId,
-          user: defaultUser,
-          dispatch: mockDispatch,
+          dispatch: mockedDispatch,
         }),
       );
 
-      // Should remain in initializing state
-      expect(result.current.isInitialized).toBe(false);
-      expect(result.current.isInitializing).toBe(true);
-      expect(result.current.sessionVerificationLoading).toBe(true);
-    });
-
-    it("should complete initialization when session verification finishes", async () => {
-      const formId = "test-form-123";
-      const respondentData = {
-        respondentEmail: "test@example.com",
-        respondentName: "Test User",
-        isGuest: false,
-      };
-
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({
-          data: { data: respondentData },
-        }),
-      );
-
-      const { result } = renderHook(() =>
-        useFormInitialization({
-          formId,
-          user: defaultUser,
-          dispatch: mockDispatch,
-        }),
-      );
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
-        expect(result.current.isInitializing).toBe(false);
-      });
-    });
-  });
-
-  describe("Session Verification Handling", () => {
-    it("should load saved session data from localStorage when verification succeeds", async () => {
-      const formId = "test-form-123";
-      const respondentEmail = "test@example.com";
-      const savedSessionData = {
+      const defaultSession = {
         isActive: true,
-        currentPage: 1,
-        responses: [{ question: "q1", response: "answer1" }],
+        respondentinfo: {
+          ...RespondentSessionMock,
+          expiresAt: RespondentSessionMock?.expiresAt,
+        },
+        expiresAt: RespondentSessionMock?.expiresAt,
       };
 
-      // Setup localStorage with saved data
-      const storageKey = `${formId}_${respondentEmail}_state`;
-      localStorageMock.setItem(storageKey, JSON.stringify(savedSessionData));
-
-      (generateStorageKey as jest.Mock).mockReturnValue(storageKey);
-
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({
-          data: {
-            data: {
-              respondentEmail,
-              respondentName: "Test User",
-              isGuest: false,
-            },
-          },
-        }),
-      );
-
-      const { result } = renderHook(() =>
-        useFormInitialization({
-          formId,
-          user: defaultUser,
-          dispatch: mockDispatch,
-        }),
-      );
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
-      });
-
-      // Should have retrieved and parsed the saved data
-      expect(localStorageMock.getItem).toHaveBeenCalledWith(storageKey);
-      expect(mockDispatch).toHaveBeenCalledWith({
+      expect(mockedDispatch).toHaveBeenCalledWith({
         type: "SET_FORMSESSION",
-        payload: savedSessionData,
+        payload: defaultSession,
       });
+      expect(localStorage.setItem).toHaveBeenCalledWith(
+        key,
+        JSON.stringify(defaultSession),
+      );
+      expect(formIni.result.current.isInitialized).toBe(true);
+      expect(formIni.result.current.isInitializing).toBe(false);
     });
 
-    it("should create default session when no saved data exists", async () => {
-      const formId = "test-form-123";
-      const respondentEmail = "test@example.com";
-      const respondentData = {
-        respondentEmail,
-        respondentName: "Test User",
-        isGuest: false,
+    test("if data is successfully verified it should set correct data in the local storage", () => {
+      const formId = "uniqueForm";
+      const key = `${formId}_${RespondentSessionMock?.respondentEmail}_state`;
+
+      const existingSavedSession = {
+        isActive: true,
+        session_id: "prev-session-123",
+        respondentinfo: {
+          respondentEmail: SampleUserTest!.email,
+          respondentName: "OldName",
+          expiresAt: "2026-09-08T00:00:00Z",
+        },
+        expiresAt: "2026-09-08T00:00:00Z",
+      };
+      localStorage.setItem(key, JSON.stringify(existingSavedSession));
+
+      (useQuery as unknown as jest.Mock).mockReturnValue({
+        data: { data: RespondentSessionMock },
+        isPending: false,
+        isLoading: false,
+      });
+
+      const formIni = renderHook(() =>
+        useFormInitialization({
+          formId,
+          dispatch: mockedDispatch,
+        }),
+      );
+
+      const updatedSession = {
+        ...existingSavedSession,
+        expiresAt: RespondentSessionMock?.expiresAt,
+        respondentinfo: {
+          ...existingSavedSession.respondentinfo,
+          ...RespondentSessionMock,
+          expiresAt: RespondentSessionMock?.expiresAt,
+        },
       };
 
-      const storageKey = `${formId}_${respondentEmail}_state`;
-      (generateStorageKey as jest.Mock).mockReturnValue(storageKey);
-
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({
-          data: { data: respondentData },
-        }),
-      );
-
-      const { result } = renderHook(() =>
-        useFormInitialization({
-          formId,
-          user: defaultUser,
-          dispatch: mockDispatch,
-        }),
-      );
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
+      expect(mockedDispatch).toHaveBeenCalledWith({
+        type: "SET_FORMSESSION",
+        payload: updatedSession,
       });
-
-      // Should have created and saved default session
-      expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        storageKey,
-        JSON.stringify({
-          isActive: true,
-          respondentinfo: respondentData,
-        }),
+      expect(localStorage.setItem).toHaveBeenCalledWith(
+        key,
+        JSON.stringify(updatedSession),
       );
+      expect(formIni.result.current.isInitialized).toBe(true);
+      expect(formIni.result.current.isInitializing).toBe(false);
     });
 
-    it("should handle corrupted localStorage data gracefully", async () => {
-      const formId = "test-form-123";
-      const respondentEmail = "test@example.com";
+    test("if error occured in the proccess of set it should remove the data back", () => {
+      const consoleSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const formId = "uniqueForm";
+      const key = `${formId}_${RespondentSessionMock?.respondentEmail}_state`;
 
-      // Setup localStorage with invalid JSON
-      const storageKey = `${formId}_${respondentEmail}_state`;
-      localStorageMock.setItem(storageKey, "{ invalid json }");
-      (generateStorageKey as jest.Mock).mockReturnValue(storageKey);
-
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({
-          data: {
-            data: {
-              respondentEmail,
-              respondentName: "Test User",
-            },
-          },
-        }),
-      );
-
-      const { result } = renderHook(() =>
-        useFormInitialization({
-          formId,
-          user: defaultUser,
-          dispatch: mockDispatch,
-        }),
-      );
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
-      });
-
-      // Should have removed the corrupted data
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith(storageKey);
-
-      // Should not crash and should complete initialization
-      expect(result.current.isInitialized).toBe(true);
-    });
-
-    it("should handle session verification errors gracefully", async () => {
-      const formId = "test-form-123";
-      const error = new Error("Session verification failed");
-
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({ error }),
-      );
-
-      const { result } = renderHook(() =>
-        useFormInitialization({
-          formId,
-          user: defaultUser,
-          dispatch: mockDispatch,
-        }),
-      );
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
-      });
-
-      // Should expose the error
-      expect(result.current.sessionVerificationError).toBe(error);
-
-      // Should still complete initialization to prevent blocking
-      expect(result.current.isInitialized).toBe(true);
-      expect(result.current.isInitializing).toBe(false);
-    });
-
-    it("should handle missing session data in verification response", async () => {
-      const formId = "test-form-123";
-
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({
-          data: {}, // Empty data object, no nested data property
-        }),
-      );
-
-      const { result } = renderHook(() =>
-        useFormInitialization({
-          formId,
-          user: defaultUser,
-          dispatch: mockDispatch,
-        }),
-      );
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
-      });
-
-      // Should handle gracefully without crashing
-      expect(result.current.isInitialized).toBe(true);
-      // Should not attempt to save or load data
-      expect(mockDispatch).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("Effect Dependencies", () => {
-    it("should re-initialize when formId changes", async () => {
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock(),
-      );
-
-      const { result, rerender } = renderHook(
-        ({ formId }) =>
-          useFormInitialization({
-            formId,
-            user: defaultUser,
-            dispatch: mockDispatch,
-          }),
-        {
-          initialProps: { formId: "form-1" },
-        },
-      );
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
-      });
-
-      // Change formId
-      rerender({ formId: "form-2" });
-
-      // Should re-initialize
-      await waitFor(() => {
-        expect(mockUseSessionVerification).toHaveBeenLastCalledWith("form-2");
-      });
-    });
-
-    it("should re-initialize when user authentication changes", async () => {
-      const respondentData = {
-        respondentEmail: "test@example.com",
-        respondentName: "Test User",
-        isGuest: false,
+      const existingSavedSession = {
+        isActive: true,
+        respondentinfo: RespondentSessionMock,
       };
+      localStorage.setItem(key, JSON.stringify(existingSavedSession));
 
-      // Return session data so dispatch will be called
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({
-          data: { data: respondentData },
-        }),
-      );
-
-      const storageKey = `test-form_${respondentData.respondentEmail}_state`;
-      (generateStorageKey as jest.Mock).mockReturnValue(storageKey);
-
-      const { result, rerender } = renderHook(
-        ({ user }) =>
-          useFormInitialization({
-            formId: "test-form",
-            user,
-            dispatch: mockDispatch,
-          }),
-        {
-          initialProps: { user: { isAuthenticated: false, user: null } },
-        },
-      );
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
+      (useQuery as unknown as jest.Mock).mockReturnValue({
+        data: { data: RespondentSessionMock },
+        isPending: false,
+        isLoading: false,
       });
 
-      // Record initial call counts
-      const initialGetItemCallCount =
-        localStorageMock.getItem.mock.calls.length;
-
-      // Change authentication state - this should trigger re-initialization
-      rerender({
-        user: {
-          isAuthenticated: true,
-          user: { email: "user@example.com" } as never,
-        },
+      (localStorage.setItem as jest.Mock).mockImplementationOnce(() => {
+        throw new Error("QuotaExceededError");
       });
 
-      // Effect should run again - localStorage.getItem should be called again to check for saved data
-      await waitFor(
-        () => {
-          expect(localStorageMock.getItem.mock.calls.length).toBeGreaterThan(
-            initialGetItemCallCount,
-          );
-        },
-        { timeout: 2000 },
-      );
-    });
-  });
-
-  describe("Edge Cases", () => {
-    it("should handle rapid formId changes gracefully", async () => {
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock(),
-      );
-
-      const { rerender } = renderHook(
-        ({ formId }) =>
-          useFormInitialization({
-            formId,
-            user: defaultUser,
-            dispatch: mockDispatch,
-          }),
-        {
-          initialProps: { formId: "form-1" },
-        },
-      );
-
-      // Rapidly change formId
-      rerender({ formId: "form-2" });
-      rerender({ formId: "form-3" });
-      rerender({ formId: "form-4" });
-
-      // Should handle without crashing
-      expect(() => {
-        rerender({ formId: "form-5" });
-      }).not.toThrow();
-    });
-
-    it("should handle null or undefined in session data", async () => {
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({
-          data: null,
-        }),
-      );
-
-      const { result } = renderHook(() =>
+      const formIni = renderHook(() =>
         useFormInitialization({
-          formId: "test-form",
-          user: defaultUser,
-          dispatch: mockDispatch,
+          formId,
+          dispatch: mockedDispatch,
         }),
       );
 
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
-      });
+      expect(localStorage.removeItem).toHaveBeenCalledWith(key);
+      expect(localStorage.getItem(key)).toBeNull();
+      expect(formIni.result.current.isInitialized).toBe(true);
+      expect(formIni.result.current.isInitializing).toBe(false);
 
-      // Should not crash
-      expect(result.current.isInitialized).toBe(true);
-    });
-
-    it("should not dispatch when verification returns no data", async () => {
-      mockUseSessionVerification.mockReturnValue(
-        createSessionVerificationMock({
-          data: undefined,
-        }),
-      );
-
-      const { result } = renderHook(() =>
-        useFormInitialization({
-          formId: "test-form",
-          user: defaultUser,
-          dispatch: mockDispatch,
-        }),
-      );
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
-      });
-
-      // Should not call dispatch
-      expect(mockDispatch).not.toHaveBeenCalled();
+      consoleSpy.mockRestore();
     });
   });
 });

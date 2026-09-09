@@ -33,7 +33,7 @@ const useFormInitialization = ({
   });
 
   useEffect(() => {
-    const initializeForm = async () => {
+    const initializeForm = () => {
       setIsInitializing(true);
       setIsInitialized(false);
 
@@ -43,11 +43,13 @@ const useFormInitialization = ({
           return;
         }
 
-        if (verifiedSession.isLoading || !dispatch) {
+        if (verifiedSession.isPending || !dispatch) {
           return;
         }
 
-        const verifiedData = verifiedSession.data?.data as (RespondentInfoType & { expiresAt?: string }) | undefined;
+        const verifiedData = verifiedSession.data?.data as
+          | (RespondentInfoType & { expiresAt?: string })
+          | undefined;
 
         if (verifiedData) {
           //Initialize storage key for form session
@@ -66,7 +68,10 @@ const useFormInitialization = ({
                 savedData,
               ) as Partial<RespondentSessionType>;
 
-              const sessionExpiresAt = expiresAt || parsed.expiresAt || parsed.respondentinfo?.expiresAt;
+              const sessionExpiresAt =
+                expiresAt ||
+                parsed.expiresAt ||
+                parsed.respondentinfo?.expiresAt;
 
               const updatedSession: Partial<RespondentSessionType> = {
                 ...parsed,
@@ -119,7 +124,13 @@ const useFormInitialization = ({
     };
 
     initializeForm();
-  }, [dispatch, formId, verifiedSession.data?.data, verifiedSession.isLoading]);
+  }, [
+    dispatch,
+    formId,
+    verifiedSession.data?.data,
+    verifiedSession.isLoading,
+    verifiedSession.isPending,
+  ]);
 
   return {
     isInitialized,

@@ -20,8 +20,8 @@ export default {
     "\\.(css|less|sass|scss)$": "identity-obj-proxy",
     "^.+\\.svg$": "jest-transformer-svg",
     // Stub modules that use import.meta.env (not compatible with Jest CJS runtime)
-    "^.*/hooks/APIHook/ApiHook.*$": "<rootDir>/src/_test_/__mocks__/ApiHook.ts",
-    "^.*/component/Modal/AlertModal.*$": "<rootDir>/src/_test_/__mocks__/AlertModal.ts",
+    "^.*APIHook/ApiHook.*$": "<rootDir>/src/_test_/__mocks__/ApiHook.ts",
+    "^.*AlertModal.*$": "<rootDir>/src/_test_/__mocks__/AlertModal.ts",
     "^.*/component/Response/utils/validationUtils.*$": "<rootDir>/src/_test_/__mocks__/validationUtils.ts",
   },
   // Polyfills import.meta.env at runtime for jsdom

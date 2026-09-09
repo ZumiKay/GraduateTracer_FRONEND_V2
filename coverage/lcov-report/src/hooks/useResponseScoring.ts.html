@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/services/labelQuestionNumberingService.ts</title>
+    <title>Code coverage report for src/hooks/useResponseScoring.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/services</a> labelQuestionNumberingService.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/hooks</a> useResponseScoring.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.42% </span>
+                <span class="strong">80.85% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>65/95</span>
+                <span class='fraction'>76/94</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">51.16% </span>
+                <span class="strong">44.44% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>22/43</span>
+                <span class='fraction'>16/36</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">69.23% </span>
+                <span class="strong">71.42% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>9/13</span>
+                <span class='fraction'>15/21</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.53% </span>
+                <span class="strong">80.89% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>61/89</span>
+                <span class='fraction'>72/89</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -291,7 +291,57 @@
 <a name='L226'></a><a href='#L226'>226</a>
 <a name='L227'></a><a href='#L227'>227</a>
 <a name='L228'></a><a href='#L228'>228</a>
-<a name='L229'></a><a href='#L229'>229</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a>
+<a name='L266'></a><a href='#L266'>266</a>
+<a name='L267'></a><a href='#L267'>267</a>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -300,185 +350,194 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -491,261 +550,331 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { ContentType } from "../types/Form.types";
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useState, useRef, useEffect, useCallback } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import ApiRequest from "./APIHook/ApiHook";
+import { ResponseDataType } from "../component/Response/Response.type";
+import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 &nbsp;
-/**
- * Get a unique identifier for a question
- */
-const getQuestionIdentifier = (
-  question: ContentType,
-  arrayIndex: number
-): string =&gt; {
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (question._id) <span class="cstat-no" title="statement not covered" >return question._id.toString();</span>
-  return `temp_${question.qIdx ?? <span class="branch-1 cbranch-no" title="branch not covered" >arrayIndex}</span>`;
-};
+interface UseResponseScoringProps {
+  responseId?: string;
+  formId?: string;
+  selectedResponse?: ResponseDataType;
+}
 &nbsp;
-/**
- * Get the parent qIdx from parentcontent
- */
-const getParentIdentifier = (question: ContentType): string | null =&gt; {
-  if (!question.parentcontent) return null;
+export const useResponseScoring = ({
+  responseId,
+  formId,
+  selectedResponse,
+}: UseResponseScoringProps) =&gt; {
+  const queryClient = useQueryClient();
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingScores, setPendingScores] = useState&lt;
+    Record&lt;string, number | string | undefined&gt;
+  &gt;({});
 &nbsp;
-  // If qId exists (reference to parent's _id), use it
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (question.parentcontent.qId) {
-<span class="cstat-no" title="statement not covered" >    return question.parentcontent.qId;</span>
-  }
+  const [isBatchSaving, setIsBatchSaving] = useState(false);
 &nbsp;
-  // For unsaved data, use qIdx-based identifier
-  if (question.parentcontent.qIdx !== undefined) {
-    return `temp_${question.parentcontent.qIdx}`;
-  }
+  // Debounce timers for auto-save
+  const saveTimeoutRef = useRef&lt;Record&lt;string, ReturnType&lt;typeof setTimeout&gt;&gt;&gt;(
+    {},
+  );
+  const autoSaveTimeoutRef = useRef&lt;ReturnType&lt;typeof setTimeout&gt; | null&gt;(null);
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return null;</span>
-};
-&nbsp;
-export const AddQuestionNumbering = ({
-  questions,
-  lastIdx,
-}: {
-  questions: Array&lt;ContentType&gt;;
-  lastIdx?: number;
-}): Array&lt;ContentType&gt; =&gt; {
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!questions || questions.length === 0) {
-<span class="cstat-no" title="statement not covered" >    return [];</span>
-  }
-&nbsp;
-  const questionIdMap = new Map&lt;string, string&gt;();
-&nbsp;
-  //Assign question unqiue identifier
-  const questionIndexMap = new Map&lt;string, number&gt;();
-  questions.forEach((q, idx) =&gt; {
-    const id = getQuestionIdentifier(q, idx);
-    questionIndexMap.set(id, idx);
-  });
-&nbsp;
-  const parentChildrenMap = new Map&lt;
-    string,
-    Array&lt;{ question: ContentType; index: number; id: string }&gt;
-  &gt;();
-&nbsp;
-  questions.forEach((question, index) =&gt; {
-    const parentId = getParentIdentifier(question);
-    if (parentId) {
-      if (!parentChildrenMap.has(parentId)) {
-        parentChildrenMap.set(parentId, []);
-      }
-      parentChildrenMap.get(parentId)!.push({
-        question,
-        index,
-        id: getQuestionIdentifier(question, index),
-      });
-    }
-  });
-&nbsp;
-  // Sort sibling groups once upfront by qIdx
-  parentChildrenMap.forEach((siblings) =&gt; {
-    siblings.sort(<span class="fstat-no" title="function not covered" >(a</span>, b) =&gt; {
-      const qIdxDiff = <span class="cstat-no" title="statement not covered" >(a.question.qIdx || 0) - (b.question.qIdx || 0);</span>
-<span class="cstat-no" title="statement not covered" >      return qIdxDiff !== 0 ? qIdxDiff : a.index - b.index;</span>
-    });
-  });
-&nbsp;
-  // Helper function to find a question's index in the array by its identifier
-  const findQuestionByIdentifier = <span class="fstat-no" title="function not covered" >(</span>
-    targetId: string
-  ): { question: ContentType; index: number } | null =&gt; {
-<span class="cstat-no" title="statement not covered" >    for (let idx = <span class="cstat-no" title="statement not covered" >0;</span> idx &lt; questions.length; idx++) {</span>
-      const q = <span class="cstat-no" title="statement not covered" >questions[idx];</span>
-      const id = <span class="cstat-no" title="statement not covered" >getQuestionIdentifier(q, idx);</span>
-<span class="cstat-no" title="statement not covered" >      <span class="missing-if-branch" title="if path not taken" >I</span>if (id === targetId) {</span>
-<span class="cstat-no" title="statement not covered" >        return { question: q, index: idx };</span>
-      }
-    }
-<span class="cstat-no" title="statement not covered" >    return null;</span>
-  };
-&nbsp;
-  // Check if a question is a top-level question (has no parent or parent is not conditional)
-  const isTopLevelQuestion = (question: ContentType): boolean =&gt; {
-    return (
-      !question.parentcontent ||
-      (question.parentcontent.qIdx === undefined &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >!question.parentcontent.qId)</span>
-    );
-  };
-&nbsp;
-  // Helper function to build hierarchical number with recursion for nested conditionals
-  const buildQuestionNumber = (
-    question: ContentType,
-    arrayIndex: number,
-    visited: Set&lt;string&gt; = new Set()
-  ): string =&gt; {
-    const questionId = getQuestionIdentifier(question, arrayIndex);
-&nbsp;
-    // Prevent infinite loops
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (visited.has(questionId)) {
-<span class="cstat-no" title="statement not covered" >      return `${arrayIndex + 1}`;</span>
-    }
-    visited.add(questionId);
-&nbsp;
-    const parentId = getParentIdentifier(question);
-&nbsp;
-    // QuestionId for non-conditional question (top-level)
-    if (!parentId || isTopLevelQuestion(question)) {
-      // Count how many top-level questions come before this one (inclusive)
-      let topLevelCount = 0;
-      for (let i = 0; i &lt;= arrayIndex; i++) {
-        if (isTopLevelQuestion(questions[i])) {
-          topLevelCount++;
-        }
-      }
-      // Add lastIdx to account for questions from previous pages
-      const offset = lastIdx ?? 0;
-      return `${topLevelCount + offset}`;
-    }
-&nbsp;
-    // Find parent question number from our map
-    let parentNumber = questionIdMap.get(parentId);
-&nbsp;
-    // If parent number not in map yet, find the parent and recursively build its number
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (!parentNumber) {
-      const parentResult = <span class="cstat-no" title="statement not covered" >findQuestionByIdentifier(parentId);</span>
-&nbsp;
-<span class="cstat-no" title="statement not covered" >      if (parentResult) {</span>
-        const { question: parentQuestion, index: parentIndex } = <span class="cstat-no" title="statement not covered" >parentResult;</span>
-&nbsp;
-        // Recursively build parent's number
-<span class="cstat-no" title="statement not covered" >        parentNumber = buildQuestionNumber(</span>
-          parentQuestion,
-          parentIndex,
-          visited
-        );
-&nbsp;
-        // Cache it for future lookups
-<span class="cstat-no" title="statement not covered" >        questionIdMap.set(parentId, parentNumber);</span>
-      } else {
-        // Fallback if parent not found
-<span class="cstat-no" title="statement not covered" >        parentNumber = `${arrayIndex + 1}`;</span>
-      }
-    }
-&nbsp;
-    // Find position among siblings (children of the same parent)
-    const siblings = parentChildrenMap.get(parentId);
-    let position = 1;
-&nbsp;
-    if (siblings) {
-      const currentId = getQuestionIdentifier(question, arrayIndex);
-      for (const sibling of siblings) {
-        if (sibling.id === currentId) {
-          break;
-        }
-<span class="cstat-no" title="statement not covered" >        position++;</span>
-      }
-    }
-&nbsp;
-    return `${parentNumber}.${position}`;
-  };
-&nbsp;
-  // Process questions and assign questionId - preserves array order
-  const result = questions.map((question, index) =&gt; {
-    const questionId = buildQuestionNumber(question, index);
-&nbsp;
-    // Store in map for reference by child questions
-    const id = getQuestionIdentifier(question, index);
-    questionIdMap.set(id, questionId);
-&nbsp;
-    // Update parentcontent with parent's questionId if it exists
-    let updatedParentContent = question.parentcontent;
-    const parentId = getParentIdentifier(question);
-&nbsp;
-    if (parentId &amp;&amp; question.parentcontent) {
-      const parentQuestionId = questionIdMap.get(parentId);
-      updatedParentContent = {
-        ...question.parentcontent,
-        questionId: parentQuestionId || <span class="branch-1 cbranch-no" title="branch not covered" >undefined,</span>
-      };
-    }
-&nbsp;
-    return {
-      ...question,
+  // Update question score mutation (for auto-save on blur)
+  const updateQuestionScoreMutation = useMutation({
+    mutationFn: async ({
+      responseId,
       questionId,
-      parentcontent: updatedParentContent,
-    };
+      score,
+      comment,
+    }: {
+      responseId: string;
+      questionId: string;
+      score: number;
+      comment?: string;
+    }) =&gt; {
+      const res = await ApiRequest({
+        url: `/response/update-score`,
+        method: "PUT",
+        data: {
+          responseId,
+          scores: [{ questionId, score, comment }],
+        },
+        cookie: true,
+      });
+      if (!res.success) {
+        throw new Error(res.message || <span class="branch-1 cbranch-no" title="branch not covered" >"Failed to update score")</span>;
+      }
+      return res.data;
+    },
+    onMutate: async ({ questionId, score }) =&gt; {
+      await queryClient.cancelQueries({
+        queryKey: ["responseDetails", responseId],
+      });
+&nbsp;
+      const previousResponse = queryClient.getQueryData&lt;ResponseDataType&gt;([
+        "responseDetails",
+        responseId,
+        formId,
+      ]);
+&nbsp;
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (previousResponse) {
+<span class="cstat-no" title="statement not covered" >        queryClient.setQueryData&lt;ResponseDataType&gt;(</span>
+          ["responseDetails", responseId, formId],
+<span class="fstat-no" title="function not covered" >          (o</span>ld) =&gt; {
+<span class="cstat-no" title="statement not covered" >            <span class="missing-if-branch" title="if path not taken" >I</span>if (!old) <span class="cstat-no" title="statement not covered" >return old;</span></span>
+&nbsp;
+            const updatedResponseSet = <span class="cstat-no" title="statement not covered" >old.responseset?.map(<span class="fstat-no" title="function not covered" >(r</span>esp) =&gt;</span>
+<span class="cstat-no" title="statement not covered" >              resp.question._id === questionId ? { ...resp, score } : resp,</span>
+            );
+&nbsp;
+            const newTotalScore =
+<span class="cstat-no" title="statement not covered" >              updatedResponseSet?.reduce(</span>
+<span class="fstat-no" title="function not covered" >                (s</span>um, resp) =&gt; <span class="cstat-no" title="statement not covered" >sum + (resp.score || 0),</span>
+                0,
+              ) || 0;
+&nbsp;
+<span class="cstat-no" title="statement not covered" >            return {</span>
+              ...old,
+              responseset: updatedResponseSet,
+              totalScore: newTotalScore,
+            };
+          },
+        );
+      }
+&nbsp;
+      return { previousResponse };
+    },
+    onSuccess: (_data, variables) =&gt; {
+      setPendingScores((prev) =&gt; {
+        const newScores = { ...prev };
+        delete newScores[variables.questionId];
+        setHasUnsavedChanges(Object.keys(newScores).length &gt; 0);
+        return newScores;
+      });
+    },
+    onError: (error: Error, _variables, context) =&gt; {
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (context?.previousResponse) {
+<span class="cstat-no" title="statement not covered" >        queryClient.setQueryData(</span>
+          ["responseDetails", responseId, formId],
+          context.previousResponse,
+        );
+      }
+      ErrorToast({
+        title: "Error",
+        content: error.message || <span class="branch-1 cbranch-no" title="branch not covered" >"Failed to save score",</span>
+      });
+    },
+    onSettled: () =&gt; {
+      queryClient.invalidateQueries({
+        queryKey: ["responseDetails", responseId],
+      });
+    },
   });
 &nbsp;
-  return result;
-};
+  // Handle score update for individual questions (debounced auto-save)
+  const handleQuestionScoreUpdate = useCallback(
+    (questionId: string, score: number, comment?: string) =&gt; {
+      if (!responseId) return;
 &nbsp;
-/**
- * Strips questionId and parentcontent.questionId before saving to database
- * These are display-only fields that should not be persisted
- */
-export const stripQuestionNumbering = <span class="fstat-no" title="function not covered" >(</span>
-  questions: Array&lt;ContentType&gt;
-): Array&lt;ContentType&gt; =&gt; {
-<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!questions || questions.length === 0) {</span>
-<span class="cstat-no" title="statement not covered" >    return [];</span>
-  }
+      setPendingScores((prev) =&gt; {
+        const updated = { ...prev, [questionId]: score };
+        setHasUnsavedChanges(Object.keys(updated).length &gt; 0);
+        return updated;
+      });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return questions.map(<span class="fstat-no" title="function not covered" >(q</span>uestion) =&gt; {</span>
-    // Create a copy without questionId
-    const cleanedQuestion = <span class="cstat-no" title="statement not covered" >{ ...question };</span>
-<span class="cstat-no" title="statement not covered" >    delete cleanedQuestion.questionId;</span>
+      if (saveTimeoutRef.current[questionId]) {
+        clearTimeout(saveTimeoutRef.current[questionId]);
+      }
 &nbsp;
-    // If parentcontent exists, remove questionId from it
-<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (cleanedQuestion.parentcontent) {</span>
-<span class="cstat-no" title="statement not covered" >      cleanedQuestion.parentcontent = { ...cleanedQuestion.parentcontent };</span>
-<span class="cstat-no" title="statement not covered" >      delete cleanedQuestion.parentcontent.questionId;</span>
+      saveTimeoutRef.current[questionId] = setTimeout(() =&gt; {
+        updateQuestionScoreMutation.mutate({
+          responseId: responseId as string,
+          questionId,
+          score,
+          comment,
+        });
+        delete saveTimeoutRef.current[questionId];
+      }, 1500);
+    },
+    [responseId, updateQuestionScoreMutation],
+  );
+&nbsp;
+  // Handle save all scores
+  const handleSaveAllScores = useCallback(async () =&gt; {
+    if (!selectedResponse || !responseId) return;
+&nbsp;
+    Object.values(saveTimeoutRef.current).forEach(clearTimeout);
+    saveTimeoutRef.current = {};
+&nbsp;
+    // Check if there are scores to save
+    if (Object.keys(pendingScores).length === 0) {
+      // No pending scores - already saved
+      setHasUnsavedChanges(false);
+      SuccessToast({
+        title: "Success",
+        content: "All scores are already saved",
+      });
+      return;
     }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    return cleanedQuestion;</span>
-  });
+    const pendingCount = Object.keys(pendingScores).length;
+&nbsp;
+    const scoresArray = Object.entries(pendingScores).map(
+      ([questionId, score]) =&gt; ({
+        questionId,
+        score,
+      }),
+    );
+&nbsp;
+    setIsBatchSaving(true);
+&nbsp;
+    try {
+      queryClient.setQueryData&lt;ResponseDataType&gt;(
+        ["responseDetails", responseId, formId],
+        (old) =&gt; {
+          if (!old) return old;
+&nbsp;
+          const scoreMap = <span class="cstat-no" title="statement not covered" >new Map(</span>
+            scoresArray.map(<span class="fstat-no" title="function not covered" >(s</span>) =&gt; <span class="cstat-no" title="statement not covered" >[s.questionId, s.score as number])</span>,
+          );
+&nbsp;
+          const updatedResponseSet = <span class="cstat-no" title="statement not covered" >old.responseset?.map(<span class="fstat-no" title="function not covered" >(r</span>esp) =&gt; {</span>
+            const newScore = <span class="cstat-no" title="statement not covered" >scoreMap.get(resp.question._id as string);</span>
+<span class="cstat-no" title="statement not covered" >            return newScore !== undefined ? { ...resp, score: newScore } : resp;</span>
+          });
+&nbsp;
+          const newTotalScore =
+<span class="cstat-no" title="statement not covered" >            updatedResponseSet?.reduce(</span>
+<span class="fstat-no" title="function not covered" >              (s</span>um, resp) =&gt; <span class="cstat-no" title="statement not covered" >sum + ((resp.score as number) || 0),</span>
+              0,
+            ) || 0;
+&nbsp;
+<span class="cstat-no" title="statement not covered" >          return {</span>
+            ...old,
+            responseset: updatedResponseSet,
+            totalScore: newTotalScore,
+          };
+        },
+      );
+&nbsp;
+      const res = await ApiRequest({
+        url: `/response/update-score`,
+        method: "PUT",
+        data: {
+          responseId,
+          scores: scoresArray,
+        },
+        cookie: true,
+      });
+&nbsp;
+      if (res.success) {
+        SuccessToast({
+          title: "Success",
+          content: `All ${pendingCount} score(s) saved successfully`,
+        });
+        setPendingScores({});
+        setHasUnsavedChanges(false);
+&nbsp;
+        queryClient.invalidateQueries({
+          queryKey: ["responseDetails", responseId],
+        });
+      } else {
+        throw new Error(res.message || <span class="branch-1 cbranch-no" title="branch not covered" >"Failed to save scores")</span>;
+      }
+    } catch (error) {
+      queryClient.invalidateQueries({
+        queryKey: ["responseDetails", responseId],
+      });
+&nbsp;
+      ErrorToast({
+        title: "Error",
+        content:
+          error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >"Failed to save scores",</span>
+      });
+    } finally {
+      setIsBatchSaving(false);
+    }
+  }, [selectedResponse, responseId, pendingScores, queryClient, formId]);
+&nbsp;
+  // Cleanup debounce timers on unmount
+  useEffect(() =&gt; {
+    const saveTimers = saveTimeoutRef.current;
+    const autoSaveTimer = autoSaveTimeoutRef.current;
+&nbsp;
+    return () =&gt; {
+      Object.values(saveTimers).forEach(clearTimeout);
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (autoSaveTimer) {
+<span class="cstat-no" title="statement not covered" >        clearTimeout(autoSaveTimer);</span>
+      }
+    };
+  }, []);
+&nbsp;
+  const isSavingScores = updateQuestionScoreMutation.isPending || isBatchSaving;
+&nbsp;
+  return {
+    hasUnsavedChanges,
+    pendingScores,
+    isSavingScores,
+    handleQuestionScoreUpdate,
+    handleSaveAllScores,
+  };
 };
 &nbsp;</pre></td></tr></table></pre>
 
