@@ -14,10 +14,21 @@ export default {
     ],
   },
   setupFilesAfterEnv: ["<rootDir>/src/_test_/setupTests.tsx"],
-  testMatch: ["**/?(*.)+(spec|test).[tj]s?(x)"],
+  roots: ["<rootDir>/src"],
+  testMatch: [
+    "**/__tests__/**/*.[jt]s?(x)",
+    "**/_test_/**/*.[jt]s?(x)",
+    "**/?(*.)+(spec|test).[jt]s?(x)",
+  ],
+  testPathIgnorePatterns: [
+    "/node_modules/",
+    "<rootDir>/src/_test_/setupTests.tsx",
+    "<rootDir>/src/_test_/jestSetup.js",
+    "<rootDir>/src/_test_/__mocks__/",
+  ],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
   moduleNameMapper: {
-    "\\.(css|less|sass|scss)$": "identity-obj-proxy",
+    "\\.(css|less|sass|scss)$": "<rootDir>/src/_test_/__mocks__/styleMock.js",
     "^.+\\.svg$": "jest-transformer-svg",
     // Stub modules that use import.meta.env (not compatible with Jest CJS runtime)
     "^.*APIHook/ApiHook.*$": "<rootDir>/src/_test_/__mocks__/ApiHook.ts",

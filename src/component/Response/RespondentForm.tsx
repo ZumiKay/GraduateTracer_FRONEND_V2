@@ -1,12 +1,5 @@
 import "./RespondentForm.css";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  memo,
-  lazy,
-  useContext,
-} from "react";
+import React, { useCallback, useEffect, useMemo, memo, lazy, useContext } from "react";
 import { Alert, Spinner } from "@heroui/react";
 import { useDispatch } from "react-redux";
 import {
@@ -19,10 +12,7 @@ import { UseRespondentFormPaginationReturn } from "./hooks/usePaginatedFormData"
 import { RespondentInfoType } from "./Response.type";
 import { useFormResponses, ResponseValue } from "./hooks/useFormResponses";
 import { useProgressStorage } from "./hooks/useProgressStorage";
-import {
-  useFormSubmission,
-  useSendResponseCopy,
-} from "./hooks/useFormSubmission";
+import { useFormSubmission, useSendResponseCopy } from "./hooks/useFormSubmission";
 import { setopenmodal } from "../../redux/openmodal";
 import { generateStorageKey } from "../../helperFunc";
 import { SubmissionSuccessView } from "./components/SubmissionSuccessView";
@@ -94,7 +84,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       canGoNext,
       canGoPrev,
       totalPages,
-    } = data;
+    } = data ?? ({} as UseRespondentFormPaginationReturn);
 
     const isPreviewMode = isPreview || Boolean(formState?.isPreview);
 
@@ -106,16 +96,8 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       [formState?.contents],
     ) as ContentType<unknown>[];
 
-    const {
-      responses,
-      updateResponse,
-      checkIfQuestionShouldShow,
-      clearProgressState,
-    } = useFormResponses(
-      questions,
-      formState?._id as string,
-      formSessionInfo.respondentEmail,
-    );
+    const { responses, updateResponse, checkIfQuestionShouldShow, clearProgressState } =
+      useFormResponses(questions, formState?._id as string, formSessionInfo.respondentEmail);
 
     const progressStorageKey = useMemo(() => {
       if (!formState?._id) return null;
@@ -126,53 +108,38 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       });
     }, [formState?._id, formSessionInfo.respondentEmail]);
 
-    const {
-      submitting,
-      error,
-      success,
-      setSuccess,
-      submissionResult,
-      handleSubmit,
-    } = useFormSubmission({
-      formId: formState?._id,
-      formType: formState?.type as FormTypeEnumImport | undefined,
-      progressStorageKey,
-      questions,
-      responses,
-      checkIfQuestionShouldShow: checkIfQuestionShouldShow as never,
-      validateForm: formState as never,
-      respondentInfo: formSessionInfo,
-      clearProgressState,
-    });
+    const { submitting, error, success, setSuccess, submissionResult, handleSubmit } =
+      useFormSubmission({
+        formId: formState?._id,
+        formType: formState?.type as FormTypeEnumImport | undefined,
+        progressStorageKey,
+        questions,
+        responses,
+        checkIfQuestionShouldShow: checkIfQuestionShouldShow as never,
+        validateForm: formState as never,
+        respondentInfo: formSessionInfo,
+        clearProgressState,
+      });
 
-    const {
-      progressLoaded,
-      setProgressLoaded,
-      saveProgressToStorage,
-      loadProgressFromStorage,
-    } = useProgressStorage({
-      formId: formState?._id,
-      respondentEmail: formSessionInfo.respondentEmail,
-      responses,
-      currentPage: currentPage ?? 1,
-      formSessionInfo,
-      success,
-      accessMode,
-      isUserActive,
-      submitting,
-      isPreview: isPreviewMode,
-    });
+    const { progressLoaded, setProgressLoaded, saveProgressToStorage, loadProgressFromStorage } =
+      useProgressStorage({
+        formId: formState?._id,
+        respondentEmail: formSessionInfo.respondentEmail,
+        responses,
+        currentPage: currentPage ?? 1,
+        formSessionInfo,
+        success,
+        accessMode,
+        isUserActive,
+        submitting,
+        isPreview: isPreviewMode,
+      });
 
     const scoreData = useMemo(() => {
-      return (
-        submissionResult ?? formState?.submittedResult ?? formState?.isResponsed
-      );
+      return submissionResult ?? formState?.submittedResult ?? formState?.isResponsed;
     }, [formState?.isResponsed, formState?.submittedResult, submissionResult]);
 
-    const sendResponse = useSendResponseCopy(
-      scoreData?.responseId,
-      scoreData?.respondentEmail,
-    );
+    const sendResponse = useSendResponseCopy(scoreData?.responseId, scoreData?.respondentEmail);
 
     // Check if the user already responded
     useEffect(() => {
@@ -185,7 +152,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     useEffect(() => {
       if (questions.length > 0 && formState?._id) {
         const questionsWithoutIds = questions.filter((q) => !q._id);
-        if (questionsWithoutIds.length > 0) {
+        if (questionsWithoutIds.length > 0 || !goToPage) {
           return;
         }
 
@@ -195,12 +162,9 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         }
 
         const timer = setTimeout(() => {
-          const loaded = loadProgressFromStorage(
-            updateResponse,
-            goToPage,
-            data.goToPage,
-          );
-          if (loaded && import.meta.env.DEV) {
+          const loaded = loadProgressFromStorage(updateResponse, goToPage, data?.goToPage as never);
+          //?use globalThis to avoid error in jest testing
+          if (loaded && (globalThis as any).process?.env?.NODE_ENV !== "production") {
             console.log("Progress successfully restored from localStorage");
           } else {
             setProgressLoaded(true);
@@ -208,7 +172,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
         }, 50);
 
         return () => clearTimeout(timer);
-      } else if (import.meta.env.DEV) {
+      } else if ((globalThis as any).process?.env?.NODE_ENV !== "production") {
         console.log("Cannot initialize - missing questions or form ID:", {
           questionsLength: questions.length,
           formId: formState?._id,
@@ -230,18 +194,9 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       if (formState?.setting) {
         const root = document.documentElement;
         root.style.setProperty("--form-bg", formState.setting.bg || "#ffffff");
-        root.style.setProperty(
-          "--form-text",
-          formState.setting.text || "#000000",
-        );
-        root.style.setProperty(
-          "--form-navbar",
-          formState.setting.navbar || "#f5f5f5",
-        );
-        root.style.setProperty(
-          "--form-qcolor",
-          formState.setting.qcolor || "#e5e7eb",
-        );
+        root.style.setProperty("--form-text", formState.setting.text || "#000000");
+        root.style.setProperty("--form-navbar", formState.setting.navbar || "#f5f5f5");
+        root.style.setProperty("--form-qcolor", formState.setting.qcolor || "#e5e7eb");
       }
 
       return () => {
@@ -265,10 +220,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       });
     }, [questions, checkIfQuestionShouldShow, responses]);
 
-    const currentQuestions = useMemo(
-      () => getCurrentPageQuestions(),
-      [getCurrentPageQuestions],
-    );
+    const currentQuestions = useMemo(() => getCurrentPageQuestions(), [getCurrentPageQuestions]);
     const currentPageComplete = true;
 
     const withSessionCheck = useCallback(
@@ -286,6 +238,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     const handlePageChange = useCallback(
       (newPage: number) => {
+        if (!goToPage) return;
         const proceed = async () => {
           await withSessionCheck(() => {
             saveProgressToStorage({ currentPage: newPage });
@@ -315,13 +268,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
         proceed();
       },
-      [
-        currentPageComplete,
-        saveProgressToStorage,
-        goToPage,
-        dispatch,
-        withSessionCheck,
-      ],
+      [currentPageComplete, saveProgressToStorage, goToPage, dispatch, withSessionCheck],
     );
 
     // Navigation handlers with session check
@@ -329,19 +276,12 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       if (canGoNext && currentPage) {
         await withSessionCheck(() => {
           saveProgressToStorage({
-            currentPage: currentPage < totalPages ? currentPage + 1 : 1,
+            currentPage: currentPage < (totalPages ?? 0) ? currentPage + 1 : 1,
           });
-          handlePage("next");
+          handlePage?.("next");
         });
       }
-    }, [
-      canGoNext,
-      currentPage,
-      saveProgressToStorage,
-      totalPages,
-      handlePage,
-      withSessionCheck,
-    ]);
+    }, [canGoNext, currentPage, saveProgressToStorage, totalPages, handlePage, withSessionCheck]);
 
     const handlePrevious = useCallback(async () => {
       if (canGoPrev && currentPage) {
@@ -349,16 +289,10 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           saveProgressToStorage({
             currentPage: currentPage === 1 ? 1 : currentPage - 1,
           });
-          handlePage("prev");
+          handlePage?.("prev");
         });
       }
-    }, [
-      canGoPrev,
-      currentPage,
-      handlePage,
-      saveProgressToStorage,
-      withSessionCheck,
-    ]);
+    }, [canGoPrev, currentPage, handlePage, saveProgressToStorage, withSessionCheck]);
 
     const handleQuestionAnswer = useCallback(
       (questionId: string, answer: Pick<AnswerKey, "answer">) => {
@@ -393,10 +327,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
               }
               break;
             case QuestionType.Number:
-              if (
-                typeof answer.answer === "string" &&
-                !isNaN(Number(answer.answer))
-              ) {
+              if (typeof answer.answer === "string" && !isNaN(Number(answer.answer))) {
                 processedValue = Number(answer.answer);
               }
               break;
@@ -407,8 +338,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
                 processedValue = answer.answer;
               } else if (
                 typeof answer.answer === "number" ||
-                (typeof answer.answer === "string" &&
-                  !isNaN(Number(answer.answer)))
+                (typeof answer.answer === "string" && !isNaN(Number(answer.answer)))
               ) {
                 processedValue = [Number(answer.answer)];
               }
@@ -467,10 +397,15 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       );
     }
 
-    if (formError && !formState) {
+    if (formError || !formState) {
       return (
         <div className="max-w-2xl mx-auto p-6">
-          <Alert color="danger" title="Error" aria-label="Form loading error">
+          <Alert
+            data-testid="erroralert"
+            color="danger"
+            title="Error"
+            aria-label="Form loading error"
+          >
             {formError?.message || "An error occurred while loading the form"}
           </Alert>
         </div>
@@ -479,7 +414,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     if (formState && formState?.setting?.acceptResponses === false) {
       return (
-        <div className="max-w-2xl mx-auto p-6 respondent-form">
+        <div data-testid="closeFormState" className="max-w-2xl mx-auto p-6 respondent-form">
           <FormStateCard
             type="closed"
             icon="🚫"
@@ -514,8 +449,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
               <div className="flex items-center gap-2">
                 <span className="font-medium">Session Inactive</span>
                 <span className="text-sm">
-                  Your progress is not being saved. Please reactivate your
-                  session to continue.
+                  Your progress is not being saved. Please reactivate your session to continue.
                 </span>
               </div>
             </div>
@@ -543,26 +477,22 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           <FormHeader
             title={formState.title}
             currentPage={currentPage ?? 1}
-            totalPages={totalPages}
+            totalPages={totalPages ?? 1}
           />
 
           {formState._id &&
             currentPage === 1 &&
             formSessionInfo?.respondentEmail &&
-            formState.setting?.email && (
-              <RespondentInfo respondentInfo={formSessionInfo} />
-            )}
+            formState.setting?.email && <RespondentInfo respondentInfo={formSessionInfo} />}
 
-          <div className="space-y-6">
+          <div data-testid="questions" className="space-y-6">
             {currentQuestions.map((question, index) => (
               <QuestionRenderer
                 key={question._id}
                 question={question}
                 index={index}
                 questions={questions}
-                currentResponse={responses.find(
-                  (r) => r.question === question._id,
-                )}
+                currentResponse={responses.find((r) => r.question === question._id)}
                 formQColor={formState.setting?.qcolor}
                 onAnswer={handleQuestionAnswer}
                 updateResponse={updateResponse as never}
@@ -571,11 +501,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           </div>
 
           {error && (
-            <Alert
-              color="danger"
-              className="mt-4"
-              aria-label="Form submission error"
-            >
+            <Alert color="danger" className="mt-4" aria-label="Form submission error">
               {error}
             </Alert>
           )}

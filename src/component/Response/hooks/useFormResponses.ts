@@ -30,11 +30,7 @@ export type ResponseValue =
  * @param userKey
  * @returns object
  */
-export const useFormResponses = (
-  questions: ContentType[],
-  formId: string,
-  userKey?: string,
-) => {
+export const useFormResponses = (questions: ContentType[], formId: string, userKey?: string) => {
   const [responses, setResponses] = useState<FormResponse[]>([]);
 
   const questionsMap = useMemo(() => {
@@ -45,24 +41,21 @@ export const useFormResponses = (
     return map;
   }, [questions]);
 
-  const isEmptyResponse = useCallback(
-    (response: ResponseValue | null | undefined): boolean => {
-      if (response === null || response === undefined || response === "") {
-        return true;
-      }
-      if (Array.isArray(response)) {
-        return response.length === 0;
-      }
-      // Handle {key, val} object format (checkbox/choice responses)
-      if (typeof response === "object" && "key" in (response as object)) {
-        const key = (response as { key: number | number[] }).key;
-        if (Array.isArray(key)) return key.length === 0;
-        return key === null || key === undefined;
-      }
-      return false;
-    },
-    [],
-  );
+  const isEmptyResponse = useCallback((response: ResponseValue | null | undefined): boolean => {
+    if (response === null || response === undefined || response === "") {
+      return true;
+    }
+    if (Array.isArray(response)) {
+      return response.length === 0;
+    }
+    // Handle {key, val} object format (checkbox/choice responses)
+    if (typeof response === "object" && "key" in (response as object)) {
+      const key = (response as { key: number | number[] }).key;
+      if (Array.isArray(key)) return key.length === 0;
+      return key === null || key === undefined;
+    }
+    return false;
+  }, []);
 
   const checkIfQuestionShouldShow = useCallback(
     (
@@ -74,9 +67,7 @@ export const useFormResponses = (
         return true;
       }
 
-      const parentQuestion = questionsMap.get(
-        question.parentcontent?.qId || "",
-      );
+      const parentQuestion = questionsMap.get(question.parentcontent?.qId || "");
 
       if (!parentQuestion) {
         return false;
@@ -88,9 +79,7 @@ export const useFormResponses = (
       if (responseList instanceof Map) {
         parentResponse = responseList.get(parentQuestion._id ?? "");
       } else {
-        const found = responseList.find(
-          (r) => r.question === parentQuestion._id,
-        );
+        const found = responseList.find((r) => r.question === parentQuestion._id);
         parentResponse = found?.response;
       }
 
@@ -108,9 +97,7 @@ export const useFormResponses = (
 
         if (Array.isArray(parentResponse)) {
           return (parentResponse as (number | string)[]).some((v) =>
-            typeof v === "number"
-              ? v === expectedAnswerNum
-              : Number(v) === expectedAnswerNum,
+            typeof v === "number" ? v === expectedAnswerNum : Number(v) === expectedAnswerNum,
           );
         }
 
@@ -121,11 +108,13 @@ export const useFormResponses = (
         return false;
       }
 
-      if (parentQuestion.type === QuestionType.CheckBox || parentQuestion.type === QuestionType.MultipleSelection) {
+      if (
+        parentQuestion.type === QuestionType.CheckBox ||
+        parentQuestion.type === QuestionType.MultipleSelection
+      ) {
         let selectedIndices: number[] = [];
 
-        let normalizedResponse: ResponseValue | null | undefined =
-          parentResponse;
+        let normalizedResponse: ResponseValue | null | undefined = parentResponse;
         if (
           parentResponse !== null &&
           parentResponse !== undefined &&
@@ -144,9 +133,9 @@ export const useFormResponses = (
           ) as number[];
 
           if (selectedIndices.length === 0) {
-            const stringValues = (
-              normalizedResponse as (number | string)[]
-            ).filter((val) => typeof val === "string") as string[];
+            const stringValues = (normalizedResponse as (number | string)[]).filter(
+              (val) => typeof val === "string",
+            ) as string[];
             return stringValues.includes(String(expectedAnswer));
           }
         } else if (typeof normalizedResponse === "number") {
@@ -183,9 +172,7 @@ export const useFormResponses = (
 
         toUpdateData = {
           ...toUpdateData,
-          responses: toUpdateData.responses.filter(
-            (q) => q.question !== question,
-          ),
+          responses: toUpdateData.responses.filter((q) => q.question !== question),
         };
 
         localStorage.setItem(storageKey, JSON.stringify(toUpdateData));
@@ -196,9 +183,7 @@ export const useFormResponses = (
 
   const updateResponse = useCallback(
     (
-      questionIdOrUpdates:
-        | string
-        | Array<{ question: string; response: ResponseValue }>,
+      questionIdOrUpdates: string | Array<{ question: string; response: ResponseValue }>,
       value?: ResponseValue,
     ) => {
       setResponses((prev) => {
@@ -227,18 +212,12 @@ export const useFormResponses = (
             // Skip update if invalid question
             if (!isQuestion) return;
 
-            const existingIndex = updated.findIndex(
-              (i) => i.question === question,
-            );
+            const existingIndex = updated.findIndex((i) => i.question === question);
 
             if (existingIndex !== -1) {
               // Update existing response
 
-              if (
-                updateValue === "" ||
-                updateValue === null ||
-                updateValue === undefined
-              ) {
+              if (updateValue === "" || updateValue === null || updateValue === undefined) {
                 updated.splice(existingIndex, 1);
                 //Remove from storage
                 RemoveSavedQuestion(question);
@@ -262,9 +241,7 @@ export const useFormResponses = (
           // Skip update if invalid question or no value provided
           if (!isQuestion || value === undefined) return prev;
 
-          const existingIndex = updated.findIndex(
-            (i) => i.question === questionId,
-          );
+          const existingIndex = updated.findIndex((i) => i.question === questionId);
 
           if (existingIndex !== -1) {
             // If value is undefined or empty, delete the response
@@ -287,9 +264,7 @@ export const useFormResponses = (
           }
         }
 
-        const handleConditionalUpdates = (
-          responses: FormResponse[],
-        ): FormResponse[] => {
+        const handleConditionalUpdates = (responses: FormResponse[]): FormResponse[] => {
           let hasChanges = false;
           const updatedResponses: FormResponse[] = [];
 

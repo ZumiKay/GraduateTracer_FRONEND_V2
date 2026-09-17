@@ -64,13 +64,9 @@ export const FormStateCard: React.FC<FormStateCardProps> = ({
     <Card className={getCardClass()}>
       <CardBody className="text-center p-8">
         <div className="text-6xl mb-4">{icon}</div>
-        <h2 className={`text-2xl font-bold mb-4 ${getTitleClass()}`}>
-          {title}
-        </h2>
+        <h2 className={`text-2xl font-bold mb-4 ${getTitleClass()}`}>{title}</h2>
         <p className={`mb-4 ${getTextClass()}`}>{message}</p>
-        {subMessage && (
-          <p className={`text-sm ${getSubTextClass()}`}>{subMessage}</p>
-        )}
+        {subMessage && <p className={`text-sm ${getSubTextClass()}`}>{subMessage}</p>}
       </CardBody>
     </Card>
   );

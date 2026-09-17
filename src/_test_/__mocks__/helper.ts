@@ -1,8 +1,8 @@
-import { AxiosInstance, AxiosResponse } from "axios";
-import {
-  ApiRequestProps,
-  ApiRequestReturnType,
-} from "../../hooks/APIHook/ApiHook";
+import { AxiosResponse } from "axios";
+import { ApiRequestProps, ApiRequestReturnType } from "../../hooks/APIHook/ApiHook";
+import SessionContext, { SessionContextType } from "../../context/SessionContext";
+import { render } from "@testing-library/react";
+import React, { FunctionComponent } from "react";
 
 // Mock localStorage
 export const localStorageMock = (() => {
@@ -28,9 +28,7 @@ export const ApiRequestMock = ({
   throwError,
 }: ApiRequestProps): Promise<ApiRequestReturnType> => {
   if (returnawait) {
-    return new Promise(
-      jest.fn().mockReturnThis(),
-    ) as Promise<ApiRequestReturnType>;
+    return new Promise(jest.fn().mockReturnThis()) as Promise<ApiRequestReturnType>;
   }
 
   const response = jest.fn() as unknown as AxiosResponse;
@@ -53,3 +51,20 @@ export const ApiRequestMock = ({
     reactQuery,
   } as never;
 };
+
+/*
+ * Render with session provider to use as mocked context
+ * */
+export function renderWithMockedSession<t = Record<string, unknown>>(
+  component: FunctionComponent,
+  componentProps: t,
+  mockedSessionContext: SessionContextType,
+) {
+  return render(
+    React.createElement(
+      SessionContext.Provider,
+      { value: mockedSessionContext },
+      React.createElement(component, componentProps as never),
+    ),
+  );
+}

@@ -1,19 +1,5 @@
-import React, {
-  useEffect,
-  useCallback,
-  useMemo,
-  useReducer,
-  useState,
-} from "react";
-import {
-  Button,
-  Alert,
-  Spinner,
-  Card,
-  CardHeader,
-  CardBody,
-  Chip,
-} from "@heroui/react";
+import React, { useEffect, useCallback, useMemo, useReducer, useState } from "react";
+import { Button, Alert, Spinner, Card, CardHeader, CardBody, Chip } from "@heroui/react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ErrorToast } from "../Modal/AlertModal";
 import SuccessToast from "../Modal/AlertModal";
@@ -45,15 +31,13 @@ import { SubmissionSuccessView } from "./components/SubmissionSuccessView";
 import { useSendResponseCopy } from "./hooks/useFormSubmission";
 import queryClient from "../../hooks/ReactQueryClient";
 
-export type PublicFormAccessProps = Record<string, never>;
-
 const initialFormState: FormState = {
   accessMode: "login",
   showGuestForm: false,
   loginData: { email: "", password: "", rememberMe: false },
 };
 
-const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
+const PublicFormAccess = () => {
   const { formId } = useParams<{ formId: string; token: string }>();
   const user = useSelector((root: RootState) => root.usersession);
   const navigate = useNavigate();
@@ -84,12 +68,9 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     allowPaginationLoading: false,
   });
 
-  const { respondentLogin, useSessionVerification, signOut, error } =
-    useFormsessionAPI();
+  const { respondentLogin, useSessionVerification, signOut, error } = useFormsessionAPI();
 
-  const manuallyCheckSession = useSessionVerification(formId, () =>
-    setShowExpiredAlert(true),
-  );
+  const manuallyCheckSession = useSessionVerification(formId, () => setShowExpiredAlert(true));
 
   const formDataEnabled = Boolean(isInitialized && formId);
   const formReqData = useRespondentFormPaginaition({
@@ -113,11 +94,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
 
         const isAuthenticated = state.isAuthenticated || !state.setting?.email;
 
-        if (
-          isAuthenticated &&
-          !state.setting?.email &&
-          !formState.formsession?.isActive
-        ) {
+        if (isAuthenticated && !state.setting?.email && !formState.formsession?.isActive) {
           dispatch({ type: "SET_FORMSESSION", payload: { isActive: true } });
         }
 
@@ -134,12 +111,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
         }
       }
     }
-  }, [
-    formReqData,
-    formState.accessMode,
-    formState.formsession?.isActive,
-    isInitialized,
-  ]);
+  }, [formReqData, formState.accessMode, formState.formsession?.isActive, isInitialized]);
 
   useEffect(() => {
     const currentTime = Date.now();
@@ -154,11 +126,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
           allowPaginationLoading: false,
         }));
       }
-    } else if (
-      formReqData.isFetching &&
-      isInitialized &&
-      !loadingState.allowPaginationLoading
-    ) {
+    } else if (formReqData.isFetching && isInitialized && !loadingState.allowPaginationLoading) {
       if (loadingState.phase !== "loading-form") {
         setLoadingState((prev) => ({
           ...prev,
@@ -206,9 +174,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     (
       sessionOrUpdater:
         | Partial<RespondentSessionType>
-        | ((
-            prev: Partial<RespondentSessionType> | undefined,
-          ) => Partial<RespondentSessionType>),
+        | ((prev: Partial<RespondentSessionType> | undefined) => Partial<RespondentSessionType>),
     ) => {
       if (typeof sessionOrUpdater === "function") {
         const currentSession = formState.formsession;
@@ -226,8 +192,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     formsession: formState.formsession,
     setformsession: setFormsessionStable as never,
     onAutoSignOut: () => handleSwitchUser,
-    isFormRequiredSessionChecked:
-      formReqData.isFormRequiredSessionChecked ?? false,
+    isFormRequiredSessionChecked: formReqData.isFormRequiredSessionChecked ?? false,
   });
 
   const inactivityWarning = useInactivityWarning({
@@ -249,18 +214,13 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       formId,
       userKey: formState.formsession.respondentinfo.respondentEmail,
     });
-  }, [
-    formId,
-    formState.accessMode,
-    formState.formsession?.respondentinfo?.respondentEmail,
-  ]);
+  }, [formId, formState.accessMode, formState.formsession?.respondentinfo?.respondentEmail]);
 
   const handleLogin = useCallback(
     async (e?: SubmitEvent, additional?: { existed: "1" }) => {
       e?.preventDefault();
       if (!formId) return;
-      const { rememberMe, email, name, password, isGuest } =
-        formState.loginData;
+      const { rememberMe, email, name, password, isGuest } = formState.loginData;
 
       respondentLogin.mutate(
         {
@@ -281,9 +241,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
               isActive: true,
               expiresAt,
               respondentinfo: {
-                respondentEmail: additional?.existed
-                  ? (user.user?.email ?? "")
-                  : email,
+                respondentEmail: additional?.existed ? (user.user?.email ?? "") : email,
                 respondentName: name || undefined,
                 isGuest,
                 expiresAt,
@@ -377,13 +335,8 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
 
   const alreadyRespondedData = useMemo(
     () =>
-      formReqData.formState?.setting?.submitonce
-        ? formReqData.formState?.isResponsed
-        : undefined,
-    [
-      formReqData.formState?.isResponsed,
-      formReqData.formState?.setting?.submitonce,
-    ],
+      formReqData.formState?.setting?.submitonce ? formReqData.formState?.isResponsed : undefined,
+    [formReqData.formState?.isResponsed, formReqData.formState?.setting?.submitonce],
   );
 
   const sendResponseCopy = useSendResponseCopy(
@@ -395,10 +348,8 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     () => ({
       data: formReqData,
       userId: user.user?._id,
-      formSessionInfo:
-        formState.formsession?.respondentinfo || ({} as RespondentInfoType),
-      accessMode:
-        formState.accessMode === "error" ? "login" : formState.accessMode,
+      formSessionInfo: formState.formsession?.respondentinfo || ({} as RespondentInfoType),
+      accessMode: formState.accessMode === "error" ? "login" : formState.accessMode,
       isUserActive: formState.formsession?.isActive,
       isLoading: loadingState.isLoading,
     }),
@@ -419,9 +370,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
     (contentValidation?.errors?.length ?? 0) > 0;
 
   const genericErrorMessage =
-    formReqData.error instanceof Error
-      ? formReqData.error.message
-      : "Failed to load form";
+    formReqData.error instanceof Error ? formReqData.error.message : "Failed to load form";
 
   const errorsByPage = useMemo(() => {
     if (!hasContentErrors || !contentValidation?.errors) return {};
@@ -446,9 +395,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
           <Spinner size="lg" />
-          <p className="mt-4 text-gray-600">
-            {loadingMessages[loadingState.phase]}
-          </p>
+          <p className="mt-4 text-gray-600">{loadingMessages[loadingState.phase]}</p>
         </div>
       </div>
     );
@@ -456,7 +403,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
 
   if (formState.accessMode === "error") {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-200">
+      <div className="flex justify-center items-center min-h-screen bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-200 border border-red-200">
         <Card className="w-full max-w-xl shadow-2xl border border-red-200/80 dark:border-red-900/40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md overflow-hidden rounded-2xl">
           {/* Top Accent Line */}
           <div className="h-1.5 bg-gradient-to-r from-red-500 via-rose-500 to-amber-500 w-full" />
@@ -481,9 +428,7 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
             </div>
 
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-              {hasContentErrors
-                ? "Form Configuration Error"
-                : "Unable to Access Form"}
+              {hasContentErrors ? "Form Configuration Error" : "Unable to Access Form"}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-md">
               {hasContentErrors
@@ -514,16 +459,9 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
                       Validation Issues Detected
                     </span>
                   </div>
-                  <Chip
-                    size="sm"
-                    color="danger"
-                    variant="flat"
-                    className="font-medium"
-                  >
+                  <Chip size="sm" color="danger" variant="flat" className="font-medium">
                     {contentValidation!.errors!.length}{" "}
-                    {contentValidation!.errors!.length === 1
-                      ? "Issue"
-                      : "Issues"}
+                    {contentValidation!.errors!.length === 1 ? "Issue" : "Issues"}
                   </Chip>
                 </div>
 
@@ -541,22 +479,19 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
                         </Chip>
                       </div>
                       <div className="space-y-2 pt-1">
-                        {(pageErrors as ErrorValidataionPropsType[]).map(
-                          (err, idx) => (
-                            <div
-                              key={`${err.questionId || err._id || idx}-${idx}`}
-                              className="flex items-start gap-3 p-2.5 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-red-100 dark:border-red-950 shadow-xs"
-                            >
-                              <span className="flex-shrink-0 px-2 py-0.5 rounded bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 text-xs font-mono font-bold">
-                                Q{err.qIdx !== undefined ? err.qIdx : "?"}
-                              </span>
-                              <span className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-relaxed">
-                                {err.message?.message ||
-                                  "Invalid question setup"}
-                              </span>
-                            </div>
-                          ),
-                        )}
+                        {(pageErrors as ErrorValidataionPropsType[]).map((err, idx) => (
+                          <div
+                            key={`${err.questionId || err._id || idx}-${idx}`}
+                            className="flex items-start gap-3 p-2.5 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-red-100 dark:border-red-950 shadow-xs"
+                          >
+                            <span className="flex-shrink-0 px-2 py-0.5 rounded bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 text-xs font-mono font-bold">
+                              Q{err.qIdx !== undefined ? err.qIdx : "?"}
+                            </span>
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-relaxed">
+                              {err.message?.message || "Invalid question setup"}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -643,20 +578,19 @@ const PublicFormAccess: React.FC<PublicFormAccessProps> = () => {
 
         <div className="w-full min-h-screen">
           <title>{formReqData.formState?.title ?? "Form"}</title>
-          {!inactivityWarning.showWarning &&
-            formReqData.formState?.setting?.email && (
-              <div className="fixed top-4 right-4 z-10">
-                <Button
-                  variant="light"
-                  size="sm"
-                  onPress={handleSwitchUser}
-                  className="bg-white shadow-md dark:bg-gray-700 dark:text-white font-bold"
-                  isLoading={signOut.isPending}
-                >
-                  Switch user
-                </Button>
-              </div>
-            )}
+          {!inactivityWarning.showWarning && formReqData.formState?.setting?.email && (
+            <div className="fixed top-4 right-4 z-10">
+              <Button
+                variant="light"
+                size="sm"
+                onPress={handleSwitchUser}
+                className="bg-white shadow-md dark:bg-gray-700 dark:text-white font-bold"
+                isLoading={signOut.isPending}
+              >
+                Switch user
+              </Button>
+            </div>
+          )}
 
           {isInitialized &&
             (alreadyRespondedData ? (
