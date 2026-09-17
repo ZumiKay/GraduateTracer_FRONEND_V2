@@ -4,7 +4,6 @@
 
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { FormResponse } from "../component/Response";
 import {
   GetFormStateResponseType,
   UseRespondentFormPaginationReturn,
@@ -187,15 +186,6 @@ const sampleQuestionsData: Array<ContentType> = [
   },
 ];
 
-const sampleResponse: Array<FormResponse> = [
-  {
-    question: "q1",
-    response: new Date(),
-  },
-  { question: "q2", response: 3 },
-  { question: "q3", response: "Gaeho yaho" },
-];
-
 const formSessionInfoSample: RespondentInfoType = {
   respondentEmail: "testUser@example.com",
   respondentName: "testUser",
@@ -208,16 +198,6 @@ const SampleFormData: GetFormStateResponseType = {
   totalpage: 1,
   contentIds: sampleQuestionsData.map((i) => i._id as string),
   contents: sampleQuestionsData,
-};
-
-const SampleStorageData: SaveProgressType = {
-  currentPage: 1,
-  responses: [],
-  respondentInfo: formSessionInfoSample,
-  timestamp: new Date().toISOString(),
-  formId: "uniqueFormId",
-  version: "1.0",
-  startedAt: new Date().toISOString(),
 };
 
 const UseRespondentFormPaginationReturnSampleData: UseRespondentFormPaginationReturn = {

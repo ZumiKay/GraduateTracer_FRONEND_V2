@@ -65,7 +65,7 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
   const queryClient = useQueryClient();
   const hasFormAccess = isOwner || isCreator;
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
-  const alertRef = useRef<number>();
+  const alertRef = useRef<ReturnType<typeof setTimeout> | number | undefined>(undefined);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");

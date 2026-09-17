@@ -31,7 +31,7 @@ export const SubmissionSuccessView: React.FC<SubmissionSuccessViewProps> = ({
     scoreData.maxScore > 0;
 
   const scorePercentage =
-    hasScore && scoreData.maxScore
+    hasScore && scoreData?.maxScore && typeof scoreData.totalScore === "number"
       ? Math.round((scoreData.totalScore / scoreData.maxScore) * 100)
       : null;
 

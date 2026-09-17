@@ -235,11 +235,11 @@ export const DateQuestionType = (props: AnswerComponent_Props<string>) => {
       <DatePicker
         size="lg"
         labelPlacement="outside-left"
-        value={value}
+        value={value as any}
         label={placeholder ?? "Date"}
         granularity="day"
         visibleMonths={2}
-        onChange={(val) => handleChange(val as DateValue)}
+        onChange={(val) => handleChange(val as any)}
         isDisabled={isDisable}
       />
     </div>
@@ -297,7 +297,7 @@ export const DateRangePickerQuestionType = ({
       <div className="flex flex-col gap-2 w-full">
         <div className="flex gap-4">
           <DatePicker
-            value={value?.start}
+            value={value?.start as any}
             label="Start Date"
             showMonthAndYearPickers
             hideTimeZone
@@ -307,7 +307,7 @@ export const DateRangePickerQuestionType = ({
             visibleMonths={2}
           />
           <DatePicker
-            value={value?.end}
+            value={value?.end as any}
             label="End Date"
             labelPlacement="outside"
             showMonthAndYearPickers

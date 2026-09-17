@@ -88,6 +88,8 @@ export interface FormDataType {
   currentPageTotalScores?: number;
   totalQuestions?: number;
   totalScores?: number;
+  totalScore?: number;
+  totalscore?: number;
   totalConditions?: number;
   extraScore?: number;
   dynamicTotalScore?: number;
