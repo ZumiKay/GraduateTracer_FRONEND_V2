@@ -21,7 +21,7 @@ interface StackItem {
   index: number;
   level: number;
   parentQuestion?: ContentType;
-  children?: JSX.Element[];
+  children?: React.JSX.Element[];
 }
 
 const QuestionStructure: React.FC<QuestionStructureProps> = ({
@@ -74,7 +74,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
           .reverse(), //Reverse to last one first
       ];
 
-      const processed = new Map<string, JSX.Element>();
+      const processed = new Map<string, React.JSX.Element>();
 
       //Loop through stack
       while (stack.length > 0) {
@@ -113,7 +113,7 @@ const QuestionStructure: React.FC<QuestionStructureProps> = ({
         }
 
         //Collecting child elements in order
-        const childrenElements: JSX.Element[] = [];
+        const childrenElements: React.JSX.Element[] = [];
         if (shouldRenderChildren) {
           const childs = question.children as Array<ContentType>;
           for (let i = 0; i < childs.length; i++) {

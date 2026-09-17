@@ -139,16 +139,16 @@ export const FilterModal: React.FC<FilterModalProps> = ({
             <DateRangePicker
               label="Select Date Range"
               value={
-                filterValue?.dateRange &&
+                (filterValue?.dateRange &&
                 filterValue.dateRange.start &&
                 filterValue.dateRange.end
                   ? {
                       start: filterValue.dateRange.start,
                       end: filterValue.dateRange.end,
                     }
-                  : null
+                  : null) as any
               }
-              onChange={(range) => {
+              onChange={(range: any) => {
                 handleChange({
                   name: "dateRange",
                   value: range || undefined,

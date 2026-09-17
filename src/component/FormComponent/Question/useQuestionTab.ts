@@ -63,8 +63,8 @@ export const useQuestionTab = () => {
   const { manualSave } = useImprovedAutoSave();
 
   const hasUnsavedQuestions = useMemo(
-    () => checkUnsavedQuestions(allQuestion, prevAllQuestion, page),
-    [allQuestion, prevAllQuestion, page],
+    () => checkUnsavedQuestions(allQuestion, prevAllQuestion),
+    [allQuestion, prevAllQuestion],
   );
 
   const questionColor = useMemo(

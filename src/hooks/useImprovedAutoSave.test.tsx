@@ -415,7 +415,7 @@ describe("useImprovedAutoSave", () => {
       unmount();
 
       const onlineListeners = removeSpy.mock.calls.filter(
-        ([event]) => event === "online" || event === "offline",
+        ([event]: [string, ...unknown[]]) => event === "online" || event === "offline",
       );
       expect(onlineListeners.length).toBeGreaterThanOrEqual(2);
 

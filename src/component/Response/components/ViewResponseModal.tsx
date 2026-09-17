@@ -223,7 +223,7 @@ const ViewResponseModal = React.memo<ViewResponseModalProps>(
       const email = selectedResponse.respondentEmail || "No email provided";
       const totalScore = selectedResponse.totalScore || 0;
       const submittedDate = selectedResponse.submittedAt
-        ? formatDate(selectedResponse.submittedAt)
+        ? formatDate(new Date(selectedResponse.submittedAt))
         : "Not yet submitted";
 
       return { displayName, email, totalScore, submittedDate };
