@@ -299,6 +299,17 @@ const FilledFormPage: React.FC = () => {
                           </Chip>
                         </motion.div>
                       )}
+                      {isQuiz && currentResponse?.totalScore === undefined && (
+                        <Chip
+                          color="warning"
+                          variant="flat"
+                          size="md"
+                          startContent={<FiClock className="w-4 h-4" />}
+                          className="px-3 py-1 font-medium text-sm"
+                        >
+                          Score Pending Review
+                        </Chip>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -479,7 +490,7 @@ const FilledFormPage: React.FC = () => {
                   </p>
                 </motion.div>
 
-                {isQuiz && (
+                {isQuiz && currentResponse?.totalScore !== undefined && (
                   <>
                     <motion.div
                       initial={{ scale: 0.8, opacity: 0 }}
@@ -580,6 +591,27 @@ const FilledFormPage: React.FC = () => {
                       </p>
                     </motion.div>
                   </>
+                )}
+
+                {isQuiz && currentResponse?.totalScore === undefined && (
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.2, type: "spring" }}
+                    className="sm:col-span-2 lg:col-span-3 text-center p-6 bg-amber-50 dark:bg-amber-900/20 rounded-xl border-2 border-amber-200 dark:border-amber-800"
+                  >
+                    <div className="flex justify-center mb-2">
+                      <div className="p-3 bg-amber-500 rounded-full text-white">
+                        <FiClock className="w-6 h-6" />
+                      </div>
+                    </div>
+                    <h4 className="text-lg font-bold text-amber-900 dark:text-amber-100">
+                      Score Pending Review
+                    </h4>
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                      The form owner will review and release your score after grading.
+                    </p>
+                  </motion.div>
                 )}
               </div>
             </CardBody>

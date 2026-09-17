@@ -40,6 +40,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import ApiRequest from "../../../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../../Modal/AlertModal";
+import { BatchScoreEditModal } from "./SimpleModal";
 
 const uniqueToastId = "ResponseTableUniqueErrorToastId";
 
@@ -56,6 +57,8 @@ interface ResponseTableProps {
   onEditScore: (response: ResponseListItem) => void;
   onDeleteResponse: (id: string) => void;
   onBulkDelete: (ids: string[]) => void;
+  onBatchUpdateScores?: (selectedIds: string[], newScore: number) => void;
+  isBatchUpdatingScores?: boolean;
   getStatusColor: (
     status: string,
   ) => "success" | "warning" | "danger" | "default";
@@ -209,6 +212,8 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
   onEditScore,
   onDeleteResponse,
   onBulkDelete,
+  onBatchUpdateScores,
+  isBatchUpdatingScores,
   getStatusColor,
   currentPage = 1,
   limit = 10,
@@ -235,6 +240,11 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
     isOpen: isReturnModalOpen,
     onOpen: onReturnModalOpen,
     onClose: onReturnModalClose,
+  } = useDisclosure();
+  const {
+    isOpen: isBatchScoreOpen,
+    onOpen: onBatchScoreOpen,
+    onClose: onBatchScoreClose,
   } = useDisclosure();
 
   const resetReturnState = () => setReturnState(defaultReturnState);
@@ -475,6 +485,17 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
                 startContent={<FiCornerUpLeft />}
               >
                 Return Selected
+              </Button>
+            )}
+            {isQuizForm && onBatchUpdateScores && (
+              <Button
+                color="secondary"
+                variant="flat"
+                size="sm"
+                onPress={onBatchScoreOpen}
+                startContent={<FiEdit3 />}
+              >
+                Update Scores ({selectedCount})
               </Button>
             )}
             <Button
@@ -806,6 +827,20 @@ const ResponseTable: React.FC<ResponseTableProps> = ({
           )}
         </ModalContent>
       </Modal>
+
+      {isQuizForm && onBatchUpdateScores && (
+        <BatchScoreEditModal
+          isOpen={isBatchScoreOpen}
+          onClose={onBatchScoreClose}
+          selectedCount={selectedCount}
+          onConfirm={(newScore) => {
+            const selectedIds = Array.from(selectedKeys) as string[];
+            onBatchUpdateScores(selectedIds, newScore);
+            onBatchScoreClose();
+          }}
+          isLoading={isBatchUpdatingScores || false}
+        />
+      )}
     </>
   );
 };

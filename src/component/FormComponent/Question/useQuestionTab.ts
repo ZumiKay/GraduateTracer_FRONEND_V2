@@ -214,17 +214,29 @@ export const useQuestionTab = () => {
       try {
         dispatch(
           setallquestion((prevQuestions) => {
-            const existingConditionals = targetQuestion.conditional || [];
-            const nextAvailableIdx = targetQuestion.qIdx + 1;
+            const currentQuestions =
+              prevQuestions && prevQuestions.length > 0
+                ? prevQuestions
+                : allQuestion;
+            const currentTarget =
+              currentQuestions[questionIdx] || targetQuestion;
+            const existingConditionals = currentTarget.conditional || [];
 
-            const newConditional = { contentIdx: questionIdx + 1, key: anskey };
+            const targetQIdx =
+              typeof currentTarget.qIdx === "number" && !isNaN(currentTarget.qIdx)
+                ? currentTarget.qIdx
+                : (formState.lastQuestionIdx ?? 0) + questionIdx + 1;
+
+            const nextAvailableIdx = targetQIdx + 1;
+
+            const newConditional = { contentIdx: nextAvailableIdx, key: anskey };
             const newChildQuestion: ContentType = {
               ...DefaultContentType,
               qIdx: nextAvailableIdx,
               parentcontent: {
                 optIdx: anskey,
-                qIdx: targetQuestion.qIdx,
-                qId: targetQuestion._id,
+                qIdx: targetQIdx,
+                qId: currentTarget._id,
               },
               page,
               isVisible: true,
@@ -233,17 +245,23 @@ export const useQuestionTab = () => {
             const result: ContentType[] = [];
             let insertionDone = false;
 
-            for (let i = 0; i < prevQuestions.length; i++) {
-              const currentQuestion = prevQuestions[i];
+            for (let i = 0; i < currentQuestions.length; i++) {
+              const currentQuestion = currentQuestions[i];
+              const curQIdx =
+                typeof currentQuestion.qIdx === "number" && !isNaN(currentQuestion.qIdx)
+                  ? currentQuestion.qIdx
+                  : (formState.lastQuestionIdx ?? 0) + i + 1;
+
               if (i === questionIdx) {
                 result.push({
                   ...currentQuestion,
+                  qIdx: targetQIdx,
                   conditional: [
                     ...existingConditionals.map((cond) => ({
                       ...cond,
                       contentIdx:
                         cond.contentIdx !== undefined &&
-                        cond.contentIdx >= questionIdx + 1
+                        cond.contentIdx >= nextAvailableIdx
                           ? cond.contentIdx + 1
                           : cond.contentIdx,
                     })),
@@ -253,11 +271,11 @@ export const useQuestionTab = () => {
                 result.push(newChildQuestion);
                 insertionDone = true;
               } else {
-                const needsUpdate = currentQuestion.qIdx >= nextAvailableIdx;
+                const needsUpdate = curQIdx >= nextAvailableIdx;
                 if (needsUpdate) {
                   result.push({
                     ...currentQuestion,
-                    qIdx: currentQuestion.qIdx + 1,
+                    qIdx: curQIdx + 1,
                     conditional: currentQuestion.conditional?.map((cond) => ({
                       ...cond,
                       contentIdx:
@@ -271,15 +289,17 @@ export const useQuestionTab = () => {
                         ? {
                             ...currentQuestion.parentcontent,
                             qIdx:
-                              currentQuestion.parentcontent.qIdx >
-                              targetQuestion.qIdx
+                              currentQuestion.parentcontent.qIdx >= nextAvailableIdx
                                 ? currentQuestion.parentcontent.qIdx + 1
                                 : currentQuestion.parentcontent.qIdx,
                           }
                         : currentQuestion.parentcontent,
                   });
                 } else {
-                  result.push(currentQuestion);
+                  result.push({
+                    ...currentQuestion,
+                    qIdx: curQIdx,
+                  });
                 }
               }
             }
@@ -372,29 +392,51 @@ export const useQuestionTab = () => {
           .map((option, newIdx) => ({ ...option, idx: newIdx })) as never;
       }
 
-      const updatedAllQuestion = allQuestion.filter((q, idx) =>
-        q._id
-          ? q._id !== questionConditionContent?.contentId
-          : idx !== questionConditionContent?.contentIdx,
-      );
+      const updatedAllQuestion = allQuestion.filter((q, idx) => {
+        if (questionConditionContent?.contentId && q._id) {
+          return q._id !== questionConditionContent.contentId;
+        }
+        if (questionConditionContent?.contentIdx !== undefined) {
+          return (
+            q.qIdx !== questionConditionContent.contentIdx &&
+            idx !== questionConditionContent.contentIdx
+          );
+        }
+        return true;
+      });
 
+      const targetCondIdx = questionConditionContent?.contentIdx;
       const finalQuestionList = updatedAllQuestion.map((q, idx) => {
         if (q._id ? q._id === questionToUpdate._id : idx === qidx)
           return updatedQuestion;
         if (
-          questionConditionContent?.contentIdx &&
-          idx > questionConditionContent.contentIdx
+          targetCondIdx !== undefined &&
+          ((typeof q.qIdx === "number" && q.qIdx > targetCondIdx) ||
+            idx >= targetCondIdx)
         ) {
-          return { ...q, qIdx: q.qIdx - 1 };
+          return {
+            ...q,
+            qIdx: typeof q.qIdx === "number" ? q.qIdx - 1 : q.qIdx,
+            parentcontent:
+              q.parentcontent?.qIdx !== undefined &&
+              q.parentcontent.qIdx >= targetCondIdx
+                ? { ...q.parentcontent, qIdx: q.parentcontent.qIdx - 1 }
+                : q.parentcontent,
+          };
         }
         return q;
       });
 
+      const numberedQuestions = AddQuestionNumbering({
+        questions: finalQuestionList,
+        lastIdx: formState.lastQuestionIdx,
+      });
+
       emitAutoSaveEvent({ tab: "question" });
 
-      dispatch(setallquestion(finalQuestionList));
+      dispatch(setallquestion(numberedQuestions));
     },
-    [allQuestion, dispatch],
+    [allQuestion, dispatch, formState.lastQuestionIdx],
   );
 
   const handleDuplication = useCallback(
@@ -502,7 +544,9 @@ export const useQuestionTab = () => {
 
   const scrollToDiv = useCallback(
     ({ questionIdx }: { questionIdx: number }) => {
-      const targetQuestion = allQuestion[questionIdx];
+      const targetQuestion =
+        allQuestion.find((q) => q.qIdx === questionIdx) ||
+        allQuestion[questionIdx];
       if (!targetQuestion) {
         ErrorToast({
           toastid: "Unique ScrollToDiv",
@@ -511,7 +555,7 @@ export const useQuestionTab = () => {
         });
         return;
       }
-      const key = `${targetQuestion.type}${targetQuestion._id ?? questionIdx}`;
+      const key = `${targetQuestion.type}${targetQuestion._id ?? targetQuestion.qIdx ?? questionIdx}`;
       componentRefs.current[key]?.scrollIntoView({
         behavior: "smooth",
         block: "start",

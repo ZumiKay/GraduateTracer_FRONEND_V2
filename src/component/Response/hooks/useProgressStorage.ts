@@ -42,13 +42,7 @@ export const useProgressStorage = ({
 
   const saveProgressToStorage = useCallback(
     (value?: Record<string, unknown>) => {
-      if (
-        !formId ||
-        !progressLoaded ||
-        !progressStorageKey ||
-        success ||
-        isPreview
-      ) {
+      if (!formId || !progressLoaded || !progressStorageKey || success || isPreview) {
         return;
       }
 
@@ -65,18 +59,11 @@ export const useProgressStorage = ({
             previousStoredData = JSON.parse(savedProgress) as SaveProgressType;
           }
         } catch (parseError) {
-          console.warn(
-            "Failed to parse previously stored progress data:",
-            parseError,
-          );
+          console.warn("Failed to parse previously stored progress data:", parseError);
         }
 
         const nonNullResponses = responses.filter((r) => {
-          if (
-            r.response === null ||
-            r.response === undefined ||
-            r.response === ""
-          ) {
+          if (r.response === null || r.response === undefined || r.response === "") {
             return false;
           }
           if (Array.isArray(r.response)) {
@@ -111,10 +98,7 @@ export const useProgressStorage = ({
 
           responsesSetUp = mergedResponses;
         } else {
-          if (
-            previousStoredData?.responses &&
-            previousStoredData.responses.length > 0
-          )
+          if (previousStoredData?.responses && previousStoredData.responses.length > 0)
             responsesSetUp = previousStoredData?.responses;
           else responsesSetUp = nonNullResponses;
         }
@@ -123,8 +107,7 @@ export const useProgressStorage = ({
           currentPage: currentPage ?? 1,
           responses: responsesSetUp,
           respondentInfo: {
-            ...((previousStoredData?.respondentInfo ??
-              formSessionInfo) as RespondentInfoType),
+            ...((previousStoredData?.respondentInfo ?? formSessionInfo) as RespondentInfoType),
           },
           timestamp: new Date().toISOString(),
           formId,
@@ -144,27 +127,9 @@ export const useProgressStorage = ({
             userKey: undefined,
           });
 
-          if (
-            keyWithoutEmail !== progressStorageKey &&
-            localStorage.getItem(keyWithoutEmail)
-          ) {
+          if (keyWithoutEmail !== progressStorageKey && localStorage.getItem(keyWithoutEmail)) {
             localStorage.removeItem(keyWithoutEmail);
-            if (import.meta.env.DEV) {
-              console.log(
-                "Removed duplicate progress key without email:",
-                keyWithoutEmail,
-              );
-            }
           }
-        }
-
-        if (import.meta.env.DEV) {
-          console.log("Progress saved to localStorage:", {
-            key: progressStorageKey,
-            responsesCount: responsesSetUp.length,
-            currentPage: progressData.currentPage,
-            timestamp: progressData.timestamp,
-          });
         }
       } catch (error) {
         console.error("Failed to save progress to localStorage:", error);
@@ -184,6 +149,7 @@ export const useProgressStorage = ({
     ],
   );
 
+  //Save progress Debounce with 1 second
   const debouncedSaveProgress = useCallback(() => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -220,22 +186,12 @@ export const useProgressStorage = ({
                 goToPage(progressData.currentPage);
                 dataGoToPage(progressData.currentPage);
                 setProgressLoaded(true);
-                if (import.meta.env.DEV) {
-                  console.log(
-                    "Restored current page:",
-                    progressData.currentPage,
-                  );
-                }
               }, 100);
             } else {
               setProgressLoaded(true);
             }
 
             return true;
-          }
-        } else {
-          if (import.meta.env.DEV) {
-            console.log("No saved progress found for key:", progressStorageKey);
           }
         }
       } catch (error) {

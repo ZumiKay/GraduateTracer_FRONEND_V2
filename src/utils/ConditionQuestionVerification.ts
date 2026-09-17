@@ -106,7 +106,8 @@ export class ConditionQuestionVerification {
           (q) =>
             q._id === condition.contentId ||
             (condition.contentIdx !== undefined &&
-              questions.indexOf(q) === condition.contentIdx)
+              (questions.indexOf(q) === condition.contentIdx ||
+                q.qIdx === condition.contentIdx))
         );
 
         if (!conditionalContent) {
@@ -119,7 +120,8 @@ export class ConditionQuestionVerification {
             const parentId = question._id || questionIndex.toString();
             const parentMatch =
               conditionalContent.parentcontent.qId === parentId ||
-              conditionalContent.parentcontent.qIdx === questionIndex;
+              conditionalContent.parentcontent.qIdx === questionIndex ||
+              conditionalContent.parentcontent.qIdx === question.qIdx;
 
             if (!parentMatch) {
               errors.push(

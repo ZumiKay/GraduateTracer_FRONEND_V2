@@ -278,7 +278,13 @@ const getLastQIdx = (
               q._id.toString() === condition.contentId.toString(),
           );
         } else if (condition.contentIdx !== undefined) {
-          childContent = allQuestions[condition.contentIdx];
+          childContent =
+            (condition.contentIdx >= 0 && condition.contentIdx < allQuestions.length
+              ? allQuestions[condition.contentIdx]
+              : undefined) ||
+            allQuestions.find(
+              (q) => q.qIdx === condition.contentIdx && q !== content,
+            );
         }
 
         if (childContent) {
@@ -324,6 +330,7 @@ export const ConditionContentCopy = ({
 
   let lastQuestionIdx = getLastQIdx(allquestion, org);
   let lastMapIdx = allquestion.findIndex((i) => i.qIdx === lastQuestionIdx);
+  if (lastMapIdx === -1) lastMapIdx = allquestion.length;
 
   const processConditionalContent = (
     parentContent: ContentType,
@@ -362,7 +369,13 @@ export const ConditionContentCopy = ({
             q._id.toString() === condition.contentId.toString(),
         );
       } else if (condition.contentIdx !== undefined) {
-        childContent = allquestion[condition.contentIdx];
+        childContent =
+          (condition.contentIdx >= 0 && condition.contentIdx < allquestion.length
+            ? allquestion[condition.contentIdx]
+            : undefined) ||
+          allquestion.find(
+            (q) => q.qIdx === condition.contentIdx && q !== parentContent,
+          );
       }
 
       if (!childContent) {
@@ -395,7 +408,7 @@ export const ConditionContentCopy = ({
           qIdx: lastQuestionIdx + conditionIndex + 1,
           parentcontent: {
             qId: parentCopy._id,
-            qIdx: (org.conditional?.length ?? 0) + 1,
+            qIdx: parentCopy.qIdx,
             optIdx: childContent.parentcontent?.optIdx ?? 0,
           },
         };
@@ -442,7 +455,11 @@ export const validateConditionalStructure = (
           );
         }
 
-        if (cond.contentIdx !== undefined && !content[cond.contentIdx]) {
+        if (
+          cond.contentIdx !== undefined &&
+          !content[cond.contentIdx] &&
+          !content.find((q) => q.qIdx === cond.contentIdx)
+        ) {
           errors.push(
             `Item ${index}: Conditional ${condIndex} references invalid content index ${cond.contentIdx}`,
           );
@@ -454,6 +471,15 @@ export const validateConditionalStructure = (
       if (item.parentcontent.qId && !contentMap.has(item.parentcontent.qId)) {
         errors.push(
           `Item ${index}: Parent content references non-existent ID ${item.parentcontent.qId}`,
+        );
+      }
+      if (
+        item.parentcontent.qIdx !== undefined &&
+        !content[item.parentcontent.qIdx] &&
+        !content.find((q) => q.qIdx === item.parentcontent!.qIdx)
+      ) {
+        errors.push(
+          `Item ${index}: Parent content references invalid content index ${item.parentcontent.qIdx}`,
         );
       }
     }

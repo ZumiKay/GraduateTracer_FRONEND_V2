@@ -61,20 +61,14 @@ export const useInactivityWarning = (
 
   // Show warning when session manager indicates inactivity
   useEffect(() => {
-    if (accessMode === "authenticated" || accessMode === "guest") {
+    if (accessMode !== "error" && accessMode !== "login") {
       if (showInactivityAlert && !isSessionActive) {
         setShowWarning(true);
       } else if (isSessionActive) {
         setShowWarning(false);
       }
     }
-  }, [
-    showInactivityAlert,
-    isSessionActive,
-    timeUntilAutoSignout,
-    warningMessage,
-    accessMode,
-  ]);
+  }, [showInactivityAlert, isSessionActive, timeUntilAutoSignout, warningMessage, accessMode]);
 
   const handleContinueSession = useCallback(() => {
     try {
@@ -92,20 +86,17 @@ export const useInactivityWarning = (
     setShowWarning(false);
   }, []);
 
-  const formatTimeDisplay = useCallback(
-    (timeMs: number | null): string | null => {
-      if (!timeMs || timeMs <= 0) return null;
+  const formatTimeDisplay = useCallback((timeMs: number | null): string | null => {
+    if (!timeMs || timeMs <= 0) return null;
 
-      const minutes = Math.floor(timeMs / (1000 * 60));
-      const seconds = Math.floor((timeMs % (1000 * 60)) / 1000);
+    const minutes = Math.floor(timeMs / (1000 * 60));
+    const seconds = Math.floor((timeMs % (1000 * 60)) / 1000);
 
-      if (minutes > 0) {
-        return `${minutes}m ${seconds}s`;
-      }
-      return `${seconds}s`;
-    },
-    [],
-  );
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  }, []);
 
   return {
     // Warning display state

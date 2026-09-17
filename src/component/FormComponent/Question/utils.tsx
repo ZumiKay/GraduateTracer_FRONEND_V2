@@ -61,20 +61,36 @@ export const validateQuestionStructure = (
   const qIdxSet = new Set<number>();
 
   questions.forEach((question, index) => {
-    if (qIdxSet.has(question.qIdx)) {
-      errors.push(`Duplicate qIdx ${question.qIdx} found at position ${index}`);
+    if (question.qIdx !== undefined && !isNaN(question.qIdx)) {
+      if (qIdxSet.has(question.qIdx)) {
+        errors.push(`Duplicate qIdx ${question.qIdx} found at position ${index}`);
+      }
+      qIdxSet.add(question.qIdx);
+    } else {
+      errors.push(`Missing qIdx found at position ${index}`);
     }
-    qIdxSet.add(question.qIdx);
 
     question.conditional?.forEach((cond, condIndex) => {
-      if (cond.contentIdx !== undefined && !questions.find((q) => q.qIdx === cond.contentIdx)) {
+      if (
+        cond.contentIdx !== undefined &&
+        !questions.find(
+          (q, idx) => q.qIdx === cond.contentIdx || idx === cond.contentIdx,
+        )
+      ) {
         errors.push(
           `Question ${index}: Conditional ${condIndex} references non-existent qIdx ${cond.contentIdx}`,
         );
       }
     });
 
-    if (question.parentcontent?.qIdx !== undefined && !questions.find((q) => q.qIdx === question.parentcontent!.qIdx)) {
+    if (
+      question.parentcontent?.qIdx !== undefined &&
+      !questions.find(
+        (q, idx) =>
+          q.qIdx === question.parentcontent!.qIdx ||
+          idx === question.parentcontent!.qIdx,
+      )
+    ) {
       errors.push(
         `Question ${index}: Parent content references non-existent qIdx ${question.parentcontent.qIdx}`,
       );

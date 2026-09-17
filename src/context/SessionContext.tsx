@@ -14,12 +14,7 @@ export const SessionContext = createContext<SessionContextType | null>(null);
 
 interface SessionProviderProps {
   children: React.ReactNode;
-  manuallyCheckSession?: UseMutationResult<
-    ApiRequestReturnType,
-    Error,
-    void,
-    unknown
-  >;
+  manuallyCheckSession?: UseMutationResult<ApiRequestReturnType, Error, void, unknown>;
   expiresAt?: string | Date | null;
   onSessionExpired?: () => void;
   periodicCheckInterval?: number;
@@ -117,8 +112,7 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [checkOnVisibilityChange, checkSession]);
 
   const value: SessionContextType = {
@@ -128,9 +122,7 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
     onSessionExpired,
   };
 
-  return (
-    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
-  );
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };
 
 export default SessionContext;

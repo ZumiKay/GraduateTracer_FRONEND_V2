@@ -19,6 +19,7 @@ export type accessModeType = "login" | "authenticated" | "error";
 type fetchtype = "data" | "initial" | "preview";
 export interface GetFormStateResponseType extends FormDataType {
   isResponsed?: SubmittionProcessionReturnType;
+  isPreview?: boolean;
   isLoggedin?: boolean;
   message?: string;
   //For test unique of response for public form

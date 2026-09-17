@@ -1,3 +1,7 @@
+const { TextEncoder, TextDecoder } = require("util");
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
 // Mock import.meta for Jest tests
 Object.defineProperty(globalThis, "import", {
   value: {

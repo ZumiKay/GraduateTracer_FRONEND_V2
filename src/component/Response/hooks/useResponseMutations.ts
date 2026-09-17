@@ -206,9 +206,46 @@ export const useResponseMutations = (formId: string) => {
     },
   });
 
+  // Batch update response scores mutation
+  const batchUpdateScoresMutation = useMutation({
+    mutationFn: async ({
+      updates,
+    }: {
+      updates: Array<{
+        responseId: string;
+        scores?: Array<{ questionId: string; score: number; comment?: string }>;
+        score?: number;
+      }>;
+    }) => {
+      const result = await ApiRequest({
+        method: "PUT",
+        url: `/response/batch-update-scores`,
+        data: { updates },
+        cookie: true,
+        reactQuery: true,
+      });
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["responses", formId] });
+      SuccessToast({
+        title: "Success",
+        content: "Batch scores updated successfully!",
+      });
+    },
+    onError: (error: Error) => {
+      ErrorToast({
+        title: "Error",
+        content: error.message || "Failed to batch update scores",
+        toastid: errorToastId,
+      });
+    },
+  });
+
   return {
     updateScoreMutation,
     updateQuestionScoreMutation,
+    batchUpdateScoresMutation,
     sendLinksMutation,
     generateLinkMutation,
     deleteResponseMutation,

@@ -25,6 +25,7 @@ export const SubmissionSuccessView: React.FC<SubmissionSuccessViewProps> = ({
   const hasScore =
     scoreData &&
     !scoreData.isNonScore &&
+    scoreData.isScoreReleased !== false &&
     typeof scoreData.totalScore === "number" &&
     typeof scoreData.maxScore === "number" &&
     scoreData.maxScore > 0;
@@ -50,7 +51,8 @@ export const SubmissionSuccessView: React.FC<SubmissionSuccessViewProps> = ({
   let subMessage = "";
   if (formType === FormTypeEnum.Quiz && !hasScore) {
     subMessage =
-      "Results will be sent to your email address if scoring is enabled.";
+      scoreData?.message ||
+      "Results will be reviewed and returned by the form owner.";
   }
 
   return (
