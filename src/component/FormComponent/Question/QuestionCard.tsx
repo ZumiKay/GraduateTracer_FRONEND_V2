@@ -14,7 +14,6 @@ import {
   EyeIcon,
   EyeSlashIcon,
   FolderIcon,
-  QuestionIcon,
 } from "./Assets";
 import ValidationIssueDisplay from "../ValidationIssueDisplay";
 
@@ -42,104 +41,104 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const isChild = level > 0;
   const isChildVisibility =
     question.children && question.children.every((i) => i.isVisible);
-  const levelColors = [
+
+  const levelBorderColors = [
     "border-primary",
-    "border-warning",
-    "border-secondary",
-    "border-success",
+    "border-amber-500",
+    "border-blue-500",
+    "border-purple-500",
   ];
-  const borderColor = levelColors[level % levelColors.length];
+  const borderColor = levelBorderColors[level % levelBorderColors.length];
+
+  // Static indentation classes to avoid broken dynamic string interpolation in Tailwind
+  const indentClass =
+    level === 0
+      ? "mt-2.5"
+      : level === 1
+        ? "mt-2 ml-1.5 sm:ml-2.5 pl-1.5 sm:pl-2"
+        : level === 2
+          ? "mt-2 ml-2.5 sm:ml-4 pl-1.5 sm:pl-2"
+          : "mt-2 ml-3.5 sm:ml-5 pl-1.5 sm:pl-2";
 
   return (
     <div
       id={`question-card-${question._id || question.qIdx}`}
       data-question-id={question._id || question.qIdx}
       data-qidx={question.qIdx}
-      className={`mt-3 transition-all duration-200 ${
-        level > 0 ? `pl-${Math.min(level * 4, 12)}` : ""
-      }`}
+      className={`transition-all duration-200 ${indentClass}`}
     >
       <Card
         className={`
-          group cursor-pointer transition-all duration-300 ease-out
-          hover:shadow-lg hover:shadow-primary/10 hover:scale-[1.02] hover:-translate-y-1
-          active:scale-[0.98] active:transition-none
-          ${isChild ? `border-l-4 ${borderColor} ml-2` : ""}
-          relative overflow-visible 
+          group cursor-pointer transition-all duration-200 ease-out
+          hover:shadow-md active:scale-[0.99]
+          ${isChild ? `border-l-3 ${borderColor}` : "border border-gray-200/80 dark:border-gray-700/80"}
+          relative overflow-visible bg-white dark:bg-gray-800/90
         `}
-        shadow="sm"
+        shadow="none"
       >
         <CardBody
-          className="p-3 sm:p-4"
+          className="p-2.5 sm:p-3.5"
           onClick={() => onQuestionClick(question)}
         >
-          {/* Parent indicator */}
+          {/* Parent indicator for conditional child questions */}
           {isChild && parentQuestion && (
-            <div className="mb-2 p-2 bg-gradient-to-r from-blue-50 to-blue-50/30 rounded-lg border border-blue-200/70">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <ConnectionIcon
-                  width="14"
-                  height="14"
-                  className="text-blue-500 flex-shrink-0"
-                />
-                <span className="text-xs text-blue-600 font-medium whitespace-nowrap flex-shrink-0">
-                  Child of:
+            <div className="mb-1.5 p-1.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-md border border-blue-200/60 dark:border-blue-800/40 flex items-center gap-1.5 text-xs overflow-hidden">
+              <ConnectionIcon
+                width="12"
+                height="12"
+                className="text-blue-500 shrink-0"
+              />
+              <span className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap shrink-0 text-[11px]">
+                Child of:
+              </span>
+              <Tooltip
+                content={getQuestionTitle(parentQuestion)}
+                placement="top"
+              >
+                <span className="text-blue-800 dark:text-blue-200 truncate font-normal text-[11px] hover:underline">
+                  {getQuestionTitle(parentQuestion)}
                 </span>
-                <Tooltip
-                  content={getQuestionTitle(parentQuestion)}
-                  placement="top"
-                >
-                  <span className="text-xs text-blue-800 truncate max-w-[150px] hover:underline">
-                    {getQuestionTitle(parentQuestion)}
-                  </span>
-                </Tooltip>
-              </div>
+              </Tooltip>
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap sm:flex-nowrap">
+          {/* Top meta row: Badges & Action Buttons */}
+          <div className="flex items-center justify-between gap-1.5 mb-1.5">
             {/* Badges */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap min-w-0">
               {level > 0 && (
-                <Chip
-                  size="sm"
-                  color={
-                    level === 1
-                      ? "secondary"
-                      : level === 2
-                        ? "warning"
-                        : "primary"
-                  }
-                  variant="flat"
-                >
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold shrink-0">
                   L{level + 1}
-                </Chip>
+                </span>
               )}
-              <Chip size="sm" color="primary" variant="flat">
+              <Chip
+                size="sm"
+                color="primary"
+                variant="flat"
+                className="text-[11px] h-5 px-1.5 shrink-0 font-medium"
+              >
                 {getQuestionTypeLabel(question.type)}
               </Chip>
               {question.conditional && question.conditional.length > 0 && (
-                <Chip size="sm" color="warning" variant="flat">
-                  Conditional
-                </Chip>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-medium shrink-0">
+                  Cond
+                </span>
               )}
               {question.require && (
-                <Chip size="sm" color="danger" variant="flat">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 font-medium shrink-0">
                   Required
-                </Chip>
+                </span>
               )}
             </div>
 
-            {/* Action buttons */}
+            {/* Action buttons with comfortable tap target */}
             <div
-              className="flex items-center gap-1"
+              className="flex items-center gap-0.5 shrink-0"
               onClick={(e) => e.stopPropagation()}
             >
               {canToggleVisibility(question) && (
                 <Tooltip
-                  content={
-                    isChildVisibility ? "Hide question" : "Show question"
-                  }
+                  content={isChildVisibility ? "Hide question" : "Show question"}
                   placement="top"
                 >
                   <Button
@@ -147,16 +146,17 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     variant="light"
                     isIconOnly
                     onPress={() => onToggleVisibility(question)}
-                    className={`rounded-full p-1 transition-colors ${
+                    className={`w-7 h-7 min-w-7 rounded-full p-0 transition-colors ${
                       isChildVisibility
                         ? "text-primary hover:bg-primary/10"
                         : "text-danger hover:bg-danger/10"
                     }`}
+                    aria-label={isChildVisibility ? "Hide question" : "Show question"}
                   >
                     {isChildVisibility ? (
-                      <EyeIcon width="16" height="16" />
+                      <EyeIcon width="15" height="15" />
                     ) : (
-                      <EyeSlashIcon width="16" height="16" />
+                      <EyeSlashIcon width="15" height="15" />
                     )}
                   </Button>
                 </Tooltip>
@@ -171,12 +171,13 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     variant="light"
                     isIconOnly
                     onPress={onToggleExpanded}
-                    className="rounded-full p-1 text-warning hover:bg-warning/10 transition-colors"
+                    className="w-7 h-7 min-w-7 rounded-full p-0 text-amber-600 dark:text-amber-400 hover:bg-amber-100/50 dark:hover:bg-amber-900/30 transition-colors"
+                    aria-label={isExpanded ? "Collapse section" : "Expand section"}
                   >
                     {isExpanded ? (
-                      <ChevronUpIcon width="16" height="16" />
+                      <ChevronUpIcon width="15" height="15" />
                     ) : (
-                      <ChevronDownIcon width="16" height="16" />
+                      <ChevronDownIcon width="15" height="15" />
                     )}
                   </Button>
                 </Tooltip>
@@ -185,54 +186,48 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </div>
 
           {/* Question title */}
-          <div className="group-hover:text-primary transition-colors flex items-start gap-2">
-            <div className="mt-0.5 flex-shrink-0">
+          <div className="flex items-start gap-1.5">
+            <div className="mt-0.5 shrink-0">
               {hasChildren ? (
-                <FolderIcon
-                  width="18"
-                  height="18"
-                  className="text-yellow-500"
-                />
+                <FolderIcon width="16" height="16" className="text-amber-500" />
               ) : (
-                <DocumentTextIcon
-                  width="18"
-                  height="18"
-                  className="text-blue-500"
-                />
+                <DocumentTextIcon width="16" height="16" className="text-blue-500" />
               )}
             </div>
-            <p className="text-sm font-medium text-gray-700 dark:text-white line-clamp-3 transition-colors">
+            <p className="text-xs sm:text-sm font-medium text-gray-800 dark:text-gray-100 line-clamp-2 sm:line-clamp-3 transition-colors leading-snug group-hover:text-primary">
               {getQuestionTitle(question)}
             </p>
           </div>
 
           {/* Bottom metadata */}
-          <div className="flex flex-wrap gap-2 mt-2 items-center justify-between">
-            <div className="flex flex-wrap gap-2">
-              {question.score && question.score > 0 ? (
-                <Chip size="sm" color="success" variant="flat">
-                  {question.score} points
-                </Chip>
-              ) : (
-                <></>
+          {(Boolean(question.score && question.score > 0) ||
+            Boolean(hasChildren && question.children && question.children.length > 0)) && (
+            <div className="flex items-center gap-2 mt-1.5 pt-1.5 border-t border-gray-100 dark:border-gray-700/60 text-[11px] text-gray-500 dark:text-gray-400">
+              {question.score && question.score > 0 && (
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                  {question.score} pts
+                </span>
               )}
-              {hasChildren && question.children && (
-                <Chip size="sm" color="warning" variant="dot">
+              {question.score &&
+                question.score > 0 &&
+                hasChildren &&
+                question.children &&
+                question.children.length > 0 && <span>•</span>}
+              {hasChildren && question.children && question.children.length > 0 && (
+                <span className="text-amber-600 dark:text-amber-400">
                   {question.children.length}{" "}
                   {question.children.length === 1 ? "child" : "children"}
-                </Chip>
+                </span>
               )}
             </div>
-            <div className="opacity-70 group-hover:opacity-100 transition-opacity">
-              <QuestionIcon width="16" height="16" className="text-gray-500" />
-            </div>
-          </div>
+          )}
 
           {/* Per-question validation issues */}
-          {question.validationIssues &&
-            question.validationIssues.length > 0 && (
+          {question.validationIssues && question.validationIssues.length > 0 && (
+            <div className="mt-1.5">
               <ValidationIssueDisplay issues={question.validationIssues} />
-            )}
+            </div>
+          )}
         </CardBody>
       </Card>
     </div>

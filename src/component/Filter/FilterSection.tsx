@@ -104,7 +104,7 @@ export default function FilterSection({
   }, [Filterstate.created, Filterstate.updated]);
 
   return (
-    <div className="filtersection w-full h-fit relative inline-flex items-center gap-x-5">
+    <div className="filtersection w-full h-fit relative flex flex-row max-sm:flex-wrap max-sm:gap-y-5 items-center gap-x-5">
       <Selection
         items={orderOptions}
         placeholder="Order By"

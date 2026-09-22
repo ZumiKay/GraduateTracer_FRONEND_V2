@@ -7,10 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../redux/openmodal";
 import { RootState } from "../redux/store";
 import CreateForm from "../component/Modal/Form.modal";
-import {
-  createQueryFn,
-  createMutationFn,
-} from "../hooks/APIHook/ReactQueryHelper";
+import { createQueryFn, createMutationFn } from "../hooks/APIHook/ReactQueryHelper";
 import { setallformstate } from "../redux/formstore";
 import { FormDataType } from "../types/Form.types";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
@@ -40,11 +37,8 @@ const HeaderSection = memo(
     filterState: DashboardFilterType;
     setfilterState: React.Dispatch<React.SetStateAction<DashboardFilterType>>;
   }) => (
-    <div className="header_section h-fit flex flex-row justify-between items-center gap-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border dark:border-gray-700">
-      <FilterSection
-        Filterstate={filterState}
-        setFilterstate={setfilterState}
-      />
+    <div className="header_section h-fit flex flex-row flex-wrap gap-y-5 justify-between items-center gap-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border dark:border-gray-700">
+      <FilterSection Filterstate={filterState} setFilterstate={setfilterState} />
       <div className="flex gap-x-3">
         <Button
           variant="flat"
@@ -93,13 +87,9 @@ const FormGrid = memo(
     tab: DashboardTabType;
   }) => (
     <div className="formcontainer w-full h-fit grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
-      {tab !== DashboardTabType.filledform && (
-        <CreateCardBtn onClick={onCreateClick} />
-      )}
+      {tab !== DashboardTabType.filledform && <CreateCardBtn onClick={onCreateClick} />}
       {loading
-        ? Array.from({ length: 3 }).map((_, idx) => (
-            <CardLoading key={`loading-${idx}`} />
-          ))
+        ? Array.from({ length: 3 }).map((_, idx) => <CardLoading key={`loading-${idx}`} />)
         : allformstate?.map(
             (form) =>
               form._id &&
@@ -136,6 +126,7 @@ const FormTypeSelect = ({
   return (
     <div className="w-full h-fit flex flex-wrap gap-4">
       <Tabs
+        className="min-w-[200px] w-auto"
         aria-label="Tabs variants"
         variant="solid"
         size="lg"
@@ -249,11 +240,7 @@ function Dashboard() {
         toastid: "delete-forms",
       });
 
-      dispatch(
-        setallformstate(
-          allformstate.filter((form) => !selectedcard.has(form._id ?? "")),
-        ),
-      );
+      dispatch(setallformstate(allformstate.filter((form) => !selectedcard.has(form._id ?? ""))));
       setselectedcard(new Set());
       setisManage(false);
 
@@ -339,9 +326,7 @@ function Dashboard() {
         };
       };
 
-      dispatch(
-        setallformstate(responseData.data.userForms ?? responseData.data ?? []),
-      );
+      dispatch(setallformstate(responseData.data.userForms ?? responseData.data ?? []));
 
       if (responseData.pagination) {
         setPaginationData({
@@ -414,11 +399,7 @@ function Dashboard() {
     // Check page parameter
     if (pageParam !== null) {
       const pageNumber = Number(pageParam);
-      if (
-        isNaN(pageNumber) ||
-        pageNumber < 1 ||
-        !Number.isInteger(pageNumber)
-      ) {
+      if (isNaN(pageNumber) || pageNumber < 1 || !Number.isInteger(pageNumber)) {
         newParams.delete("page");
         needsUpdate = true;
         setpage(1); // Reset to default
@@ -428,11 +409,7 @@ function Dashboard() {
     // Check show parameter
     if (showParam !== null) {
       const showNumber = Number(showParam);
-      if (
-        isNaN(showNumber) ||
-        showNumber < 1 ||
-        !Number.isInteger(showNumber)
-      ) {
+      if (isNaN(showNumber) || showNumber < 1 || !Number.isInteger(showNumber)) {
         newParams.delete("show");
         needsUpdate = true;
         setlimit(5); // Reset to default
@@ -484,10 +461,7 @@ function Dashboard() {
   return (
     <>
       {selector.createform && (
-        <CreateForm
-          open={selector.createform}
-          setopen={handleCreateFormModalClose}
-        />
+        <CreateForm open={selector.createform} setopen={handleCreateFormModalClose} />
       )}
 
       <div className="w-full p-6 h-full flex flex-col gap-y-8 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen">

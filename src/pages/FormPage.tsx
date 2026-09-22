@@ -1,10 +1,11 @@
 import { Button, Tab, Tabs } from "@heroui/react";
 import { EyeIcon } from "@heroicons/react/24/outline";
 import { useNavigate, useParams } from "react-router";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FormDataType,
+  FormTypeEnum,
   ErrorValidataionPropsType,
   QuestionValidationIssue,
   ValidationResult,
@@ -41,6 +42,15 @@ export type alltabs =
   | "response"
   | "analytics"
   | "setting";
+
+export const FORM_TABS: alltabs[] = [
+  "question",
+  "solution",
+  "preview",
+  "response",
+  "analytics",
+  "setting",
+];
 
 interface ApiError extends Error {
   status?: number;
@@ -207,8 +217,11 @@ function FormPage() {
       }
 
       const currentTab = searchParam.get("tab") ?? "question";
+      const isResultQuiz =
+        result.type === FormTypeEnum.Quiz ||
+        String(result.type).toUpperCase() === "QUIZ";
       const shouldUpdateQuestions =
-        currentTab === "question" || currentTab === "solution";
+        currentTab === "question" || (isResultQuiz && currentTab === "solution");
 
       dispatch(
         setformstate({
@@ -286,35 +299,197 @@ function FormPage() {
     isSuccess,
   ]);
 
-  const handleTabs = async (val: alltabs) => {
-    const proceedFunc = () => {
-      setParams({ tab: val, page: "1" });
-      setTab(val);
-      dispatch(setfetchloading(true));
-      dispatch(setpage(1));
-      dispatch(setreloaddata(true));
-    };
+  const isQuiz = useMemo(
+    () =>
+      formstate.type === FormTypeEnum.Quiz ||
+      String(formstate.type).toUpperCase() === "QUIZ",
+    [formstate.type],
+  );
 
-    if (tab === "setting" && isSettingUnsaved) {
-      dispatch(
-        setopenmodal({
-          state: "confirm",
-          value: {
-            open: true,
-            data: {
-              question:
-                "You have unsaved settings. Are you sure you want to leave without saving?",
-              btn: { agree: "Leave", disagree: "Stay" },
-              onAgree: () => proceedFunc(),
+  const availableTabs = useMemo<alltabs[]>(() => {
+    if (isQuiz) {
+      return [
+        "question",
+        "solution",
+        "preview",
+        "response",
+        "analytics",
+        "setting",
+      ];
+    }
+    return ["question", "preview", "response", "analytics", "setting"];
+  }, [isQuiz]);
+
+  const [swipeDirection, setSwipeDirection] = useState<1 | -1>(1);
+
+  const handleTabs = useCallback(
+    async (val: alltabs) => {
+      const currentIndex = availableTabs.indexOf(tab);
+      const targetIndex = availableTabs.indexOf(val);
+      if (targetIndex !== -1 && currentIndex !== -1) {
+        setSwipeDirection(targetIndex >= currentIndex ? 1 : -1);
+      }
+
+      const proceedFunc = () => {
+        setParams({ tab: val, page: "1" });
+        setTab(val);
+        dispatch(setfetchloading(true));
+        dispatch(setpage(1));
+        dispatch(setreloaddata(true));
+      };
+
+      if (tab === "setting" && isSettingUnsaved) {
+        dispatch(
+          setopenmodal({
+            state: "confirm",
+            value: {
+              open: true,
+              data: {
+                question:
+                  "You have unsaved settings. Are you sure you want to leave without saving?",
+                btn: { agree: "Leave", disagree: "Stay" },
+                onAgree: () => proceedFunc(),
+              },
             },
-          },
-        }),
-      );
+          }),
+        );
+        return;
+      }
+
+      proceedFunc();
+    },
+    [tab, availableTabs, isSettingUnsaved, dispatch, setParams],
+  );
+
+  // Redirect away from solution tab if form is normal (not a quiz)
+  useEffect(() => {
+    if (formstate.type && !isQuiz && tab === "solution") {
+      handleTabs("question");
+    }
+  }, [formstate.type, isQuiz, tab, handleTabs]);
+
+  const handleSwipeNext = useCallback(() => {
+    const currentIndex = availableTabs.indexOf(tab);
+    if (currentIndex >= 0 && currentIndex < availableTabs.length - 1) {
+      setSwipeDirection(1);
+      handleTabs(availableTabs[currentIndex + 1]);
+    }
+  }, [tab, availableTabs, handleTabs]);
+
+  const handleSwipePrev = useCallback(() => {
+    const currentIndex = availableTabs.indexOf(tab);
+    if (currentIndex > 0) {
+      setSwipeDirection(-1);
+      handleTabs(availableTabs[currentIndex - 1]);
+    }
+  }, [tab, availableTabs, handleTabs]);
+
+  // Touch handlers for swipe tab changing on mobile/tablet
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
+    null,
+  );
+  const isIgnoredTouchRef = useRef(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) return;
+
+    if (e.touches.length > 1) {
+      isIgnoredTouchRef.current = true;
       return;
     }
 
-    proceedFunc();
-  };
+    const touch = e.touches[0];
+    const target = e.target as HTMLElement | null;
+
+    if (!target) {
+      isIgnoredTouchRef.current = true;
+      return;
+    }
+
+    // Ignore touches on interactive or horizontally scrollable elements
+    const isInteractive = target.closest(
+      [
+        '[role="tablist"]',
+        'input',
+        'textarea',
+        'select',
+        'button',
+        '[contenteditable="true"]',
+        '.tiptap',
+        '[role="slider"]',
+        '[role="dialog"]',
+        '[role="listbox"]',
+        '.no-scrollbar',
+        '.overflow-x-auto',
+        '.QuestionStructure',
+        '[data-prevent-swipe]',
+      ].join(", "),
+    );
+
+    if (isInteractive) {
+      isIgnoredTouchRef.current = true;
+      return;
+    }
+
+    isIgnoredTouchRef.current = false;
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (isIgnoredTouchRef.current || !touchStartRef.current) return;
+
+      const touch = e.changedTouches[0];
+      const deltaX = touch.clientX - touchStartRef.current.x;
+      const deltaY = touch.clientY - touchStartRef.current.y;
+      const elapsed = Date.now() - touchStartRef.current.time;
+
+      touchStartRef.current = null;
+
+      // Swipe criteria:
+      // 1. Gesture finished within 500ms
+      // 2. Traveled at least 50px horizontally
+      // 3. Horizontal intent dominates vertical scrolling (|deltaX| > |deltaY| * 1.5)
+      if (
+        elapsed <= 500 &&
+        Math.abs(deltaX) >= 50 &&
+        Math.abs(deltaX) > Math.abs(deltaY) * 1.5
+      ) {
+        if (deltaX < 0) {
+          handleSwipeNext();
+        } else {
+          handleSwipePrev();
+        }
+      }
+    },
+    [handleSwipeNext, handleSwipePrev],
+  );
+
+  const handleTouchCancel = useCallback(() => {
+    touchStartRef.current = null;
+    isIgnoredTouchRef.current = true;
+  }, []);
+
+  // Auto-scroll active tab into view in horizontal tab bar on mobile
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const activeTabEl = document.querySelector<HTMLElement>(
+        `[role="tab"][data-key="${tab}"]`,
+      );
+      if (activeTabEl) {
+        activeTabEl.scrollIntoView({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest",
+        });
+      }
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [tab]);
 
   const handlePageChange = useCallback(
     (val: number) => {
@@ -343,7 +518,7 @@ function FormPage() {
                 question:
                   "You have unsaved questions on this page. Are you sure you want to go back without saving?",
                 btn: {
-                  agree: "Prceed",
+                  agree: "Proceed",
                   disagree: "Close",
                 },
                 onAgree: () => {
@@ -368,173 +543,236 @@ function FormPage() {
     [searchParam],
   );
 
-  // Tab animation variants
+  // Tab animation variants with directional slide
   const tabVariants = {
-    initial: {
+    initial: (direction: number) => ({
       opacity: 0,
-      y: 10,
-    },
+      x: direction > 0 ? 25 : -25,
+    }),
     animate: {
       opacity: 1,
-      y: 0,
+      x: 0,
       transition: {
-        duration: 0.3,
-        ease: [0.4, 0, 0.2, 1] as const,
+        duration: 0.25,
+        ease: [0.25, 1, 0.5, 1] as const,
       },
     },
-    exit: {
+    exit: (direction: number) => ({
       opacity: 0,
-      y: -10,
+      x: direction > 0 ? -25 : 25,
       transition: {
         duration: 0.2,
-        ease: [0.4, 0, 0.2, 1] as const,
+        ease: [0.25, 1, 0.5, 1] as const,
       },
-    },
+    }),
   };
+
+  // Sync document title
+  useEffect(() => {
+    if (formstate.title) {
+      document.title = `${formstate.title} | ${tab.toUpperCase()}`;
+    }
+  }, [formstate.title, tab]);
 
   return (
     <div
-      className={`formpage relative w-full min-h-screen h-full pb-5 ${
-        formstate.setting?.bg ? `bg-[${formstate.setting.bg}]` : ""
-      }`}
+      className="formpage relative w-full min-h-screen h-full pb-5"
+      style={
+        formstate.setting?.bg
+          ? { backgroundColor: formstate.setting.bg }
+          : undefined
+      }
     >
       <title>{`${formstate.title} | ${tab.toUpperCase()}`}</title>
-      <Button
-        className="ml-[90%] font-bold"
-        variant="solid"
-        size="md"
-        color="secondary"
-        startContent={<EyeIcon className="w-4 h-4" />}
-        onClick={() => handleTabs("preview")}
-      >
-        Preview
-      </Button>
-      {(tab === "question" || tab === "solution") && (
-        <OverviewContainer tab={tab} loading={isFetching} />
-      )}
 
-      <Tabs
-        className="w-full h-fit bg-white dark:bg-black"
-        variant="underlined"
-        selectedKey={selectedKey}
-        onSelectionChange={(val) => handleTabs(val as alltabs)}
+      {/* Top action header bar */}
+      <div className="w-full flex items-center justify-between px-2.5 sm:px-6 py-1 sm:py-2 border-b border-gray-100 dark:border-gray-800/60 bg-white/50 dark:bg-black/50 backdrop-blur-xs">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <span className="text-[11px] sm:text-sm font-semibold text-gray-500 dark:text-gray-400 capitalize">
+            {tab} Mode
+          </span>
+          <span className="sm:hidden text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+            ({availableTabs.indexOf(tab) + 1}/{availableTabs.length} · Swipe)
+          </span>
+          {formstate.totalQuestions !== undefined &&
+            (tab === "question" || (isQuiz && tab === "solution")) && (
+              <span className="hidden sm:inline-flex text-[11px] sm:text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-medium whitespace-nowrap">
+                {formstate.totalQuestions}{" "}
+                {formstate.totalQuestions === 1 ? "question" : "questions"}
+              </span>
+            )}
+        </div>
+
+        {tab !== "preview" && (
+          <Button
+            variant="flat"
+            size="sm"
+            color="secondary"
+            startContent={<EyeIcon className="w-3 h-3 sm:w-4 sm:h-4" />}
+            onPress={() => handleTabs("preview")}
+            className="font-semibold text-[11px] sm:text-sm h-6 sm:h-8 px-2 sm:px-3 rounded-md sm:rounded-lg"
+          >
+            Preview
+          </Button>
+        )}
+      </div>
+
+      <div
+        className="w-full flex-1 flex flex-col touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
       >
-        <Tab key={"question"} title="Question">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="question-tab"
-              variants={tabVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="relative"
-            >
-              <QuestionTab />
-            </motion.div>
-          </AnimatePresence>
-        </Tab>
-        <Tab key={"solution"} title="Solution">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="solution-tab"
-              variants={tabVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
-              <Solution_Tab isLoading={isFetching} />
-            </motion.div>
-          </AnimatePresence>
-        </Tab>
-        <Tab key={"preview"} title="Preview">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="preview-tab"
-              variants={tabVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
-              {formId ? (
-                <PreviewTab formId={formId} />
-              ) : (
-                <div className="w-full h-40 flex items-center justify-center">
-                  <p className="text-gray-500">Loading preview...</p>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </Tab>
-        <Tab key={"response"} title="Response">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="response-tab"
-              variants={tabVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
-              {formId ? (
-                <ResponseDashboard formId={formId} form={formstate} />
-              ) : (
-                <div className="w-full h-40 flex items-center justify-center">
-                  <p className="text-gray-500">Loading form data...</p>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </Tab>
-        <Tab key={"analytics"} title="Analytics">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="analytics-tab"
-              variants={tabVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
-              {formId ? (
-                <ResponseAnalytics formId={formId} form={formstate} />
-              ) : (
-                <div className="w-full h-40 flex items-center justify-center">
-                  <p className="text-gray-500">Loading form data...</p>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </Tab>
-        <Tab
-          key={"setting"}
-          title={
-            <div className="flex items-center gap-1.5">
-              Setting
-              {isSettingUnsaved && (
-                <span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />
-              )}
-            </div>
-          }
+        <Tabs
+          className="w-full h-fit bg-white dark:bg-black"
+          variant="underlined"
+          selectedKey={selectedKey}
+          onSelectionChange={(val) => handleTabs(val as alltabs)}
+          classNames={{
+            base: "w-full",
+            tabList:
+              "w-full flex justify-start sm:justify-center overflow-x-auto no-scrollbar scroll-smooth border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black px-1.5 sm:px-6 py-0 gap-0.5 sm:gap-4 flex-nowrap h-8 sm:h-12 min-h-8 sm:min-h-12 items-center",
+            tab: "h-7 sm:h-10 px-2 sm:px-4 text-[11px] sm:text-sm font-medium sm:font-semibold flex-shrink-0 transition-all rounded-md sm:rounded-lg",
+            tabContent:
+              "group-data-[selected=true]:font-bold group-data-[selected=true]:text-primary text-[11px] sm:text-sm whitespace-nowrap",
+            cursor: "w-full bg-primary h-[2px] sm:h-[3px] rounded-t-full",
+            panel: "w-full p-0 pt-1.5 sm:pt-3",
+          }}
         >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="setting-tab"
-              variants={tabVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="w-full min-h-screen h-full grid place-items-center"
-            >
-              <SettingTab onUnsavedChange={setIsSettingUnsaved} />
-            </motion.div>
-          </AnimatePresence>
-        </Tab>
-      </Tabs>
+          <Tab key={"question"} title="Question">
+            <AnimatePresence mode="wait" custom={swipeDirection}>
+              <motion.div
+                key="question-tab"
+                custom={swipeDirection}
+                variants={tabVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="relative w-full"
+              >
+                <OverviewContainer tab="question" loading={isFetching} />
+                <QuestionTab />
+              </motion.div>
+            </AnimatePresence>
+          </Tab>
+          {isQuiz && (
+            <Tab key={"solution"} title="Solution">
+              <AnimatePresence mode="wait" custom={swipeDirection}>
+                <motion.div
+                  key="solution-tab"
+                  custom={swipeDirection}
+                  variants={tabVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="relative w-full"
+                >
+                  <OverviewContainer tab="solution" loading={isFetching} />
+                  <Solution_Tab isLoading={isFetching} />
+                </motion.div>
+              </AnimatePresence>
+            </Tab>
+          )}
+          <Tab
+            key={"preview"}
+            title={
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <EyeIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span>Preview</span>
+              </div>
+            }
+          >
+            <AnimatePresence mode="wait" custom={swipeDirection}>
+              <motion.div
+                key="preview-tab"
+                custom={swipeDirection}
+                variants={tabVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                {formId ? (
+                  <PreviewTab formId={formId} />
+                ) : (
+                  <div className="w-full h-40 flex items-center justify-center">
+                    <p className="text-gray-500">Loading preview...</p>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </Tab>
+          <Tab key={"response"} title="Response">
+            <AnimatePresence mode="wait" custom={swipeDirection}>
+              <motion.div
+                key="response-tab"
+                custom={swipeDirection}
+                variants={tabVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                {formId ? (
+                  <ResponseDashboard formId={formId} form={formstate} />
+                ) : (
+                  <div className="w-full h-40 flex items-center justify-center">
+                    <p className="text-gray-500">Loading form data...</p>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </Tab>
+          <Tab key={"analytics"} title="Analytics">
+            <AnimatePresence mode="wait" custom={swipeDirection}>
+              <motion.div
+                key="analytics-tab"
+                custom={swipeDirection}
+                variants={tabVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                {formId ? (
+                  <ResponseAnalytics formId={formId} form={formstate} />
+                ) : (
+                  <div className="w-full h-40 flex items-center justify-center">
+                    <p className="text-gray-500">Loading form data...</p>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </Tab>
+          <Tab
+            key={"setting"}
+            title={
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <span>Setting</span>
+                {isSettingUnsaved && (
+                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-orange-400 inline-block" />
+                )}
+              </div>
+            }
+          >
+            <AnimatePresence mode="wait" custom={swipeDirection}>
+              <motion.div
+                key="setting-tab"
+                custom={swipeDirection}
+                variants={tabVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="w-full py-4 px-2 sm:px-4 flex justify-center"
+              >
+                <SettingTab onUnsavedChange={setIsSettingUnsaved} />
+              </motion.div>
+            </AnimatePresence>
+          </Tab>
+        </Tabs>
+      </div>
 
       {/* Pagination */}
-
-      {(tab === "question" || tab === "solution") && formstate.totalpage ? (
-        <div
-          className={`w-full h-fit py-3 grid place-content-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]`}
-        >
+      {(tab === "question" || (isQuiz && tab === "solution")) &&
+      (formstate.totalpage ?? 0) > 1 ? (
+        <div className="sticky bottom-0 w-full h-fit py-2.5 sm:py-3 px-2 flex justify-center items-center bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.06)]">
           <Pagination
             page={page}
             setPage={handlePage}

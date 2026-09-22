@@ -1,12 +1,13 @@
 import React from "react";
 
-export const DownArrow = () => {
+export const DownArrow = (props?: React.SVGProps<SVGSVGElement>) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      className="h-7 w-7"
       viewBox="0 0 20 20"
       fill="currentColor"
+      className={props?.className || "h-7 w-7"}
+      {...props}
     >
       <path
         fillRule="evenodd"

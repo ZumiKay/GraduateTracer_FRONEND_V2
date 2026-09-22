@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 
-const LOGO_SIZE = 300;
+const LOGO_SIZE = 200;
 
 const LogoSVG = () => (
   <svg
@@ -35,10 +35,7 @@ const LogoSVG = () => (
       stroke="#818cf8"
       strokeWidth="1.5"
     />
-    <polygon
-      points="150,70 220,103 150,130 80,103"
-      fill="rgba(255,255,255,0.08)"
-    />
+    <polygon points="150,70 220,103 150,130 80,103" fill="rgba(255,255,255,0.08)" />
 
     {/* Cap body */}
     <rect x="97" y="118" width="106" height="46" fill="url(#gt-band)" />
@@ -120,15 +117,7 @@ const LogoSVG = () => (
     </text>
 
     {/* Divider */}
-    <line
-      x1="90"
-      y1="196"
-      x2="210"
-      y2="196"
-      stroke="#6366f1"
-      strokeWidth="1"
-      opacity="0.7"
-    />
+    <line x1="90" y1="196" x2="210" y2="196" stroke="#6366f1" strokeWidth="1" opacity="0.7" />
 
     {/* Label */}
     <text

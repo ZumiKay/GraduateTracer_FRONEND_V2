@@ -15,14 +15,7 @@ import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../../redux/openmodal";
 import { RootState } from "../../redux/store";
 import { AsyncLoggout } from "../../redux/user.store";
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useMemo,
-  SyntheticEvent,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo, SyntheticEvent } from "react";
 import { createSelector } from "@reduxjs/toolkit";
 import { hasArrayChange } from "../../helperFunc";
 import { useLocation, useSearchParams, useNavigate } from "react-router";
@@ -72,24 +65,18 @@ export default function Navigationbar() {
   const mobileFormtitleRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const [searchParam] = useSearchParams();
-  const openmodal = useSelector((root: RootState) => root.openmodal.setting);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const openModalState = useSelector((root: RootState) => root.openmodal);
 
-  const { manualSave, autoSaveStatus, isOnline, offlineQueueSize } =
-    useImprovedAutoSave({
-      debounceMs: 500,
-      retryAttempts: 3,
-      retryDelayMs: 2000,
-    });
+  const { manualSave, autoSaveStatus, isOnline, offlineQueueSize } = useImprovedAutoSave({
+    debounceMs: 500,
+    retryAttempts: 3,
+    retryDelayMs: 2000,
+  });
 
-  const currentTab = useMemo(
-    () => searchParam.get("tab") || "question",
-    [searchParam],
-  );
+  const currentTab = useMemo(() => searchParam.get("tab") || "question", [searchParam]);
   const isSettingTab = useMemo(() => currentTab === "setting", [currentTab]);
-  const isDashboard = useMemo(
-    () => location.pathname === "/dashboard",
-    [location.pathname],
-  );
+  const isDashboard = useMemo(() => location.pathname === "/dashboard", [location.pathname]);
   const isAutosaveDisabled = useMemo(
     () => !formData.formstate.setting?.autosave,
     [formData.formstate.setting?.autosave],
@@ -99,18 +86,8 @@ export default function Navigationbar() {
     [currentTab],
   );
   const shouldShowSaveButton = useMemo(
-    () =>
-      canSaveTabs &&
-      !formData.fetchloading &&
-      isAutosaveDisabled &&
-      !isDashboard,
-    [
-      canSaveTabs,
-      formData.fetchloading,
-      isAutosaveDisabled,
-      currentTab,
-      isDashboard,
-    ],
+    () => canSaveTabs && !formData.fetchloading && isAutosaveDisabled && !isDashboard,
+    [canSaveTabs, formData.fetchloading, isAutosaveDisabled, currentTab, isDashboard],
   );
 
   const saveButtonState = useMemo(() => {
@@ -144,13 +121,7 @@ export default function Navigationbar() {
       text: "Save",
       color: "success" as const,
     };
-  }, [
-    autoSaveStatus.status,
-    isOnline,
-    formHasChange,
-    formData.formstate._id,
-    saveloading,
-  ]);
+  }, [autoSaveStatus.status, isOnline, formHasChange, formData.formstate._id, saveloading]);
 
   const autoSaveStatusText = useMemo(() => {
     if (!isOnline) return "Offline";
@@ -186,11 +157,18 @@ export default function Navigationbar() {
     return isDashboard ? "Graduate Tracer" : "";
   }, [formData.formstate.title, isDashboard]);
 
-  const isPopoverOpen = useMemo(
-    () =>
-      Object.values(openmodal).some((i) => i === true) ? false : undefined,
-    [openmodal],
-  );
+  // Close profile popover when setting modal (or any modal) is open
+  useEffect(() => {
+    const isAnyModalOpen =
+      openModalState.setting ||
+      openModalState.createform ||
+      openModalState.expirationalert ||
+      openModalState.confirm?.open;
+
+    if (isAnyModalOpen !== undefined && isAnyModalOpen === true) {
+      setIsProfileOpen(false);
+    }
+  }, [openModalState]);
 
   const { allquestion, prevAllQuestion } = formData;
   const lastDetectedScoreRef = useRef<number | null>(null);
@@ -207,12 +185,12 @@ export default function Navigationbar() {
           return a !== b;
         })
       : allquestion.length !== prevAllQuestion.length;
-    if (changedScoreValue !== null)
-      lastDetectedScoreRef.current = changedScoreValue;
+    if (changedScoreValue !== null) lastDetectedScoreRef.current = changedScoreValue;
     setformHasChange(isChange || scoreChanged);
   }, [allquestion, prevAllQuestion]);
 
   const handleSignout = useCallback(async () => {
+    setIsProfileOpen(false);
     setloading(true);
     const issignout = await AsyncLoggout();
     setloading(false);
@@ -220,16 +198,13 @@ export default function Navigationbar() {
     window.location.reload();
   }, []);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        (e.target as HTMLDivElement).blur();
-      }
-      e.stopPropagation();
-    },
-    [],
-  );
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      (e.target as HTMLDivElement).blur();
+    }
+    e.stopPropagation();
+  }, []);
 
   const handleManuallySave = useCallback(async () => {
     if (!formData.formstate._id) return;
@@ -254,13 +229,7 @@ export default function Navigationbar() {
     } finally {
       setsaveloading(false);
     }
-  }, [
-    dispatch,
-    formData.formstate,
-    formData.allquestion,
-    formData.page,
-    manualSave,
-  ]);
+  }, [dispatch, formData.formstate, formData.allquestion, formData.page, manualSave]);
 
   const applyTitleChange = useCallback(
     (newTitle: string) => {
@@ -272,10 +241,7 @@ export default function Navigationbar() {
   );
 
   const handleTitleBlur = useCallback(() => {
-    const newTitle = (formtitleRef.current?.textContent?.trim() || "").slice(
-      0,
-      50,
-    );
+    const newTitle = (formtitleRef.current?.textContent?.trim() || "").slice(0, 50);
     applyTitleChange(newTitle);
   }, [applyTitleChange]);
 
@@ -296,59 +262,46 @@ export default function Navigationbar() {
   }, []);
 
   const handleMobileTitleBlur = useCallback(() => {
-    const newTitle = (
-      mobileFormtitleRef.current?.textContent?.trim() || ""
-    ).slice(0, 50);
+    const newTitle = (mobileFormtitleRef.current?.textContent?.trim() || "").slice(0, 50);
     applyTitleChange(newTitle);
   }, [applyTitleChange]);
 
-  const handleMobileTitleInput = useCallback(
-    (e: SyntheticEvent<HTMLDivElement>) => {
-      const el = e.currentTarget;
-      const text = el.textContent || "";
-      if (text.length > 50) {
-        el.textContent = text.slice(0, 50);
-        // Restore cursor to end after truncation
-        const sel = window.getSelection();
-        const range = document.createRange();
-        if (el.firstChild) {
-          range.setStart(el.firstChild, 50);
-          range.collapse(true);
-          sel?.removeAllRanges();
-          sel?.addRange(range);
-        }
+  const handleMobileTitleInput = useCallback((e: SyntheticEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const text = el.textContent || "";
+    if (text.length > 50) {
+      el.textContent = text.slice(0, 50);
+      // Restore cursor to end after truncation
+      const sel = window.getSelection();
+      const range = document.createRange();
+      if (el.firstChild) {
+        range.setStart(el.firstChild, 50);
+        range.collapse(true);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   useEffect(() => {
     const handleGlobalKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === "s") {
         event.preventDefault();
-        if (
-          formData.formstate._id &&
-          shouldShowSaveButton &&
-          !saveButtonState.disabled
-        ) {
+        if (formData.formstate._id && shouldShowSaveButton && !saveButtonState.disabled) {
           handleManuallySave();
         }
       }
     };
     document.addEventListener("keydown", handleGlobalKeyDown);
     return () => document.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [
-    formData.formstate._id,
-    shouldShowSaveButton,
-    saveButtonState.disabled,
-    handleManuallySave,
-  ]);
+  }, [formData.formstate._id, shouldShowSaveButton, saveButtonState.disabled, handleManuallySave]);
 
   const handleSavePress = useCallback(() => {
     if (formData.formstate._id) handleManuallySave();
   }, [formData, handleManuallySave]);
 
   const handleSettingsPress = useCallback(() => {
+    setIsProfileOpen(false);
     dispatch(OpenModal.actions.setopenmodal({ state: "setting", value: true }));
   }, [dispatch]);
 
@@ -421,9 +374,7 @@ export default function Navigationbar() {
                 {saveButtonState.text}
               </Button>
               {autoSaveStatusText && (
-                <span
-                  className={`hidden sm:block text-xs ${autoSaveStatusColor}`}
-                >
+                <span className={`hidden sm:block text-xs ${autoSaveStatusColor}`}>
                   {autoSaveStatusText}
                 </span>
               )}
@@ -434,53 +385,78 @@ export default function Navigationbar() {
             <div className="flex flex-col items-end gap-0.5">
               <AutoSaveContainer />
               {autoSaveStatusText && (
-                <span
-                  className={`hidden sm:block text-xs ${autoSaveStatusColor}`}
-                >
+                <span className={`hidden sm:block text-xs ${autoSaveStatusColor}`}>
                   {autoSaveStatusText}
                 </span>
               )}
             </div>
           )}
 
-          <NotificationContainer
-            userId={userSession?.user?._id || ""}
-            className="mr-0 sm:mr-2"
-          />
+          <NotificationContainer userId={userSession?.user?._id || ""} className="mr-0 sm:mr-1" />
 
-          <ProfileIconContainer
-            label={userSession.user?.name ?? "User"}
-            color="lime"
-          />
-
-          <Popover isOpen={isPopoverOpen} offset={20} placement="bottom-end">
+          <Popover
+            isOpen={isProfileOpen}
+            onOpenChange={setIsProfileOpen}
+            offset={10}
+            placement="bottom-end"
+            shouldFlip={false}
+            disableAnimation
+          >
             <PopoverTrigger>
-              <span className="w-fit h-full hover:rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 flex flex-row items-center justify-center px-0.5 sm:px-1">
-                <DownArrow />
-              </span>
+              <Button
+                variant="light"
+                disableRipple
+                className="h-auto p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/70 focus:outline-none focus:ring-2 focus:ring-primary/40 min-w-0 bg-transparent flex flex-row items-center gap-1 sm:gap-1.5 cursor-pointer data-[hover=true]:bg-gray-200 dark:data-[hover=true]:bg-gray-700/70"
+                aria-label="User account menu"
+              >
+                <ProfileIconContainer label={userSession.user?.name ?? "User"} color="lime" />
+                <span className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                  <DownArrow className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </span>
+              </Button>
             </PopoverTrigger>
-            <PopoverContent className="max-w-[280px] z-50 overflow-auto w-fit p-1 font-normal text-sm">
-              <div className="profilecontent px-2 py-2 w-full flex flex-col gap-y-5">
-                <p className="text-left truncate max-w-[240px]">
-                  {userSession.user?.name || userSession.user?.email}
-                </p>
+            <PopoverContent className="w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] z-50 p-2 font-normal text-sm shadow-xl rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white dark:bg-gray-800">
+              <div className="profilecontent w-full flex flex-col gap-y-2 p-1 animate-in fade-in duration-150">
+                <div className="flex items-center gap-2.5 px-2 py-2 border-b border-gray-100 dark:border-gray-700/80">
+                  <ProfileIconContainer
+                    label={userSession.user?.name ?? "User"}
+                    color="lime"
+                    size="w-9 h-9"
+                  />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      {userSession.user?.name || "User"}
+                    </p>
+                    {userSession.user?.email && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {userSession.user.email}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <Listbox
                   aria-label="Account menu"
-                  variant="solid"
-                  className="w-full h-fit"
+                  variant="flat"
+                  className="w-full p-0"
+                  onAction={() => setIsProfileOpen(false)}
                 >
-                  <ListboxSection showDivider>
+                  <ListboxSection showDivider className="mb-1">
                     <ListboxItem
+                      key="setting"
                       onPress={handleSettingsPress}
                       startContent={<SettingIcon />}
+                      className="rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/60"
                     >
                       Setting
                     </ListboxItem>
                   </ListboxSection>
                   <ListboxSection>
                     <ListboxItem
+                      key="signout"
                       onPress={handleSignout}
                       color="danger"
+                      className="text-danger rounded-lg hover:bg-danger-50 dark:hover:bg-danger-900/20"
                       startContent={<LogoutIcon />}
                     >
                       {loading ? "Signing Out..." : "Sign Out"}
@@ -493,7 +469,7 @@ export default function Navigationbar() {
         </div>
       </div>
 
-      {/* ── Mobile title strip (hidden on sm+) ───────────────── */}
+      {/*  Mobile title strip  */}
       {formData.formstate.title && (
         <div className="sm:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2">
           <div
