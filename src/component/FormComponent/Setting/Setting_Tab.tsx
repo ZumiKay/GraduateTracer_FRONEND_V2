@@ -357,22 +357,35 @@ const SettingTab = ({
       content,
       description,
       action,
+      type,
     }: {
       content: string;
       description?: string;
       action?: ReactNode;
+      type?: string;
     }) => {
+      const isStacked = type === "color";
       return (
-        <div className="flex items-center justify-between px-4 py-3.5 gap-4">
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <p className="text-sm font-medium dark:text-gray-200">{content}</p>
+        <div
+          className={`flex ${
+            isStacked
+              ? "flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
+              : "flex-row items-center justify-between gap-3 sm:gap-4"
+          } px-3.5 sm:px-4 py-3 sm:py-3.5 transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-700/30`}
+        >
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+              {content}
+            </p>
             {description && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 leading-snug">
                 {description}
               </p>
             )}
           </div>
-          <div className="shrink-0">{action}</div>
+          <div className={isStacked ? "w-full sm:w-auto" : "shrink-0"}>
+            {action}
+          </div>
         </div>
       );
     },
@@ -380,18 +393,19 @@ const SettingTab = ({
   );
 
   return (
-    <div className="setting-tab w-full max-w-2xl mx-auto flex flex-col gap-y-8 py-4 px-2 sm:px-0">
+    <div className="setting-tab w-full max-w-2xl mx-auto flex flex-col gap-y-6 sm:gap-y-8 py-2 sm:py-4 px-1 sm:px-0">
       {Object.entries(groupedOptions).map(([section, item]) => (
-        <div key={`${section} of setting`} className="flex flex-col gap-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400 px-1">
+        <div key={`${section} of setting`} className="flex flex-col gap-1.5 sm:gap-2">
+          <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-1">
             {section}
           </p>
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 overflow-hidden shadow-xs sm:shadow-sm">
             {(item as unknown as SettingOptionType).map(
               (setting, idx) =>
                 setting && (
                   <Settingitem
                     key={idx}
+                    type={setting.type}
                     content={setting.label ?? ""}
                     description={
                       setting.state === "autosave"
@@ -413,7 +427,8 @@ const SettingTab = ({
                         />
                       ) : setting.type === "select" ? (
                         <Selection
-                          className="w-[150px]"
+                          className="w-[130px] sm:w-[150px]"
+                          size="sm"
                           items={setting.option ?? []}
                           selectedKeys={[
                             handleChangeSetting(setting.state) as string,
@@ -452,23 +467,23 @@ const SettingTab = ({
       ))}
 
       {formstate.isCreator && (
-        <div className="dangerous w-full h-fit border-2 border-red-500/30 rounded-lg p-6 bg-red-50 dark:bg-red-950/20">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <p className="text-xl font-bold text-red-600 dark:text-red-400">
+        <div className="dangerous w-full h-fit border border-red-500/30 dark:border-red-500/40 rounded-xl p-4 sm:p-6 bg-red-50/70 dark:bg-red-950/20 shadow-xs">
+          <div className="flex flex-col gap-3.5 sm:gap-4">
+            <div className="flex flex-col gap-1">
+              <p className="text-lg sm:text-xl font-bold text-red-600 dark:text-red-400">
                 Danger Zone
               </p>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
+              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                 Once you delete this form, there is no going back. Please be
                 certain.
               </p>
             </div>
-            <div className="flex flex-col gap-3 p-4 bg-white dark:bg-gray-800 rounded-md border border-red-200 dark:border-red-800">
-              <div className="flex flex-col gap-1">
-                <p className="text-md font-semibold dark:text-gray-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3.5 sm:p-4 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-900/60 shadow-xs">
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   Delete this form
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-xs text-gray-600 dark:text-gray-400">
                   This will permanently delete the form and all its responses.
                   This action cannot be undone.
                 </p>
@@ -476,7 +491,8 @@ const SettingTab = ({
               <Button
                 color="danger"
                 variant="solid"
-                className="font-bold w-fit"
+                size="sm"
+                className="font-bold w-full sm:w-auto shrink-0"
                 onPress={confirmDeleteForm}
               >
                 Delete Form Permanently
@@ -487,17 +503,17 @@ const SettingTab = ({
       )}
 
       {/* Collaborative Features Section */}
-      <div className="flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400 px-1">
+      <div className="flex flex-col gap-1.5 sm:gap-2">
+        <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-1">
           Collaboration
         </p>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3.5 gap-4">
-            <div className="flex flex-col gap-0.5">
-              <p className="text-sm font-medium dark:text-gray-200">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xs sm:shadow-sm overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between px-3.5 sm:px-4 py-3 sm:py-3.5 gap-3 sm:gap-4">
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-200">
                 Form Access
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">
                 Manage form access and collaborative editing
               </p>
             </div>
@@ -506,7 +522,7 @@ const SettingTab = ({
                 color="danger"
                 variant="flat"
                 size="sm"
-                className="font-semibold shrink-0"
+                className="font-semibold w-full sm:w-auto shrink-0"
                 onPress={() => {
                   const value: ConfirmModalDataType = {
                     open: true,
@@ -525,7 +541,7 @@ const SettingTab = ({
                 color="primary"
                 variant="flat"
                 size="sm"
-                className="font-semibold shrink-0"
+                className="font-semibold w-full sm:w-auto shrink-0"
                 onPress={() => setShowOwnerManager(true)}
               >
                 Manage Access
@@ -543,18 +559,20 @@ const SettingTab = ({
         />
       )}
 
-      <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700">
         <Button
           isLoading={loading}
           variant="flat"
+          size="md"
           onPress={() => handleRestoreSetting()}
-          className="font-semibold"
+          className="font-semibold w-full sm:w-auto"
         >
           Restore Defaults
         </Button>
         <Button
           isLoading={loading}
           color="success"
+          size="md"
           isDisabled={!isEdit}
           onPress={() =>
             dispatch(
@@ -569,7 +587,7 @@ const SettingTab = ({
               }) as never,
             )
           }
-          className="text-white font-semibold"
+          className="text-white font-semibold w-full sm:w-auto"
         >
           Save Changes
         </Button>

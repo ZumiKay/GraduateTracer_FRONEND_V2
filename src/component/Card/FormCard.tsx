@@ -20,11 +20,7 @@ const SelectionCheckbox = memo(({ isSelect }: { isSelect: boolean }) => (
       }`}
     >
       {isSelect && (
-        <svg
-          className="w-4 h-4 text-white"
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
+        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
           <path
             fillRule="evenodd"
             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -38,13 +34,7 @@ const SelectionCheckbox = memo(({ isSelect }: { isSelect: boolean }) => (
 
 SelectionCheckbox.displayName = "SelectionCheckbox";
 
-const FormCard: React.FC<FormCardProps> = ({
-  data,
-  type,
-  isManage,
-  onClick,
-  isSelect,
-}) => {
+const FormCard: React.FC<FormCardProps> = ({ data, type, isManage, onClick, isSelect }) => {
   const typeColor = useMemo(() => {
     switch (type) {
       case FormTypeEnum.Quiz:
@@ -108,7 +98,7 @@ const FormCard: React.FC<FormCardProps> = ({
                   variant="flat"
                   className="text-xs font-medium px-3 py-1"
                 >
-                  📧 Email Required
+                  Email Required
                 </Chip>
               )}
               {data.isFilled && (
@@ -118,7 +108,7 @@ const FormCard: React.FC<FormCardProps> = ({
                   variant="solid"
                   className="text-xs font-medium px-3 py-1 text-white"
                 >
-                  ✓ Completed
+                  Completed
                 </Chip>
               )}
             </div>
@@ -128,7 +118,7 @@ const FormCard: React.FC<FormCardProps> = ({
       </CardHeader>
       <CardBody className="pt-0 px-6 pb-6">
         <div className="space-y-4">
-          <div className="flex justify-between items-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+          <div className="flex flex-col justify-between items-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
             <div className="flex items-center space-x-1">
               <span className="text-gray-500">📅</span>
               <span className="font-medium">Created:</span>

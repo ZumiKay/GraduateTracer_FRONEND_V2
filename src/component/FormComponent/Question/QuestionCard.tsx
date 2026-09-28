@@ -1,11 +1,7 @@
 import React from "react";
 import { Card, CardBody, Chip, Tooltip, Button } from "@heroui/react";
 import { ContentType } from "../../../types/Form.types";
-import {
-  getQuestionTypeLabel,
-  getQuestionTitle,
-  canToggleVisibility,
-} from "./utils";
+import { getQuestionTypeLabel, getQuestionTitle, canToggleVisibility } from "./utils";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -39,8 +35,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onToggleExpanded,
 }) => {
   const isChild = level > 0;
-  const isChildVisibility =
-    question.children && question.children.every((i) => i.isVisible);
+  const isChildVisibility = question.children && question.children.every((i) => i.isVisible);
 
   const levelBorderColors = [
     "border-primary",
@@ -76,25 +71,15 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         `}
         shadow="none"
       >
-        <CardBody
-          className="p-2.5 sm:p-3.5"
-          onClick={() => onQuestionClick(question)}
-        >
+        <CardBody className="p-2.5 sm:p-3.5" onClick={() => onQuestionClick(question)}>
           {/* Parent indicator for conditional child questions */}
           {isChild && parentQuestion && (
             <div className="mb-1.5 p-1.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-md border border-blue-200/60 dark:border-blue-800/40 flex items-center gap-1.5 text-xs overflow-hidden">
-              <ConnectionIcon
-                width="12"
-                height="12"
-                className="text-blue-500 shrink-0"
-              />
+              <ConnectionIcon width="12" height="12" className="text-blue-500 shrink-0" />
               <span className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap shrink-0 text-[11px]">
                 Child of:
               </span>
-              <Tooltip
-                content={getQuestionTitle(parentQuestion)}
-                placement="top"
-              >
+              <Tooltip content={getQuestionTitle(parentQuestion)} placement="top">
                 <span className="text-blue-800 dark:text-blue-200 truncate font-normal text-[11px] hover:underline">
                   {getQuestionTitle(parentQuestion)}
                 </span>
@@ -162,10 +147,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 </Tooltip>
               )}
               {hasChildren && (
-                <Tooltip
-                  content={isExpanded ? "Collapse" : "Expand"}
-                  placement="top"
-                >
+                <Tooltip content={isExpanded ? "Collapse" : "Expand"} placement="top">
                   <Button
                     size="sm"
                     variant="light"
@@ -215,8 +197,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 question.children.length > 0 && <span>•</span>}
               {hasChildren && question.children && question.children.length > 0 && (
                 <span className="text-amber-600 dark:text-amber-400">
-                  {question.children.length}{" "}
-                  {question.children.length === 1 ? "child" : "children"}
+                  {question.children.length} {question.children.length === 1 ? "child" : "children"}
                 </span>
               )}
             </div>

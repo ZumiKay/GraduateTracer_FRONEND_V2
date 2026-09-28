@@ -58,17 +58,25 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   handleLimitChange,
 }) => {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="3xl" scrollBehavior="inside">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="3xl"
+      scrollBehavior="inside"
+      classNames={{
+        base: "m-3 sm:m-auto max-w-2xl max-h-[90vh]",
+      }}
+    >
       <ModalContent className="dark:bg-gray-800">
-        <ModalHeader className="flex flex-col gap-1">
-          <h2 className="text-xl font-bold dark:text-gray-100">
+        <ModalHeader className="flex flex-col gap-1 px-4 sm:px-6 pt-5 sm:pt-6">
+          <h2 className="text-lg sm:text-xl font-bold dark:text-gray-100">
             Advanced Filters
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-normal">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-normal">
             Refine your response list with these filters
           </p>
         </ModalHeader>
-        <ModalBody className="gap-6 py-6">
+        <ModalBody className="gap-4 sm:gap-6 py-4 sm:py-6 px-4 sm:px-6">
           {/* Status Filter */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
@@ -298,15 +306,21 @@ export const FilterModal: React.FC<FilterModalProps> = ({
             </div>
           )}
         </ModalBody>
-        <ModalFooter className="border-t">
-          <Button color="default" variant="light" onPress={onClose} size="lg">
+        <ModalFooter className="border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4 flex-col-reverse sm:flex-row gap-2 sm:gap-3">
+          <Button
+            color="default"
+            variant="light"
+            onPress={onClose}
+            size="lg"
+            className="w-full sm:w-auto text-sm sm:text-base"
+          >
             Close
           </Button>
           <Button
             color="primary"
             onPress={onClose}
             size="lg"
-            className="font-semibold"
+            className="w-full sm:w-auto font-semibold text-sm sm:text-base"
           >
             Apply Filters
           </Button>

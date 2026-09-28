@@ -112,7 +112,7 @@ export const ChoiceQuestionEdit = ({
   };
 
   return (
-    <div className="choice_container w-full h-fit p-3 flex flex-col gap-y-5">
+    <div className="choice_container w-full max-w-full min-w-0 h-fit p-2 sm:p-3 flex flex-col gap-y-4 sm:gap-y-5">
       {options.map((option, idx) => renderOption(option, idx))}
       <Button onPress={handleAddOption} color="primary" className="font-bold">
         Add Options
@@ -184,26 +184,28 @@ export const SelectionQuestionEdit = ({
   );
 
   return (
-    <div className="w-full h-fit flex flex-col items-start gap-y-5">
+    <div className="w-full max-w-full min-w-0 h-fit flex flex-col items-start gap-y-4 sm:gap-y-5">
       <ul className="Optionlist w-full list-none text-lg flex flex-col gap-y-3">
         {state.selection?.map((option, idx) => (
           <li
             key={idx}
-            className="w-full h-fit inline-flex gap-x-3 items-center"
+            className="w-full min-w-0 h-fit flex gap-x-2 sm:gap-x-3 items-center"
           >
-            <span className="w-[10px] h-[10px] bg-black dark:bg-white rounded-full"></span>
+            <span className="w-[10px] h-[10px] bg-black dark:bg-white rounded-full shrink-0"></span>
             <Input
               type="text"
               variant="bordered"
               placeholder="option"
               value={option.content}
+              size="md"
+              className="flex-1 min-w-0"
               endContent={
                 <DeleteIcon
                   fill="#fff"
                   onClick={() => {
                     handleDeleteOption(idx);
                   }}
-                  className="cursor-pointer"
+                  className="cursor-pointer shrink-0"
                   width={"20px"}
                   height={"20px"}
                 />
@@ -219,13 +221,15 @@ export const SelectionQuestionEdit = ({
                 });
               }}
             />
-            <RenderDropDownMenu
-              handleConditionQuestion={() => handleConditionQuestion(idx)}
-              isLink={!!isLinked?.(idx)}
-              handleScrollTo={() => {
-                handleOptionScrollTo(idx);
-              }}
-            />
+            <div className="shrink-0">
+              <RenderDropDownMenu
+                handleConditionQuestion={() => handleConditionQuestion(idx)}
+                isLink={!!isLinked?.(idx)}
+                handleScrollTo={() => {
+                  handleOptionScrollTo(idx);
+                }}
+              />
+            </div>
           </li>
         ))}
       </ul>
@@ -273,7 +277,7 @@ export const RangeNumberInputComponent = ({
 
   return (
     <div className="RangeNumber w-full flex flex-col gap-y-2">
-      <div className="flex flex-row justify-between gap-x-3">
+      <div className="flex flex-col sm:flex-row justify-between gap-3">
         <NumberInput
           name="start"
           size="md"

@@ -217,7 +217,7 @@ const ResponseDashboard: React.FC<ResponseDashboardProps> = ({
   }, [generatedLink]);
 
   return (
-    <div className="space-y-6 dark:bg-gray-900 dark:text-gray-100">
+    <div className="w-full max-w-full min-w-0 space-y-4 sm:space-y-6 dark:bg-gray-900 dark:text-gray-100">
       <DashboardHeader
         onEmailModalOpen={() => setEmailModalOpen(true)}
         onGenerateLink={generateFormLink}

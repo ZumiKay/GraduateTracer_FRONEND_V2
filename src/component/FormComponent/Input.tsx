@@ -83,8 +83,8 @@ export const CustomCheckBox = (props: CustomChoiceProps) => {
     }
   };
   return (
-    <div className="inline-flex items-center gap-x-3">
-      <label className="flex items-center cursor-pointer relative">
+    <div className="flex w-full min-w-0 items-center gap-x-2 sm:gap-x-3">
+      <label className="flex items-center cursor-pointer relative shrink-0">
         <input
           type="checkbox"
           checked
@@ -111,12 +111,12 @@ export const CustomCheckBox = (props: CustomChoiceProps) => {
         </span>
       </label>
       {props.label ? (
-        <label htmlFor="framework">{props.label}</label>
+        <label htmlFor="framework" className="truncate">{props.label}</label>
       ) : (
         <>
           <Input
-            className="ml-5"
-            size="lg"
+            className="flex-1 min-w-0"
+            size="md"
             value={props.value}
             variant="bordered"
             placeholder="Option"
@@ -126,7 +126,7 @@ export const CustomCheckBox = (props: CustomChoiceProps) => {
                 width={"20px"}
                 height={"20px"}
                 onClick={() => props.onDelete && props.onDelete()}
-                className="cursor-pointer"
+                className="cursor-pointer shrink-0"
                 fill="#fff"
               />
             }
@@ -134,11 +134,13 @@ export const CustomCheckBox = (props: CustomChoiceProps) => {
               input: "dark:text-white",
             }}
           />
-          <RenderDropDownMenu
-            isLink={!!props.isLink}
-            handleScrollTo={props.handleScrollTo}
-            handleConditionQuestion={handleConditionQuestion}
-          />
+          <div className="shrink-0">
+            <RenderDropDownMenu
+              isLink={!!props.isLink}
+              handleScrollTo={props.handleScrollTo}
+              handleConditionQuestion={handleConditionQuestion}
+            />
+          </div>
         </>
       )}
     </div>
@@ -156,9 +158,9 @@ export const CustomRadio = (props: CustomChoiceProps) => {
   };
 
   return (
-    <div className="inline-flex items-center">
+    <div className="flex w-full min-w-0 items-center gap-x-2 sm:gap-x-3">
       <label
-        className="relative flex items-center cursor-pointer"
+        className="relative flex items-center cursor-pointer shrink-0"
         htmlFor="html"
       >
         <input
@@ -172,12 +174,12 @@ export const CustomRadio = (props: CustomChoiceProps) => {
         <span className="absolute bg-slate-800 w-3 h-3 rounded-full opacity-0 peer-checked:opacity-100 transition-opacity duration-200 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></span>
       </label>
       {props.label ? (
-        <label htmlFor="framework">{props.label}</label>
+        <label htmlFor="framework" className="truncate">{props.label}</label>
       ) : (
-        <div className="w-full h-fit flex flex-row items-center gap-x-3">
+        <div className="flex-1 min-w-0 h-fit flex flex-row items-center gap-x-2 sm:gap-x-3">
           <Input
-            className="ml-5"
-            size="lg"
+            className="flex-1 min-w-0"
+            size="md"
             value={props.value}
             variant="bordered"
             placeholder="Option"
@@ -187,7 +189,7 @@ export const CustomRadio = (props: CustomChoiceProps) => {
                 width={"20px"}
                 height={"20px"}
                 onClick={() => props.onDelete && props.onDelete()}
-                className="cursor-pointer"
+                className="cursor-pointer shrink-0"
                 fill="#fff"
               />
             }
@@ -195,11 +197,13 @@ export const CustomRadio = (props: CustomChoiceProps) => {
               input: "dark:text-white",
             }}
           />
-          <RenderDropDownMenu
-            isLink={!!props.isLink}
-            handleConditionQuestion={handleConditionQuestion}
-            handleScrollTo={props.handleScrollTo}
-          />
+          <div className="shrink-0">
+            <RenderDropDownMenu
+              isLink={!!props.isLink}
+              handleConditionQuestion={handleConditionQuestion}
+              handleScrollTo={props.handleScrollTo}
+            />
+          </div>
         </div>
       )}
     </div>

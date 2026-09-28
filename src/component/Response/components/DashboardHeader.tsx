@@ -16,23 +16,27 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   isGeneratingLink,
 }) => {
   return (
-    <div className="flex justify-between items-center">
-      <div className="flex items-center gap-4">
-        <h2 className="text-2xl font-bold dark:text-gray-100">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full">
+      <div className="flex items-center gap-3">
+        <h2 className="text-xl sm:text-2xl font-bold dark:text-gray-100 tracking-tight">
           Response Management
         </h2>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
         <Button
           color="primary"
-          startContent={<FiMail />}
+          size="sm"
+          className="flex-1 sm:flex-none text-xs sm:text-sm font-medium"
+          startContent={<FiMail className="shrink-0 text-base" />}
           onPress={onEmailModalOpen}
         >
           Send Links
         </Button>
         <Button
           color="secondary"
-          startContent={isGeneratingLink ? <Spinner size="sm" /> : <FiLink />}
+          size="sm"
+          className="flex-1 sm:flex-none text-xs sm:text-sm font-medium"
+          startContent={isGeneratingLink ? <Spinner size="sm" /> : <FiLink className="shrink-0 text-base" />}
           onPress={onGenerateLink}
           isLoading={isGeneratingLink}
           disabled={isGeneratingLink}
@@ -41,7 +45,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         </Button>
         <Button
           color="success"
-          startContent={<FiBarChart />}
+          size="sm"
+          className="flex-1 sm:flex-none text-xs sm:text-sm font-medium"
+          startContent={<FiBarChart className="shrink-0 text-base" />}
           onPress={() => window.open(`/analytics/${formId}`, "_blank")}
         >
           Analytics

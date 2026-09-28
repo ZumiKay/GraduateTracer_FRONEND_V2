@@ -29,17 +29,17 @@ const StatCard: React.FC<StatCardProps> = ({
   badgeColor,
   isLoading,
 }) => (
-  <Card className="flex-1 min-w-[140px]">
-    <CardBody className="flex flex-row items-center gap-3 p-4">
-      <div className={`text-2xl ${colorClass}`}>{icon}</div>
-      <div className="flex flex-col gap-1">
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+  <Card className="w-full shadow-xs border border-gray-100 dark:border-gray-700/60">
+    <CardBody className="flex flex-row items-center gap-3 p-3 sm:p-4">
+      <div className={`text-xl sm:text-2xl shrink-0 ${colorClass}`}>{icon}</div>
+      <div className="flex flex-col gap-0.5 sm:gap-1 min-w-0">
+        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate">
           {label}
         </span>
         {isLoading ? (
           <Skeleton className="h-6 w-10 rounded" />
         ) : (
-          <Chip color={badgeColor} size="sm" variant="flat">
+          <Chip color={badgeColor} size="sm" variant="flat" className="font-semibold w-fit">
             {value}
           </Chip>
         )}
@@ -67,9 +67,9 @@ export const ResponseSummarySection: React.FC<ResponseSummarySectionProps> = ({
   const hasActionable = isQuizForm ? toScore > 0 : submitted > 0;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5 w-full">
       <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+        <h3 className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
           Response Overview
         </h3>
         {hasActionable && (
@@ -78,7 +78,13 @@ export const ResponseSummarySection: React.FC<ResponseSummarySectionProps> = ({
           </Chip>
         )}
       </div>
-      <div className="flex flex-wrap gap-3">
+      <div
+        className={`grid gap-2.5 sm:gap-3.5 w-full ${
+          isQuizForm
+            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+            : "grid-cols-1 sm:grid-cols-2"
+        }`}
+      >
         <StatCard
           icon={<FiCheckCircle />}
           label="Completed"

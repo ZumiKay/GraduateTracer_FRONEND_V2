@@ -295,7 +295,7 @@ export const DateRangePickerQuestionType = ({
   return (
     <div className="flex w-full flex-wrap md:flex-nowrap gap-4">
       <div className="flex flex-col gap-2 w-full">
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <DatePicker
             value={value?.start as any}
             label="Start Date"

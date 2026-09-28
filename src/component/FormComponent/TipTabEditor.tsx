@@ -14,6 +14,7 @@ import { AddLinkModal } from "../Modal/Modal";
 import ModalWrapper from "../Modal/Modal";
 import BulletList from "@tiptap/extension-bullet-list";
 import OrderedList from "@tiptap/extension-ordered-list";
+import { FiChevronDown } from "react-icons/fi";
 
 const AlphaOrderedList = OrderedList.extend({
   addAttributes() {
@@ -446,6 +447,7 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
 
   const [addlink, setaddlink] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [isFormatToolsOpen, setIsFormatToolsOpen] = useState(true);
 
   useEffect(() => {
     if (editor && JSON.stringify(value) !== JSON.stringify(editor.getJSON())) {
@@ -594,134 +596,234 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
         </ul>
       )}
 
-      <div ref={containerRef} className="w-full h-fit flex flex-col gap-y-5">
-        <EditorContent editor={editor} tabIndex={-1} aria-hidden={false} />
+      <div ref={containerRef} className="relative w-full max-w-full min-w-0 h-fit flex flex-col gap-y-3 sm:gap-y-5">
+        <EditorContent editor={editor} tabIndex={-1} aria-hidden={false} className="w-full max-w-full min-w-0 overflow-x-hidden" />
         {!readonly && (
-          <div className="w-full h-[30px] flex flex-row gap-x-3 items-center cursor-default">
-            <Selection
-              className="w-[150px]"
-              items={HeaderOptions}
-              selectedKeys={[header]}
-              onChange={(val) => {
-                const { value } = val.target;
-                setheader(value);
-                toggleHeader(Number(value));
-              }}
-              placeholder="Heading"
-              aria-label="Select Heading Level"
-            />
-            <span
-              onClick={() => applyStyle("bold")}
-              title="Bold (⌘B / Ctrl+B)"
-              className={`font-bold w-[30px] h-full grid place-content-center
-        rounded-lg hover:bg-primary active:bg-primary transition-colors ${
-          isStyleActive("bold")
-            ? "bg-primary text-white"
-            : "bg-lightsucess text-black"
-        }`}
-            >
-              B
-            </span>
-            <span
-              onClick={() => applyStyle("italic")}
-              title="Italic (⌘I / Ctrl+I)"
-              className={`font-bold italic w-[30px] h-full grid place-content-center
-            rounded-lg hover:bg-primary active:bg-primary transition-colors ${
-              isStyleActive("italic")
-                ? "bg-primary text-white"
-                : "bg-lightsucess text-black"
+          <div
+            className={`tiptap_floating_toolbar transition-all duration-300 ${
+              // Desktop (>= lg): clean in-flow toolbar below editor
+              "lg:relative lg:bottom-auto lg:right-auto lg:self-auto lg:ml-0 lg:z-auto lg:w-full lg:max-w-full lg:bg-transparent lg:border-none lg:shadow-none lg:p-0 lg:mt-1 " +
+              // Mobile & Tablet (< lg): right-side floating container docked at right side of editor
+              "max-lg:sticky max-lg:bottom-3 max-lg:right-0 max-lg:self-end max-lg:ml-auto max-lg:z-30 " +
+              (isFormatToolsOpen
+                ? "max-lg:w-[280px] sm:max-lg:w-[320px] max-lg:max-w-[calc(100vw-2rem)] "
+                : "max-lg:w-auto ") +
+              "max-lg:bg-white/95 max-lg:dark:bg-gray-800/95 max-lg:backdrop-blur-md max-lg:rounded-2xl max-lg:border-2 " +
+              "max-lg:border-gray-200/90 dark:max-lg:border-gray-700/80 max-lg:shadow-2xl max-lg:mt-2 max-lg:overflow-hidden"
             }`}
-            >
-              I
-            </span>
-            <span
-              onClick={() => applyStyle("code")}
-              className={`font-bold w-[30px] h-full grid place-content-center
-            rounded-lg hover:bg-primary active:bg-primary transition-colors ${
-              isStyleActive("code")
-                ? "bg-primary text-white"
-                : "bg-lightsucess text-black"
-            }`}
-            >
-              {`</>`}
-            </span>
-            <span
-              onClick={() => setaddlink(true)}
-              className={`font-bold w-[30px] h-full grid place-content-center
-            rounded-lg hover:bg-primary active:bg-primary transition-colors ${
-              isLinkSelection()
-                ? "bg-primary text-white"
-                : "bg-lightsucess text-black"
-            }`}
-            >
-              <LinkIcon
-                width={"20px"}
-                height={"20px"}
-                fill={isLinkSelection() ? "#fff" : "#000000"}
-              />
-            </span>
-            <span
-              onClick={() => toggleListOrder()}
-              className={`font-bold w-[30px] h-full grid place-content-center
-            rounded-lg hover:bg-primary active:bg-primary transition-colors ${
-              listactive("bulletList") || listactive("orderedList")
-                ? "bg-primary text-white"
-                : "bg-lightsucess text-black"
-            }`}
-            >
-              <ListIcon
-                fill={
-                  listactive("bulletList") || listactive("orderedList")
-                    ? "#fff"
-                    : "#000000"
-                }
-                width={"20px"}
-                height={"20px"}
-              />
-            </span>
-            <span
-              title="Alphabetical list (a, b, c…)"
-              onClick={() => toggleAlphaList()}
-              className={`font-bold w-[30px] h-full grid place-content-center rounded-lg hover:bg-primary active:bg-primary transition-colors text-sm ${
-                isAlphaList()
-                  ? "bg-primary text-white"
-                  : "bg-lightsucess text-black"
-              }`}
-            >
-              a.
-            </span>
-            <span
-              title="Alphabetical list (A, B, C…)"
-              onClick={() => toggleUpperAlphaList()}
-              className={`font-bold w-[30px] h-full grid place-content-center rounded-lg hover:bg-primary active:bg-primary transition-colors text-sm ${
-                isUpperAlphaList()
-                  ? "bg-primary text-white"
-                  : "bg-lightsucess text-black"
-              }`}
-            >
-              A.
-            </span>
-            <span
-              title="Insert math block (display)"
-              onClick={() =>
-                editor
-                  .chain()
-                  .focus()
-                  .insertContent({ type: "displayMath", attrs: { latex: "" } })
-                  .run()
-              }
-              className="font-bold w-[30px] h-full grid place-content-center rounded-lg hover:bg-primary active:bg-primary transition-colors bg-lightsucess text-black text-base"
-            >
-              ∑
-            </span>
-            {/* Help button */}
-            <span
-              title="Editor Help & LaTeX Reference"
-              onClick={() => setHelpOpen(true)}
-              className="font-bold w-[30px] h-full grid place-content-center rounded-lg hover:bg-primary active:bg-primary transition-colors bg-lightsucess text-black text-base select-none cursor-pointer"
-            >
-              ?
-            </span>
+            style={{
+              boxShadow: editor?.isFocused
+                ? "0 10px 25px -5px rgba(37, 67, 54, 0.35), 0 8px 10px -6px rgba(0, 0, 0, 0.15)"
+                : undefined,
+            }}
+          >
+            {/* Mobile & Tablet Header with quick hide/show */}
+            {isFormatToolsOpen && (
+              <div className="max-lg:flex lg:hidden items-center justify-between px-3 py-1.5 border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/80 dark:bg-gray-900/50">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <span className="text-[11px] font-bold text-gray-700 dark:text-gray-200 tracking-wide uppercase">
+                    Format Tools
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setIsFormatToolsOpen(false)}
+                  className="px-2 py-0.5 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200/60 dark:hover:bg-gray-700/60 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer active:scale-95"
+                  aria-label="Collapse formatting tools"
+                >
+                  <span>Hide</span>
+                  <FiChevronDown className="w-3.5 h-3.5 transition-transform duration-200" />
+                </button>
+              </div>
+            )}
+
+            {/* Tools Area */}
+            {isFormatToolsOpen ? (
+              <div className="w-full min-w-0 max-w-full flex flex-col lg:flex-row lg:items-center lg:gap-x-2.5 cursor-default p-2.5 lg:p-0">
+                {/* Heading Select */}
+                <div className="w-full lg:w-[145px] shrink-0 mb-2 lg:mb-0">
+                  <Selection
+                    className="w-full"
+                    size="sm"
+                    items={HeaderOptions}
+                    selectedKeys={[header]}
+                    onChange={(val) => {
+                      const { value } = val.target;
+                      setheader(value);
+                      toggleHeader(Number(value));
+                    }}
+                    placeholder="Heading"
+                    aria-label="Select Heading Level"
+                  />
+                </div>
+
+                {/* Formatting Buttons: Grid on mobile/tablet, row on desktop */}
+                <div className="grid grid-cols-5 gap-1.5 sm:gap-2 w-full lg:flex lg:flex-row lg:items-center lg:gap-x-2 lg:w-auto">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => applyStyle("bold")}
+                    title="Bold (⌘B / Ctrl+B)"
+                    aria-label="Bold"
+                    className={`font-bold h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors cursor-pointer select-none active:scale-95 text-sm lg:text-xs ${
+                      isStyleActive("bold")
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20"
+                    }`}
+                  >
+                    B
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => applyStyle("italic")}
+                    title="Italic (⌘I / Ctrl+I)"
+                    aria-label="Italic"
+                    className={`font-bold italic h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors cursor-pointer select-none active:scale-95 text-sm lg:text-xs ${
+                      isStyleActive("italic")
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20"
+                    }`}
+                  >
+                    I
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => applyStyle("code")}
+                    title="Inline Code"
+                    aria-label="Inline Code"
+                    className={`font-bold h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors cursor-pointer select-none active:scale-95 text-sm lg:text-xs ${
+                      isStyleActive("code")
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20"
+                    }`}
+                  >
+                    {`</>`}
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setaddlink(true)}
+                    title="Insert Link"
+                    aria-label="Insert Link"
+                    className={`font-bold h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors cursor-pointer select-none active:scale-95 ${
+                      isLinkSelection()
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20"
+                    }`}
+                  >
+                    <LinkIcon
+                      width={"18px"}
+                      height={"18px"}
+                      fill={isLinkSelection() ? "#fff" : "#000000"}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => toggleListOrder()}
+                    title="List (Bullet / Numbered)"
+                    aria-label="List"
+                    className={`font-bold h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors cursor-pointer select-none active:scale-95 ${
+                      listactive("bulletList") || listactive("orderedList")
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20"
+                    }`}
+                  >
+                    <ListIcon
+                      fill={
+                        listactive("bulletList") || listactive("orderedList")
+                          ? "#fff"
+                          : "#000000"
+                      }
+                      width={"18px"}
+                      height={"18px"}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    title="Alphabetical list (a, b, c…)"
+                    aria-label="Alphabetical list lower"
+                    onClick={() => toggleAlphaList()}
+                    className={`font-bold h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors text-sm lg:text-xs cursor-pointer select-none active:scale-95 ${
+                      isAlphaList()
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20"
+                    }`}
+                  >
+                    a.
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    title="Alphabetical list (A, B, C…)"
+                    aria-label="Alphabetical list upper"
+                    onClick={() => toggleUpperAlphaList()}
+                    className={`font-bold h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors text-sm lg:text-xs cursor-pointer select-none active:scale-95 ${
+                      isUpperAlphaList()
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20"
+                    }`}
+                  >
+                    A.
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    title="Insert math block (display)"
+                    aria-label="Insert math block"
+                    onClick={() =>
+                      editor
+                        .chain()
+                        .focus()
+                        .insertContent({ type: "displayMath", attrs: { latex: "" } })
+                        .run()
+                    }
+                    className="font-bold h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20 text-base lg:text-sm cursor-pointer select-none active:scale-95"
+                  >
+                    ∑
+                  </button>
+                  {/* Help button (spans 2 columns on mobile/tablet to complete the 5-col grid) */}
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    title="Editor Help & LaTeX Reference"
+                    aria-label="Editor Help"
+                    onClick={() => setHelpOpen(true)}
+                    className="max-lg:col-span-2 font-bold h-10 w-full lg:w-[32px] lg:h-[32px] flex items-center justify-center rounded-xl lg:rounded-lg transition-colors bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20 text-base lg:text-sm select-none cursor-pointer active:scale-95"
+                  >
+                    <span>?</span>
+                    <span className="text-xs font-semibold ml-1 max-lg:inline lg:hidden">
+                      Help
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Collapsed View on Mobile/Tablet */
+              <div className="max-lg:flex lg:hidden items-center p-1">
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setIsFormatToolsOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:text-primary active:scale-95 transition-all shadow-md border border-gray-200 dark:border-gray-700 cursor-pointer text-xs font-semibold"
+                  aria-label="Expand"
+                  title="Expand formatting tools"
+                >
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <span className="font-bold text-primary">Aa</span>
+                  <span>Tools</span>
+                  <span className="text-[11px] text-primary font-medium ml-0.5">
+                    Expand
+                  </span>
+                  <FiChevronDown className="w-3.5 h-3.5 rotate-180 text-gray-400" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

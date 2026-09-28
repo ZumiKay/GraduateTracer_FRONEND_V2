@@ -27,6 +27,7 @@ import useImprovedAutoSave from "../../../hooks/useImprovedAutoSave";
 import { useSetSearchParam } from "../../../hooks/CustomHook";
 import { validateQuestionStructure } from "./utils";
 import { emitAutoSaveEvent } from "../../../services/autoSaveEventBus";
+import useScreenType from "../../../hooks/useScreenSize";
 
 /**Question Tab state management hook
  * @method with the highlight:
@@ -43,23 +44,18 @@ import { emitAutoSaveEvent } from "../../../services/autoSaveEventBus";
 
 export const useQuestionTab = () => {
   const componentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const { isMobile, isMiniMobile } = useScreenType();
   const { setParams } = useSetSearchParam();
-  const [showStructure, setShowStructure] = useState(true);
+  const [showStructure, setShowStructure] = useState(isMobile || isMiniMobile ? false : true);
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [questionLoading, setQuestionLoading] = useState(false);
 
   const dispatch = useDispatch();
   const formState = useSelector((root: RootState) => root.allform.formstate);
   const page = useSelector((root: RootState) => root.allform.page);
-  const fetchLoading = useSelector(
-    (root: RootState) => root.allform.fetchloading,
-  );
-  const allQuestion = useSelector(
-    (root: RootState) => root.allform.allquestion,
-  );
-  const prevAllQuestion = useSelector(
-    (root: RootState) => root.allform.prevAllQuestion,
-  );
+  const fetchLoading = useSelector((root: RootState) => root.allform.fetchloading);
+  const allQuestion = useSelector((root: RootState) => root.allform.allquestion);
+  const prevAllQuestion = useSelector((root: RootState) => root.allform.prevAllQuestion);
   const { manualSave } = useImprovedAutoSave();
 
   const hasUnsavedQuestions = useMemo(
@@ -80,8 +76,7 @@ export const useQuestionTab = () => {
           value: {
             open: true,
             data: {
-              question:
-                "You have unsaved questions. Please save them before proceeding.",
+              question: "You have unsaved questions. Please save them before proceeding.",
               onAgree: onConfirm,
               btn: { agree: "Proceed", disagree: "No" },
             },
@@ -95,10 +90,7 @@ export const useQuestionTab = () => {
   const handleAddQuestion = useCallback(async () => {
     const qIdx = (formState?.lastQuestionIdx ?? 0) + (allQuestion.length + 1);
     const updatedQuestions: Array<ContentType> = AddQuestionNumbering({
-      questions: [
-        ...(allQuestion ?? []),
-        { ...DefaultContentType, qIdx, page },
-      ],
+      questions: [...(allQuestion ?? []), { ...DefaultContentType, qIdx, page }],
       lastIdx: formState.lastQuestionIdx,
     });
 
@@ -215,11 +207,8 @@ export const useQuestionTab = () => {
         dispatch(
           setallquestion((prevQuestions) => {
             const currentQuestions =
-              prevQuestions && prevQuestions.length > 0
-                ? prevQuestions
-                : allQuestion;
-            const currentTarget =
-              currentQuestions[questionIdx] || targetQuestion;
+              prevQuestions && prevQuestions.length > 0 ? prevQuestions : allQuestion;
+            const currentTarget = currentQuestions[questionIdx] || targetQuestion;
             const existingConditionals = currentTarget.conditional || [];
 
             const targetQIdx =
@@ -260,8 +249,7 @@ export const useQuestionTab = () => {
                     ...existingConditionals.map((cond) => ({
                       ...cond,
                       contentIdx:
-                        cond.contentIdx !== undefined &&
-                        cond.contentIdx >= nextAvailableIdx
+                        cond.contentIdx !== undefined && cond.contentIdx >= nextAvailableIdx
                           ? cond.contentIdx + 1
                           : cond.contentIdx,
                     })),
@@ -279,8 +267,7 @@ export const useQuestionTab = () => {
                     conditional: currentQuestion.conditional?.map((cond) => ({
                       ...cond,
                       contentIdx:
-                        cond.contentIdx !== undefined &&
-                        cond.contentIdx >= nextAvailableIdx
+                        cond.contentIdx !== undefined && cond.contentIdx >= nextAvailableIdx
                           ? cond.contentIdx + 1
                           : cond.contentIdx,
                     })),
@@ -328,21 +315,11 @@ export const useQuestionTab = () => {
         });
       }
     },
-    [
-      allQuestion,
-      dispatch,
-      formState.setting?.autosave,
-      formState.lastQuestionIdx,
-      page,
-    ],
+    [allQuestion, dispatch, formState.setting?.autosave, formState.lastQuestionIdx, page],
   );
 
   const removeConditionedQuestion = useCallback(
-    async (
-      ansidx: number,
-      qidx: number,
-      ty: "unlink" | "delete",
-    ): Promise<void> => {
+    async (ansidx: number, qidx: number, ty: "unlink" | "delete"): Promise<void> => {
       const questionToUpdate = allQuestion[qidx];
       if (!questionToUpdate) return;
 
@@ -368,27 +345,18 @@ export const useQuestionTab = () => {
                   ? cond.contentIdx - 1
                   : cond.contentIdx,
             };
-            if (
-              ty === "delete" &&
-              cond.key !== undefined &&
-              cond.key > ansidx
-            ) {
+            if (ty === "delete" && cond.key !== undefined && cond.key > ansidx) {
               updatedCond.key = cond.key - 1;
             }
             return updatedCond;
           }),
       } as ContentType<Array<ChoiceQuestionType>>;
 
-      if (
-        ty === "delete" &&
-        Array.isArray(updatedQuestion[updatedQuestion.type as never])
-      ) {
+      if (ty === "delete" && Array.isArray(updatedQuestion[updatedQuestion.type as never])) {
         updatedQuestion[updatedQuestion.type] = (
           updatedQuestion[updatedQuestion.type] as Array<ChoiceQuestionType>
         )
-          .filter((i, idx) =>
-            i.idx !== undefined ? i.idx !== ansidx : idx !== ansidx,
-          )
+          .filter((i, idx) => (i.idx !== undefined ? i.idx !== ansidx : idx !== ansidx))
           .map((option, newIdx) => ({ ...option, idx: newIdx })) as never;
       }
 
@@ -407,19 +375,16 @@ export const useQuestionTab = () => {
 
       const targetCondIdx = questionConditionContent?.contentIdx;
       const finalQuestionList = updatedAllQuestion.map((q, idx) => {
-        if (q._id ? q._id === questionToUpdate._id : idx === qidx)
-          return updatedQuestion;
+        if (q._id ? q._id === questionToUpdate._id : idx === qidx) return updatedQuestion;
         if (
           targetCondIdx !== undefined &&
-          ((typeof q.qIdx === "number" && q.qIdx > targetCondIdx) ||
-            idx >= targetCondIdx)
+          ((typeof q.qIdx === "number" && q.qIdx > targetCondIdx) || idx >= targetCondIdx)
         ) {
           return {
             ...q,
             qIdx: typeof q.qIdx === "number" ? q.qIdx - 1 : q.qIdx,
             parentcontent:
-              q.parentcontent?.qIdx !== undefined &&
-              q.parentcontent.qIdx >= targetCondIdx
+              q.parentcontent?.qIdx !== undefined && q.parentcontent.qIdx >= targetCondIdx
                 ? { ...q.parentcontent, qIdx: q.parentcontent.qIdx - 1 }
                 : q.parentcontent,
           };
@@ -461,10 +426,7 @@ export const useQuestionTab = () => {
       try {
         let duplicatedContent: Array<ContentType>;
 
-        if (
-          questionToDuplicate.conditional &&
-          questionToDuplicate.conditional.length > 0
-        ) {
+        if (questionToDuplicate.conditional && questionToDuplicate.conditional.length > 0) {
           const conditionalContent = ConditionContentCopy({
             org: questionToDuplicate,
             allquestion: allQuestion,
@@ -493,10 +455,7 @@ export const useQuestionTab = () => {
         }
 
         const duplicatedCount = duplicatedContent.length;
-        const shiftQuestion = (
-          question: ContentType,
-          offset: number,
-        ): ContentType => ({
+        const shiftQuestion = (question: ContentType, offset: number): ContentType => ({
           ...question,
           qIdx: question.qIdx + offset,
           conditional: question.conditional?.map((cond, condIdx) => ({
@@ -508,17 +467,12 @@ export const useQuestionTab = () => {
         const updatedQuestions: Array<ContentType> = [
           ...allQuestion.slice(0, idx + 1),
           ...duplicatedContent,
-          ...allQuestion
-            .slice(idx + 1)
-            .map((q) => shiftQuestion(q, duplicatedCount)),
+          ...allQuestion.slice(idx + 1).map((q) => shiftQuestion(q, duplicatedCount)),
         ];
 
         const validation = validateQuestionStructure(updatedQuestions);
         if (!validation.isValid) {
-          console.warn(
-            "Question structure validation failed:",
-            validation.errors,
-          );
+          console.warn("Question structure validation failed:", validation.errors);
           ErrorToast({
             title: "Duplication Failed",
             content: "Invalid question structure detected",
@@ -545,8 +499,7 @@ export const useQuestionTab = () => {
   const scrollToDiv = useCallback(
     ({ questionIdx }: { questionIdx: number }) => {
       const targetQuestion =
-        allQuestion.find((q) => q.qIdx === questionIdx) ||
-        allQuestion[questionIdx];
+        allQuestion.find((q) => q.qIdx === questionIdx) || allQuestion[questionIdx];
       if (!targetQuestion) {
         ErrorToast({
           toastid: "Unique ScrollToDiv",
@@ -635,12 +588,7 @@ export const useQuestionTab = () => {
       }
       handlePageInternal(type, deletepage);
     },
-    [
-      formState.setting?.autosave,
-      handlePageInternal,
-      hasUnsavedQuestions,
-      showSaveConfirmation,
-    ],
+    [formState.setting?.autosave, handlePageInternal, hasUnsavedQuestions, showSaveConfirmation],
   );
 
   const handleDeletePage = useCallback(() => {
@@ -656,13 +604,7 @@ export const useQuestionTab = () => {
   }, [dispatch, handlePageInternal, page]);
 
   const handleQuestionClick = useCallback(
-    ({
-      type,
-      questionId,
-    }: {
-      type: QuestionType;
-      questionId: string | number;
-    }) => {
+    ({ type, questionId }: { type: QuestionType; questionId: string | number }) => {
       componentRefs.current[`${type}${questionId}`]?.scrollIntoView({
         behavior: "smooth",
         block: "center",
@@ -687,17 +629,13 @@ export const useQuestionTab = () => {
       }
 
       const rootQuestion = allQuestion[existingIndex];
-      const childIds = new Set(
-        rootQuestion.conditional?.map((i) => i.contentId || i.contentIdx),
-      );
+      const childIds = new Set(rootQuestion.conditional?.map((i) => i.contentId || i.contentIdx));
 
       dispatch(
         setallquestion(
           allQuestion.map((q, idx) => {
-            if (idx === existingIndex)
-              return { ...q, isChildVisibility: !q.isChildVisibility };
-            if (childIds.has(q._id ?? idx))
-              return { ...q, isVisible: !q.isVisible };
+            if (idx === existingIndex) return { ...q, isChildVisibility: !q.isChildVisibility };
+            if (childIds.has(q._id ?? idx)) return { ...q, isVisible: !q.isVisible };
             return q;
           }),
         ),

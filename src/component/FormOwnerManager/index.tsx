@@ -476,7 +476,12 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
 
   if (isInitialLoading) {
     return (
-      <Modal size="xl" isOpen={isOpen} onOpenChange={() => onClose()}>
+      <Modal
+        size="xl"
+        isOpen={isOpen}
+        onOpenChange={() => onClose()}
+        classNames={{ base: "m-3 sm:m-auto max-w-xl" }}
+      >
         <ModalContent className="dark:bg-gray-900">
           <ModalHeader className="bg-gradient-to-r from-primary to-secondary">
             <ModalHeaderContent />
@@ -492,7 +497,13 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
   }
 
   return (
-    <Modal size="xl" isOpen={isOpen} onOpenChange={() => onClose()}>
+    <Modal
+      size="xl"
+      isOpen={isOpen}
+      onOpenChange={() => onClose()}
+      scrollBehavior="inside"
+      classNames={{ base: "m-3 sm:m-auto max-w-xl max-h-[90vh]" }}
+    >
       <ModalContent className="dark:bg-gray-900">
         <ModalHeader className="bg-gradient-to-r from-primary to-secondary">
           <ModalHeaderContent />

@@ -39,9 +39,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   removeScoreRangeFilter,
 }) => {
   return (
-    <Card className="dark:bg-gray-800">
-      <CardHeader className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold dark:text-gray-100">
+    <Card className="dark:bg-gray-800 w-full shadow-xs border border-gray-100 dark:border-gray-700/60">
+      <CardHeader className="flex flex-wrap sm:flex-nowrap justify-between items-center gap-2 p-3 sm:p-4 border-b border-gray-100 dark:border-gray-700/60">
+        <h3 className="text-base sm:text-lg font-semibold dark:text-gray-100">
           Search & Filters
         </h3>
         {hasActiveFilters && (
@@ -51,15 +51,16 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             size="sm"
             onPress={clearFilters}
             startContent={<FiX />}
+            className="text-xs font-medium"
           >
-            Clear All Filters
+            Clear All
           </Button>
         )}
       </CardHeader>
-      <CardBody>
-        <div className="flex gap-3 items-end">
+      <CardBody className="p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-end w-full">
           {/* Search Input - Always Visible */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <Input
               placeholder="Search by name or email..."
               label="Search"
@@ -81,10 +82,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 handleChange({ name: "searchTerm", value: undefined });
                 applyFilters({ name: "q" });
               }}
-              size="lg"
+              size="md"
               classNames={{
-                input: "text-base",
-                inputWrapper: "h-12",
+                input: "text-sm sm:text-base",
+                inputWrapper: "h-11 sm:h-12",
               }}
             />
           </div>
@@ -93,14 +94,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <Button
             color="primary"
             variant="flat"
-            size="lg"
+            size="md"
             onPress={onFilterOpen}
-            startContent={<FiFilter size={20} />}
-            className="h-12 px-6"
+            startContent={<FiFilter className="text-lg shrink-0" />}
+            className="h-11 sm:h-12 px-4 sm:px-6 font-semibold shrink-0"
           >
             Filters
             {hasActiveFilters && (
-              <span className="ml-2 bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+              <span className="ml-1.5 bg-primary text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-[10px] sm:text-xs font-bold">
                 {
                   [
                     filterValue?.completionStatus,

@@ -54,13 +54,13 @@ export const ResponseListSection: React.FC<ResponseListSectionProps> = ({
   handleLimitChange,
 }) => {
   return (
-    <Card>
-      <CardHeader>
-        <h3 className="text-lg font-semibold">
+    <Card className="w-full shadow-xs border border-gray-100 dark:border-gray-700/60 overflow-hidden">
+      <CardHeader className="p-3.5 sm:p-4 border-b border-gray-100 dark:border-gray-700/60">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
           Responses ({responseList?.length ?? 0})
         </h3>
       </CardHeader>
-      <CardBody>
+      <CardBody className="p-2 sm:p-4 md:p-6 overflow-hidden">
         <ResponseTable
           responses={responseList ?? []}
           isLoading={isLoading}
@@ -79,16 +79,18 @@ export const ResponseListSection: React.FC<ResponseListSectionProps> = ({
         />
 
         {pagination && (
-          <div className="mt-6 space-y-4">
+          <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-gray-100 dark:border-gray-700/60">
             {/* Pagination Info + Per-page selector */}
-            <div className="flex justify-between items-center text-sm text-gray-600">
-              <div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 sm:gap-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+              <div className="font-medium">
                 Showing {(currentPage - 1) * limit + 1} to{" "}
                 {Math.min(currentPage * limit, pagination.totalCount)} of{" "}
                 {pagination.totalCount} responses
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 whitespace-nowrap">Rows per page</span>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                  Rows per page
+                </span>
                 <Select
                   size="sm"
                   selectedKeys={[limit.toString()]}
@@ -108,14 +110,22 @@ export const ResponseListSection: React.FC<ResponseListSectionProps> = ({
 
             {/* Pagination Controls */}
             {pagination.totalPages > 1 && (
-              <div className="flex justify-center">
+              <div className="flex justify-center w-full overflow-x-auto scrollbar-none py-1">
                 <Pagination
                   total={pagination.totalPages}
                   page={currentPage}
                   onChange={handlePageChange}
                   showControls
-                  size="lg"
-                  className="gap-2"
+                  size="sm"
+                  className="gap-1 sm:hidden"
+                />
+                <Pagination
+                  total={pagination.totalPages}
+                  page={currentPage}
+                  onChange={handlePageChange}
+                  showControls
+                  size="md"
+                  className="gap-2 hidden sm:flex"
                 />
               </div>
             )}

@@ -33,12 +33,24 @@ const SimpleModal: React.FC<SimpleModalProps> = ({
   confirmColor = "primary",
 }) => {
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalContent>
-        <ModalHeader>{title}</ModalHeader>
-        <ModalBody>{children}</ModalBody>
-        <ModalFooter>
-          <Button variant="light" onClick={onClose}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      classNames={{
+        base: "m-3 sm:m-auto max-w-md w-full",
+      }}
+    >
+      <ModalContent className="dark:bg-gray-800">
+        <ModalHeader className="dark:text-gray-100 text-lg sm:text-xl font-bold px-4 sm:px-6 pt-5 sm:pt-6">
+          {title}
+        </ModalHeader>
+        <ModalBody className="px-4 sm:px-6 py-4">{children}</ModalBody>
+        <ModalFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-3 px-4 sm:px-6 pb-5 sm:pb-6">
+          <Button
+            variant="light"
+            onPress={onClose}
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
           {onConfirm && (
@@ -46,7 +58,8 @@ const SimpleModal: React.FC<SimpleModalProps> = ({
               color={confirmColor}
               isLoading={isLoading}
               disabled={isLoading}
-              onClick={onConfirm}
+              onPress={onConfirm}
+              className="w-full sm:w-auto"
             >
               {isLoading ? <Spinner size="sm" /> : confirmText}
             </Button>

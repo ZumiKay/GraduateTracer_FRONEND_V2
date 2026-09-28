@@ -35,13 +35,7 @@ import { useFormAPI } from "../hooks/useFormAPI";
 import useUserSession from "../hooks/useUserSession";
 import OverviewContainer from "../component/FormComponent/Overview/component";
 
-export type alltabs =
-  | "question"
-  | "solution"
-  | "preview"
-  | "response"
-  | "analytics"
-  | "setting";
+export type alltabs = "question" | "solution" | "preview" | "response" | "analytics" | "setting";
 
 export const FORM_TABS: alltabs[] = [
   "question",
@@ -66,10 +60,7 @@ function extractQuestionValidationIssues(
   const map = new Map<string, QuestionValidationIssue[]>();
   if (!validationResults) return map;
 
-  const getIssueMessage = (
-    item: ErrorValidataionPropsType,
-    fallback: string,
-  ): string => {
+  const getIssueMessage = (item: ErrorValidataionPropsType, fallback: string): string => {
     if (!item.message) return fallback;
     if (typeof item.message === "string") return item.message;
     if (typeof item.message === "object" && item.message.message) {
@@ -92,21 +83,13 @@ function extractQuestionValidationIssues(
 
   validationResults.errors?.forEach((item) => {
     if (typeof item === "object" && item !== null) {
-      addIssue(
-        item,
-        "error",
-        getIssueMessage(item, `Validation error on ${item.questionId}`),
-      );
+      addIssue(item, "error", getIssueMessage(item, `Validation error on ${item.questionId}`));
     }
   });
 
   validationResults.warnings?.forEach((item) => {
     if (typeof item === "object" && item !== null) {
-      addIssue(
-        item,
-        "warning",
-        getIssueMessage(item, `Warning on ${item.questionId}`),
-      );
+      addIssue(item, "warning", getIssueMessage(item, `Warning on ${item.questionId}`));
     }
   });
 
@@ -136,14 +119,10 @@ function FormPage() {
   const dispatch = useDispatch();
   const userSession = useUserSession();
   const { fetchFormTab } = useFormAPI();
-  const { formstate, page, allquestion } = useSelector(
-    (root: RootState) => root.allform,
-  );
+  const { formstate, page, allquestion } = useSelector((root: RootState) => root.allform);
   const navigate = useNavigate();
   const { searchParam, setParams } = useSetSearchParam();
-  const [tab, setTab] = useState<alltabs>(
-    (searchParam.get("tab") ?? "question") as alltabs,
-  );
+  const [tab, setTab] = useState<alltabs>((searchParam.get("tab") ?? "question") as alltabs);
   const [isSettingUnsaved, setIsSettingUnsaved] = useState(false);
 
   const formId = useMemo(() => {
@@ -167,10 +146,7 @@ function FormPage() {
     },
   });
 
-  const isUnSavedQuestion = useMemo(
-    () => allquestion.some((i) => !i._id),
-    [allquestion],
-  );
+  const isUnSavedQuestion = useMemo(() => allquestion.some((i) => !i._id), [allquestion]);
 
   //Initiallize Page
   useEffect(() => {
@@ -218,8 +194,7 @@ function FormPage() {
 
       const currentTab = searchParam.get("tab") ?? "question";
       const isResultQuiz =
-        result.type === FormTypeEnum.Quiz ||
-        String(result.type).toUpperCase() === "QUIZ";
+        result.type === FormTypeEnum.Quiz || String(result.type).toUpperCase() === "QUIZ";
       const shouldUpdateQuestions =
         currentTab === "question" || (isResultQuiz && currentTab === "solution");
 
@@ -236,17 +211,14 @@ function FormPage() {
         const currentPage = Number(searchParam.get("page") ?? 1);
 
         // Extract per-question validation issues from combined validation
-        const validationMap = extractQuestionValidationIssues(
-          result.validation?.validationResults,
-        );
+        const validationMap = extractQuestionValidationIssues(result.validation?.validationResults);
 
         const normalizedContents = (result.contents ?? []).map((q) => {
           const key = q._id || String(q.qIdx);
           return {
             ...q,
             page: q.page ?? currentPage,
-            isChildVisibility:
-              q.conditional && q.conditional.length > 0 ? true : undefined,
+            isChildVisibility: q.conditional && q.conditional.length > 0 ? true : undefined,
             isVisible: q.parentcontent ? true : undefined,
             validationIssues: validationMap.get(key) ?? [],
           };
@@ -287,35 +259,16 @@ function FormPage() {
 
       navigate("/dashboard", { replace: true });
     }
-  }, [
-    data,
-    isFetching,
-    param.id,
-    error,
-    navigate,
-    dispatch,
-    isError,
-    searchParam,
-    isSuccess,
-  ]);
+  }, [data, isFetching, param.id, error, navigate, dispatch, isError, searchParam, isSuccess]);
 
   const isQuiz = useMemo(
-    () =>
-      formstate.type === FormTypeEnum.Quiz ||
-      String(formstate.type).toUpperCase() === "QUIZ",
+    () => formstate.type === FormTypeEnum.Quiz || String(formstate.type).toUpperCase() === "QUIZ",
     [formstate.type],
   );
 
   const availableTabs = useMemo<alltabs[]>(() => {
     if (isQuiz) {
-      return [
-        "question",
-        "solution",
-        "preview",
-        "response",
-        "analytics",
-        "setting",
-      ];
+      return ["question", "solution", "preview", "response", "analytics", "setting"];
     }
     return ["question", "preview", "response", "analytics", "setting"];
   }, [isQuiz]);
@@ -385,9 +338,7 @@ function FormPage() {
   }, [tab, availableTabs, handleTabs]);
 
   // Touch handlers for swipe tab changing on mobile/tablet
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
-    null,
-  );
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const isIgnoredTouchRef = useRef(false);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -410,19 +361,19 @@ function FormPage() {
     const isInteractive = target.closest(
       [
         '[role="tablist"]',
-        'input',
-        'textarea',
-        'select',
-        'button',
+        "input",
+        "textarea",
+        "select",
+        "button",
         '[contenteditable="true"]',
-        '.tiptap',
+        ".tiptap",
         '[role="slider"]',
         '[role="dialog"]',
         '[role="listbox"]',
-        '.no-scrollbar',
-        '.overflow-x-auto',
-        '.QuestionStructure',
-        '[data-prevent-swipe]',
+        ".no-scrollbar",
+        ".overflow-x-auto",
+        ".QuestionStructure",
+        "[data-prevent-swipe]",
       ].join(", "),
     );
 
@@ -454,11 +405,7 @@ function FormPage() {
       // 1. Gesture finished within 500ms
       // 2. Traveled at least 50px horizontally
       // 3. Horizontal intent dominates vertical scrolling (|deltaX| > |deltaY| * 1.5)
-      if (
-        elapsed <= 500 &&
-        Math.abs(deltaX) >= 50 &&
-        Math.abs(deltaX) > Math.abs(deltaY) * 1.5
-      ) {
+      if (elapsed <= 500 && Math.abs(deltaX) >= 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
         if (deltaX < 0) {
           handleSwipeNext();
         } else {
@@ -477,9 +424,7 @@ function FormPage() {
   // Auto-scroll active tab into view in horizontal tab bar on mobile
   useEffect(() => {
     const timer = setTimeout(() => {
-      const activeTabEl = document.querySelector<HTMLElement>(
-        `[role="tab"][data-key="${tab}"]`,
-      );
+      const activeTabEl = document.querySelector<HTMLElement>(`[role="tab"][data-key="${tab}"]`);
       if (activeTabEl) {
         activeTabEl.scrollIntoView({
           behavior: "smooth",
@@ -538,10 +483,7 @@ function FormPage() {
     [isUnSavedQuestion, handlePageChange, dispatch, page],
   );
 
-  const selectedKey = useMemo(
-    () => searchParam.get("tab") ?? "question",
-    [searchParam],
-  );
+  const selectedKey = useMemo(() => searchParam.get("tab") ?? "question", [searchParam]);
 
   // Tab animation variants with directional slide
   const tabVariants = {
@@ -577,11 +519,7 @@ function FormPage() {
   return (
     <div
       className="formpage relative w-full min-h-screen h-full pb-5"
-      style={
-        formstate.setting?.bg
-          ? { backgroundColor: formstate.setting.bg }
-          : undefined
-      }
+      style={formstate.setting?.bg ? { backgroundColor: formstate.setting.bg } : undefined}
     >
       <title>{`${formstate.title} | ${tab.toUpperCase()}`}</title>
 
@@ -605,9 +543,9 @@ function FormPage() {
 
         {tab !== "preview" && (
           <Button
-            variant="flat"
+            variant="solid"
             size="sm"
-            color="secondary"
+            color="primary"
             startContent={<EyeIcon className="w-3 h-3 sm:w-4 sm:h-4" />}
             onPress={() => handleTabs("preview")}
             className="font-semibold text-[11px] sm:text-sm h-6 sm:h-8 px-2 sm:px-3 rounded-md sm:rounded-lg"
@@ -627,17 +565,8 @@ function FormPage() {
           className="w-full h-fit bg-white dark:bg-black"
           variant="underlined"
           selectedKey={selectedKey}
+
           onSelectionChange={(val) => handleTabs(val as alltabs)}
-          classNames={{
-            base: "w-full",
-            tabList:
-              "w-full flex justify-start sm:justify-center overflow-x-auto no-scrollbar scroll-smooth border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black px-1.5 sm:px-6 py-0 gap-0.5 sm:gap-4 flex-nowrap h-8 sm:h-12 min-h-8 sm:min-h-12 items-center",
-            tab: "h-7 sm:h-10 px-2 sm:px-4 text-[11px] sm:text-sm font-medium sm:font-semibold flex-shrink-0 transition-all rounded-md sm:rounded-lg",
-            tabContent:
-              "group-data-[selected=true]:font-bold group-data-[selected=true]:text-primary text-[11px] sm:text-sm whitespace-nowrap",
-            cursor: "w-full bg-primary h-[2px] sm:h-[3px] rounded-t-full",
-            panel: "w-full p-0 pt-1.5 sm:pt-3",
-          }}
         >
           <Tab key={"question"} title="Question">
             <AnimatePresence mode="wait" custom={swipeDirection}>
@@ -770,14 +699,9 @@ function FormPage() {
       </div>
 
       {/* Pagination */}
-      {(tab === "question" || (isQuiz && tab === "solution")) &&
-      (formstate.totalpage ?? 0) > 1 ? (
+      {(tab === "question" || (isQuiz && tab === "solution")) && (formstate.totalpage ?? 0) > 1 ? (
         <div className="sticky bottom-0 w-full h-fit py-2.5 sm:py-3 px-2 flex justify-center items-center bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.06)]">
-          <Pagination
-            page={page}
-            setPage={handlePage}
-            totalPage={formstate.totalpage}
-          />
+          <Pagination page={page} setPage={handlePage} totalPage={formstate.totalpage} />
         </div>
       ) : (
         <></>

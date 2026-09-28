@@ -45,7 +45,7 @@ const QuestionTab = () => {
         )}
       </AnimatePresence>
 
-      <div className="flex-1 flex flex-col items-center gap-y-20 p-4">
+      <div className="flex-1 w-full max-w-full min-w-0 flex flex-col items-center gap-y-10 sm:gap-y-16 md:gap-y-20 p-2 sm:p-4">
         <AnimatePresence mode="wait">
           {!showStructure && (
             <motion.div
@@ -56,7 +56,9 @@ const QuestionTab = () => {
               className="self-start mb-4"
             >
               <Button
-                variant="flat"
+                variant="solid"
+                color="primary"
+                className="font-bold"
                 onPress={() => setShowStructure(true)}
                 aria-label="Show question structure sidebar"
               >
@@ -71,16 +73,14 @@ const QuestionTab = () => {
         ) : (
           allQuestion.map((question, idx) => {
             const questionKey = `${question.type}${question._id ?? question.qIdx}`;
-            const isChildCondition = question.parentcontent
-              ? question.isVisible
-              : true;
+            const isChildCondition = question.parentcontent ? question.isVisible : true;
             const isLinked = (ansidx: number) =>
               question.conditional?.some((con) => con.key === ansidx) ?? false;
 
             return (
               isChildCondition && (
                 <div
-                  className="w-[90%] h-fit"
+                  className="w-full sm:w-[95%] md:w-[90%] max-w-4xl h-fit"
                   key={questionKey}
                   ref={(el) => {
                     componentRefs.current[questionKey] = el;
@@ -93,17 +93,13 @@ const QuestionTab = () => {
                     value={question}
                     color={questionColor}
                     onDelete={() => handleDeleteQuestion(idx)}
-                    onAddCondition={(answeridx) =>
-                      handleAddCondition(idx, answeridx)
-                    }
+                    onAddCondition={(answeridx) => handleAddCondition(idx, answeridx)}
                     removeCondition={(answeridx, ty) =>
                       removeConditionedQuestion(answeridx, idx, ty)
                     }
                     onDuplication={() => handleDuplication(idx)}
                     onShowLinkedQuestions={handleToggleVisibility}
-                    scrollToCondition={(targetIdx) =>
-                      scrollToDiv({ questionIdx: targetIdx })
-                    }
+                    scrollToCondition={(targetIdx) => scrollToDiv({ questionIdx: targetIdx })}
                   />
                 </div>
               )
@@ -113,7 +109,7 @@ const QuestionTab = () => {
 
         <Button
           startContent={<PlusIcon width={"25px"} height={"25px"} />}
-          className="w-[90%] h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
+          className="w-full sm:w-[95%] md:w-[90%] max-w-4xl h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
           onPress={handleAddQuestion}
           isLoading={questionLoading}
           aria-label="Add new question"
@@ -121,13 +117,11 @@ const QuestionTab = () => {
           New Question
         </Button>
 
-        <div className="page-btn w-full h-fit flex flex-row items-center justify-between">
+        <div className="page-btn w-full sm:w-[95%] md:w-[90%] max-w-4xl h-fit flex flex-row items-center justify-between">
           <Button
             className="max-w-xs font-bold text-red-400 border-x-0 border-t-0 transition-transform hover:translate-x-1"
             radius="none"
-            style={
-              formState.totalpage === 1 || page === 1 ? { display: "none" } : {}
-            }
+            style={formState.totalpage === 1 || page === 1 ? { display: "none" } : {}}
             color="danger"
             variant="bordered"
             isLoading={isPageLoading}
@@ -136,13 +130,7 @@ const QuestionTab = () => {
             onPress={handleDeletePage}
             startContent={
               !isPageLoading && (
-                <Image
-                  src={MinusIcon}
-                  alt="minus"
-                  width={20}
-                  height={20}
-                  loading="eager"
-                />
+                <Image src={MinusIcon} alt="minus" width={20} height={20} loading="eager" />
               )
             }
           >
@@ -156,15 +144,7 @@ const QuestionTab = () => {
             isDisabled={isPageLoading}
             onPress={() => handlePage("add")}
             aria-label="Add new page"
-            startContent={
-              <Image
-                src={PlusImg}
-                alt="plus"
-                width={20}
-                height={20}
-                loading="eager"
-              />
-            }
+            startContent={<Image src={PlusImg} alt="plus" width={20} height={20} loading="eager" />}
           >
             New Page
           </Button>
