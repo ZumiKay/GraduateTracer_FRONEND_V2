@@ -36,18 +36,54 @@ interface Notification {
 interface NotificationSystemProps {
   userId: string;
   className?: string;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onUnreadCountChange?: (count: number) => void;
+  hideTriggerOnMobileTablet?: boolean;
 }
 
-const NotificationSystem: React.FC<NotificationSystemProps> = ({ userId, className }) => {
+const NotificationSystem: React.FC<NotificationSystemProps> = ({
+  userId,
+  className,
+  isOpen: controlledIsOpen,
+  onOpenChange,
+  onUnreadCountChange,
+  hideTriggerOnMobileTablet = false,
+}) => {
   const users = useSelector((root: RootState) => root.usersession);
   const openmodal = useSelector((root: RootState) => root.openmodal);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isControlled = controlledIsOpen !== undefined;
+  const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
+
+  const setIsOpen = useCallback(
+    (value: boolean | ((prev: boolean) => boolean)) => {
+      const nextOpen = typeof value === "function" ? value(isOpen) : value;
+      if (!isControlled) {
+        setInternalIsOpen(nextOpen);
+      }
+      onOpenChange?.(nextOpen);
+    },
+    [isControlled, isOpen, onOpenChange],
+  );
+
   const [loading, setLoading] = useState(false);
   const [markLoading, setmarkLoading] = useState(false);
 
   const [unreadCount, setUnreadCount] = useState(0);
   const notificationRef = useRef<HTMLDivElement>(null);
+
+  const updateUnreadCount = useCallback(
+    (updater: number | ((prev: number) => number)) => {
+      setUnreadCount((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        onUnreadCountChange?.(next);
+        return next;
+      });
+    },
+    [onUnreadCountChange],
+  );
 
   // Automatically close notifications if any modal opens
   useEffect(() => {
@@ -100,14 +136,14 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userId, classNa
           unreadCount: number;
         };
         setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
+        updateUnreadCount(data.unreadCount || 0);
       }
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
     } finally {
       setLoading(false);
     }
-  }, [users.user?._id]);
+  }, [users.user?._id, updateUnreadCount]);
 
   // Set up SSE for real-time notifications
   useEffect(() => {
@@ -138,7 +174,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userId, classNa
         if (data.type === "new_response" && data.notification) {
           // Add new notification to the top of the list
           setNotifications((prev) => [data.notification, ...prev]);
-          setUnreadCount((prev) => prev + 1);
+          updateUnreadCount((prev) => prev + 1);
 
           // Show browser notification if permission granted
           if (Notification.permission === "granted") {
@@ -168,7 +204,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userId, classNa
       //close connection
       eventSource.close();
     };
-  }, [users.user?._id, fetchNotifications]);
+  }, [users.user?._id, fetchNotifications, updateUnreadCount]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -185,7 +221,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userId, classNa
           notification._id === notificationId ? { ...notification, isRead: true } : notification,
         ),
       );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      updateUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
@@ -203,7 +239,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userId, classNa
       setLoading(false);
 
       setNotifications((prev) => prev.map((notification) => ({ ...notification, isRead: true })));
-      setUnreadCount(0);
+      updateUnreadCount(0);
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
     }
@@ -219,9 +255,13 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userId, classNa
       });
       setmarkLoading(false);
 
-      setNotifications((prev) =>
-        prev.filter((notification) => notification._id !== notificationId),
-      );
+      setNotifications((prev) => {
+        const target = prev.find((n) => n._id === notificationId);
+        if (target && !target.isRead) {
+          updateUnreadCount((count) => Math.max(0, count - 1));
+        }
+        return prev.filter((notification) => notification._id !== notificationId);
+      });
     } catch (error) {
       console.error("Failed to delete notification:", error);
     }
@@ -291,7 +331,9 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userId, classNa
       <Button
         isIconOnly
         variant="light"
-        className="relative hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 w-8 h-8 sm:w-10 sm:h-10 min-w-0"
+        className={`relative hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 w-8 h-8 sm:w-10 sm:h-10 min-w-0 ${
+          hideTriggerOnMobileTablet ? "hidden lg:flex" : ""
+        }`}
         onPress={() => setIsOpen(!isOpen)}
         aria-label="Notifications"
       >
@@ -312,10 +354,10 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userId, classNa
         </Badge>
       </Button>
 
-      {/* Mobile Backdrop Overlay */}
+      {/* Mobile/Tablet Backdrop Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] sm:hidden"
+          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] lg:hidden"
           onClick={() => setIsOpen(false)}
           aria-hidden="true"
         />
@@ -323,7 +365,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userId, classNa
 
       {/* Notification Dropdown */}
       {isOpen && (
-        <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-12 w-auto sm:w-96 max-w-[calc(100vw-1rem)] sm:max-w-md bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="fixed inset-x-2 top-14 sm:fixed sm:inset-auto sm:right-4 sm:top-16 lg:absolute lg:right-0 lg:top-12 w-auto sm:w-96 max-w-[calc(100vw-1rem)] sm:max-w-md bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="px-3.5 py-3 sm:px-4 sm:py-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-b border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center sticky top-0 z-10">
             <h3 className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5 sm:gap-2 truncate">
               <BellIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400 shrink-0" />

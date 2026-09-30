@@ -7,10 +7,12 @@ import {
   ListboxItem,
   ListboxSection,
   Button,
+  Chip,
 } from "@heroui/react";
 import Logo from "../../assets/Logo.svg";
 import ProfileIcon from "./Profile";
 import { DownArrow, LogoutIcon, SettingIcon } from "../svg/GeneralIcon";
+import { BellIcon } from "@heroicons/react/24/outline";
 import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../../redux/openmodal";
 import { RootState } from "../../redux/store";
@@ -66,6 +68,8 @@ export default function Navigationbar() {
   const location = useLocation();
   const [searchParam] = useSearchParams();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const openModalState = useSelector((root: RootState) => root.openmodal);
 
   const { manualSave, autoSaveStatus, isOnline, offlineQueueSize } = useImprovedAutoSave({
@@ -157,7 +161,7 @@ export default function Navigationbar() {
     return isDashboard ? "Graduate Tracer" : "";
   }, [formData.formstate.title, isDashboard]);
 
-  // Close profile popover when setting modal (or any modal) is open
+  // Close profile popover and notifications dropdown when setting modal (or any modal) is open
   useEffect(() => {
     const isAnyModalOpen =
       openModalState.setting ||
@@ -167,8 +171,14 @@ export default function Navigationbar() {
 
     if (isAnyModalOpen !== undefined && isAnyModalOpen === true) {
       setIsProfileOpen(false);
+      setIsNotificationOpen(false);
     }
   }, [openModalState]);
+
+  const handleOpenNotifications = useCallback(() => {
+    setIsProfileOpen(false);
+    setIsNotificationOpen(true);
+  }, []);
 
   const { allquestion, prevAllQuestion } = formData;
   const lastDetectedScoreRef = useRef<number | null>(null);
@@ -334,6 +344,7 @@ export default function Navigationbar() {
   return (
     <nav className="navigationbar sticky top-0 z-50 w-full bg-[#f5f5f5] dark:bg-gray-800 mb-10 shadow-sm">
       <div className="flex flex-row justify-between items-center px-3 sm:px-4 min-h-14 sm:min-h-[70px]">
+        {/* Left: Logo & Form Title */}
         <div className="flex flex-row items-center gap-x-2 sm:gap-x-4 min-w-0 flex-1">
           <Image
             src={Logo}
@@ -351,16 +362,54 @@ export default function Navigationbar() {
             onKeyDown={handleKeyDown}
             onInput={handleTitleInput}
             onClick={(e) => e.stopPropagation()}
-            className="hidden sm:block web-name text-2xl font-bold dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded px-1 max-w-[33vw] whitespace-nowrap overflow-hidden focus:whitespace-normal focus:overflow-visible"
+            className="hidden sm:block web-name text-2xl font-bold dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded px-1 max-w-[28vw] lg:max-w-[33vw] whitespace-nowrap overflow-hidden focus:whitespace-normal focus:overflow-visible"
           >
             {displayTitle.slice(0, 50)}
           </div>
         </div>
 
-        {/* Right: save · autosave · notifications · profile · menu */}
-        <div className="flex flex-row items-center gap-x-1.5 sm:gap-x-3 flex-shrink-0">
+        {/* Middle: Save button on mobile/tablet */}
+        <div className="flex lg:hidden items-center justify-center px-1 sm:px-2 flex-shrink-0">
+          {shouldShowSaveButton ? (
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Button
+                className="text-white font-bold shadow-sm px-3.5 sm:px-5 h-8 sm:h-9 text-xs sm:text-sm"
+                variant="solid"
+                color={saveButtonState.color}
+                isDisabled={saveButtonState.disabled}
+                isLoading={saveButtonState.loading}
+                onPress={handleSavePress}
+                aria-label="Save form changes"
+                size="sm"
+              >
+                {saveButtonState.text}
+              </Button>
+              {autoSaveStatusText && (
+                <span
+                  className={`text-[10px] sm:text-xs font-medium truncate max-w-[85px] sm:max-w-[130px] ${autoSaveStatusColor}`}
+                >
+                  {autoSaveStatusText}
+                </span>
+              )}
+            </div>
+          ) : !isSettingTab && !formData.fetchloading && !isAutosaveDisabled ? (
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <AutoSaveContainer />
+              {autoSaveStatusText && (
+                <span
+                  className={`text-[10px] sm:text-xs font-medium truncate max-w-[85px] sm:max-w-[130px] ${autoSaveStatusColor}`}
+                >
+                  {autoSaveStatusText}
+                </span>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Right: save (desktop) · autosave (desktop) · notifications · profile */}
+        <div className="flex flex-row items-center justify-end gap-x-1.5 sm:gap-x-3 flex-1 lg:flex-initial flex-shrink-0">
           {shouldShowSaveButton && (
-            <div className="flex flex-col items-end gap-0.5">
+            <div className="hidden lg:flex flex-col items-end gap-0.5">
               <Button
                 className="text-white font-bold"
                 variant="solid"
@@ -382,7 +431,7 @@ export default function Navigationbar() {
           )}
 
           {!isSettingTab && !formData.fetchloading && !isAutosaveDisabled && (
-            <div className="flex flex-col items-end gap-0.5">
+            <div className="hidden lg:flex flex-col items-end gap-0.5">
               <AutoSaveContainer />
               {autoSaveStatusText && (
                 <span className={`hidden sm:block text-xs ${autoSaveStatusColor}`}>
@@ -392,7 +441,14 @@ export default function Navigationbar() {
             </div>
           )}
 
-          <NotificationContainer userId={userSession?.user?._id || ""} className="mr-0 sm:mr-1" />
+          <NotificationContainer
+            userId={userSession?.user?._id || ""}
+            className="mr-0 sm:mr-1"
+            isOpen={isNotificationOpen}
+            onOpenChange={setIsNotificationOpen}
+            onUnreadCountChange={setUnreadNotificationCount}
+            hideTriggerOnMobileTablet
+          />
 
           <Popover
             isOpen={isProfileOpen}
@@ -409,7 +465,17 @@ export default function Navigationbar() {
                 className="h-auto p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/70 focus:outline-none focus:ring-2 focus:ring-primary/40 min-w-0 bg-transparent flex flex-row items-center gap-1 sm:gap-1.5 cursor-pointer data-[hover=true]:bg-gray-200 dark:data-[hover=true]:bg-gray-700/70"
                 aria-label="User account menu"
               >
-                <ProfileIconContainer label={userSession.user?.name ?? "User"} color="lime" />
+                <div className="relative flex items-center">
+                  <ProfileIconContainer label={userSession.user?.name ?? "User"} color="lime" />
+                  {unreadNotificationCount > 0 && (
+                    <span
+                      className="lg:hidden absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none shadow-sm ring-2 ring-white dark:ring-gray-800 animate-pulse pointer-events-none"
+                      aria-label={`${unreadNotificationCount} unread notifications`}
+                    >
+                      {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                    </span>
+                  )}
+                </div>
                 <span className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
                   <DownArrow className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </span>
@@ -442,6 +508,21 @@ export default function Navigationbar() {
                   onAction={() => setIsProfileOpen(false)}
                 >
                   <ListboxSection showDivider className="mb-1">
+                    <ListboxItem
+                      key="notifications"
+                      onPress={handleOpenNotifications}
+                      startContent={<BellIcon className="w-4 h-4 text-gray-600 dark:text-gray-300" />}
+                      endContent={
+                        unreadNotificationCount > 0 ? (
+                          <Chip size="sm" color="danger" variant="solid" className="h-5 min-w-5 px-1 text-[11px] font-bold">
+                            {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                          </Chip>
+                        ) : null
+                      }
+                      className="rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/60 lg:hidden"
+                    >
+                      Notifications
+                    </ListboxItem>
                     <ListboxItem
                       key="setting"
                       onPress={handleSettingsPress}

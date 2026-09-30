@@ -67,6 +67,7 @@ const API_CONFIG = {
   TIMEOUT: 10000,
   HEADERS: {
     "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
   },
   REFRESH_TOKEN_URL: "/refreshtoken",
 } as const;

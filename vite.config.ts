@@ -57,6 +57,7 @@ export default defineConfig({
         secure: false,
       },
     },
+    allowedHosts: [".ngrok-free.app", ".ngrok.app", ".ngrok.io", ".ngrok-free.dev"],
   },
   // Optimize dependencies
   optimizeDeps: {

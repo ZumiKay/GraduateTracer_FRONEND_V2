@@ -28,7 +28,6 @@ import { useDispatch } from "react-redux";
 import { setUser } from "../redux/user.store";
 import { UserSessionData } from "../hooks/useUserSession";
 import { motion } from "framer-motion";
-import useRecaptchaButton from "../component/FormComponent/recapcha";
 type authenticationtype = "login" | "prelogin" | "signup" | "forgot";
 
 // Flying Logos Background Component
@@ -581,7 +580,7 @@ export default function AuthenticationPage() {
   const [page, setpage] = useState<authenticationtype>("login");
   const [forgot, setforgot] = useState<ForgotPasswordType>();
   const [loading, setloading] = useState(false);
-  const recaptcha = useRecaptchaButton();
+  //const recaptcha = useRecaptchaButton();
   const [logindata, setlogindata] = useState<Logindatatype>(DefaultLoginState);
 
   // Function to remove reCAPTCHA script
@@ -694,16 +693,16 @@ export default function AuthenticationPage() {
       setloading(true);
 
       //Are you a robort
-      const verifyreccap = await recaptcha.handleVerify();
-      if (!verifyreccap) {
-        setloading(false);
-        ErrorToast({
-          toastid: page,
-          title: "Verification",
-          content: "Failed To Verify",
-        });
-        return;
-      }
+      //  const verifyreccap = await recaptcha.handleVerify();
+      //  if (!verifyreccap) {
+      //    setloading(false);
+      //    ErrorToast({
+      //      toastid: page,
+      //      title: "Verification",
+      //      content: "Failed To Verify",
+      //    });
+      //    return;
+      //  }
 
       const config = getRequestConfig();
       const AuthenticationRequest = await ApiRequest(config as never);
@@ -734,7 +733,7 @@ export default function AuthenticationPage() {
         );
 
         // Remove reCAPTCHA script after successful login
-        recaptcha.removeRecaptchaScript();
+        //recaptcha.removeRecaptchaScript();
 
         // Check for pending redirect
         const pendingRedirect = getPendingRedirect();
@@ -779,7 +778,7 @@ export default function AuthenticationPage() {
         }
       }
     },
-    [dispatch, forgot?.code, forgot?.ty, logindata, page, recaptcha],
+    [dispatch, forgot?.code, forgot?.ty, logindata, page],
   );
 
   const handleCancel = useCallback(() => {
