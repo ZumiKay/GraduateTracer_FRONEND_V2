@@ -104,16 +104,16 @@ export default function FilterSection({
   }, [Filterstate.created, Filterstate.updated]);
 
   return (
-    <div className="filtersection w-full h-fit relative flex flex-row max-sm:flex-wrap max-sm:gap-y-5 items-center gap-x-5">
+    <div className="filtersection w-full h-fit relative flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-x-5">
       <Selection
         items={orderOptions}
         placeholder="Order By"
         name="order"
-        selectedKeys={[getCurrentOrderValue()]}
+        selectedKeys={getCurrentOrderValue() ? [getCurrentOrderValue()] : []}
         onChange={handleOrderChange}
         aria-label="Order By"
         size="md"
-        className="w-[150px] h-full font-bold"
+        className="w-full sm:w-[150px] font-bold"
       />
       <Input
         startContent={<SearchIcon />}
@@ -122,7 +122,7 @@ export default function FilterSection({
         value={Filterstate.q}
         onChange={(e) => setFilterstate({ ...Filterstate, q: e.target.value })}
         onBlur={() => Filterstate.q && handleParam("q", Filterstate.q)}
-        className="max-w-md h-full"
+        className="w-full sm:max-w-md"
         placeholder="Search Name"
         onClear={() => {
           param.delete("q");

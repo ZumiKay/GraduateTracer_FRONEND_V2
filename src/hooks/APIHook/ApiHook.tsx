@@ -4,6 +4,7 @@ import axios, {
   InternalAxiosRequestConfig,
   AxiosResponse,
 } from "axios";
+import { hasExistingActiveSession } from "../../utils/userSessionStorage";
 
 /* ----------------------------- Type Definition ---------------------------- */
 
@@ -138,7 +139,15 @@ axiosInstance.interceptors.request.use(
  * Handles token refresh on unauthenticate requests
  */
 
-const skipRefreshTokenUrl = ["response/respondentlogin", "/registeruser"];
+const skipRefreshTokenUrl = [
+  "response/respondentlogin",
+  "/registeruser",
+  "/checksession",
+  "/login",
+  "/logout",
+  "/forgotpassword",
+  "refreshtoken",
+];
 
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse) => {
@@ -202,16 +211,13 @@ axiosInstance.interceptors.response.use(
         isRefreshing = false;
         processQueue(refreshError as Error);
 
-        if (typeof window !== "undefined") {
+        // Only dispatch session-expired if there is an existing active session in frontend state
+        if (typeof window !== "undefined" && hasExistingActiveSession()) {
           window.dispatchEvent(new CustomEvent("app:session-expired"));
         }
 
         return Promise.reject(refreshError);
       }
-    }
-
-    if (error.response?.status === 401 && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("app:session-expired"));
     }
 
     return Promise.reject(error);

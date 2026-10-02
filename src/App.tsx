@@ -10,6 +10,12 @@ import ReplaceSessionPage from "./pages/ReplaceSession";
 import { useUserSession } from "./hooks/useUserSession";
 import { AppLoading, PageLoading } from "./component/Loading/AppLoading";
 import { AutoLogoutModal } from "./component/Modal/AutoLogoutModal";
+import {
+  getStoredUserSession,
+  clearStoredUserSession,
+  isStoredSessionExpired,
+} from "./utils/userSessionStorage";
+import ErrorBoundary from "./component/ErrorBoundary";
 const AuthenticationPage = lazy(() => import("./pages/Authentication"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const FilledFormPage = lazy(() => import("./pages/FilledFormPage"));
@@ -68,12 +74,28 @@ const App = memo(() => {
     [pathname],
   );
 
-  const [showAutoLogoutModal, setShowAutoLogoutModal] = useState(false);
+  const [showAutoLogoutModal, setShowAutoLogoutModal] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !isPublicRoute && isStoredSessionExpired();
+  });
+
+  // Only show modal on route change / refresh if an existing session in frontend state has expired
+  useEffect(() => {
+    if (!isPublicRoute && isStoredSessionExpired()) {
+      setShowAutoLogoutModal(true);
+    }
+  }, [isPublicRoute]);
 
   useEffect(() => {
     const handleSessionExpired = () => {
       if (!isPublicRoute) {
-        setShowAutoLogoutModal(true);
+        const stored = getStoredUserSession();
+        const hasSession = Boolean(
+          stored?.user && (stored?.isAuthenticated || stored?.expiresAt),
+        );
+        if (hasSession && isStoredSessionExpired()) {
+          setShowAutoLogoutModal(true);
+        }
       }
     };
 
@@ -84,6 +106,7 @@ const App = memo(() => {
   }, [isPublicRoute]);
 
   const handleModalLogout = () => {
+    clearStoredUserSession();
     dispatch(logout());
     setShowAutoLogoutModal(false);
     window.location.href = "/";
@@ -91,12 +114,22 @@ const App = memo(() => {
 
   useEffect(() => {
     if (sessionData && !isFetching) {
-      dispatch(
-        setUser({
-          user: sessionData.user,
-          isAuthenticated: sessionData.isAuthenticated,
-        }),
-      );
+      if (sessionData.isAuthenticated && sessionData.user) {
+        dispatch(
+          setUser({
+            user: sessionData.user,
+            isAuthenticated: sessionData.isAuthenticated,
+            expiresAt: sessionData.expiresAt,
+          }),
+        );
+      } else if (!isStoredSessionExpired()) {
+        dispatch(
+          setUser({
+            user: null,
+            isAuthenticated: false,
+          }),
+        );
+      }
     }
   }, [dispatch, isFetching, sessionData]);
 
@@ -143,19 +176,22 @@ const App = memo(() => {
         />
       )}
 
-      <main className="w-full min-h-screen h-full bg-white dark:bg-black flex flex-col items-center">
+      <main className="w-full min-h-screen min-h-[100dvh] h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex flex-col items-stretch">
         {shouldShowNavigation && (
-          <Suspense
-            fallback={
-              <div className="h-[70px] w-full bg-gray-100 animate-pulse" />
-            }
-          >
-            <NavigationBar />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense
+              fallback={
+                <div className="h-[70px] w-full bg-gray-100 animate-pulse" />
+              }
+            >
+              <NavigationBar />
+            </Suspense>
+          </ErrorBoundary>
         )}
 
-        <Suspense fallback={<PageLoading />}>
-          <Routes>
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoading />}>
+            <Routes>
             <Route element={<PublichRoute />}>
               <Route index element={<AuthenticationPage />} />
             </Route>
@@ -207,6 +243,7 @@ const App = memo(() => {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
+      </ErrorBoundary>
 
         {/* Add Footer for most pages */}
         {shouldShowFooter && (

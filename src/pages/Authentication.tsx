@@ -724,11 +724,19 @@ export default function AuthenticationPage() {
           content: "Successfully logged in",
         });
 
+        const authUser = AuthenticationRequest.data as UserSessionData;
+
         //Set usersession as active
         dispatch(
           setUser({
             isAuthenticated: true,
-            user: AuthenticationRequest.data as UserSessionData,
+            user: {
+              _id: authUser._id,
+              name: authUser.name,
+              email: authUser.email,
+              role: authUser.role,
+            },
+            expiresAt: authUser.expiresAt,
           }),
         );
 
@@ -743,7 +751,7 @@ export default function AuthenticationPage() {
           return;
         }
 
-        window.location.reload();
+        window.location.href = "/dashboard";
       } else if (page === "signup") {
         SuccessToast({
           title: "Account Created!",

@@ -7,11 +7,9 @@ import { BrowserRouter } from "react-router-dom";
 import { HeroUIProvider } from "@heroui/react";
 import { ToastContainer } from "react-toastify";
 import "katex/dist/katex.min.css";
-import "babel-polyfill";
-import "es6-shim";
 import { QueryClientProvider } from "@tanstack/react-query";
 import queryClient from "./hooks/ReactQueryClient.tsx";
-
+import ErrorBoundary from "./component/ErrorBoundary.tsx";
 
 // Apply dark mode on initial load based on localStorage
 const isDarkMode = JSON.parse(localStorage.getItem("darkmode") ?? "false");
@@ -23,15 +21,17 @@ if (isDarkMode) {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <Provider store={store}>
-        <HeroUIProvider>
-          <BrowserRouter>
-            <ToastContainer closeButton closeOnClick />
-            <App />
-          </BrowserRouter>
-        </HeroUIProvider>
-      </Provider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <Provider store={store}>
+          <HeroUIProvider>
+            <BrowserRouter>
+              <ToastContainer closeButton closeOnClick />
+              <App />
+            </BrowserRouter>
+          </HeroUIProvider>
+        </Provider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>
 );

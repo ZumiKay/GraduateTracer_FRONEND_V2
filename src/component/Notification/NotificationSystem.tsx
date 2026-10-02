@@ -12,6 +12,17 @@ import { formatDistanceToNow } from "date-fns";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 
+const safeFormatDistanceToNow = (dateString?: string | Date) => {
+  if (!dateString) return "just now";
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return "recently";
+    return formatDistanceToNow(d, { addSuffix: true });
+  } catch {
+    return "recently";
+  }
+};
+
 interface Notification {
   _id: string;
   type: "response" | "reminder" | "alert" | "achievement";
@@ -153,56 +164,78 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
     fetchNotifications();
 
     const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000/v0/api";
+    const sseUrl = `${apiUrl}/notifications/stream?ngrok-skip-browser-warning=true`;
 
-    const eventSource = new EventSource(`${apiUrl}/notifications/stream`, {
-      withCredentials: true,
-    });
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource(sseUrl, {
+        withCredentials: true,
+      });
 
-    eventSource.onopen = () => {
-      console.log("[SSE] Connected to notification stream");
-    };
+      eventSource.onopen = () => {
+        console.log("[SSE] Connected to notification stream");
+      };
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
 
-        if (data.type === "connected") {
-          console.log("[SSE] Connection confirmed:", data.message);
-          return;
-        }
-
-        if (data.type === "new_response" && data.notification) {
-          // Add new notification to the top of the list
-          setNotifications((prev) => [data.notification, ...prev]);
-          updateUnreadCount((prev) => prev + 1);
-
-          // Show browser notification if permission granted
-          if (Notification.permission === "granted") {
-            new Notification(data.notification.title, {
-              body: data.notification.message,
-              icon: "/favicon.ico",
-              tag: data.notification.id,
-            });
+          if (data.type === "connected") {
+            console.log("[SSE] Connection confirmed:", data.message);
+            return;
           }
+
+          if (data.type === "new_response" && data.notification) {
+            // Add new notification to the top of the list
+            setNotifications((prev) => [data.notification, ...prev]);
+            updateUnreadCount((prev) => prev + 1);
+
+            // Show browser notification if permission granted safely
+            if (
+              typeof window !== "undefined" &&
+              "Notification" in window &&
+              Notification.permission === "granted"
+            ) {
+              try {
+                new Notification(data.notification.title, {
+                  body: data.notification.message,
+                  icon: "/favicon.ico",
+                  tag: data.notification.id,
+                });
+              } catch (notifErr) {
+                console.warn("[Notification] Could not display browser notification:", notifErr);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("[SSE] Error parsing message:", error);
         }
-      } catch (error) {
-        console.error("[SSE] Error parsing message:", error);
+      };
+
+      eventSource.onerror = (error) => {
+        console.error("[SSE] Connection error:", error);
+        eventSource?.close();
+      };
+    } catch (sseInitError) {
+      console.error("[SSE] Failed to initialize EventSource:", sseInitError);
+    }
+
+    // Request notification permission on mount safely
+    if (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "default"
+    ) {
+      try {
+        Notification.requestPermission().catch(() => {});
+      } catch {
+        // Some older browsers do not return a promise
       }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("[SSE] Connection error:", error);
-      eventSource.close();
-    };
-
-    // Request notification permission on mount
-    if (Notification.permission === "default") {
-      Notification.requestPermission();
     }
 
     return () => {
       //close connection
-      eventSource.close();
+      eventSource?.close();
     };
   }, [users.user?._id, fetchNotifications, updateUnreadCount]);
 
@@ -503,9 +536,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({
                       <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
                         <span className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1">
                           <ClockIcon className="w-3 h-3 shrink-0" />
-                          {formatDistanceToNow(new Date(notification.createdAt), {
-                            addSuffix: true,
-                          })}
+                          {safeFormatDistanceToNow(notification.createdAt)}
                         </span>
 
                         <div

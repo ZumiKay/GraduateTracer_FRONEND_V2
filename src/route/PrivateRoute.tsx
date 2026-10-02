@@ -1,21 +1,27 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useUserSession } from "../hooks/useUserSession";
 import { setPendingRedirect } from "../utils/authRedirect";
+import { PageLoading } from "../component/Loading/AppLoading";
 
 interface PrivateRouteProps {
   redirectPath?: string;
 }
 
 export const PublichRoute = () => {
-  const { data: sessionData } = useUserSession();
+  const { data: sessionData, isLoading } = useUserSession();
+
+  if (isLoading) {
+    return <PageLoading />;
+  }
+
   const isAuthenticated = sessionData?.isAuthenticated ?? false;
 
   if (!isAuthenticated) {
     return <Outlet />;
   }
 
-  return <Navigate to="/dashboard" />;
+  return <Navigate to="/dashboard" replace />;
 };
 
 /**
@@ -29,19 +35,20 @@ export const PublichRoute = () => {
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ redirectPath = "/" }) => {
   const location = useLocation();
-  const { data: sessionData } = useUserSession();
-  const [isAuthenticated, setisAuthenticated] = useState(true);
+  const { data: sessionData, isLoading } = useUserSession();
 
-  useEffect(() => {
-    setisAuthenticated(sessionData?.isAuthenticated ?? false);
-  }, [isAuthenticated, sessionData?.isAuthenticated]);
+  if (isLoading) {
+    return <PageLoading />;
+  }
+
+  const isAuthenticated = sessionData?.isAuthenticated ?? false;
 
   if (!isAuthenticated) {
     // Store the current URL (including search params) to redirect back after login
     const fullUrl = location.pathname + location.search;
     setPendingRedirect(fullUrl);
 
-    return <Navigate to={redirectPath} />;
+    return <Navigate to={redirectPath} replace />;
   }
 
   // Render child routes if authenticated

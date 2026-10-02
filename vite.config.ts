@@ -52,7 +52,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/v0": {
-        target: "http://localhost:8000",
+        target: "https://4a65-27-109-114-77.ngrok-free.app",
         changeOrigin: true,
         secure: false,
       },

@@ -135,10 +135,15 @@ export default function Navigationbar() {
         return autoSaveStatus.retryCount > 0
           ? `Retrying (${autoSaveStatus.retryCount})`
           : "Saving...";
-      case "saved":
-        return autoSaveStatus.lastSaved
-          ? `Saved ${new Date(autoSaveStatus.lastSaved).toLocaleTimeString()}`
-          : "Saved";
+      case "saved": {
+        if (!autoSaveStatus.lastSaved) return "Saved";
+        try {
+          const d = new Date(autoSaveStatus.lastSaved);
+          return isNaN(d.getTime()) ? "Saved" : `Saved ${d.toLocaleTimeString()}`;
+        } catch {
+          return "Saved";
+        }
+      }
       case "error":
         return autoSaveStatus.error || "Save failed";
       case "offline":
@@ -329,7 +334,7 @@ export default function Navigationbar() {
 
   if (!isAuthenticated) {
     return (
-      <nav className="navigationbar sticky top-0 z-50 w-full h-14 sm:h-[70px] bg-[#f5f5f5] flex justify-center items-center px-3 dark:bg-gray-800 mb-10 shadow-sm">
+      <nav className="navigationbar sticky top-0 z-50 w-full h-14 sm:h-[70px] bg-[#f5f5f5] flex justify-center items-center px-3 dark:bg-gray-800 mb-4 sm:mb-8 shadow-sm">
         <Image
           src={Logo}
           alt="logo"
@@ -342,7 +347,7 @@ export default function Navigationbar() {
   }
 
   return (
-    <nav className="navigationbar sticky top-0 z-50 w-full bg-[#f5f5f5] dark:bg-gray-800 mb-10 shadow-sm">
+    <nav className="navigationbar sticky top-0 z-50 w-full bg-[#f5f5f5] dark:bg-gray-800 mb-4 sm:mb-8 shadow-sm">
       <div className="flex flex-row justify-between items-center px-3 sm:px-4 min-h-14 sm:min-h-[70px]">
         {/* Left: Logo & Form Title */}
         <div className="flex flex-row items-center gap-x-2 sm:gap-x-4 min-w-0 flex-1">

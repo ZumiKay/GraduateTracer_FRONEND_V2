@@ -37,9 +37,11 @@ const HeaderSection = memo(
     filterState: DashboardFilterType;
     setfilterState: React.Dispatch<React.SetStateAction<DashboardFilterType>>;
   }) => (
-    <div className="header_section h-fit flex flex-row flex-wrap gap-y-5 justify-between items-center gap-x-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border dark:border-gray-700">
-      <FilterSection Filterstate={filterState} setFilterstate={setfilterState} />
-      <div className="flex gap-x-3">
+    <div className="header_section w-full h-fit flex flex-col sm:flex-row flex-wrap gap-y-4 justify-between items-stretch sm:items-center gap-x-4 bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow-sm border dark:border-gray-700">
+      <div className="w-full sm:w-auto flex-1 min-w-0">
+        <FilterSection Filterstate={filterState} setFilterstate={setfilterState} />
+      </div>
+      <div className="flex gap-x-3 justify-end sm:justify-start">
         <Button
           variant="flat"
           className={`font-bold text-white transition-all duration-200 ${
@@ -124,20 +126,20 @@ const FormTypeSelect = ({
   settab: React.Dispatch<React.SetStateAction<DashboardTabType>>;
 }) => {
   return (
-    <div className="w-full h-fit flex flex-wrap gap-4">
+    <div className="w-full max-w-full overflow-x-auto pb-2 scrollbar-none">
       <Tabs
-        className="min-w-[200px] w-auto"
+        className="w-auto min-w-max"
         aria-label="Tabs variants"
         variant="solid"
-        size="lg"
+        size="md"
         selectedKey={tab}
         onSelectionChange={settab as never}
       >
         <Tab
           key={DashboardTabType.all}
           title={
-            <div className="flex items-center gap-2">
-              <FiGrid />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <FiGrid className="shrink-0" />
               <span>All Forms</span>
             </div>
           }
@@ -145,8 +147,8 @@ const FormTypeSelect = ({
         <Tab
           key={DashboardTabType.filledform}
           title={
-            <div className="flex items-center gap-2">
-              <FiCheckCircle />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <FiCheckCircle className="shrink-0" />
               <span>Filled Form</span>
             </div>
           }
@@ -154,8 +156,8 @@ const FormTypeSelect = ({
         <Tab
           key={DashboardTabType.myform}
           title={
-            <div className="flex items-center gap-2">
-              <FiUser />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <FiUser className="shrink-0" />
               <span>My Form</span>
             </div>
           }
@@ -163,8 +165,8 @@ const FormTypeSelect = ({
         <Tab
           key={DashboardTabType.otherform}
           title={
-            <div className="flex items-center gap-2">
-              <FiUsers />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <FiUsers className="shrink-0" />
               <span>Other Form</span>
             </div>
           }
@@ -326,9 +328,15 @@ function Dashboard() {
         };
       };
 
-      dispatch(setallformstate(responseData.data.userForms ?? responseData.data ?? []));
+      const userForms = Array.isArray(responseData?.data?.userForms)
+        ? responseData.data.userForms
+        : Array.isArray(responseData?.data)
+        ? responseData.data
+        : [];
 
-      if (responseData.pagination) {
+      dispatch(setallformstate(userForms));
+
+      if (responseData?.pagination) {
         setPaginationData({
           totalPage: responseData.pagination.totalPage,
           totalCount: responseData.pagination.totalCount,
@@ -464,7 +472,7 @@ function Dashboard() {
         <CreateForm open={selector.createform} setopen={handleCreateFormModalClose} />
       )}
 
-      <div className="w-full p-6 h-full flex flex-col gap-y-8 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen">
+      <div className="w-full p-3 sm:p-6 h-full flex flex-col gap-y-5 sm:gap-y-8 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen">
         <HeaderSection
           isManage={isManage}
           filterState={Filterstate}
