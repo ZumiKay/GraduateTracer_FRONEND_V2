@@ -14,12 +14,17 @@ import { Editor } from "@tiptap/react";
 
 interface ModalWrapperProps {
   isOpen: boolean;
-  size: ModalProps["size"];
+  size?: ModalProps["size"];
   onClose: () => void;
   children: React.ReactNode;
   footer?: (onClose: () => void) => React.ReactNode;
   title?: string;
   className?: string;
+  placement?: ModalProps["placement"];
+  scrollBehavior?: ModalProps["scrollBehavior"];
+  classNames?: ModalProps["classNames"];
+  isKeyboardDismissDisabled?: ModalProps["isKeyboardDismissDisabled"];
+  shouldBlockScroll?: ModalProps["shouldBlockScroll"];
 }
 export default function ModalWrapper({
   isOpen,
@@ -29,9 +34,24 @@ export default function ModalWrapper({
   footer,
   title,
   className,
+  placement = "top-center",
+  scrollBehavior,
+  classNames,
+  isKeyboardDismissDisabled,
+  shouldBlockScroll,
 }: ModalWrapperProps) {
   return (
-    <Modal size={size} onClose={onClose} isOpen={isOpen} className={className}>
+    <Modal
+      size={size}
+      onClose={onClose}
+      isOpen={isOpen}
+      className={className}
+      placement={placement}
+      scrollBehavior={scrollBehavior}
+      classNames={classNames}
+      isKeyboardDismissDisabled={isKeyboardDismissDisabled}
+      shouldBlockScroll={shouldBlockScroll}
+    >
       <ModalContent>
         {(onClose) => (
           <>

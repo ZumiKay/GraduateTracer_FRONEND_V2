@@ -257,6 +257,12 @@ export default function CreateForm({
     <ModalWrapper
       size="2xl"
       isOpen={open}
+      placement="top-center"
+      scrollBehavior="inside"
+      classNames={{
+        wrapper: "items-start sm:items-center",
+        base: "my-2 sm:my-16 max-h-[calc(100%-1.5rem)] sm:max-h-[calc(100%-4rem)]",
+      }}
       onClose={() => {
         resetFormState();
         setclose();
@@ -281,7 +287,7 @@ export default function CreateForm({
           }
         `}
       </style>
-      <div className="p-6 bg-gradient-to-br from-slate-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl animate-fadeIn">
+      <div className="p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl animate-fadeIn">
         {/* Form Description */}
         <div className="text-center mb-6">
           <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
@@ -295,7 +301,7 @@ export default function CreateForm({
           onSubmit={handleCreate}
           aria-label="Create Form"
           validationBehavior="native"
-          className="formcreation w-full space-y-6"
+          className="formcreation w-full space-y-4 sm:space-y-6"
         >
           {isFetchingForm && id ? (
             <div className="flex items-center justify-center py-12">
@@ -327,7 +333,7 @@ export default function CreateForm({
                   labelPlacement="outside"
                   placeholder="Enter an engaging title for your form..."
                   isRequired
-                  className="transition-all duration-300 hover:scale-[1.02]"
+                  className="transition-all duration-300 sm:hover:scale-[1.02]"
                 />
               </div>
 
@@ -346,7 +352,7 @@ export default function CreateForm({
                     value={formtype}
                     onChange={(e) => handleFormTypeChange(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-white/70 dark:bg-gray-700/70 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 dark:focus:border-purple-400 transition-all duration-300 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-lg text-gray-700 dark:text-gray-200 font-medium appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 bg-white/70 dark:bg-gray-700/70 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 dark:focus:border-purple-400 transition-all duration-300 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-lg text-gray-700 dark:text-gray-200 font-medium appearance-none cursor-pointer text-base"
                   >
                     <option value="" disabled>
                       Select Form Type
@@ -411,7 +417,7 @@ export default function CreateForm({
                       name="returnscore"
                       value={selectedReturnScore}
                       onChange={(e) => setSelectedReturnScore(e.target.value)}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border-2 border-blue-200 dark:border-blue-700 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg text-gray-700 dark:text-gray-200 font-medium appearance-none cursor-pointer"
+                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border-2 border-blue-200 dark:border-blue-700 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg text-gray-700 dark:text-gray-200 font-medium appearance-none cursor-pointer text-base"
                     >
                       {ReturnScoreOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -543,7 +549,7 @@ export default function CreateForm({
               </div>
 
               {/* Submit Button */}
-              <div className="flex justify-center pt-4">
+              <div className="flex justify-center pt-4 pb-2">
                 <Button
                   isLoading={createFormMutation.isPending || isFetchingForm}
                   type="submit"
