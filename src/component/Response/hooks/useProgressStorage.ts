@@ -210,7 +210,7 @@ export const useProgressStorage = ({
 
   // Auto-save progress
   useEffect(() => {
-    if (formId && progressLoaded && (accessMode === "guest" || isUserActive)) {
+    if (formId && progressLoaded && !isPreview && (accessMode === "guest" || isUserActive)) {
       debouncedSaveProgress();
     }
   }, [
@@ -222,6 +222,7 @@ export const useProgressStorage = ({
     debouncedSaveProgress,
     accessMode,
     isUserActive,
+    isPreview,
   ]);
 
   // Cleanup timeout on unmount
@@ -235,6 +236,8 @@ export const useProgressStorage = ({
 
   // Save progress when user leaves the page
   useEffect(() => {
+    if (isPreview) return;
+
     const handleBeforeUnload = () => {
       saveProgressToStorage();
     };
@@ -254,7 +257,7 @@ export const useProgressStorage = ({
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [saveProgressToStorage, submitting, success]);
+  }, [saveProgressToStorage, submitting, success, isPreview]);
 
   // Clear storage on success
   useEffect(() => {

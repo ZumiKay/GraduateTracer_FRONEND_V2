@@ -20,7 +20,7 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
         question.parentcontent.questionId
       } Option ${question.parentcontent.optIdx + 1} )`;
     }
-    return `Question ${question.questionId}}`;
+    return `Question ${question.questionId}`;
   }, [question.parentcontent, question.questionId]);
   return (
     <div className="space-y-4 p-6 bg-white rounded-lg border shadow-sm">

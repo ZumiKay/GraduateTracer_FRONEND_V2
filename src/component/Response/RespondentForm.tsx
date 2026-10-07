@@ -1,5 +1,5 @@
 import "./RespondentForm.css";
-import React, { useCallback, useEffect, useMemo, memo, lazy, useContext } from "react";
+import React, { useCallback, useEffect, useMemo, memo, useContext, Suspense } from "react";
 import { Alert, Spinner } from "@heroui/react";
 import { useDispatch } from "react-redux";
 import {
@@ -20,18 +20,9 @@ import { QuestionRenderer } from "./components/QuestionRenderer";
 import { RespondentInfo } from "./components/RespondentInfo";
 import SuccessToast, { ErrorToast } from "../Modal/AlertModal";
 import SessionContext from "../../context/SessionContext";
-
-const FormHeader = lazy(() =>
-  import("./components/FormHeader").then((m) => ({ default: m.FormHeader })),
-);
-const Navigation = lazy(() =>
-  import("./components/Navigation").then((m) => ({ default: m.Navigation })),
-);
-const FormStateCard = lazy(() =>
-  import("./components/FormStateCard").then((m) => ({
-    default: m.FormStateCard,
-  })),
-);
+import { FormHeader } from "./components/FormHeader";
+import { Navigation } from "./components/Navigation";
+import { FormStateCard } from "./components/FormStateCard";
 
 const uniqueToastId = "respondentFormUniqueToastId";
 
@@ -389,7 +380,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
       }
     };
 
-    if (isLoading) {
+    if (isLoading && !formState) {
       return (
         <div className="flex justify-center items-center min-h-screen">
           <Spinner size="lg" aria-label="Loading form" />
@@ -442,7 +433,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
     if (!formState) return null;
 
     return (
-      <>
+      <Suspense fallback={<LoadingFallback />}>
         <div className="max-w-4xl mx-auto p-6 min-h-screen respondent-form">
           {accessMode !== "login" && !isUserActive && (
             <div className="mb-4 p-3 bg-amber-100 border border-amber-400 rounded-lg text-amber-800">
@@ -488,7 +479,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           <div data-testid="questions" className="space-y-6">
             {currentQuestions.map((question, index) => (
               <QuestionRenderer
-                key={question._id}
+                key={question._id || `q-${index}`}
                 question={question}
                 index={index}
                 questions={questions}
@@ -516,7 +507,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
           onPageChange={handlePageChange}
           onSubmit={handleSubmit}
         />
-      </>
+      </Suspense>
     );
   },
 );

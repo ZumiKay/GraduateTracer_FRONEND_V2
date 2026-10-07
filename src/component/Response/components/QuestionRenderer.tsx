@@ -1,31 +1,16 @@
-import React, { lazy } from "react";
+import React, { memo } from "react";
 import {
   ContentType,
   AnswerKey,
   QuestionType as QType,
 } from "../../../types/Form.types";
 import { FormResponse } from "../hooks/useFormResponses";
+import Respondant_Question_Card from "../../Card/Respondant.card";
+import { ConditionalIndicator } from "./ConditionalIndicator";
+import { CheckboxQuestion } from "./CheckboxQuestion";
+import { MultipleChoiceQuestion } from "./MultipleChoiceQuestion";
 
 type QuestionType = ContentType<unknown>;
-
-const Respondant_Question_Card = lazy(
-  () => import("../../Card/Respondant.card"),
-);
-const ConditionalIndicator = lazy(() =>
-  import("./ConditionalIndicator").then((m) => ({
-    default: m.ConditionalIndicator,
-  })),
-);
-const CheckboxQuestion = lazy(() =>
-  import("./CheckboxQuestion").then((m) => ({
-    default: m.CheckboxQuestion,
-  })),
-);
-const MultipleChoiceQuestion = lazy(() =>
-  import("./MultipleChoiceQuestion").then((m) => ({
-    default: m.MultipleChoiceQuestion,
-  })),
-);
 
 interface QuestionRendererProps {
   question: QuestionType;
@@ -37,7 +22,7 @@ interface QuestionRendererProps {
   updateResponse: (questionId: string, response: unknown) => void;
 }
 
-export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
+export const QuestionRenderer: React.FC<QuestionRendererProps> = memo(({
   question,
   index,
   questions,
@@ -91,4 +76,7 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = ({
       )}
     </div>
   );
-};
+});
+
+QuestionRenderer.displayName = "QuestionRenderer";
+

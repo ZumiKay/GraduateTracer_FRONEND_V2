@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, Suspense } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../redux/store";
 import RespondentForm, {
@@ -7,7 +7,7 @@ import RespondentForm, {
 import useRespondentFormPaginaition from "../../Response/hooks/usePaginatedFormData";
 import { RespondentInfoType } from "../../Response/Response.type";
 import { EyeIcon } from "@heroicons/react/24/outline";
-import { Chip } from "@heroui/react";
+import { Chip, Spinner } from "@heroui/react";
 
 interface PreviewTabProps {
   formId: string;
@@ -34,7 +34,7 @@ const PreviewTab: React.FC<PreviewTabProps> = ({ formId }) => {
       } as RespondentInfoType,
       accessMode: "authenticated",
       isUserActive: true,
-      isLoading: formReqData.isFetching,
+      isLoading: formReqData.isFetching && !formReqData.formState,
       isPreview: true,
     }),
     [formReqData, user.user?._id, user.user?.email, user.user?.name],
@@ -55,7 +55,15 @@ const PreviewTab: React.FC<PreviewTabProps> = ({ formId }) => {
       </div>
 
       <div className="w-full">
-        <RespondentForm {...respondentFormProps} />
+        <Suspense
+          fallback={
+            <div className="flex justify-center items-center py-8">
+              <Spinner size="md" aria-label="Loading preview" />
+            </div>
+          }
+        >
+          <RespondentForm {...respondentFormProps} />
+        </Suspense>
       </div>
     </div>
   );
