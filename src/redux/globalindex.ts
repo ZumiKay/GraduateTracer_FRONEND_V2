@@ -13,13 +13,6 @@ const globalindex = createSlice({
     setformtitle: (state, payload) => {
       state.formtitle = payload.payload;
     },
-
-    setformidx: (state, payload) => {
-      state.formidx = payload.payload;
-    },
-    setquestionidx: (state, payload) => {
-      state.questionidx = payload.payload;
-    },
     setdarkmode: (state, payload) => {
       const newDarkMode = payload.payload;
       localStorage.setItem("darkmode", JSON.stringify(newDarkMode));
@@ -28,5 +21,4 @@ const globalindex = createSlice({
   },
 });
 
-export const { setformidx, setquestionidx } = globalindex.actions;
 export default globalindex;

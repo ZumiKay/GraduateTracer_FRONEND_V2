@@ -285,4 +285,3 @@ export const CollaboratorSection = memo(
 
 CollaboratorSection.displayName = "CollaboratorSection";
 
-export default CollaboratorCard;

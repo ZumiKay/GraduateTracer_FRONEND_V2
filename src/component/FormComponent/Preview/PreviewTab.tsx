@@ -41,7 +41,7 @@ const PreviewTab: React.FC<PreviewTabProps> = ({ formId }) => {
   );
 
   return (
-    <div className="w-full flex flex-col items-center px-4">
+    <div className="w-full flex flex-col items-center px-1 sm:px-4">
       <div className="w-full max-w-4xl mt-4 mb-2 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
           <EyeIcon className="w-5 h-5 shrink-0" />

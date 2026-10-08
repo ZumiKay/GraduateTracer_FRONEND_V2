@@ -43,15 +43,6 @@ const cookieConsentSlice = createSlice({
     ) => {
       state.preferences = action.payload;
     },
-    resetCookieConsent: (state) => {
-      state.hasConsent = false;
-      state.preferences = {
-        necessary: true,
-        functional: false,
-        analytics: false,
-        marketing: false,
-      };
-    },
     openCookieModal: (state) => {
       state.isModalOpen = true;
     },
@@ -66,7 +57,6 @@ export const {
   setCookieConsent,
   setConsentPreferences,
   updateConsentPreferences,
-  resetCookieConsent,
   openCookieModal,
   closeCookieModal,
 } = cookieConsentSlice.actions;

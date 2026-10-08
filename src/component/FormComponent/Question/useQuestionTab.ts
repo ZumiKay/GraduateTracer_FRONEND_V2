@@ -27,7 +27,7 @@ import useImprovedAutoSave from "../../../hooks/useImprovedAutoSave";
 import { useSetSearchParam } from "../../../hooks/CustomHook";
 import { validateQuestionStructure } from "./utils";
 import { emitAutoSaveEvent } from "../../../services/autoSaveEventBus";
-import useScreenType from "../../../hooks/useScreenSize";
+import { useScreenType } from "../../../hooks/useScreenSize";
 
 /**Question Tab state management hook
  * @method with the highlight:

@@ -12,7 +12,7 @@ export const setUserSwitching = (value: boolean) => {
 export const isUserSwitching = () => isSwitchingUser;
 
 // Type definitions for formsession API requests
-export interface RespondentLoginProps extends Record<string, unknown> {
+interface RespondentLoginProps extends Record<string, unknown> {
   formId: string;
   email?: string;
   rememberMe?: boolean;
@@ -22,35 +22,19 @@ export interface RespondentLoginProps extends Record<string, unknown> {
   existed?: string;
 }
 
-export interface UserRespondentLoginProps extends Record<string, unknown> {
-  formId: string;
-  rememberMe: boolean;
-  isSwitched?: boolean;
-  email?: string;
-  password?: string;
-}
 
-export interface SendRemovalEmailProps extends Record<string, unknown> {
+interface SendRemovalEmailProps extends Record<string, unknown> {
   respondentEmail: string;
   removeCode: string;
   formId?: string;
 }
 
-export interface SessionVerificationParams {
-  isActive?: boolean;
-}
 
-export interface ReplaceSessionParams {
+interface ReplaceSessionParams {
   code: string;
   isSkipLogin?: boolean;
 }
 
-export interface FormsessionResponse {
-  success: boolean;
-  status: number;
-  message?: string;
-  data?: unknown;
-}
 
 export interface SessionVerificationResponse extends ApiRequestReturnType {
   data?: {
@@ -62,7 +46,7 @@ export interface SessionVerificationResponse extends ApiRequestReturnType {
   };
 }
 
-export const useFormsessionAPI = () => {
+const useFormsessionAPI = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError>();
 

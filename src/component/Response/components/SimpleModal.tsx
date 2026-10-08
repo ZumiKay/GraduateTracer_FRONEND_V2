@@ -202,4 +202,3 @@ export const BatchScoreEditModal: React.FC<BatchScoreEditModalProps> = ({
   );
 };
 
-export default SimpleModal;

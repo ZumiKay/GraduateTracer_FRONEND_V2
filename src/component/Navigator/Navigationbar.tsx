@@ -367,7 +367,7 @@ export default function Navigationbar() {
             onKeyDown={handleKeyDown}
             onInput={handleTitleInput}
             onClick={(e) => e.stopPropagation()}
-            className="hidden sm:block web-name text-2xl font-bold dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded px-1 max-w-[28vw] lg:max-w-[33vw] whitespace-nowrap overflow-hidden focus:whitespace-normal focus:overflow-visible"
+            className="hidden sm:block web-name text-2xl font-bold dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded px-1 max-w-[28vw] lg:max-w-[33vw] whitespace-nowrap overflow-hidden text-ellipsis focus:whitespace-normal focus:overflow-visible"
           >
             {displayTitle.slice(0, 50)}
           </div>

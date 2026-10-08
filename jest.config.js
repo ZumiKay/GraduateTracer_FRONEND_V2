@@ -29,13 +29,10 @@ export default {
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
   moduleNameMapper: {
     "\\.(css|less|sass|scss)$": "<rootDir>/src/_test_/__mocks__/styleMock.js",
-    "^.+\\.svg$": "jest-transformer-svg",
     // Stub modules that use import.meta.env (not compatible with Jest CJS runtime)
     "^.*APIHook/ApiHook.*$": "<rootDir>/src/_test_/__mocks__/ApiHook.ts",
     "^.*AlertModal.*$": "<rootDir>/src/_test_/__mocks__/AlertModal.ts",
     "^.*/component/Response/utils/validationUtils.*$": "<rootDir>/src/_test_/__mocks__/validationUtils.ts",
-    "^.*/config/env.*$": "<rootDir>/src/_test_/__mocks__/envMock.ts",
-    "^@/config/env.*$": "<rootDir>/src/_test_/__mocks__/envMock.ts",
   },
   // Polyfills import.meta.env at runtime for jsdom
   setupFiles: ["<rootDir>/src/_test_/jestSetup.js"],

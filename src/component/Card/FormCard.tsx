@@ -76,10 +76,10 @@ const FormCard: React.FC<FormCardProps> = ({ data, type, isManage, onClick, isSe
 
   return (
     <Card className={cardClassName} isPressable onPress={onClick}>
-      <CardHeader className="pb-3 px-6 pt-6">
+      <CardHeader className="pb-3 px-4 pt-4 sm:px-6 sm:pt-6">
         <div className="flex justify-between items-start w-full">
-          <div className="flex-1">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 line-clamp-2 leading-tight">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 line-clamp-2 leading-tight break-words">
               {data.title || "Untitled Form"}
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -116,7 +116,7 @@ const FormCard: React.FC<FormCardProps> = ({ data, type, isManage, onClick, isSe
           {isManage && <SelectionCheckbox isSelect={isSelect} />}
         </div>
       </CardHeader>
-      <CardBody className="pt-0 px-6 pb-6">
+      <CardBody className="pt-0 px-4 pb-4 sm:px-6 sm:pb-6">
         <div className="space-y-4">
           <div className="flex flex-col justify-between items-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
             <div className="flex items-center space-x-1">

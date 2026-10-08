@@ -20,14 +20,14 @@ const FormSummaryHeader = memo(
     return (
       <div className="w-full bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700">
         <div className="w-full max-w-4xl mx-auto">
-          {/* Stats strip — always 3 columns, never stacks */}
+          {/* Stats strip — always 4 columns, never stacks */}
           <div className="border-t border-gray-100 dark:border-gray-700">
             {isValidating ? (
               <div className="flex justify-center py-3">
                 <CircularProgress aria-label="Loading progress" size="sm" />
               </div>
             ) : (
-              <div className="grid grid-cols-3">
+              <div className="grid grid-cols-4">
                 <div className="flex flex-col items-center py-2 sm:py-3.5 gap-0.5 border-r border-gray-100 dark:border-gray-700">
                   <span className="text-base sm:text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums leading-none">
                     {formTotalScore ?? 0}
@@ -46,7 +46,7 @@ const FormSummaryHeader = memo(
                   </span>
                 </div>
 
-                <div className="flex flex-col items-center py-2 sm:py-3.5 gap-0.5">
+                <div className="flex flex-col items-center py-2 sm:py-3.5 gap-0.5 border-r border-gray-100 dark:border-gray-700">
                   <span className="text-base sm:text-2xl font-bold text-violet-600 dark:text-violet-400 tabular-nums leading-none">
                     {formTotalPage ?? 0}
                   </span>

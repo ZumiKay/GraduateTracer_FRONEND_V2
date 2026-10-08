@@ -2,13 +2,7 @@ import { useCallback } from "react";
 import ApiRequest from "./APIHook/ApiHook";
 
 // Type for form tabs
-type alltabs =
-  | "question"
-  | "solution"
-  | "preview"
-  | "response"
-  | "analytics"
-  | "setting";
+type alltabs = "question" | "solution" | "preview" | "response" | "analytics" | "setting";
 
 /**
  * Hook for fetching form tab data
@@ -16,21 +10,13 @@ type alltabs =
 export const useFormAPI = () => {
   /**
    * Fetch form tab data based on tab type and pagination
-   * @param tab - The tab type (question, response, analytics, etc.)
+   * @param tab - The tab type
    * @param page - The page number for pagination
    * @param formId - The form ID to fetch
    * @returns Promise with FormDataType
    */
   const fetchFormTab = useCallback(
-    async ({
-      tab,
-      page,
-      formId,
-    }: {
-      tab: alltabs;
-      page: number;
-      formId: string;
-    }) => {
+    async ({ tab, page, formId }: { tab: alltabs; page: number; formId: string }) => {
       const ty = tab === "question" ? "detail" : tab;
 
       return ApiRequest({
@@ -43,19 +29,16 @@ export const useFormAPI = () => {
     [],
   );
 
-  const getFormValidation = useCallback(
-    async (formId: string, action: string = "send_form") => {
-      const response = await ApiRequest({
-        url: `/validateform?formId=${formId}&action=${action}`,
-        method: "GET",
-        cookie: true,
-        reactQuery: true,
-      });
+  const getFormValidation = useCallback(async (formId: string, action: string = "send_form") => {
+    const response = await ApiRequest({
+      url: `/validateform?formId=${formId}&action=${action}`,
+      method: "GET",
+      cookie: true,
+      reactQuery: true,
+    });
 
-      return response.data;
-    },
-    [],
-  );
+    return response.data;
+  }, []);
 
   /**
    * Get form details for viewing responses

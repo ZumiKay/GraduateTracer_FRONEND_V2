@@ -606,7 +606,7 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
               // Mobile & Tablet (< lg): right-side floating container docked at right side of editor
               "max-lg:sticky max-lg:bottom-3 max-lg:right-0 max-lg:self-end max-lg:ml-auto max-lg:z-30 " +
               (isFormatToolsOpen
-                ? "max-lg:w-[280px] sm:max-lg:w-[320px] max-lg:max-w-[calc(100vw-2rem)] "
+                ? "max-lg:w-[280px] sm:max-lg:w-[320px] max-lg:max-w-full "
                 : "max-lg:w-auto ") +
               "max-lg:bg-white/95 max-lg:dark:bg-gray-800/95 max-lg:backdrop-blur-md max-lg:rounded-2xl max-lg:border-2 " +
               "max-lg:border-gray-200/90 dark:max-lg:border-gray-700/80 max-lg:shadow-2xl max-lg:mt-2 max-lg:overflow-hidden"

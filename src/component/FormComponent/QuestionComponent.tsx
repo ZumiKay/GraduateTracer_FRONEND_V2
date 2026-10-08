@@ -18,6 +18,10 @@ import {
 import { DateRangePickerQuestionType } from "./Solution/Answer_Component";
 import { isQuestionsLinkedVisible } from "../../utils/questionMutataions";
 import {
+  getBackendQuestionIssues,
+  mergeQuestionValidationIssues,
+} from "../../utils/backendValidationIssues";
+import {
   FiChevronDown,
   FiChevronRight,
   FiCheck,
@@ -299,6 +303,8 @@ ValidationToggleContainer.displayName = "ValidationToggleContainer";
 const selectAllQuestions = (state: RootState) => state.allform.allquestion;
 const selectAutosave = (state: RootState) => state.allform.formstate.setting?.autosave;
 const selectFormSettings = (state: RootState) => state.allform.formstate.setting;
+const selectBackendValidation = (state: RootState) =>
+  state.allform.formstate.validation?.validationResults;
 
 const QuestionComponent = memo(
   ({
@@ -321,8 +327,17 @@ const QuestionComponent = memo(
     const autosave = useSelector(selectAutosave);
     const formSettings = useSelector(selectFormSettings);
 
-    const activeValidationIssue = value.validationIssues;
+    const backendValidation = useSelector(selectBackendValidation);
+
+    // Realtime (frontend) issues come with the question state; backend issues are added on top
     const activeValidationWarning = value.validationWarning;
+    const activeValidationIssue = useMemo(() => {
+      const frontendIssues = value.validationIssues ?? [];
+      const backendIssues = getBackendQuestionIssues(backendValidation, value);
+      const frontendAll = [...frontendIssues, ...(value.validationWarning ?? [])];
+      const merged = mergeQuestionValidationIssues(frontendAll, backendIssues);
+      return [...frontendIssues, ...merged.slice(frontendAll.length)];
+    }, [backendValidation, value]);
 
     // Use qcolor from form settings, fallback to color prop
     const themeColor = useMemo(
@@ -507,7 +522,7 @@ const QuestionComponent = memo(
             <Tiptap qidx={idx} value={value.title as never} onChange={handleTitleChange as never} />
           </div>
           {/* Desktop Type Selection */}
-          <div className="hidden md:block w-full md:max-w-xs shrink-0">
+          <div className="hidden md:block md:w-52 xl:w-64 shrink-0">
             <Selection
               className="w-full rounded-md"
               name="type"

@@ -3,7 +3,7 @@ import { ROLE } from "../types/User.types";
 import ApiRequest from "../hooks/APIHook/ApiHook";
 import SuccessToast, { ErrorToast } from "../component/Modal/AlertModal";
 
-export interface Usersessiontype {
+interface Usersessiontype {
   _id: string;
   name: string;
   email: string;
@@ -20,21 +20,9 @@ import {
   getStoredUserSession,
   setStoredUserSession,
   clearStoredUserSession,
-  isStoredSessionExpired,
-  hasExistingActiveSession,
-  USER_SESSION_STORAGE_KEY,
-  StoredUserSession,
 } from "../utils/userSessionStorage";
 
-export {
-  getStoredUserSession,
-  setStoredUserSession,
-  clearStoredUserSession,
-  isStoredSessionExpired,
-  hasExistingActiveSession,
-  USER_SESSION_STORAGE_KEY,
-};
-export type { StoredUserSession };
+;
 
 const getInitialState = (): SessionState => {
   const stored = getStoredUserSession();

@@ -1,4 +1,4 @@
-export const getNameFromEmail = (email: string): string => {
+const getNameFromEmail = (email: string): string => {
   if (!email || typeof email !== "string") return "";
   const parts = email.split("@");
   return parts[0] || "";

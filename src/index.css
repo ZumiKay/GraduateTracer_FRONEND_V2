@@ -154,18 +154,23 @@ body {
   min-height: 100dvh;
 }
 
-h1 {
-  font-size: 3.5rem;
-  font-weight: bold;
-}
+/* Heading defaults live in the base layer so Tailwind text-* utilities
+   (including responsive ones) can override them. */
+@layer base {
+  h1 {
+    font-size: clamp(2.25rem, 8vw, 3.5rem);
+    font-weight: bold;
+  }
 
-h2 {
-  font-size: 2.5rem;
-  font-weight: bold;
-}
-h3 {
-  font-size: 2rem;
-  font-weight: bold;
+  h2 {
+    font-size: clamp(1.75rem, 6vw, 2.5rem);
+    font-weight: bold;
+  }
+
+  h3 {
+    font-size: clamp(1.5rem, 5vw, 2rem);
+    font-weight: bold;
+  }
 }
 
 

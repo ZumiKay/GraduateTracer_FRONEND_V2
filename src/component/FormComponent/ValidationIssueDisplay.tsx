@@ -5,7 +5,7 @@ import {
   ExclamationCircleIcon,
 } from "@heroicons/react/24/solid";
 
-export interface ValidationIssueDisplayProps {
+interface ValidationIssueDisplayProps {
   issues?: QuestionValidationIssue[];
   errors?: QuestionValidationIssue[];
   warnings?: QuestionValidationIssue[];

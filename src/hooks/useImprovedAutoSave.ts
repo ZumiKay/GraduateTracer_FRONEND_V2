@@ -8,6 +8,7 @@ import {
   setallquestion,
   setpauseAutoSave,
   setprevallquestion,
+  syncQuestionsAfterSave,
 } from "../redux/formstore";
 import { stripQuestionNumbering } from "../services/labelQuestionNumberingService";
 import { AllFormTabs } from "../types/Global.types";
@@ -232,6 +233,13 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
             //Only add queue saving for question tab
             if (autoSave && tab === "question") {
               setautoSavedDataQueue(savedData as Array<ContentType>);
+              // Assign server _ids to new questions right away (the full server
+              // data is applied on blur) so the next autosave updates them
+              dispatch(
+                syncQuestionsAfterSave({
+                  savedData: savedData as Array<ContentType>,
+                }),
+              );
             } else {
               const newHash = generateDataString(
                 savedData as Array<ContentType>,
@@ -289,6 +297,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       pauseAutoSave,
       page,
       tab,
+      dispatch,
       generateDataString,
       updateAllQuestionStates,
       retryAttempts,

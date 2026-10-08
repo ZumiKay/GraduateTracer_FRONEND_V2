@@ -2,7 +2,7 @@
  Event based autosave trigger 
  */
 
-export const AUTOSAVE_EVENT = "form:autosave-trigger" as const;
+const AUTOSAVE_EVENT = "form:autosave-trigger" as const;
 
 export interface AutoSaveEventDetail {
   tab: "question" | "solution";

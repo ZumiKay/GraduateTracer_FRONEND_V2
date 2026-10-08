@@ -80,7 +80,7 @@ const QuestionTab = () => {
             return (
               isChildCondition && (
                 <div
-                  className="w-full sm:w-[95%] md:w-[90%] max-w-4xl h-fit"
+                  className="w-full sm:w-[95%] md:w-[90%] lg:w-[96%] max-w-4xl xl:max-w-5xl 2xl:max-w-6xl h-fit"
                   key={questionKey}
                   ref={(el) => {
                     componentRefs.current[questionKey] = el;
@@ -109,7 +109,7 @@ const QuestionTab = () => {
 
         <Button
           startContent={<PlusIcon width={"25px"} height={"25px"} />}
-          className="w-full sm:w-[95%] md:w-[90%] max-w-4xl h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
+          className="w-full sm:w-[95%] md:w-[90%] lg:w-[96%] max-w-4xl xl:max-w-5xl 2xl:max-w-6xl h-[40px] bg-success dark:bg-lightsucess font-bold text-white dark:text-black"
           onPress={handleAddQuestion}
           isLoading={questionLoading}
           aria-label="Add new question"
@@ -117,7 +117,7 @@ const QuestionTab = () => {
           New Question
         </Button>
 
-        <div className="page-btn w-full sm:w-[95%] md:w-[90%] max-w-4xl h-fit flex flex-row items-center justify-between">
+        <div className="page-btn w-full sm:w-[95%] md:w-[90%] lg:w-[96%] max-w-4xl xl:max-w-5xl 2xl:max-w-6xl h-fit flex flex-row items-center justify-between">
           <Button
             className="max-w-xs font-bold text-red-400 border-x-0 border-t-0 transition-transform hover:translate-x-1"
             radius="none"

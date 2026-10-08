@@ -15,10 +15,10 @@ export const FormHeader: React.FC<FormHeaderProps> = ({
   const progress = (currentPage / totalPages) * 100;
 
   return (
-    <Card className="mb-6">
+    <Card className="mb-4 sm:mb-6 bg-white">
       <CardHeader>
         <div className="w-full bg-white">
-          <h1 className="text-3xl font-bold mb-2  text-black">{title}</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 text-black break-words">{title}</h1>
           <Progress
             value={progress}
             className="mb-4"

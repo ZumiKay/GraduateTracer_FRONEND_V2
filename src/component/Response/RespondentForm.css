@@ -3,6 +3,8 @@
   background-color: var(--form-bg, #ffffff);
   color: var(--form-text, #000000);
   min-height: 100vh;
+  /* The form is painted with the owner's palette, so native controls must not follow the app's dark mode. */
+  color-scheme: light;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 

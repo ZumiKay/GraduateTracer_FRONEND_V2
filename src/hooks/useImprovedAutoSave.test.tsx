@@ -10,6 +10,7 @@
  *  [x] Does not call AutoSaveQuestion when offline — queues instead
  *  [x] Processes offline queue when back online
  *  [x] Retries on save failure (up to retryAttempts)
+ *  [x] Syncs saved question ids into the store after an autosave (question tab only)
  */
 
 import { renderHook, act, waitFor } from "@testing-library/react";
@@ -18,6 +19,7 @@ import useImprovedAutoSave from "./useImprovedAutoSave";
 import { ApiRequestReturnType } from "./APIHook/ApiHook";
 import * as ReactRedux from "react-redux";
 import { ContentType, QuestionType } from "../types/Form.types";
+import { syncQuestionsAfterSave } from "../redux/formstore";
 
 const makeQuestion = (overrides: Partial<ContentType> = {}): ContentType => ({
   _id: "q1",
@@ -155,6 +157,55 @@ describe("useImprovedAutoSave", () => {
       await waitFor(() => {
         expect(AutoSaveQuestion).toHaveBeenCalledTimes(1);
       });
+    });
+
+    it("dispatches syncQuestionsAfterSave with the saved data after an autosave", async () => {
+      const dispatch = jest.fn();
+      (ReactRedux.useDispatch as unknown as jest.Mock).mockReturnValue(dispatch);
+      const savedData = [makeQuestion({ _id: "server-id" })];
+      (AutoSaveQuestion as jest.Mock).mockResolvedValue({
+        success: true,
+        data: savedData,
+      });
+
+      renderHook(() => useImprovedAutoSave({ debounceMs: 1000 }));
+
+      act(() => {
+        fireAutoSaveEvent("question");
+        jest.advanceTimersByTime(1000);
+      });
+
+      await waitFor(() => {
+        expect(dispatch).toHaveBeenCalledWith(
+          syncQuestionsAfterSave({ savedData }),
+        );
+      });
+    });
+
+    it("does not dispatch syncQuestionsAfterSave for the solution tab", async () => {
+      const dispatch = jest.fn();
+      (ReactRedux.useDispatch as unknown as jest.Mock).mockReturnValue(dispatch);
+      const savedData = [makeQuestion({ _id: "server-id" })];
+      (AutoSaveQuestion as jest.Mock).mockResolvedValue({
+        success: true,
+        data: savedData,
+      });
+
+      renderHook(() =>
+        useImprovedAutoSave({ debounceMs: 1000, tab: "solution" }),
+      );
+
+      act(() => {
+        fireAutoSaveEvent("solution");
+        jest.advanceTimersByTime(1000);
+      });
+
+      await waitFor(() => {
+        expect(AutoSaveQuestion).toHaveBeenCalledTimes(1);
+      });
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: syncQuestionsAfterSave.type }),
+      );
     });
 
     it("debounces multiple rapid events into a single save call", async () => {

@@ -1,5 +1,5 @@
 import { renderHook, act } from "@testing-library/react";
-import { useScreenType, useScreenSize, DEFAULT_BREAKPOINTS } from "../hooks/useScreenSize";
+import { useScreenType, DEFAULT_BREAKPOINTS } from "../hooks/useScreenSize";
 
 describe("useScreenSize / useScreenType Hook", () => {
   const originalInnerWidth = window.innerWidth;
@@ -114,9 +114,9 @@ describe("useScreenSize / useScreenType Hook", () => {
     expect(result.current.isLandscape).toBe(false);
   });
 
-  test("should support alias useScreenSize and provide both nested and direct properties", () => {
+  test("should provide both nested and direct properties", () => {
     setViewport(1024, 768);
-    const { result } = renderHook(() => useScreenSize());
+    const { result } = renderHook(() => useScreenType());
 
     // Direct access
     expect(result.current.isDesktop).toBe(true);

@@ -10,12 +10,12 @@ import {
 import { alltabs } from "../pages/FormPage";
 import { calculateFinalTotal } from "../helperFunc";
 
-export interface ValidateFormParams {
+interface ValidateFormParams {
   formId: string;
   tab: alltabs;
 }
 
-export interface ProcessedTotalScoreArgs {
+interface ProcessedTotalScoreArgs {
   allQuestion?: Array<ContentType>;
   formState: FormDataType;
 }
@@ -164,4 +164,3 @@ export const useFormValidation = (): UseFormValidationReturn => {
   );
 };
 
-export default useFormValidation;

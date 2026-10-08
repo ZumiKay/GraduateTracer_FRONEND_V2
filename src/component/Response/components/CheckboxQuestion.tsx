@@ -23,7 +23,7 @@ export const CheckboxQuestion: React.FC<CheckboxQuestionProps> = ({
     return `Question ${question.questionId}`;
   }, [question.parentcontent, question.questionId]);
   return (
-    <div className="space-y-4 p-6 bg-white rounded-lg border shadow-sm">
+    <div className="space-y-4 p-3 sm:p-6 bg-white rounded-lg border shadow-sm">
       <div className="bg-black p-2 w-full rounded-lg text-white">
         <p className="font-bold break-words">{contentTitle}</p>
       </div>

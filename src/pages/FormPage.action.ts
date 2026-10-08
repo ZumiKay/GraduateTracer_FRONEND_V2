@@ -1,4 +1,3 @@
-import { ErrorToast } from "../component/Modal/AlertModal";
 import ApiRequest from "../hooks/APIHook/ApiHook";
 import { ContentType } from "../types/Form.types";
 
@@ -20,20 +19,3 @@ export const AutoSaveQuestion = async (data: {
   return response;
 };
 
-export const DeleteQuestionRequest = async (data: {
-  id: string;
-  formId: string;
-}) => {
-  const delreq = await ApiRequest({
-    url: "/deletequestion",
-    method: "DELETE",
-    cookie: true,
-    data,
-  });
-
-  if (!delreq.success) {
-    ErrorToast({ title: "Failed", content: "Can't Delete" });
-    return false;
-  }
-  return true;
-};

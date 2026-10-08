@@ -50,4 +50,3 @@ export const AlertMessage: React.FC<AlertMessageProps> = ({
   );
 };
 
-export default AlertMessage;

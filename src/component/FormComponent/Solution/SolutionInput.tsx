@@ -32,7 +32,7 @@ import { convertDateValueToString } from "../../../helperFunc";
 import { ContentAnswerType } from "../../Response/Response.type";
 
 /* -------------------------------- Utilities ------------------------------- */
-export interface SolutionInputProps {
+interface SolutionInputProps {
   content: ContentType;
   onUpdateContent: (updates: Partial<ContentType>) => void;
   isValidated?: boolean;

@@ -390,7 +390,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     if (formError || !formState) {
       return (
-        <div className="max-w-2xl mx-auto p-6">
+        <div className="max-w-2xl mx-auto p-3 sm:p-6">
           <Alert
             data-testid="erroralert"
             color="danger"
@@ -405,7 +405,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     if (formState && formState?.setting?.acceptResponses === false) {
       return (
-        <div data-testid="closeFormState" className="max-w-2xl mx-auto p-6 respondent-form">
+        <div data-testid="closeFormState" className="max-w-2xl mx-auto p-3 sm:p-6 respondent-form">
           <FormStateCard
             type="closed"
             icon="🚫"
@@ -434,7 +434,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
 
     return (
       <Suspense fallback={<LoadingFallback />}>
-        <div className="max-w-4xl mx-auto p-6 min-h-screen respondent-form">
+        <div className="max-w-4xl mx-auto p-3 sm:p-6 min-h-screen respondent-form">
           {accessMode !== "login" && !isUserActive && (
             <div className="mb-4 p-3 bg-amber-100 border border-amber-400 rounded-lg text-amber-800">
               <div className="flex items-center gap-2">
@@ -476,7 +476,7 @@ const RespondentForm: React.FC<RespondentFormProps> = memo(
             formSessionInfo?.respondentEmail &&
             formState.setting?.email && <RespondentInfo respondentInfo={formSessionInfo} />}
 
-          <div data-testid="questions" className="space-y-6">
+          <div data-testid="questions" className="space-y-4 sm:space-y-6">
             {currentQuestions.map((question, index) => (
               <QuestionRenderer
                 key={question._id || `q-${index}`}

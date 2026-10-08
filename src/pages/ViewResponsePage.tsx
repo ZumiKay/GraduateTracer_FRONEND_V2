@@ -228,11 +228,11 @@ const ViewResponsePage: React.FC = () => {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 py-8 bg-white dark:bg-gray-900 min-h-screen">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8 bg-white dark:bg-gray-900 min-h-screen">
       {/* Sticky Save Button Bar - Visible when scrolling */}
       {hasUnsavedChanges && isQuizForm && (
-        <div className="sticky top-0 z-50 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-b-4 border-orange-400 dark:border-orange-600 shadow-lg mb-6 -mx-4 px-4 py-4 animate-in slide-in-from-top duration-300">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-b-4 border-orange-400 dark:border-orange-600 shadow-lg mb-6 -mx-3 sm:-mx-4 px-3 sm:px-4 py-3 sm:py-4 animate-in slide-in-from-top duration-300">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse shadow-lg"></div>
               <div>
@@ -254,7 +254,7 @@ const ViewResponsePage: React.FC = () => {
               }
               isLoading={isSavingScores}
               isDisabled={isSavingScores}
-              className="font-bold text-base px-8 shadow-lg"
+              className="font-bold text-sm sm:text-base px-4 sm:px-8 shadow-lg w-full sm:w-auto"
             >
               {isSavingScores ? "Saving..." : "Save All Scores"}
             </Button>
@@ -263,20 +263,20 @@ const ViewResponsePage: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
+      <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <Button
               isIconOnly
               variant="light"
               onPress={() => navigate(-1)}
-              startContent={<FiArrowLeft />}
+              aria-label="Go back"
               className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <FiArrowLeft size={20} />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                 Response Summary
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -285,7 +285,7 @@ const ViewResponsePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {responseIds.length > 1 && (
               <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800">
                 <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
@@ -397,18 +397,18 @@ const ViewResponsePage: React.FC = () => {
 
         {/* Question Responses */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800 dark:to-slate-800 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-sm">
-            <h5 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-500 dark:bg-blue-600 flex items-center justify-center shadow-md">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800 dark:to-slate-800 p-3 sm:p-5 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-sm">
+            <h5 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-blue-500 dark:bg-blue-600 flex items-center justify-center shadow-md">
                 <span className="text-white text-lg">📋</span>
               </div>
               Question Responses
             </h5>
             <Chip
-              size="lg"
+              size="md"
               variant="flat"
               color="primary"
-              className="font-bold text-base px-4"
+              className="font-bold text-sm sm:text-base px-2 sm:px-4"
             >
               {responseItems.length} questions
             </Chip>

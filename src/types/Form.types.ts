@@ -8,18 +8,10 @@ import {
 
 // Form Enums
 
-export const formDatePattern = "yyyy-MM-dd";
 
 export enum FormTypeEnum {
   Normal = "NORMAL",
   Quiz = "QUIZ",
-}
-export enum Tiptapcontent_Enum {
-  doc = "doc",
-  text = "text",
-  paragraph = "paragraph",
-  heading = "heading",
-  bulletlist = "bulletPointj",
 }
 
 export enum CollaboratorType {
@@ -35,11 +27,6 @@ export enum CollaborateActionType {
 
 export type FormType = `${FormTypeEnum}`;
 
-// Submit Types
-export enum SubmitType {
-  Once = "ONCE",
-  Multiple = "MULTIPLE",
-}
 export enum returnscore {
   partial = "PARTIAL",
   manual = "MANUAL",
@@ -247,18 +234,9 @@ export const DefaultContentType: ContentType = {
   },
 };
 
-// Form Setting Data Type
-export interface FormSetiingDataType {
-  question: string;
-  background: string;
-  navbar: string;
-  text: string;
-  response: boolean;
-  email: boolean;
-}
 
 //Response Form Type
-export interface ResponseSetType {
+interface ResponseSetType {
   questionId?: string;
   response:
     | string
@@ -273,7 +251,7 @@ export interface ResponseSetType {
   question: ContentType;
 }
 
-export interface FormResponseType {
+interface FormResponseType {
   _id?: string;
   formId: string;
   userId: string;
@@ -294,7 +272,7 @@ export const BgColorTemplate = {
   Color6: "#F8F5E9",
 };
 
-export const DefaultFormSetting: FormSettingType = {
+const DefaultFormSetting: FormSettingType = {
   qcolor: BgColorTemplate.Color1,
   bg: BgColorTemplate.Color2,
   navbar: "#f5f5f5",
@@ -326,7 +304,7 @@ export const DefaultFormState: FormDataType = {
   setting: getDefaultFormSetting(FormTypeEnum.Normal),
 };
 
-export interface ValidationErrorMessageType {
+interface ValidationErrorMessageType {
   name?: string;
   message?: string;
 }
@@ -371,8 +349,3 @@ export interface FormValidationSummary {
   action?: string;
 }
 
-export interface SummaryFormType {
-  totalScore: number;
-  totalQuestion: number;
-  lastQuestionIdx: number;
-}

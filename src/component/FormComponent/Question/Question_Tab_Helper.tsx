@@ -1,35 +1,6 @@
-import ApiRequest from "../../../hooks/APIHook/ApiHook";
 import { AddQuestionNumbering } from "../../../services/labelQuestionNumberingService";
 import { ContentType } from "../../../types/Form.types";
 
-/**
- * Auto Save Helper Func
- * Delete Question
- * @requires AUTOSAVE ENABLED
- */
-export const AsyncAutoSaveDeleteRequest = async ({
-  formId,
-  qId,
-}: {
-  formId: string;
-  qId: string;
-}) => {
-  const request = await ApiRequest({
-    url: "/deletecontent",
-    method: "DELETE",
-    cookie: true,
-    data: {
-      id: qId,
-      formId,
-    },
-  });
-
-  if (!request.success) {
-    throw new Error(request.error ?? "Error Occured");
-  }
-
-  return true;
-};
 
 export const DeleteAndShift = ({
   targetQuestion,

@@ -204,4 +204,3 @@ export const InactivityWarning: React.FC<InactivityWarningProps> = ({
 };
 
 // Export the component as default as well
-export default InactivityWarning;

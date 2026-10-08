@@ -8,7 +8,7 @@ import {
   setShowOverview,
 } from "../../../redux/formstore";
 import { ContentType } from "../../../types/Form.types";
-import useFormValidation from "../../../hooks/ValidationHook";
+import { useFormValidation } from "../../../hooks/ValidationHook";
 import FormSummaryHeader from "./FormSummaryHeader";
 import ValidationStatusDisplay from "./ValidationStatusDisplay";
 import QuestionItem from "./QuestionItem";

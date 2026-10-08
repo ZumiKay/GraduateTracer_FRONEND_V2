@@ -93,4 +93,3 @@ export const useUserSession = (options?: { enabled?: boolean }) => {
   });
 };
 
-export default useUserSession;

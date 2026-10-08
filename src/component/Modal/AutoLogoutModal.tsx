@@ -186,4 +186,3 @@ export const AutoLogoutModal: React.FC<AutoLogoutModalProps> = ({
   );
 };
 
-export default AutoLogoutModal;

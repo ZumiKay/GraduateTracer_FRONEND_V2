@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
-export type ScreenType = "miniMobile" | "mobile" | "tablet" | "desktop";
+type ScreenType = "miniMobile" | "mobile" | "tablet" | "desktop";
 
-export interface ScreenStateType {
+interface ScreenStateType {
   isMiniMobile: boolean;
   isMobile: boolean;
   isTablet: boolean;
@@ -143,5 +143,3 @@ export const useScreenType = (
   };
 };
 
-export const useScreenSize = useScreenType;
-export default useScreenType;

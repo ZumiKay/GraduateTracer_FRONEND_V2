@@ -102,12 +102,6 @@ const formstore = createSlice({
       state.formstate = action.payload;
     },
 
-    setvalidation: (
-      state,
-      action: PayloadAction<Pick<FormDataType, "validation">>,
-    ) => {
-      state.formstate.validation = action.payload.validation;
-    },
     setisFormEdit: (state, action: PayloadAction<boolean>) => {
       state.isFormEdit = action.payload;
     },
@@ -204,23 +198,8 @@ const formstore = createSlice({
     setpauseAutoSave: (state, action: PayloadAction<boolean>) => {
       state.pauseAutoSave = action.payload;
     },
-    setdisbounceQuestion: (state, action: PayloadAction<ContentType>) => {
-      state.debounceQuestion = action.payload;
-    },
-    setshowLinkedQuestion: (
-      state,
-      action: PayloadAction<Array<ShowLinkedQuestionType>>,
-    ) => {
-      state.showLinkedQuestions = action.payload;
-    },
     setRevalidateContent: (state, action: PayloadAction<boolean>) => {
       state.revalidateContent = action.payload;
-    },
-    settTestQuestionState: (
-      state,
-      action: PayloadAction<ContentType[] | undefined>,
-    ) => {
-      state.testQuestonState = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -245,11 +224,7 @@ export const {
   setfetchloading,
   setreloaddata,
   setpauseAutoSave,
-  setdisbounceQuestion,
-  setshowLinkedQuestion,
   setRevalidateContent,
-  settTestQuestionState,
-  setvalidation,
   setShowOverview,
 } = formstore.actions;
 export default formstore;

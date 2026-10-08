@@ -10,7 +10,7 @@ export interface SessionContextType {
   onSessionExpired?: () => void;
 }
 
-export const SessionContext = createContext<SessionContextType | null>(null);
+const SessionContext = createContext<SessionContextType | null>(null);
 
 interface SessionProviderProps {
   children: React.ReactNode;

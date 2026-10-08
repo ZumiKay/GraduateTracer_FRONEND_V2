@@ -53,7 +53,7 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = memo(({
           updateResponse={updateResponse}
         />
       ) : (
-        <div className="p-6 bg-white rounded-lg border shadow-sm">
+        <div className="p-3 sm:p-6 bg-white rounded-lg border shadow-sm">
           <Respondant_Question_Card
             content={{
               ...question,

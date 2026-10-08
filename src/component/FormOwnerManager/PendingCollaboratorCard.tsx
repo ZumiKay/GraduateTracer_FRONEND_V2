@@ -180,4 +180,3 @@ export const PendingCollaboratorSection = memo(
 
 PendingCollaboratorSection.displayName = "PendingCollaboratorSection";
 
-export default PendingCollaboratorCard;

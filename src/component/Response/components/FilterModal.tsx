@@ -195,14 +195,9 @@ export const FilterModal: React.FC<FilterModalProps> = ({
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                 <Slider
                   label={
-                    <div className="flex justify-between w-full mb-2">
-                      <span className="text-sm font-medium dark:text-gray-300">
-                        Minimum
-                      </span>
-                      <span className="text-sm font-medium dark:text-gray-300">
-                        Maximum
-                      </span>
-                    </div>
+                    <span className="text-sm font-medium dark:text-gray-300">
+                      Min – Max
+                    </span>
                   }
                   step={1}
                   maxValue={100}

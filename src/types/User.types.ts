@@ -11,8 +11,3 @@ export interface UserType {
   code?: string;
 }
 
-export const DefaultUserState: UserType = {
-  email: "",
-  password: "",
-  role: ROLE.USER,
-};

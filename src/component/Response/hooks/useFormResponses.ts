@@ -8,7 +8,7 @@ export interface FormResponse {
   response: ResponseValue | null;
 }
 
-export type choiceResponseType = {
+type choiceResponseType = {
   key: number;
   val: string;
 };

@@ -6,10 +6,7 @@ import { getLocalTimeZone } from "@internationalized/date";
 // Constants & Types
 // ============================================================================
 
-export const STORAGE_PREFIX = "form_progress_";
-export const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-export const DEFAULT_MAX_STORAGE_AGE_MS = 7 * ONE_DAY_MS;
-export const MAX_CONDITIONAL_TRAVERSAL_DEPTH = 10;
+const STORAGE_PREFIX = "form_progress_";
 
 export interface StorageKeyComponents {
   formId: string | null;
@@ -24,26 +21,7 @@ export interface StorageCleanupResult {
   keptKeys?: string[];
 }
 
-export interface LocalStorageStats {
-  totalKeys: number;
-  formProgressKeys: number;
-  totalSize: number;
-  formProgressSize: number;
-  keysByForm: Record<string, number>;
-  keysByUser: Record<string, number>;
-  oldestTimestamp?: number;
-  newestTimestamp?: number;
-}
 
-export interface LocalStorageItemMeta {
-  key: string;
-  size: number;
-  formId?: string;
-  userKey?: string;
-  suffix?: string;
-  hasTimestamp: boolean;
-  age?: number;
-}
 
 // ============================================================================
 // Internal Helpers
@@ -177,16 +155,6 @@ export const hasArrayChange = (
 // Date Formatting & Comparison
 // ============================================================================
 
-/**
- * Formats a Date object into YYYY-MM-DD string format
- */
-export const FormatDate = (date: Date): string => {
-  if (!(date instanceof Date) || isNaN(date.getTime())) return "";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 /**
  * Converts HeroUI DateValue to ISO string at 00:00:00 local time
@@ -197,26 +165,11 @@ export const convertDateValueToString = (val: DateValue): string => {
   return date.toISOString();
 };
 
-/**
- * Checks if a given timestamp is older than 24 hours from now
- */
-export const isMoreThanDay = (val: Date): boolean => {
-  if (!(val instanceof Date) || isNaN(val.getTime())) return false;
-  const diffMs = Date.now() - val.getTime();
-  return diffMs > ONE_DAY_MS;
-};
 
 // ============================================================================
 // Calculation & Index Helpers
 // ============================================================================
 
-/**
- * Calculates updated index after deletions
- */
-export const CalculateNewIdx = (
-  delIndexes: number,
-  currentIdx: number,
-): number => Math.abs(currentIdx - delIndexes);
 
 /**
  * Calculates updated overall form score when a page score changes
@@ -229,19 +182,6 @@ export function calculateFinalTotal(
   return (totalScore || 0) - (oldPageTotal || 0) + (newPageTotal || 0);
 }
 
-/**
- * Calculates remaining max score allowable for a conditional sub-question
- */
-export const CalculateRemainMaxScore = ({
-  parentScore,
-  siblingScore,
-  currentScore,
-}: {
-  parentScore: number;
-  siblingScore: number;
-  currentScore: number;
-}): number =>
-  Math.max(0, (parentScore || 0) - (siblingScore || 0) - (currentScore || 0));
 
 // ============================================================================
 // Conditional Questions & Hierarchy
@@ -428,145 +368,8 @@ export const ConditionContentCopy = ({
   return duplicatedContent;
 };
 
-/**
- * Validates structural integrity of conditional question references
- */
-export const validateConditionalStructure = (
-  content: Array<ContentType>,
-): {
-  isValid: boolean;
-  errors: string[];
-} => {
-  const errors: string[] = [];
-  const contentMap = new Map<string, ContentType>();
 
-  content.forEach((item) => {
-    if (item._id) {
-      contentMap.set(item._id.toString(), item);
-    }
-  });
 
-  content.forEach((item, index) => {
-    if (item.conditional) {
-      item.conditional.forEach((cond, condIndex) => {
-        if (cond.contentId && !contentMap.has(cond.contentId.toString())) {
-          errors.push(
-            `Item ${index}: Conditional ${condIndex} references non-existent content ID ${cond.contentId}`,
-          );
-        }
-
-        if (
-          cond.contentIdx !== undefined &&
-          !content[cond.contentIdx] &&
-          !content.find((q) => q.qIdx === cond.contentIdx)
-        ) {
-          errors.push(
-            `Item ${index}: Conditional ${condIndex} references invalid content index ${cond.contentIdx}`,
-          );
-        }
-      });
-    }
-
-    if (item.parentcontent) {
-      if (item.parentcontent.qId && !contentMap.has(item.parentcontent.qId)) {
-        errors.push(
-          `Item ${index}: Parent content references non-existent ID ${item.parentcontent.qId}`,
-        );
-      }
-      if (
-        item.parentcontent.qIdx !== undefined &&
-        !content[item.parentcontent.qIdx] &&
-        !content.find((q) => q.qIdx === item.parentcontent!.qIdx)
-      ) {
-        errors.push(
-          `Item ${index}: Parent content references invalid content index ${item.parentcontent.qIdx}`,
-        );
-      }
-    }
-  });
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  };
-};
-
-/**
- * Flattens nested conditional content structure in topological order
- */
-export const flattenConditionalContent = (
-  content: Array<ContentType>,
-): Array<ContentType> => {
-  const flattened: Array<ContentType> = [];
-  const processed = new Set<string>();
-
-  const processItem = (item: ContentType, depth: number = 0) => {
-    if (depth > MAX_CONDITIONAL_TRAVERSAL_DEPTH) return;
-
-    const itemKey = item._id?.toString() || `temp_${flattened.length}`;
-    if (processed.has(itemKey)) return;
-
-    processed.add(itemKey);
-    flattened.push(item);
-
-    if (item.conditional) {
-      item.conditional.forEach((cond) => {
-        const childContent = content.find(
-          (c) =>
-            (cond.contentId &&
-              c._id?.toString() === cond.contentId.toString()) ||
-            (cond.contentIdx !== undefined && content[cond.contentIdx] === c),
-        );
-
-        if (childContent) {
-          processItem(childContent, depth + 1);
-        }
-      });
-    }
-  };
-
-  content
-    .filter((item) => !item.parentcontent)
-    .forEach((item) => processItem(item));
-
-  return flattened;
-};
-
-/**
- * Calculates the deepest nesting level of conditional questions
- */
-export const getConditionalDepth = (
-  content: ContentType,
-  allContent: Array<ContentType>,
-): number => {
-  const calculateDepth = (
-    item: ContentType,
-    currentDepth: number = 0,
-  ): number => {
-    if (!item.conditional || currentDepth > MAX_CONDITIONAL_TRAVERSAL_DEPTH) {
-      return currentDepth;
-    }
-
-    let deepestChild = currentDepth;
-
-    item.conditional.forEach((cond) => {
-      const childContent = allContent.find(
-        (c) =>
-          (cond.contentId && c._id?.toString() === cond.contentId.toString()) ||
-          (cond.contentIdx !== undefined && allContent[cond.contentIdx] === c),
-      );
-
-      if (childContent) {
-        const childDepth = calculateDepth(childContent, currentDepth + 1);
-        deepestChild = Math.max(deepestChild, childDepth);
-      }
-    });
-
-    return deepestChild;
-  };
-
-  return calculateDepth(content);
-};
 
 // ============================================================================
 // LocalStorage & Progress Storage Management
@@ -733,197 +536,9 @@ export const deleteFormLocalStorage = ({
   }
 };
 
-/**
- * Clears form session state key from local storage
- */
-export const clearAllStateLocalStorage = ({
-  formId,
-  userKey,
-}: {
-  formId: string;
-  userKey: string;
-}): boolean => {
-  const storage = getStorage();
-  if (!storage) return false;
 
-  const localKey = generateStorageKey({ suffix: "state", formId, userKey });
-  try {
-    storage.removeItem(localKey);
-    return true;
-  } catch (error) {
-    console.error("Failed to clear state localStorage:", error);
-    return false;
-  }
-};
 
-/**
- * Analyzes and returns statistics about form progress items stored in localStorage
- */
-export const getLocalStorageStats = (): LocalStorageStats => {
-  const stats: LocalStorageStats = {
-    totalKeys: 0,
-    formProgressKeys: 0,
-    totalSize: 0,
-    formProgressSize: 0,
-    keysByForm: {},
-    keysByUser: {},
-    oldestTimestamp: undefined,
-    newestTimestamp: undefined,
-  };
 
-  const storage = getStorage();
-  if (!storage) return stats;
-
-  try {
-    const allKeys = Object.keys(storage);
-    stats.totalKeys = allKeys.length;
-
-    allKeys.forEach((key) => {
-      const value = storage.getItem(key) || "";
-      const size = new Blob([value]).size;
-      stats.totalSize += size;
-
-      if (key.startsWith(STORAGE_PREFIX)) {
-        stats.formProgressKeys++;
-        stats.formProgressSize += size;
-
-        const components = extractStorageKeyComponents(key);
-        if (components.formId) {
-          stats.keysByForm[components.formId] =
-            (stats.keysByForm[components.formId] || 0) + 1;
-        }
-        if (components.userKey) {
-          stats.keysByUser[components.userKey] =
-            (stats.keysByUser[components.userKey] || 0) + 1;
-        }
-
-        const parsed = safeJsonParse<{
-          timestamp?: number;
-          timeStamp?: number;
-        }>(value);
-        const ts = parsed?.timestamp || parsed?.timeStamp;
-        if (ts && typeof ts === "number") {
-          if (!stats.oldestTimestamp || ts < stats.oldestTimestamp) {
-            stats.oldestTimestamp = ts;
-          }
-          if (!stats.newestTimestamp || ts > stats.newestTimestamp) {
-            stats.newestTimestamp = ts;
-          }
-        }
-      }
-    });
-  } catch (error) {
-    console.error("Failed to get localStorage stats:", error);
-  }
-
-  return stats;
-};
-
-/**
- * Removes local storage items older than maxAgeMs
- */
-export const cleanupOldLocalStorage = (
-  maxAgeMs: number = DEFAULT_MAX_STORAGE_AGE_MS,
-): {
-  deletedCount: number;
-  deletedKeys: string[];
-} => {
-  const deletedKeys: string[] = [];
-  const storage = getStorage();
-
-  if (!storage) {
-    return { deletedCount: 0, deletedKeys };
-  }
-
-  const now = Date.now();
-
-  try {
-    const allKeys = Object.keys(storage);
-    const formProgressKeys = allKeys.filter((key) =>
-      key.startsWith(STORAGE_PREFIX),
-    );
-
-    formProgressKeys.forEach((key) => {
-      const value = storage.getItem(key);
-      if (!value) return;
-
-      const parsed = safeJsonParse<{ timestamp?: number; timeStamp?: number }>(
-        value,
-      );
-      const timestamp = parsed?.timestamp || parsed?.timeStamp;
-
-      if (
-        timestamp &&
-        typeof timestamp === "number" &&
-        now - timestamp > maxAgeMs
-      ) {
-        storage.removeItem(key);
-        deletedKeys.push(key);
-      }
-    });
-
-    return {
-      deletedCount: deletedKeys.length,
-      deletedKeys,
-    };
-  } catch (error) {
-    console.error("Failed to cleanup old localStorage:", error);
-    return { deletedCount: 0, deletedKeys: [] };
-  }
-};
-
-/**
- * Lists all stored form progress items with their metadata and ages
- */
-export const listLocalStorageItems = (
-  filterPrefix: string = STORAGE_PREFIX,
-): Array<LocalStorageItemMeta> => {
-  const items: Array<LocalStorageItemMeta> = [];
-  const storage = getStorage();
-
-  if (!storage) return items;
-
-  try {
-    const allKeys = Object.keys(storage);
-    const filteredKeys = filterPrefix
-      ? allKeys.filter((key) => key.startsWith(filterPrefix))
-      : allKeys;
-
-    const now = Date.now();
-
-    filteredKeys.forEach((key) => {
-      const value = storage.getItem(key) || "";
-      const size = new Blob([value]).size;
-      const components = extractStorageKeyComponents(key);
-
-      let hasTimestamp = false;
-      let age: number | undefined;
-
-      const parsed = safeJsonParse<{ timestamp?: number; timeStamp?: number }>(
-        value,
-      );
-      const timestamp = parsed?.timestamp || parsed?.timeStamp;
-      if (timestamp && typeof timestamp === "number") {
-        hasTimestamp = true;
-        age = now - timestamp;
-      }
-
-      items.push({
-        key,
-        size,
-        formId: components.formId || undefined,
-        userKey: components.userKey || undefined,
-        suffix: components.suffix || undefined,
-        hasTimestamp,
-        age,
-      });
-    });
-  } catch (error) {
-    console.error("Failed to list localStorage items:", error);
-  }
-
-  return items;
-};
 
 /**
  * Saves or merges form state into local storage safely

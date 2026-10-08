@@ -1,7 +1,7 @@
 import ApiRequest from "../hooks/APIHook/ApiHook";
 import { ResponseDataType } from "../component/Response/Response.type";
 
-export enum responseCompletionStatus {
+enum responseCompletionStatus {
   completed = "completed",
   partial = "partial",
   abandoned = "abandoned",
@@ -37,7 +37,7 @@ export interface GroupResponseListItemType {
   responseIds?: Array<string>;
 }
 
-export interface PaginationType {
+interface PaginationType {
   page: number;
   limit: number;
   totalCount: number;
@@ -119,29 +119,6 @@ export const fetchResponseList = async ({
   return result.data as ResponseListResponse;
 };
 
-export const fetchUserResponse = async (data: {
-  uid: string;
-  formId: string;
-  page: string;
-  limit?: string;
-}) => {
-  const searchParam = new URLSearchParams();
-
-  //Create search param
-  Object.entries(data).map(([key, val]) => searchParam.set(key, val));
-
-  const makeReq = await ApiRequest({
-    url: "/response/getuserresponses" + `?${searchParam}`,
-    method: "GET",
-    cookie: true,
-    reactQuery: true,
-  });
-
-  if (!makeReq.success) {
-    throw new Error(makeReq.error ?? "Error occured");
-  }
-  return makeReq.data;
-};
 
 export const fetchResponseDetails = async (
   responseId: string,

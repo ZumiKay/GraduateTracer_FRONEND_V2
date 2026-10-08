@@ -129,11 +129,11 @@ export const ScoreModeInput = ({
   };
 
   return (
-    <Card className="w-full p-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-50 border-2 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300">
+    <Card className="w-full p-4 sm:p-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-50 border-2 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
               <span className="text-white text-sm">★</span>
             </div>
@@ -160,7 +160,7 @@ export const ScoreModeInput = ({
               Press Tab to move to feedback
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Input
               aria-label="score input"
               type="number"
@@ -172,7 +172,7 @@ export const ScoreModeInput = ({
               placeholder="0"
               min="0"
               max={maxScore}
-              className="flex-1"
+              className="flex-1 min-w-0"
               size="lg"
               classNames={{
                 input: "text-3xl font-black text-center text-blue-700",
@@ -182,11 +182,11 @@ export const ScoreModeInput = ({
               isInvalid={!!error}
               errorMessage={error}
             />
-            <div className="flex flex-col items-center gap-2 min-w-[120px]">
-              <div className="text-5xl font-black text-slate-300">/</div>
+            <div className="flex flex-col items-center gap-2 sm:min-w-[120px]">
+              <div className="text-3xl sm:text-5xl font-black text-slate-300">/</div>
             </div>
-            <div className="flex flex-col items-center justify-center bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl px-6 py-4 min-w-[120px] border-3 border-purple-200 shadow-md">
-              <div className="text-4xl font-black text-purple-700">
+            <div className="flex flex-col items-center justify-center bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl px-3 py-2 sm:px-6 sm:py-4 min-w-[72px] sm:min-w-[120px] border-3 border-purple-200 shadow-md">
+              <div className="text-2xl sm:text-4xl font-black text-purple-700">
                 {maxScore}
               </div>
               <div className="text-xs text-purple-600 font-bold uppercase tracking-wide mt-1">
@@ -196,7 +196,7 @@ export const ScoreModeInput = ({
           </div>
 
           {/* Large Percentage Display */}
-          <div className="bg-white rounded-xl p-5 border-2 border-slate-200 shadow-inner">
+          <div className="bg-white rounded-xl p-3 sm:p-5 border-2 border-slate-200 shadow-inner">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-bold text-slate-700">Progress</span>
               <div className={`text-3xl font-black ${getColorClass()}`}>

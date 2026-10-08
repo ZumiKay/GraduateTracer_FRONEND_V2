@@ -19,7 +19,6 @@ export interface FormPaginationProps {
   showRowsPerPage?: boolean;
 }
 
-export type FormpaginationProps = FormPaginationProps;
 
 export default function FormPagination({
   total,

@@ -106,25 +106,6 @@ export const ChevronUpIcon: React.FC<IconProps> = ({
   </svg>
 );
 
-export const QuestionIcon: React.FC<IconProps> = ({
-  width = "16",
-  height = "16",
-  className = "",
-}) => (
-  <svg
-    width={width}
-    height={height}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-  >
-    <path
-      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92c-.5.51-.86.97-1.04 1.69-.08.32-.13.68-.13 1.14h-2v-.5c0-.46.08-.9.22-1.31.2-.58.53-1.1.95-1.52l1.24-1.26c.46-.44.68-1.1.55-1.8-.13-.72-.69-1.33-1.39-1.53-1.11-.31-2.14.32-2.47 1.27-.12.35-.43.58-.79.58h-.28c-.52 0-.96-.41-.92-.93.12-1.77 1.59-3.2 3.36-3.38 1.96-.2 3.73 1.3 3.93 3.24.12 1.13-.36 2.19-1.33 2.88z"
-      fill="currentColor"
-    />
-  </svg>
-);
 
 export const ConnectionIcon: React.FC<IconProps> = ({
   width = "16",

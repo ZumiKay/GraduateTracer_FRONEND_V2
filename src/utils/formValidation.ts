@@ -77,7 +77,7 @@ export const checkUnsavedQuestions = (
 /**
  * Computes scoring breakdown stats for a list of questions.
  */
-export const calcContentScoringStats = (questions: Array<ContentType>) => {
+const calcContentScoringStats = (questions: Array<ContentType>) => {
   if (!questions || !Array.isArray(questions)) {
     return {
       total: 0,
@@ -116,11 +116,6 @@ export const calcContentScoringStats = (questions: Array<ContentType>) => {
   };
 };
 
-export const calculateCurrentVal = (
-  prev: number,
-  current: number,
-  total: number,
-) => Math.abs(total - prev) + current;
 
 /**
  * @param prevRes        Form ScoringAnalysis (covering all pages).

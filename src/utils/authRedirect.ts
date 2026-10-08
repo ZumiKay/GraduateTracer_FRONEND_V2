@@ -24,10 +24,3 @@ export const clearPendingRedirect = () => {
   sessionStorage.removeItem(PENDING_REDIRECT_KEY);
 };
 
-/**
- * Check if there's a pending redirect
- * @returns true if a redirect URL is stored
- */
-export const hasPendingRedirect = (): boolean => {
-  return sessionStorage.getItem(PENDING_REDIRECT_KEY) !== null;
-};

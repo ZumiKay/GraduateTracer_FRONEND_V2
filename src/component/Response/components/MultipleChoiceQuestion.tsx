@@ -23,7 +23,7 @@ export const MultipleChoiceQuestion: React.FC<MultipleChoiceQuestionProps> = ({
     return `Question ${question.questionId}`;
   }, [question.parentcontent, question.questionId]);
   return (
-    <div className="space-y-4 p-6 bg-white rounded-lg border shadow-sm">
+    <div className="space-y-4 p-3 sm:p-6 bg-white rounded-lg border shadow-sm">
       <div className="question_label bg-black rounded-lg text-white p-2">
         <p className="font-bold break-words">{contentTitle}</p>
       </div>

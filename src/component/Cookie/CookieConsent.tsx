@@ -27,20 +27,20 @@ import {
   closeCookieModal,
 } from "../../redux/cookieConsent.store";
 
-export interface CookieConsentProps {
+interface CookieConsentProps {
   className?: string;
   position?: "bottom" | "top" | "bottom-left" | "bottom-right";
   companyName?: string;
   privacyPolicyUrl?: string;
 }
 
-export type CookieCategory =
+type CookieCategory =
   | "necessary"
   | "functional"
   | "analytics"
   | "marketing";
 
-export interface CookiePreferences {
+interface CookiePreferences {
   necessary: boolean;
   functional: boolean;
   analytics: boolean;

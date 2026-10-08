@@ -121,4 +121,3 @@ export const AddCollaboratorForm: React.FC<AddCollaboratorFormProps> = ({
   </div>
 );
 
-export default AddCollaboratorForm;

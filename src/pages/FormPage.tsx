@@ -32,19 +32,11 @@ import { useSetSearchParam } from "../hooks/CustomHook";
 import { useQuery } from "@tanstack/react-query";
 import Pagination from "../component/Navigator/PaginationComponent";
 import { useFormAPI } from "../hooks/useFormAPI";
-import useUserSession from "../hooks/useUserSession";
+import { useUserSession } from "../hooks/useUserSession";
 import OverviewContainer from "../component/FormComponent/Overview/component";
 
 export type alltabs = "question" | "solution" | "preview" | "response" | "analytics" | "setting";
 
-export const FORM_TABS: alltabs[] = [
-  "question",
-  "solution",
-  "preview",
-  "response",
-  "analytics",
-  "setting",
-];
 
 interface ApiError extends Error {
   status?: number;
@@ -314,7 +306,6 @@ function FormPage() {
     [tab, availableTabs, isSettingUnsaved, dispatch, setParams],
   );
 
-  // Redirect away from solution tab if form is normal (not a quiz)
   useEffect(() => {
     if (formstate.type && !isQuiz && tab === "solution") {
       handleTabs("question");
@@ -393,6 +384,7 @@ function FormPage() {
     };
   }, []);
 
+  //Swipe filter on mobile devices
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
       if (isIgnoredTouchRef.current || !touchStartRef.current) return;
@@ -404,10 +396,6 @@ function FormPage() {
 
       touchStartRef.current = null;
 
-      // Swipe criteria:
-      // 1. Gesture finished within 500ms
-      // 2. Traveled at least 50px horizontally
-      // 3. Horizontal intent dominates vertical scrolling (|deltaX| > |deltaY| * 1.5)
       if (elapsed <= 500 && Math.abs(deltaX) >= 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
         if (deltaX < 0) {
           handleSwipeNext();
@@ -424,7 +412,6 @@ function FormPage() {
     isIgnoredTouchRef.current = true;
   }, []);
 
-  // Auto-scroll active tab into view in horizontal tab bar on mobile
   useEffect(() => {
     const timer = setTimeout(() => {
       const activeTabEl = document.querySelector<HTMLElement>(`[role="tab"][data-key="${tab}"]`);
@@ -438,6 +425,20 @@ function FormPage() {
     }, 60);
     return () => clearTimeout(timer);
   }, [tab]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const activeTabEl = document.querySelector<HTMLElement>(`[role="tab"][data-key="${tab}"]`);
+      const cursorEl = activeTabEl
+        ?.closest('[role="tablist"]')
+        ?.querySelector<HTMLElement>('[data-slot="cursor"]');
+      if (!activeTabEl || !cursorEl) return;
+      cursorEl.style.left = `${activeTabEl.offsetLeft + activeTabEl.offsetWidth * 0.1}px`;
+      cursorEl.style.width = `${activeTabEl.offsetWidth * 0.8}px`;
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableTabs]);
 
   const handlePageChange = useCallback(
     (val: number) => {
@@ -582,7 +583,7 @@ function FormPage() {
                 exit="exit"
                 className="relative w-full"
               >
-                <OverviewContainer tab="question" loading={isFetching} />
+                <OverviewContainer tab="question" />
                 <QuestionTab />
               </motion.div>
             </AnimatePresence>
@@ -599,7 +600,7 @@ function FormPage() {
                   exit="exit"
                   className="relative w-full"
                 >
-                  <OverviewContainer tab="solution" loading={isFetching} />
+                  <OverviewContainer tab="solution" />
                   <Solution_Tab isLoading={isFetching} />
                 </motion.div>
               </AnimatePresence>

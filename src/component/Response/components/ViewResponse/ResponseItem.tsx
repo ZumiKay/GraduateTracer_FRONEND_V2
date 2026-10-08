@@ -50,6 +50,12 @@ const getChoiceOptions = (question: ContentType): ChoiceQuestionType[] => {
   }
 };
 
+// Chips default to a single nowrap line; long option text must wrap on narrow screens.
+const WRAPPING_CHIP = {
+  base: "font-medium h-auto min-h-7 max-w-full whitespace-normal py-0.5",
+  content: "whitespace-normal break-words",
+};
+
 const ResponseItem = React.memo<ResponseItemProps>(
   ({
     response: resp,
@@ -149,7 +155,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
                   Answer Key
                 </span>
               </div>
-              <div className="flex flex-row items-center gap-3 font-bold">
+              <div className="flex flex-row flex-wrap items-center gap-2 sm:gap-3 font-bold">
                 <Chip size="lg" variant="solid" color="default">
                   Start: {answerKeyRange.start}
                 </Chip>
@@ -173,7 +179,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
             </div>
             {userResponse?.start !== undefined &&
             userResponse?.end !== undefined ? (
-              <div className="flex flex-row items-center gap-3 font-bold">
+              <div className="flex flex-row flex-wrap items-center gap-2 sm:gap-3 font-bold">
                 <Chip size="lg" variant="solid" color="default">
                   Start: {userResponse.start}
                 </Chip>
@@ -199,7 +205,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
       return (
         <div className="space-y-4">
           {/* All Options with Correct Answer & User Selection */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 sm:p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                 Options
@@ -219,7 +225,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
                 return (
                   <div
                     key={`option-${question._id}-${idx}`}
-                    className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                    className={`flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-lg border-2 transition-all ${
                       isUserSelected && isCorrectAnswer
                         ? "bg-green-50 border-green-400"
                         : isUserSelected && !isCorrectAnswer && isQuizForm
@@ -231,9 +237,9 @@ const ResponseItem = React.memo<ResponseItemProps>(
                               : "bg-white border-gray-200"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                       <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
                           isUserSelected
                             ? "bg-blue-500 text-white"
                             : "bg-gray-200 text-gray-600"
@@ -242,14 +248,14 @@ const ResponseItem = React.memo<ResponseItemProps>(
                         {optionIdx + 1}
                       </div>
                       <span
-                        className={`font-medium ${
+                        className={`font-medium break-words min-w-0 ${
                           isUserSelected ? "text-gray-900" : "text-gray-600"
                         }`}
                       >
                         {option.content}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap justify-end items-center gap-1 sm:gap-2 shrink-0">
                       {isQuizForm && isCorrectAnswer && (
                         <Chip
                           size="sm"
@@ -319,7 +325,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
                                   : "primary"
                               : "primary"
                           }
-                          className="font-medium"
+                          classNames={WRAPPING_CHIP}
                           startContent={
                             isQuizForm ? (
                               isCorrect ? (
@@ -354,7 +360,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
                                   : "primary"
                               : "primary"
                           }
-                          className="font-medium"
+                          classNames={WRAPPING_CHIP}
                           startContent={
                             isQuizForm ? (
                               isCorrect ? (
@@ -418,7 +424,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
                         size="md"
                         variant="flat"
                         color="success"
-                        className="font-medium"
+                        classNames={WRAPPING_CHIP}
                         startContent={<span>✓</span>}
                       >
                         {opt.content}
@@ -513,7 +519,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
                   size="md"
                   variant="flat"
                   color="success"
-                  className="font-medium"
+                  classNames={WRAPPING_CHIP}
                 >
                   {Array.isArray(pair.val) ? pair.val.join(", ") : pair.val}
                 </Chip>
@@ -538,7 +544,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
                   size="md"
                   variant="flat"
                   color="success"
-                  className="font-medium"
+                  classNames={WRAPPING_CHIP}
                 >
                   {val}
                 </Chip>
@@ -551,7 +557,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
             size="md"
             variant="flat"
             color="success"
-            className="font-medium"
+            classNames={WRAPPING_CHIP}
           >
             {pair.val}
           </Chip>
@@ -579,7 +585,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
                   Answer Key
                 </span>
               </div>
-              <div className="text-green-900 font-medium">
+              <div className="text-green-900 font-medium break-words min-w-0">
                 {renderAnswerKey(question.answer)}
               </div>
             </div>
@@ -595,7 +601,7 @@ const ResponseItem = React.memo<ResponseItemProps>(
                 User Response
               </span>
             </div>
-            <div className="text-gray-900">
+            <div className="text-gray-900 break-words min-w-0">
               {renderResponseValue(resp.response) || (
                 <Chip
                   size="sm"
@@ -626,8 +632,8 @@ const ResponseItem = React.memo<ResponseItemProps>(
     if (isTextType) {
       return (
         <Card className="shadow-md hover:shadow-lg transition-shadow duration-200">
-          <div className="p-8">
-            <div className="space-y-6">
+          <div className="p-4 sm:p-8">
+            <div className="space-y-4 sm:space-y-6">
               {/* Question Header */}
               <div className="flex items-center gap-3 flex-wrap">
                 {question.qIdx && !question.parentcontent ? (
@@ -657,8 +663,8 @@ const ResponseItem = React.memo<ResponseItemProps>(
 
               {/* Question Title - Larger display */}
               {question?.title && (
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border-l-4 border-primary">
-                  <div className="text-lg">
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 sm:p-6 border-l-4 border-primary">
+                  <div className="text-base sm:text-lg break-words min-w-0">
                     <StyledTiptap
                       value={question.title as never}
                       readonly
@@ -683,16 +689,16 @@ const ResponseItem = React.memo<ResponseItemProps>(
             />
           </div>
         )}
-        <div className="p-8">
-          <div className="flex justify-between items-start gap-6">
-            <div className="flex-1 space-y-6">
+        <div className="p-4 sm:p-8">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 md:gap-6">
+            <div className="flex-1 min-w-0 w-full space-y-4 sm:space-y-6">
               {/* Question Header */}
               <div className="flex items-center gap-3 flex-wrap">
                 <Chip
                   size="lg"
                   color="secondary"
                   variant="flat"
-                  className="font-bold text-base px-5 py-2 shadow-sm"
+                  className="font-bold text-sm sm:text-base px-3 sm:px-5 py-2 shadow-sm"
                 >
                   Q{question.questionId}
                 </Chip>
@@ -721,8 +727,8 @@ const ResponseItem = React.memo<ResponseItemProps>(
 
               {/* Question Title */}
               {question?.title && (
-                <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-xl p-6 border-l-4 border-blue-600 shadow-sm">
-                  <div className="text-base font-medium text-gray-800">
+                <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-xl p-3 sm:p-6 border-l-4 border-blue-600 shadow-sm">
+                  <div className="text-base font-medium text-gray-800 break-words min-w-0">
                     <StyledTiptap
                       value={question.title as never}
                       readonly
@@ -736,10 +742,10 @@ const ResponseItem = React.memo<ResponseItemProps>(
             </div>
 
             {isQuizForm ? (
-              <div className="flex flex-col items-end gap-3 min-w-[160px]">
+              <div className="flex flex-col items-stretch md:items-end gap-3 w-full md:w-auto md:min-w-[160px] empty:hidden">
                 {!canScore ? (
-                  <div className="bg-gradient-to-br from-purple-100 via-purple-50 to-pink-100 rounded-2xl px-6 py-5 text-center border-2 border-purple-300 shadow-lg hover:shadow-xl transition-all duration-200">
-                    <div className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+                  <div className="bg-gradient-to-br from-purple-100 via-purple-50 to-pink-100 rounded-2xl px-4 py-3 sm:px-6 sm:py-5 text-center border-2 border-purple-300 shadow-lg hover:shadow-xl transition-all duration-200">
+                    <div className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
                       {resp.score || 0}
                     </div>
                     <div className="text-base text-purple-700 font-bold mt-1">
@@ -761,8 +767,8 @@ const ResponseItem = React.memo<ResponseItemProps>(
           responseId &&
           question._id &&
           !isResponseEmpty(resp.response, resp.question.type) ? (
-            <div className="mt-8 pt-6 border-t-2 border-dashed border-gray-300">
-              <div className="bg-gray-50 rounded-xl p-6 shadow-inner">
+            <div className="mt-5 pt-4 sm:mt-8 sm:pt-6 border-t-2 border-dashed border-gray-300">
+              <div className="bg-gray-50 rounded-xl p-3 sm:p-6 shadow-inner">
                 <ScoreModeInput
                   maxScore={question?.score || 0}
                   initialScore={resp.score || 0}
