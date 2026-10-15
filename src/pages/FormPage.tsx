@@ -32,6 +32,9 @@ import { useSetSearchParam } from "../hooks/CustomHook";
 import { useQuery } from "@tanstack/react-query";
 import Pagination from "../component/Navigator/PaginationComponent";
 import { useFormAPI } from "../hooks/useFormAPI";
+import { setContentVersion } from "../services/contentVersionService";
+import useFormCollaboration from "../hooks/useFormCollaboration";
+import CollaboratorPresence from "../component/Collaboration/CollaboratorPresence";
 import { useUserSession } from "../hooks/useUserSession";
 import OverviewContainer from "../component/FormComponent/Overview/component";
 
@@ -138,6 +141,9 @@ function FormPage() {
     },
   });
 
+  // Presence + question locks, once the form has loaded and access is confirmed
+  useFormCollaboration(formstate._id);
+
   const isUnSavedQuestion = useMemo(() => allquestion.some((i) => !i._id), [allquestion]);
 
   //Initiallize Page
@@ -220,6 +226,11 @@ function FormPage() {
 
         dispatch(setallquestion(normalizedContents));
         dispatch(setprevallquestion(normalizedContents));
+
+        // Remember which version of the page this copy is based on
+        if (result._id && typeof result.contentVersion === "number") {
+          setContentVersion(result._id, currentPage, result.contentVersion);
+        }
       }
 
       dispatch(setfetchloading(false));
@@ -545,18 +556,22 @@ function FormPage() {
             )}
         </div>
 
-        {tab !== "preview" && (
-          <Button
-            variant="solid"
-            size="sm"
-            color="primary"
-            startContent={<EyeIcon className="w-3 h-3 sm:w-4 sm:h-4" />}
-            onPress={() => handleTabs("preview")}
-            className="font-semibold text-[11px] sm:text-sm h-6 sm:h-8 px-2 sm:px-3 rounded-md sm:rounded-lg"
-          >
-            Preview
-          </Button>
-        )}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <CollaboratorPresence />
+
+          {tab !== "preview" && (
+            <Button
+              variant="solid"
+              size="sm"
+              color="primary"
+              startContent={<EyeIcon className="w-3 h-3 sm:w-4 sm:h-4" />}
+              onPress={() => handleTabs("preview")}
+              className="font-semibold text-[11px] sm:text-sm h-6 sm:h-8 px-2 sm:px-3 rounded-md sm:rounded-lg"
+            >
+              Preview
+            </Button>
+          )}
+        </div>
       </div>
 
       <div

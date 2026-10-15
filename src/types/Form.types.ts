@@ -72,6 +72,8 @@ export interface FormDataType {
   isCollaborator?: boolean;
   formType?: string; // Represents which dashboard tab this form belongs to
   lastQuestionIdx?: number;
+  // Content version of the loaded page (optimistic concurrency for saves)
+  contentVersion?: number;
   currentPageTotalScores?: number;
   totalQuestions?: number;
   totalScores?: number;

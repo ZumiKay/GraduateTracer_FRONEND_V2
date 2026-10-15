@@ -6,12 +6,14 @@ import {
   type NodeViewProps,
 } from "@tiptap/react";
 import katex from "katex";
+import { FiTrash2 } from "react-icons/fi";
 
 // ── Inline Math NodeView ──────────────────────────────────────────────────────
 
 const InlineMathView: React.FC<NodeViewProps> = ({
   node,
   updateAttributes,
+  deleteNode,
   selected,
   editor,
 }) => {
@@ -58,6 +60,12 @@ const InlineMathView: React.FC<NodeViewProps> = ({
               setDraft(node.attrs.latex as string);
               setEditing(false);
             }
+            // Backspace/Delete on an empty formula removes the node
+            if ((e.key === "Backspace" || e.key === "Delete") && !draft) {
+              e.preventDefault();
+              deleteNode();
+              editor.commands.focus();
+            }
           }}
           className="border border-blue-400 rounded px-1 text-sm font-mono bg-white"
           style={{ width: Math.max(80, draft.length * 8) + "px" }}
@@ -82,6 +90,7 @@ const InlineMathView: React.FC<NodeViewProps> = ({
 const DisplayMathView: React.FC<NodeViewProps> = ({
   node,
   updateAttributes,
+  deleteNode,
   selected,
   editor,
 }) => {
@@ -104,6 +113,11 @@ const DisplayMathView: React.FC<NodeViewProps> = ({
     }
   };
 
+  const removeBlock = () => {
+    deleteNode();
+    editor.commands.focus();
+  };
+
   const rendered = useMemo(
     () =>
       katex.renderToString(draft || "?", {
@@ -115,7 +129,22 @@ const DisplayMathView: React.FC<NodeViewProps> = ({
 
   return (
     <NodeViewWrapper>
-      <div className="my-2">
+      <div className="group relative my-2">
+        {editor.isEditable && (
+          <button
+            type="button"
+            // keep focus where it is so the textarea doesn't commit on blur first
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={removeBlock}
+            title="Delete math block"
+            aria-label="Delete math block"
+            className={`absolute top-1 right-1 z-10 h-8 w-8 grid place-content-center rounded-lg bg-white/90 dark:bg-gray-800/90 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer active:scale-95 transition-opacity max-lg:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 ${
+              editing || selected ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <FiTrash2 className="w-4 h-4" />
+          </button>
+        )}
         {editing ? (
           <textarea
             ref={textareaRef}
@@ -131,10 +160,15 @@ const DisplayMathView: React.FC<NodeViewProps> = ({
                 setDraft(node.attrs.latex as string);
                 setEditing(false);
               }
+              // Backspace/Delete on an empty block removes it
+              if ((e.key === "Backspace" || e.key === "Delete") && !draft) {
+                e.preventDefault();
+                removeBlock();
+              }
             }}
-            className="w-full border border-blue-400 rounded p-2 text-sm font-mono bg-white resize-none"
+            className="w-full border border-blue-400 rounded p-2 pr-11 text-sm font-mono bg-white resize-none"
             rows={3}
-            placeholder="Enter LaTeX… (Ctrl+Enter to confirm)"
+            placeholder="Enter LaTeX… (Ctrl+Enter to confirm, Backspace when empty to delete)"
           />
         ) : (
           <div

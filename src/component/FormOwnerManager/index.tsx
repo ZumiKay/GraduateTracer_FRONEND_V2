@@ -27,6 +27,10 @@ import { CollaboratorType } from "../../types/Form.types";
 import { UsersIcon, GroupUsersIcon } from "./Icons";
 import { AlertMessage } from "./AlertMessage";
 import { AddCollaboratorForm } from "./AddCollaboratorForm";
+
+// How long action results stay on screen
+const SUCCESS_MESSAGE_MS = 5000;
+const ERROR_MESSAGE_MS = 8000;
 import { CollaboratorSection } from "./CollaboratorCard";
 import { PendingCollaboratorSection } from "./PendingCollaboratorCard";
 import { useNavigate } from "react-router-dom";
@@ -136,12 +140,16 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
     queryClient.invalidateQueries({ queryKey: ["formOwners", formId] });
   }, [queryClient, formId]);
 
+  // Keep messages up long enough to read; errors stay a little longer
   useEffect(() => {
     if (success || error) {
-      alertRef.current = setTimeout(() => {
-        setSuccess("");
-        setError("");
-      }, 150);
+      alertRef.current = setTimeout(
+        () => {
+          setSuccess("");
+          setError("");
+        },
+        error ? ERROR_MESSAGE_MS : SUCCESS_MESSAGE_MS,
+      );
     }
 
     return () => {
@@ -511,9 +519,20 @@ const FormOwnerManager: React.FC<FormOwnerManagerProps> = ({
         <ModalBody className="pb-6 dark:bg-gray-900">
           <div className="w-full h-full bg-white dark:bg-gray-800 space-y-6">
             {displayError && (
-              <AlertMessage message={displayError} type="error" />
+              <AlertMessage
+                message={displayError}
+                type="error"
+                // Only messages from this dialog's own actions can be dismissed
+                onClose={error ? () => setError("") : undefined}
+              />
             )}
-            {success && <AlertMessage message={success} type="success" />}
+            {success && (
+              <AlertMessage
+                message={success}
+                type="success"
+                onClose={() => setSuccess("")}
+              />
+            )}
 
             {isAdd ? (
               <AddCollaboratorForm

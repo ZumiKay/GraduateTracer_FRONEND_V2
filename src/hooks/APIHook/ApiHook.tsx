@@ -23,6 +23,7 @@ export interface ApiRequestProps {
 
 interface ErrorResponse {
   message: string;
+  data?: unknown;
   error?: string;
   code?: number;
   status?: number;
@@ -60,6 +61,8 @@ export interface ApiRequestReturnType {
   errors?: Array<{ message: string }>;
   details?: string;
   errorResponses?: ErrorResponse;
+  // Content version of the saved page (form editor saves)
+  version?: number;
 }
 
 /* -------------------------------- Constant -------------------------------- */
@@ -322,6 +325,7 @@ const ApiRequest = async ({
       status: response.status,
       message: response.data.message,
       pagination: response.data.pagination,
+      version: response.data.version,
       reactQuery,
     };
   } catch (error) {

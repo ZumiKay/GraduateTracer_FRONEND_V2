@@ -15,6 +15,22 @@ import { AllFormTabs } from "../types/Global.types";
 import { ApiError } from "./APIHook/ApiHook";
 import { hasQuestionValidationIssues } from "../component/Response/utils/validationUtils";
 import { onAutoSaveEvent } from "../services/autoSaveEventBus";
+import { setopenmodal } from "../redux/openmodal";
+import queryClient from "./ReactQueryClient";
+import {
+  bumpRemoteRevision,
+  getContentVersion,
+  hasContentConflict,
+  markContentConflict,
+  runSerializedSave,
+  setContentVersion,
+} from "../services/contentVersionService";
+import { mergeRemoteContent } from "../utils/mergeRemoteContent";
+
+// How many times one save may merge a collaborator's newer page and try again
+const MAX_CONFLICT_MERGES = 3;
+
+const CONFLICT_MESSAGE = "This page was changed by someone else";
 
 interface AutoSaveStatus {
   status: "idle" | "saving" | "saved" | "error" | "offline";
@@ -41,8 +57,10 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
   const dispatch = useDispatch();
 
-  const { allquestion, formstate, page, pauseAutoSave } = useSelector(
-    (root: RootState) => root.allform,
+  const { allquestion, formstate, page, pauseAutoSave, prevAllQuestion } =
+    useSelector((root: RootState) => root.allform);
+  const collabConnectionId = useSelector(
+    (root: RootState) => root.collab?.connectionId ?? null,
   );
 
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>({
@@ -64,6 +82,8 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const isMountedRef = useRef<boolean>(true);
   const autoSaveStatusRef = useRef<AutoSaveStatus>(autoSaveStatus);
   const pauseAutoSaveRef = useRef<boolean>(pauseAutoSave);
+  const prevAllQuestionRef = useRef<ContentType[]>(prevAllQuestion ?? []);
+  const collabConnectionIdRef = useRef<string | null>(collabConnectionId);
   const [autoSavedDataQueue, setautoSavedDataQueue] =
     useState<Array<ContentType>>();
 
@@ -79,6 +99,14 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   useEffect(() => {
     pauseAutoSaveRef.current = pauseAutoSave;
   }, [pauseAutoSave]);
+
+  useEffect(() => {
+    prevAllQuestionRef.current = prevAllQuestion ?? [];
+  }, [prevAllQuestion]);
+
+  useEffect(() => {
+    collabConnectionIdRef.current = collabConnectionId;
+  }, [collabConnectionId]);
 
   //Generate for quick compare
   const generateDataString = useCallback((data: ContentType[]) => {
@@ -164,15 +192,47 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
     setautoSavedDataQueue(undefined);
   }, [autoSavedDataQueue, dispatch, generateDataString]);
 
+  // The page changed on the server since this copy was loaded: block further
+  // saves (they would overwrite a collaborator's work) and offer a reload
+  const showConflictDialog = useCallback(() => {
+    dispatch(
+      setopenmodal({
+        state: "confirm",
+        value: {
+          open: true,
+          data: {
+            question:
+              "This page was changed by someone else. Reload to get the latest version? Your unsaved changes on this page will be lost.",
+            onAgree: () => {
+              queryClient.invalidateQueries({ queryKey: ["FormInfo"] });
+            },
+            btn: { agree: "Reload latest", disagree: "Not now" },
+          },
+        },
+      }),
+    );
+  }, [dispatch]);
+
   // Save function with to be save data validations
   const performSave = useCallback(
     async (
       dataToSave: ContentType[],
       attempt: number = 0,
       autoSave?: boolean,
+      title?: string,
+      // Set when dataToSave is the editor's own state (not a list a caller
+      // built for an add/delete), which is what a conflict merge works on
+      fromEditorState: boolean = false,
+      conflictMerges: number = 0,
     ): Promise<boolean> => {
       if (!formstate._id || pauseAutoSave || !isMountedRef.current)
         return false;
+
+      // Out of date: nothing is saved until the page is reloaded
+      if (hasContentConflict(formstate._id, page)) {
+        if (!autoSave) showConflictDialog();
+        return false;
+      }
 
       // Check if questions have validation issues before saving
       if (tab === "question" && hasQuestionValidationIssues(dataToSave)) {
@@ -208,14 +268,82 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
         //Remove frontend questions numbering for backend process (better numbering accuracy).
         const strippedData = stripQuestionNumbering(dataToSave);
 
-        const response = await AutoSaveQuestion({
-          data: strippedData,
-          page,
-          formId: formstate._id,
-          type: "save",
-        });
+        const formId = formstate._id;
+        // One save at a time, each based on the newest version this tab knows
+        const response = await runSerializedSave(() =>
+          AutoSaveQuestion({
+            data: strippedData,
+            page,
+            formId,
+            type: "save",
+            title,
+            version: getContentVersion(formId, page),
+            connectionId: collabConnectionIdRef.current ?? undefined,
+          }),
+        );
+
+        const isConflict =
+          !response.success &&
+          (response.status === 409 || response.errorResponses?.code === 409);
+
+        if (isConflict) {
+          // Someone saved this page first. Merge their version with my
+          // unsaved edits and try again; only ask the user when that isn't
+          // possible (both sides added/removed questions).
+          const latest = response.errorResponses?.data as
+            | { version?: number; data?: ContentType[] }
+            | undefined;
+          const canMerge =
+            fromEditorState &&
+            conflictMerges < MAX_CONFLICT_MERGES &&
+            typeof latest?.version === "number" &&
+            Array.isArray(latest.data);
+
+          if (canMerge) {
+            const result = mergeRemoteContent({
+              // Newest editor state, including anything typed during the request
+              mine: allQuestionRef.current,
+              base: prevAllQuestionRef.current,
+              incoming: latest!.data!,
+            });
+
+            if (result) {
+              setContentVersion(formId, page, latest!.version!);
+              bumpRemoteRevision();
+              allQuestionRef.current = result.merged;
+              prevAllQuestionRef.current = result.base;
+              dispatch(setprevallquestion(result.base));
+              dispatch(setallquestion(result.merged));
+
+              return performSave(
+                result.merged,
+                0,
+                autoSave,
+                title,
+                true,
+                conflictMerges + 1,
+              );
+            }
+          }
+
+          markContentConflict(formId, page);
+          if (!isMountedRef.current) return false;
+
+          setAutoSaveStatus((prev) => ({
+            status: "error",
+            lastSaved: prev.lastSaved,
+            error: CONFLICT_MESSAGE,
+            retryCount: 0,
+          }));
+          showConflictDialog();
+          return false;
+        }
 
         if (response.success) {
+          if (typeof response.version === "number") {
+            setContentVersion(formId, page, response.version);
+          }
+
           if (!isMountedRef.current) return false;
 
           setAutoSaveStatus({
@@ -273,7 +401,14 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           retryTimeoutRef.current = window.setTimeout(
             () => {
               if (!isMountedRef.current) return;
-              performSave(dataToSave, attempt + 1, formstate.setting?.autosave);
+              performSave(
+                dataToSave,
+                attempt + 1,
+                formstate.setting?.autosave,
+                title,
+                fromEditorState,
+                conflictMerges,
+              );
             },
             retryDelayMs * (attempt + 1),
           ); // Exponential backoff
@@ -298,6 +433,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       page,
       tab,
       dispatch,
+      showConflictDialog,
       generateDataString,
       updateAllQuestionStates,
       retryAttempts,
@@ -333,7 +469,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
       const processOfflineQueue = async () => {
         try {
           const latestSnapshot = allQuestionRef.current;
-          await performSave(latestSnapshot);
+          await performSave(latestSnapshot, 0, undefined, undefined, true);
           setOfflineQueue(0);
         } catch (error) {
           console.error("Failed to process offline queue:", error);
@@ -368,7 +504,7 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
 
       const currentHash = generateDataString(currentQuestions);
       if (currentHash !== lastSavedHashRef.current) {
-        performSave(currentQuestions, 0, true);
+        performSave(currentQuestions, 0, true, undefined, true);
       }
     }, debounceMs);
   }, [isOnline, performSave, debounceMs, generateDataString]);
@@ -377,14 +513,18 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
   const manualSave = useCallback(
     async ({
       customQuestions,
+      title,
     }: {
       customQuestions?: Array<ContentType>;
+      // Saved together with the questions in the same request
+      title?: string;
     }): Promise<boolean> => {
       if (!formstate._id) {
         return false;
       }
 
-      if (!customQuestions && allquestion.length === 0) {
+      // Nothing to save, unless only the title changed
+      if (!customQuestions && allquestion.length === 0 && !title) {
         return false;
       }
 
@@ -403,6 +543,8 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           customQuestions ?? allquestion,
           0,
           false,
+          title,
+          !customQuestions,
         );
 
         if (success) {

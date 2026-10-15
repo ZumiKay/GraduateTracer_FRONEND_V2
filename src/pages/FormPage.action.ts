@@ -8,6 +8,10 @@ export const AutoSaveQuestion = async (data: {
   type?: "save" | "edit";
   page?: number;
   title?: string;
+  // Page content version this save is based on (see contentVersionService)
+  version?: number;
+  // This tab's collaboration connection, so the server doesn't echo the save back to it
+  connectionId?: string;
 }) => {
   const url = data.type === "save" ? "/savecontent" : "/editform";
   const response = ApiRequest({

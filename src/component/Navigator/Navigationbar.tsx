@@ -11,8 +11,12 @@ import {
 } from "@heroui/react";
 import Logo from "../../assets/Logo.svg";
 import ProfileIcon from "./Profile";
-import { DownArrow, LogoutIcon, SettingIcon } from "../svg/GeneralIcon";
-import { BellIcon } from "@heroicons/react/24/outline";
+import { DownArrow } from "../svg/GeneralIcon";
+import {
+  ArrowRightOnRectangleIcon,
+  BellIcon,
+  Cog6ToothIcon,
+} from "@heroicons/react/24/outline";
 import { useDispatch, useSelector } from "react-redux";
 import OpenModal from "../../redux/openmodal";
 import { RootState } from "../../redux/store";
@@ -34,9 +38,11 @@ import {
 import NotificationSystem from "../Notification/NotificationSystem";
 import useImprovedAutoSave from "../../hooks/useImprovedAutoSave";
 import { DefaultFormState } from "../../types/Form.types";
-import { AutoSaveQuestion } from "../../pages/FormPage.action";
 
 const ProfileIconContainer = React.memo(ProfileIcon);
+
+const menuIconTile =
+  "grid h-8 w-8 shrink-0 place-content-center rounded-lg bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200";
 const AutoSaveContainer = React.memo(AutoSaveForm);
 const NotificationContainer = React.memo(NotificationSystem);
 
@@ -225,16 +231,11 @@ export default function Navigationbar() {
     if (!formData.formstate._id) return;
     setsaveloading(true);
     try {
-      const success = await manualSave({});
-      if (formData.formstate.title) {
-        await AutoSaveQuestion({
-          data: formData.allquestion,
-          formId: formData.formstate._id,
-          page: formData.page,
-          type: "save",
-          title: formData.formstate.title,
-        });
-      }
+      // The title rides along with the questions: a second save request here
+      // would be based on an outdated page version and get rejected
+      const success = await manualSave({
+        title: formData.formstate.title || undefined,
+      });
       if (success) {
         setformHasChange(false);
         dispatch(setRevalidateContent(true));
@@ -244,7 +245,7 @@ export default function Navigationbar() {
     } finally {
       setsaveloading(false);
     }
-  }, [dispatch, formData.formstate, formData.allquestion, formData.page, manualSave]);
+  }, [dispatch, formData.formstate, manualSave]);
 
   const applyTitleChange = useCallback(
     (newTitle: string) => {
@@ -311,6 +312,10 @@ export default function Navigationbar() {
     return () => document.removeEventListener("keydown", handleGlobalKeyDown);
   }, [formData.formstate._id, shouldShowSaveButton, saveButtonState.disabled, handleManuallySave]);
 
+  // Mobile/tablet floating save button: only shown when there is something to act on
+  const showFloatingSaveButton =
+    shouldShowSaveButton && (!saveButtonState.disabled || saveButtonState.text !== "Save");
+
   const handleSavePress = useCallback(() => {
     if (formData.formstate._id) handleManuallySave();
   }, [formData, handleManuallySave]);
@@ -373,22 +378,10 @@ export default function Navigationbar() {
           </div>
         </div>
 
-        {/* Middle: Save button on mobile/tablet */}
+        {/* Middle: save status on mobile/tablet (the save button floats at the bottom of the screen) */}
         <div className="flex lg:hidden items-center justify-center px-1 sm:px-2 flex-shrink-0">
           {shouldShowSaveButton ? (
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <Button
-                className="text-white font-bold shadow-sm px-3.5 sm:px-5 h-8 sm:h-9 text-xs sm:text-sm"
-                variant="solid"
-                color={saveButtonState.color}
-                isDisabled={saveButtonState.disabled}
-                isLoading={saveButtonState.loading}
-                onPress={handleSavePress}
-                aria-label="Save form changes"
-                size="sm"
-              >
-                {saveButtonState.text}
-              </Button>
               {autoSaveStatusText && (
                 <span
                   className={`text-[10px] sm:text-xs font-medium truncate max-w-[85px] sm:max-w-[130px] ${autoSaveStatusColor}`}
@@ -471,7 +464,7 @@ export default function Navigationbar() {
                 aria-label="User account menu"
               >
                 <div className="relative flex items-center">
-                  <ProfileIconContainer label={userSession.user?.name ?? "User"} color="lime" />
+                  <ProfileIconContainer label={userSession.user?.name ?? "User"} />
                   {unreadNotificationCount > 0 && (
                     <span
                       className="lg:hidden absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none shadow-sm ring-2 ring-white dark:ring-gray-800 animate-pulse pointer-events-none"
@@ -482,26 +475,39 @@ export default function Navigationbar() {
                   )}
                 </div>
                 <span className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-                  <DownArrow className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <DownArrow
+                    className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 ${
+                      isProfileOpen ? "rotate-180" : ""
+                    }`}
+                  />
                 </span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] z-50 p-2 font-normal text-sm shadow-xl rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white dark:bg-gray-800">
-              <div className="profilecontent w-full flex flex-col gap-y-2 p-1 animate-in fade-in duration-150">
-                <div className="flex items-center gap-2.5 px-2 py-2 border-b border-gray-100 dark:border-gray-700/80">
+            <PopoverContent className="w-[17.5rem] sm:w-80 max-w-[calc(100vw-1.5rem)] z-50 p-0 font-normal text-sm shadow-2xl rounded-2xl border border-gray-200/80 dark:border-gray-700/70 bg-white dark:bg-gray-800 overflow-hidden">
+              <div className="profilecontent w-full flex flex-col animate-in fade-in duration-150">
+                {/* Account header */}
+                <div className="flex items-center gap-3 px-4 py-4 bg-lightsucess/50 dark:bg-gray-900/40 border-b border-gray-200/70 dark:border-gray-700/70">
                   <ProfileIconContainer
                     label={userSession.user?.name ?? "User"}
-                    color="lime"
-                    size="w-9 h-9"
+                    size="w-12 h-12 ring-2 ring-white dark:ring-gray-700"
+                    textSize="text-lg"
                   />
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                  <div className="flex flex-col min-w-0 flex-1 gap-0.5">
+                    <p className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 truncate leading-tight">
                       {userSession.user?.name || "User"}
                     </p>
                     {userSession.user?.email && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      <p
+                        className="text-xs text-gray-600 dark:text-gray-400 truncate"
+                        title={userSession.user.email}
+                      >
                         {userSession.user.email}
                       </p>
+                    )}
+                    {userSession.user?.role && (
+                      <span className="mt-1 w-fit rounded-full bg-primary/10 dark:bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary dark:text-emerald-300">
+                        {userSession.user.role}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -509,14 +515,22 @@ export default function Navigationbar() {
                 <Listbox
                   aria-label="Account menu"
                   variant="flat"
-                  className="w-full p-0"
+                  className="w-full p-2"
+                  itemClasses={{
+                    base: "rounded-xl px-2 py-2 gap-3 min-h-11 data-[hover=true]:bg-gray-100 dark:data-[hover=true]:bg-gray-700/60",
+                    title: "text-sm font-medium",
+                  }}
                   onAction={() => setIsProfileOpen(false)}
                 >
                   <ListboxSection showDivider className="mb-1">
                     <ListboxItem
                       key="notifications"
                       onPress={handleOpenNotifications}
-                      startContent={<BellIcon className="w-4 h-4 text-gray-600 dark:text-gray-300" />}
+                      startContent={
+                        <span className={menuIconTile}>
+                          <BellIcon className="w-[18px] h-[18px]" />
+                        </span>
+                      }
                       endContent={
                         unreadNotificationCount > 0 ? (
                           <Chip size="sm" color="danger" variant="solid" className="h-5 min-w-5 px-1 text-[11px] font-bold">
@@ -524,17 +538,21 @@ export default function Navigationbar() {
                           </Chip>
                         ) : null
                       }
-                      className="rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/60 lg:hidden"
+                      className="text-gray-800 dark:text-gray-100 lg:hidden"
                     >
                       Notifications
                     </ListboxItem>
                     <ListboxItem
                       key="setting"
                       onPress={handleSettingsPress}
-                      startContent={<SettingIcon />}
-                      className="rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/60"
+                      startContent={
+                        <span className={menuIconTile}>
+                          <Cog6ToothIcon className="w-[18px] h-[18px]" />
+                        </span>
+                      }
+                      className="text-gray-800 dark:text-gray-100"
                     >
-                      Setting
+                      Settings
                     </ListboxItem>
                   </ListboxSection>
                   <ListboxSection>
@@ -542,10 +560,15 @@ export default function Navigationbar() {
                       key="signout"
                       onPress={handleSignout}
                       color="danger"
-                      className="text-danger rounded-lg hover:bg-danger-50 dark:hover:bg-danger-900/20"
-                      startContent={<LogoutIcon />}
+                      isDisabled={loading}
+                      className="text-red-600 dark:text-red-400 data-[hover=true]:bg-red-50 dark:data-[hover=true]:bg-red-900/20"
+                      startContent={
+                        <span className="grid h-8 w-8 shrink-0 place-content-center rounded-lg bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                          <ArrowRightOnRectangleIcon className="w-[18px] h-[18px]" />
+                        </span>
+                      }
                     >
-                      {loading ? "Signing Out..." : "Sign Out"}
+                      {loading ? "Signing out..." : "Sign out"}
                     </ListboxItem>
                   </ListboxSection>
                 </Listbox>
@@ -566,11 +589,28 @@ export default function Navigationbar() {
             onKeyDown={handleKeyDown}
             onInput={handleMobileTitleInput}
             onClick={(e) => e.stopPropagation()}
-            className="text-sm font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:ring-opacity-50 rounded px-1 break-words whitespace-normal"
+            className="text-base font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:ring-opacity-50 rounded px-1 break-words whitespace-normal"
           >
             {formData.formstate.title.slice(0, 50)}
           </div>
         </div>
+      )}
+
+      {/* Mobile/tablet: floating save button in thumb reach, above the pagination bar
+          and on the opposite side from the editor's floating toolbar */}
+      {showFloatingSaveButton && (
+        <Button
+          className="lg:hidden fixed left-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 h-14 min-w-14 px-6 rounded-full text-white text-base font-bold shadow-xl"
+          variant="solid"
+          color={saveButtonState.color}
+          isDisabled={saveButtonState.disabled}
+          isLoading={saveButtonState.loading}
+          onPress={handleSavePress}
+          aria-label="Save form changes"
+          size="lg"
+        >
+          {saveButtonState.text}
+        </Button>
       )}
     </nav>
   );

@@ -1,9 +1,11 @@
 import React from "react";
-import { ErrorIcon, SuccessIcon, InfoIcon } from "./Icons";
+import { ErrorIcon, SuccessIcon, InfoIcon, CloseIcon } from "./Icons";
 
 interface AlertMessageProps {
   message: string;
   type: "error" | "success" | "info";
+  // Shows a dismiss button when provided
+  onClose?: () => void;
 }
 
 const alertStyles = {
@@ -36,15 +38,32 @@ const iconMap = {
 export const AlertMessage: React.FC<AlertMessageProps> = ({
   message,
   type,
+  onClose,
 }) => {
   const styles = alertStyles[type];
   const Icon = iconMap[type];
 
   return (
-    <div className={`${styles.container} rounded-md p-4 shadow-sm`}>
+    <div
+      className={`${styles.container} rounded-md p-4 shadow-sm`}
+      // Errors interrupt screen readers; other messages are announced politely
+      role={type === "error" ? "alert" : "status"}
+    >
       <div className="flex items-start gap-3">
         <Icon className={`w-5 h-5 ${styles.icon} flex-shrink-0 mt-0.5`} />
-        <p className={`${styles.text} text-sm font-medium`}>{message}</p>
+        <p className={`${styles.text} text-sm font-medium flex-1 min-w-0`}>
+          {message}
+        </p>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Dismiss message"
+            className={`${styles.icon} -m-1 p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10 flex-shrink-0 cursor-pointer`}
+          >
+            <CloseIcon className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

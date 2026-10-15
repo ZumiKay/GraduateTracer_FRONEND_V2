@@ -174,3 +174,16 @@ body {
 }
 
 
+
+/* Touch devices: mobile browsers (iOS Safari in particular) zoom the page when
+   a focused field's text is smaller than 16px, and the user then has to pinch
+   back out. Keep editable text at 16px or larger so focusing never zooms.
+   Unlayered on purpose so it wins over Tailwind/HeroUI text-size utilities. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select,
+  .tiptap[contenteditable="true"] {
+    font-size: max(16px, 1em);
+  }
+}

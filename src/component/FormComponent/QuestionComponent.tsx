@@ -3,6 +3,8 @@ import { ContentType, QuestionType, QuestionValidationIssue } from "../../types/
 import { SelectionType } from "../../types/Global.types";
 import Selection from "./Selection";
 import { Switch, Tooltip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from "@heroui/react";
+import { LockClosedIcon } from "@heroicons/react/24/solid";
+import useQuestionLock from "../../hooks/useQuestionLock";
 import { CopyIcon, ShowLinkedIcon, TrashIcon } from "../svg/GeneralIcon";
 import { useDispatch, useSelector } from "react-redux";
 import { setallquestion } from "../../redux/formstore";
@@ -303,6 +305,7 @@ ValidationToggleContainer.displayName = "ValidationToggleContainer";
 const selectAllQuestions = (state: RootState) => state.allform.allquestion;
 const selectAutosave = (state: RootState) => state.allform.formstate.setting?.autosave;
 const selectFormSettings = (state: RootState) => state.allform.formstate.setting;
+const selectCurrentUserId = (state: RootState) => state.usersession?.user?._id;
 const selectBackendValidation = (state: RootState) =>
   state.allform.formstate.validation?.validationResults;
 
@@ -328,6 +331,10 @@ const QuestionComponent = memo(
     const formSettings = useSelector(selectFormSettings);
 
     const backendValidation = useSelector(selectBackendValidation);
+
+    // Soft lock: held while this tab edits the question, read-only when another tab does
+    const currentUserId = useSelector(selectCurrentUserId);
+    const { lockedBy, onFocusCapture, onBlurCapture } = useQuestionLock(value._id);
 
     // Realtime (frontend) issues come with the question state; backend issues are added on top
     const activeValidationWarning = value.validationWarning;
@@ -502,8 +509,31 @@ const QuestionComponent = memo(
 
     return (
       <div
-        className="w-full max-w-full min-w-0 h-fit flex flex-col rounded-xl sm:rounded-2xl bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-shadow duration-300 border-l-4 sm:border-l-6 md:border-l-8 items-center gap-y-3 sm:gap-y-4 md:gap-y-5 py-4 sm:py-6 relative dark:border-gray-700 px-2 sm:px-4"
+        className="w-full max-w-full min-w-0"
+        onFocusCapture={onFocusCapture}
+        onBlurCapture={onBlurCapture}
+      >
+        {/* Someone else is editing this question: explain why it is read-only */}
+        {lockedBy && (
+          <div
+            role="status"
+            className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs sm:text-sm font-medium text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200"
+          >
+            <LockClosedIcon className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 truncate">
+              {lockedBy.userId === currentUserId
+                ? "You are editing this question in another tab"
+                : `${lockedBy.name} is editing this question`}
+            </span>
+          </div>
+        )}
+      <div
+        className={`w-full max-w-full min-w-0 h-fit flex flex-col rounded-xl sm:rounded-2xl bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-shadow duration-300 border-l-4 sm:border-l-6 md:border-l-8 items-center gap-y-3 sm:gap-y-4 md:gap-y-5 py-4 sm:py-6 relative dark:border-gray-700 px-2 sm:px-4 ${
+          lockedBy ? "opacity-60" : ""
+        }`}
         style={{ borderLeftColor: themeColor }}
+        // Read-only (no pointer, keyboard or focus) while someone else holds the lock
+        inert={lockedBy ? true : undefined}
       >
         {/* Question Number Badge */}
         <div
@@ -949,6 +979,7 @@ const QuestionComponent = memo(
             )}
           </ModalContent>
         </Modal>
+      </div>
       </div>
     );
   },

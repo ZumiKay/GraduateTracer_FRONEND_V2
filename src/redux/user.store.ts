@@ -22,8 +22,6 @@ import {
   clearStoredUserSession,
 } from "../utils/userSessionStorage";
 
-;
-
 const getInitialState = (): SessionState => {
   const stored = getStoredUserSession();
   if (!stored) {

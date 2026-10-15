@@ -11,6 +11,8 @@
  *  [x] Processes offline queue when back online
  *  [x] Retries on save failure (up to retryAttempts)
  *  [x] Syncs saved question ids into the store after an autosave (question tab only)
+ *  [x] Sends the page version with each save and stores the one returned
+ *  [x] On a 409 conflict: no retry, offers a reload, blocks further saves
  */
 
 import { renderHook, act, waitFor } from "@testing-library/react";
@@ -20,6 +22,12 @@ import { ApiRequestReturnType } from "./APIHook/ApiHook";
 import * as ReactRedux from "react-redux";
 import { ContentType, QuestionType } from "../types/Form.types";
 import { syncQuestionsAfterSave } from "../redux/formstore";
+import {
+  getContentVersion,
+  hasContentConflict,
+  resetContentVersions,
+  setContentVersion,
+} from "../services/contentVersionService";
 
 const makeQuestion = (overrides: Partial<ContentType> = {}): ContentType => ({
   _id: "q1",
@@ -99,6 +107,7 @@ describe("useImprovedAutoSave", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    resetContentVersions();
 
     // Default: online
     Object.defineProperty(navigator, "onLine", { writable: true, value: true });
@@ -279,6 +288,191 @@ describe("useImprovedAutoSave", () => {
   });
 
   /* ---------------------------- Offline Behaviour --------------------------- */
+
+  describe("Page versioning", () => {
+    const formId = defaultReduxState.allform.formstate._id;
+    const question = makeQuestion();
+
+    beforeEach(() => {
+      mockUseSelector({
+        allform: {
+          ...defaultReduxState.allform,
+          allquestion: [question] as Array<ContentType>,
+        },
+      });
+    });
+
+    const triggerAutosave = () =>
+      act(() => {
+        fireAutoSaveEvent("question");
+        jest.advanceTimersByTime(1000);
+      });
+
+    it("sends the known page version and stores the version the server returns", async () => {
+      setContentVersion(formId, 1, 4);
+      (AutoSaveQuestion as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [],
+        version: 5,
+      });
+
+      renderHook(() => useImprovedAutoSave({ debounceMs: 1000 }));
+      triggerAutosave();
+
+      await waitFor(() => {
+        expect(AutoSaveQuestion).toHaveBeenCalledWith(
+          expect.objectContaining({ formId, page: 1, version: 4 }),
+        );
+      });
+      await waitFor(() => expect(getContentVersion(formId, 1)).toBe(5));
+    });
+
+    it("on a 409 conflict it does not retry, offers a reload and blocks further saves", async () => {
+      const dispatch = jest.fn();
+      (ReactRedux.useDispatch as unknown as jest.Mock).mockReturnValue(dispatch);
+      setContentVersion(formId, 1, 4);
+      (AutoSaveQuestion as jest.Mock).mockResolvedValue({
+        success: false,
+        status: 409,
+        message: "This page was changed by someone else",
+      });
+
+      const { result } = renderHook(() =>
+        useImprovedAutoSave({ debounceMs: 1000, retryDelayMs: 100 }),
+      );
+      triggerAutosave();
+
+      await waitFor(() =>
+        expect(result.current.autoSaveStatus.status).toBe("error"),
+      );
+      expect(result.current.autoSaveStatus.error).toBe(
+        "This page was changed by someone else",
+      );
+      expect(hasContentConflict(formId, 1)).toBe(true);
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            state: "confirm",
+            value: expect.objectContaining({ open: true }),
+          }),
+        }),
+      );
+
+      // No retry timer fires, and later autosaves are not sent
+      act(() => {
+        jest.advanceTimersByTime(5000);
+      });
+      triggerAutosave();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(AutoSaveQuestion).toHaveBeenCalledTimes(1);
+    });
+
+    it("merges a collaborator's newer page on a 409 and saves again without asking", async () => {
+      const dispatch = jest.fn();
+      (ReactRedux.useDispatch as unknown as jest.Mock).mockReturnValue(dispatch);
+      const mine = makeQuestion({ _id: "q1", content: "my unsaved edit" });
+      const untouched = makeQuestion({ _id: "q2", qIdx: 1 });
+      const saved = [makeQuestion({ _id: "q1" }), untouched];
+      mockUseSelector({
+        allform: {
+          ...defaultReduxState.allform,
+          allquestion: [mine, untouched],
+          prevAllQuestion: saved,
+        },
+      });
+      setContentVersion(formId, 1, 4);
+
+      const theirs = makeQuestion({ _id: "q2", qIdx: 1, required: true });
+      (AutoSaveQuestion as jest.Mock)
+        .mockResolvedValueOnce({
+          success: false,
+          status: 409,
+          errorResponses: {
+            code: 409,
+            data: { version: 5, data: [saved[0], theirs] },
+          },
+        })
+        .mockResolvedValueOnce({ success: true, data: [], version: 6 });
+
+      renderHook(() => useImprovedAutoSave({ debounceMs: 1000 }));
+      triggerAutosave();
+
+      await waitFor(() => expect(AutoSaveQuestion).toHaveBeenCalledTimes(2));
+      // Second attempt: based on their version, carrying their change and mine
+      expect(AutoSaveQuestion).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          version: 5,
+          data: [mine, theirs],
+        }),
+      );
+      await waitFor(() => expect(getContentVersion(formId, 1)).toBe(6));
+      expect(hasContentConflict(formId, 1)).toBe(false);
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({ state: "confirm" }),
+        }),
+      );
+    });
+
+    it("asks to reload when a 409 cannot be merged (both sides added questions)", async () => {
+      const dispatch = jest.fn();
+      (ReactRedux.useDispatch as unknown as jest.Mock).mockReturnValue(dispatch);
+      const saved = [makeQuestion({ _id: "q1" })];
+      mockUseSelector({
+        allform: {
+          ...defaultReduxState.allform,
+          allquestion: [...saved, makeQuestion({ _id: undefined, qIdx: 1 })],
+          prevAllQuestion: saved,
+        },
+      });
+      setContentVersion(formId, 1, 4);
+      (AutoSaveQuestion as jest.Mock).mockResolvedValue({
+        success: false,
+        status: 409,
+        errorResponses: {
+          code: 409,
+          data: {
+            version: 5,
+            data: [...saved, makeQuestion({ _id: "q9", qIdx: 1 })],
+          },
+        },
+      });
+
+      renderHook(() => useImprovedAutoSave({ debounceMs: 1000 }));
+      triggerAutosave();
+
+      await waitFor(() => expect(hasContentConflict(formId, 1)).toBe(true));
+      expect(AutoSaveQuestion).toHaveBeenCalledTimes(1);
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({ state: "confirm" }),
+        }),
+      );
+    });
+
+    it("saves again once the page has been reloaded", async () => {
+      setContentVersion(formId, 1, 4);
+      (AutoSaveQuestion as jest.Mock).mockResolvedValueOnce({
+        success: false,
+        status: 409,
+      });
+
+      renderHook(() => useImprovedAutoSave({ debounceMs: 1000 }));
+      triggerAutosave();
+      await waitFor(() => expect(hasContentConflict(formId, 1)).toBe(true));
+
+      // Reloading the page records the fresh version and clears the conflict
+      setContentVersion(formId, 1, 9);
+      triggerAutosave();
+
+      await waitFor(() => expect(AutoSaveQuestion).toHaveBeenCalledTimes(2));
+      expect(AutoSaveQuestion).toHaveBeenLastCalledWith(
+        expect.objectContaining({ version: 9 }),
+      );
+    });
+  });
 
   describe("Offline queue", () => {
     const question = makeQuestion({ formId: "Offline_Form" });

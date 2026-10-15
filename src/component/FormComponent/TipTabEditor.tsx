@@ -9,7 +9,7 @@ import Italic from "@tiptap/extension-italic";
 import Code from "@tiptap/extension-code";
 import { LinkIcon } from "../svg/InputIcon";
 import Link from "@tiptap/extension-link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AddLinkModal } from "../Modal/Modal";
 import ModalWrapper from "../Modal/Modal";
 import BulletList from "@tiptap/extension-bullet-list";
@@ -201,6 +201,7 @@ const EDITOR_SHORTCUTS = [
   { key: "⌘I / Ctrl+I", desc: "Italic" },
   { key: "/", desc: "Open heading picker" },
   { key: "∑ button", desc: "Insert display math block" },
+  { key: "Backspace (empty math)", desc: "Delete the math block" },
 ];
 
 function EditorHelpModal({
@@ -326,6 +327,7 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
   const [slashMenuPos, setSlashMenuPos] = useState({ top: 0, left: 0 });
   const [slashMenuIndex, setSlashMenuIndex] = useState(0);
   const slashMenuIndexRef = useRef(0);
+  const slashMenuRef = useRef<HTMLUListElement>(null);
   const applySlashRef = useRef<(level: SlashLevel) => void>(() => {});
 
   const editor = useEditor({
@@ -351,7 +353,7 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
       if (nodeText === "/") {
         const coords = editor.view.coordsAtPos(editor.state.selection.from);
         editor.storage.slashCommand.isOpen = true;
-        setSlashMenuPos({ top: coords.bottom, left: coords.left });
+        setSlashMenuPos({ top: coords.bottom + 4, left: coords.left });
         setSlashMenuOpen(true);
         slashMenuIndexRef.current = 0;
         setSlashMenuIndex(0);
@@ -418,6 +420,77 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
       }
       editor.storage.slashCommand.isOpen = false;
       setSlashMenuOpen(false);
+    };
+  }, [editor]);
+
+  // Keep the slash menu next to the caret but inside the visible viewport
+  // (accounts for the on-screen keyboard through visualViewport)
+  const positionSlashMenu = useCallback(() => {
+    const menuEl = slashMenuRef.current;
+    if (!editor || !menuEl) return;
+
+    const coords = editor.view.coordsAtPos(editor.state.selection.from);
+    const menu = menuEl.getBoundingClientRect();
+    const vv = window.visualViewport;
+    const viewLeft = vv?.offsetLeft ?? 0;
+    const viewTop = vv?.offsetTop ?? 0;
+    const viewRight = viewLeft + (vv?.width ?? window.innerWidth);
+    const viewBottom = viewTop + (vv?.height ?? window.innerHeight);
+    const margin = 8;
+    const gap = 4;
+
+    const left = Math.max(
+      viewLeft + margin,
+      Math.min(coords.left, viewRight - menu.width - margin),
+    );
+
+    const below = coords.bottom + gap;
+    const above = coords.top - gap - menu.height;
+    const fitsBelow = below + menu.height <= viewBottom - margin;
+    const fitsAbove = above >= viewTop + margin;
+    const top =
+      fitsBelow || !fitsAbove
+        ? Math.max(
+            viewTop + margin,
+            Math.min(below, viewBottom - menu.height - margin),
+          )
+        : above;
+
+    setSlashMenuPos((prev) =>
+      prev.top === top && prev.left === left ? prev : { top, left },
+    );
+  }, [editor]);
+
+  useLayoutEffect(() => {
+    if (!slashMenuOpen) return;
+
+    positionSlashMenu();
+    const vv = window.visualViewport;
+    window.addEventListener("resize", positionSlashMenu);
+    window.addEventListener("scroll", positionSlashMenu, true);
+    vv?.addEventListener("resize", positionSlashMenu);
+    vv?.addEventListener("scroll", positionSlashMenu);
+
+    return () => {
+      window.removeEventListener("resize", positionSlashMenu);
+      window.removeEventListener("scroll", positionSlashMenu, true);
+      vv?.removeEventListener("resize", positionSlashMenu);
+      vv?.removeEventListener("scroll", positionSlashMenu);
+    };
+  }, [slashMenuOpen, positionSlashMenu]);
+
+  // Hide the menu when the editor loses focus so it never lingers on screen
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleBlur = () => {
+      editor.storage.slashCommand.isOpen = false;
+      setSlashMenuOpen(false);
+    };
+    editor.on("blur", handleBlur);
+
+    return () => {
+      editor.off("blur", handleBlur);
     };
   }, [editor]);
 
@@ -573,16 +646,22 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
       {/* Quick header options menu */}
       {slashMenuOpen && !readonly && (
         <ul
-          style={{ top: slashMenuPos.top + 4, left: slashMenuPos.left }}
-          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px] list-none"
+          ref={slashMenuRef}
+          role="listbox"
+          aria-label="Heading options"
+          style={{ top: slashMenuPos.top, left: slashMenuPos.left }}
+          className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl sm:rounded-lg shadow-lg py-1 w-max min-w-[180px] sm:min-w-[160px] max-w-[calc(100vw-16px)] max-h-[min(60vh,280px)] overflow-y-auto overscroll-contain list-none"
         >
           {SLASH_ITEMS.map((item, idx) => (
-            <li className="w-full h-full" key={item.level}>
+            <li className="w-full" key={item.level}>
               <button
-                className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+                type="button"
+                role="option"
+                aria-selected={idx === slashMenuIndex}
+                className={`w-full text-left px-4 py-3 text-base sm:px-3 sm:py-1.5 sm:text-sm transition-colors cursor-pointer ${
                   idx === slashMenuIndex
                     ? "bg-primary text-white"
-                    : "hover:bg-gray-100 text-gray-700"
+                    : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                 }`}
                 onMouseDown={(e) => {
                   e.preventDefault();

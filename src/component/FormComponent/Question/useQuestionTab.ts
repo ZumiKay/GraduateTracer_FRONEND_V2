@@ -24,6 +24,8 @@ import { DeleteAndShift } from "./Question_Tab_Helper";
 import { AddQuestionNumbering } from "../../../services/labelQuestionNumberingService";
 import { isConditonExist } from "../../../utils/questionMutataions";
 import useImprovedAutoSave from "../../../hooks/useImprovedAutoSave";
+import queryClient from "../../../hooks/ReactQueryClient";
+import { getRemoteRevision } from "../../../services/contentVersionService";
 import { useSetSearchParam } from "../../../hooks/CustomHook";
 import { validateQuestionStructure } from "./utils";
 import { emitAutoSaveEvent } from "../../../services/autoSaveEventBus";
@@ -57,6 +59,9 @@ export const useQuestionTab = () => {
   const allQuestion = useSelector((root: RootState) => root.allform.allquestion);
   const prevAllQuestion = useSelector((root: RootState) => root.allform.prevAllQuestion);
   const { manualSave } = useImprovedAutoSave();
+  const collabConnectionId = useSelector(
+    (root: RootState) => root.collab?.connectionId ?? null,
+  );
 
   const hasUnsavedQuestions = useMemo(
     () => checkUnsavedQuestions(allQuestion, prevAllQuestion),
@@ -94,6 +99,8 @@ export const useQuestionTab = () => {
       lastIdx: formState.lastQuestionIdx,
     });
 
+    const remoteRevision = getRemoteRevision();
+
     if (formState.setting?.autosave) {
       setQuestionLoading(true);
       const process = await manualSave({ customQuestions: updatedQuestions });
@@ -105,6 +112,14 @@ export const useQuestionTab = () => {
           content: "Can't create a question",
         });
       }
+    }
+
+    // A collaborator's change was merged in while the save was running, so
+    // the list built above is out of date: reload the page instead of
+    // putting it back (which would drop their change from this tab)
+    if (getRemoteRevision() !== remoteRevision) {
+      queryClient.invalidateQueries({ queryKey: ["FormInfo"] });
+      return;
     }
     dispatch(setallquestion(updatedQuestions));
   }, [
@@ -544,7 +559,12 @@ export const useQuestionTab = () => {
           url: "/modifypage",
           method: "PUT",
           cookie: true,
-          data: { formId: formState._id, ty: type, deletepage },
+          data: {
+            formId: formState._id,
+            ty: type,
+            deletepage,
+            connectionId: collabConnectionId ?? undefined,
+          },
         });
         dispatch(setpauseAutoSave(false));
 
@@ -577,7 +597,7 @@ export const useQuestionTab = () => {
         setIsPageLoading(false);
       }
     },
-    [formState, setParams, dispatch, allQuestion, page],
+    [formState, setParams, dispatch, allQuestion, page, collabConnectionId],
   );
 
   const handlePage = useCallback(

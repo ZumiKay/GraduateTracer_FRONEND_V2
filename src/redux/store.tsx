@@ -4,6 +4,7 @@ import OpenModal from "./openmodal";
 import formstore from "./formstore";
 import sessionReducer from "./user.store";
 import cookieConsentSlice from "./cookieConsent.store";
+import collabSlice from "./collab.store";
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     allform: formstore.reducer,
     usersession: sessionReducer,
     cookieConsent: cookieConsentSlice.reducer,
+    collab: collabSlice.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
