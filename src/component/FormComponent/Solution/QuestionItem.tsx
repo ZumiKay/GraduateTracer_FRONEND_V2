@@ -1,8 +1,9 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import Respondant_Question_Card from "../../Card/Respondant.card";
 import SolutionInput from "./SolutionInput";
 import { ContentType } from "../../../types/Form.types";
 import ValidationIssueDisplay from "../ValidationIssueDisplay";
+import { getSolutionIssues } from "../../../utils/solutionValidation";
 
 interface QuestionItemProps {
   question: ContentType;
@@ -30,6 +31,9 @@ const QuestionItem = memo(
     parentUseChildSum,
   }: QuestionItemProps) => {
     const isConditional = !!question.parentcontent;
+
+    // Recomputed from the current score/answer, so warnings clear as soon as they're fixed
+    const issues = useMemo(() => getSolutionIssues(question), [question]);
 
     const handleUpdateContent = useCallback(
       (updates: Partial<ContentType>) => onUpdateContent(updates, idx),
@@ -69,12 +73,7 @@ const QuestionItem = memo(
         />
 
         {/* Question validation issues */}
-        {question.validationIssues && question.validationIssues.length > 0 && (
-          <ValidationIssueDisplay
-            issues={question.validationIssues}
-            warnings={question.validationWarning}
-          />
-        )}
+        {issues.length > 0 && <ValidationIssueDisplay issues={issues} />}
       </div>
     );
   },

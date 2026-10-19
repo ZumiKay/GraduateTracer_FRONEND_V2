@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSelector } from "react-redux";
 import { InformationCircleIcon } from "@heroicons/react/24/outline";
@@ -41,9 +34,7 @@ const markIntroSeen = () => {
  */
 const CollaboratorPresence = () => {
   const users = useSelector((root: RootState) => root.collab?.users);
-  const myUserId = useSelector(
-    (root: RootState) => root.usersession?.user?._id,
-  );
+  const myUserId = useSelector((root: RootState) => root.usersession?.user?._id);
   const [infoOpen, setInfoOpen] = useState(false);
   const [panelPos, setPanelPos] = useState({
     top: 0,
@@ -54,7 +45,6 @@ const CollaboratorPresence = () => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // One avatar per person, however many tabs they have open; never yourself
   const others = useMemo(() => {
     const seen = new Set<string>();
     return (users ?? []).filter((user) => {
@@ -76,14 +66,11 @@ const CollaboratorPresence = () => {
     setInfoOpen(false);
   }, []);
 
-  // The panel is rendered at the page root (so headers with blur or overflow
-  // can't clip or cover it) and placed under the info button, kept on screen
   const positionPanel = useCallback(() => {
     const button = buttonRef.current;
     if (!button) return;
     const rect = button.getBoundingClientRect();
-    const viewportWidth =
-      document.documentElement.clientWidth || window.innerWidth;
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
     const width = Math.min(PANEL_WIDTH, viewportWidth - VIEWPORT_MARGIN * 2);
     const left = Math.min(
       Math.max(rect.right - width, VIEWPORT_MARGIN),
@@ -112,10 +99,7 @@ const CollaboratorPresence = () => {
     };
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (
-        !containerRef.current?.contains(target) &&
-        !panelRef.current?.contains(target)
-      ) {
+      if (!containerRef.current?.contains(target) && !panelRef.current?.contains(target)) {
         closeInfo();
       }
     };
@@ -134,10 +118,7 @@ const CollaboratorPresence = () => {
   const names = others.map((user) => user.name).join(", ");
 
   return (
-    <div
-      ref={containerRef}
-      className="flex items-center gap-1 sm:gap-1.5 min-w-0 shrink-0"
-    >
+    <div ref={containerRef} className="flex items-center gap-1 sm:gap-1.5 min-w-0 shrink-0">
       <div
         className="flex items-center gap-1.5 min-w-0"
         role="status"
@@ -167,9 +148,7 @@ const CollaboratorPresence = () => {
           )}
         </div>
         <span className="hidden md:inline text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">
-          {others.length === 1
-            ? `${others[0].name} is here`
-            : `${others.length} others here`}
+          {others.length === 1 ? `${others[0].name} is here` : `${others.length} others here`}
         </span>
       </div>
 
@@ -204,16 +183,11 @@ const CollaboratorPresence = () => {
               You are editing this form together with {names}.
             </p>
             <ul className="mt-3 space-y-2 text-xs text-gray-700 dark:text-gray-200 list-disc pl-4">
+              <li>A question someone else is editing is locked until they finish.</li>
+              <li>Changes they save appear here automatically. Your unsaved edits are kept.</li>
               <li>
-                A question someone else is editing is locked until they finish.
-              </li>
-              <li>
-                Changes they save appear here automatically. Your unsaved edits
-                are kept.
-              </li>
-              <li>
-                If you both add or remove questions at the same moment, you will
-                be asked to reload the page.
+                If you both add or remove questions at the same moment, you will be asked to reload
+                the page.
               </li>
             </ul>
             <button

@@ -131,14 +131,8 @@ const asyncRemoveSelfFromForm = async () => {
   return removeReq;
 };
 
-const SettingTab = ({
-  onUnsavedChange,
-}: {
-  onUnsavedChange?: (hasUnsaved: boolean) => void;
-}) => {
-  const { formstate, loading, allformstate } = useSelector(
-    (root: RootState) => root.allform,
-  );
+const SettingTab = ({ onUnsavedChange }: { onUnsavedChange?: (hasUnsaved: boolean) => void }) => {
+  const { formstate, loading, allformstate } = useSelector((root: RootState) => root.allform);
   const dispatch = useDispatch();
   const [isEdit, setisEdit] = useState(false);
   const [showOwnerManager, setShowOwnerManager] = useState(false);
@@ -165,9 +159,7 @@ const SettingTab = ({
           open: true,
           data: {
             onAgree: () => {
-              const defaultSettings = getDefaultFormSetting(
-                formstate.type as FormTypeEnum,
-              );
+              const defaultSettings = getDefaultFormSetting(formstate.type as FormTypeEnum);
               dispatch(
                 AsyncSaveForm({
                   type: "edit",
@@ -201,8 +193,7 @@ const SettingTab = ({
 
     if (typeof newVal === "string") {
       return (
-        formstate[newVal as keyof FormDataType] ??
-        formstate.setting?.[newVal as keyof SettingType]
+        formstate[newVal as keyof FormDataType] ?? formstate.setting?.[newVal as keyof SettingType]
       );
     }
 
@@ -218,15 +209,11 @@ const SettingTab = ({
       setting: {
         ...(formstate.setting ?? {}),
         ...Object.fromEntries(
-          Object.entries(newVal).filter(([key]) =>
-            settingKeys.has(key as keyof SettingType),
-          ),
+          Object.entries(newVal).filter(([key]) => settingKeys.has(key as keyof SettingType)),
         ),
       },
       ...Object.fromEntries(
-        Object.entries(newVal).filter(
-          ([key]) => !settingKeys.has(key as keyof SettingType),
-        ),
+        Object.entries(newVal).filter(([key]) => !settingKeys.has(key as keyof SettingType)),
       ),
     };
 
@@ -241,14 +228,12 @@ const SettingTab = ({
           ...updatedState,
           setting: {
             ...updatedState.setting,
-            returnscore:
-              formstate.setting?.returnscore ?? defaultSettings.returnscore,
+            returnscore: formstate.setting?.returnscore ?? defaultSettings.returnscore,
           },
         };
       } else {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { returnscore, ...settingsWithoutReturnScore } =
-          updatedState.setting || {};
+        const { returnscore, ...settingsWithoutReturnScore } = updatedState.setting || {};
         updatedState = {
           ...updatedState,
           setting: settingsWithoutReturnScore,
@@ -319,19 +304,14 @@ const SettingTab = ({
       // Redirect to dashboard after deletion
       setTimeout(() => {
         //Instantly Update State
-        dispatch(
-          setallformstate(
-            allformstate.filter((form) => form._id !== formstate._id),
-          ),
-        );
+        dispatch(setallformstate(allformstate.filter((form) => form._id !== formstate._id)));
         navigate("/", { replace: true });
       }, 500);
     } catch (error) {
       ErrorToast({
         toastid: "DeleteFormError",
         title: "Error",
-        content:
-          error instanceof Error ? error.message : "Failed to delete form",
+        content: error instanceof Error ? error.message : "Failed to delete form",
       });
     }
   }, [allformstate, dispatch, formstate._id, navigate]);
@@ -383,9 +363,7 @@ const SettingTab = ({
               </p>
             )}
           </div>
-          <div className={isStacked ? "w-full sm:w-auto" : "shrink-0"}>
-            {action}
-          </div>
+          <div className={isStacked ? "w-full sm:w-auto" : "shrink-0"}>{action}</div>
         </div>
       );
     },
@@ -408,19 +386,13 @@ const SettingTab = ({
                     type={setting.type}
                     content={setting.label ?? ""}
                     description={
-                      setting.state === "autosave"
-                        ? "Applies to the Question tab only"
-                        : undefined
+                      setting.state === "autosave" ? "Applies to the Question tab only" : undefined
                     }
                     action={
                       setting.type === "color" && setting.color ? (
                         <CustomizeColorPicker
                           colors={setting.color}
-                          value={
-                            formstate.setting
-                              ? formstate.setting[setting.state as never]
-                              : ""
-                          }
+                          value={formstate.setting ? formstate.setting[setting.state as never] : ""}
                           onChange={(val) => {
                             handleChangeSetting({ [setting.state]: val });
                           }}
@@ -430,9 +402,7 @@ const SettingTab = ({
                           className="w-[130px] sm:w-[150px]"
                           size="sm"
                           items={setting.option ?? []}
-                          selectedKeys={[
-                            handleChangeSetting(setting.state) as string,
-                          ]}
+                          selectedKeys={[handleChangeSetting(setting.state) as string]}
                           onChange={(val) =>
                             handleChangeSetting({
                               [setting.state]: val.target.value,
@@ -443,15 +413,11 @@ const SettingTab = ({
                       ) : setting.type === "switch" ? (
                         <Switch
                           size="sm"
-                          onValueChange={(val) =>
-                            handleChangeSetting({ [setting.state]: val })
-                          }
+                          onValueChange={(val) => handleChangeSetting({ [setting.state]: val })}
                           aria-label={setting.label}
                           {...(formstate.setting
                             ? {
-                                isSelected: handleChangeSetting(
-                                  setting.state,
-                                ) as boolean,
+                                isSelected: handleChangeSetting(setting.state) as boolean,
                               }
                             : {})}
                         />
@@ -474,8 +440,7 @@ const SettingTab = ({
                 Danger Zone
               </p>
               <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
-                Once you delete this form, there is no going back. Please be
-                certain.
+                Once you delete this form, there is no going back. Please be certain.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3.5 sm:p-4 bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-900/60 shadow-xs">
@@ -484,8 +449,8 @@ const SettingTab = ({
                   Delete this form
                 </p>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
-                  This will permanently delete the form and all its responses.
-                  This action cannot be undone.
+                  This will permanently delete the form and all its responses. This action cannot be
+                  undone.
                 </p>
               </div>
               <Button
@@ -538,7 +503,7 @@ const SettingTab = ({
               </Button>
             ) : (
               <Button
-                color="primary"
+                color="success"
                 variant="flat"
                 size="sm"
                 className="font-semibold w-full sm:w-auto shrink-0"
@@ -553,10 +518,7 @@ const SettingTab = ({
 
       {/* Owner Manager Modal */}
       {showOwnerManager && (
-        <FormOwnerManager
-          isOpen={showOwnerManager}
-          onClose={() => setShowOwnerManager(false)}
-        />
+        <FormOwnerManager isOpen={showOwnerManager} onClose={() => setShowOwnerManager(false)} />
       )}
 
       <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700">

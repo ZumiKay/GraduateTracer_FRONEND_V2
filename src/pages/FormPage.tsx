@@ -6,9 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FormDataType,
   FormTypeEnum,
-  ErrorValidataionPropsType,
-  QuestionValidationIssue,
-  ValidationResult,
 } from "../types/Form.types";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../redux/store";
@@ -21,6 +18,7 @@ import {
   setreloaddata,
 } from "../redux/formstore";
 import { ErrorToast } from "../component/Modal/AlertModal";
+import { extractQuestionValidationIssues } from "../utils/questionValidationIssues";
 import Solution_Tab from "../component/FormComponent/Solution/Solution_Tab";
 import QuestionTab from "../component/FormComponent/Question/Question_Tab";
 import SettingTab from "../component/FormComponent/Setting/Setting_Tab";
@@ -47,66 +45,6 @@ interface ApiError extends Error {
     status?: number;
     data?: unknown;
   };
-}
-
-function extractQuestionValidationIssues(
-  validationResults?: ValidationResult,
-): Map<string, QuestionValidationIssue[]> {
-  const map = new Map<string, QuestionValidationIssue[]>();
-  if (!validationResults) return map;
-
-  const getIssueMessage = (item: ErrorValidataionPropsType, fallback: string): string => {
-    if (!item.message) return fallback;
-    if (typeof item.message === "string") return item.message;
-    if (typeof item.message === "object" && item.message.message) {
-      return item.message.message;
-    }
-    return fallback;
-  };
-
-  const addIssue = (
-    item: ErrorValidataionPropsType,
-    type: "error" | "warning",
-    message: string,
-  ) => {
-    const key = item._id || String(item.qIdx ?? "");
-    if (!key) return;
-    const existing = map.get(key) || [];
-    existing.push({ type, message });
-    map.set(key, existing);
-  };
-
-  validationResults.errors?.forEach((item) => {
-    if (typeof item === "object" && item !== null) {
-      addIssue(item, "error", getIssueMessage(item, `Validation error on ${item.questionId}`));
-    }
-  });
-
-  validationResults.warnings?.forEach((item) => {
-    if (typeof item === "object" && item !== null) {
-      addIssue(item, "warning", getIssueMessage(item, `Warning on ${item.questionId}`));
-    }
-  });
-
-  validationResults.missingAnswers?.forEach((item) => {
-    if (typeof item === "object" && item !== null) {
-      addIssue(item, "error", getIssueMessage(item, "Missing answer key"));
-    }
-  });
-
-  validationResults.missingScores?.forEach((item) => {
-    if (typeof item === "object" && item !== null) {
-      addIssue(item, "warning", getIssueMessage(item, "Missing score value"));
-    }
-  });
-
-  validationResults.wrongScores?.forEach((item) => {
-    if (typeof item === "object" && item !== null) {
-      addIssue(item, "error", getIssueMessage(item, "Invalid score setting"));
-    }
-  });
-
-  return map;
 }
 
 function FormPage() {
@@ -317,11 +255,14 @@ function FormPage() {
     [tab, availableTabs, isSettingUnsaved, dispatch, setParams],
   );
 
+  // Only once this form has loaded: before that formstate holds the default
+  // (non-quiz) type, which would wrongly bounce a reload off the solution tab
+  const isFormLoaded = !!formId && formstate._id === formId;
   useEffect(() => {
-    if (formstate.type && !isQuiz && tab === "solution") {
+    if (isFormLoaded && !isQuiz && tab === "solution") {
       handleTabs("question");
     }
-  }, [formstate.type, isQuiz, tab, handleTabs]);
+  }, [isFormLoaded, isQuiz, tab, handleTabs]);
 
   const handleSwipeNext = useCallback(() => {
     const currentIndex = availableTabs.indexOf(tab);

@@ -124,8 +124,8 @@ const calcContentScoringStats = (questions: Array<ContentType>) => {
  *                       current-page counts replace the form total directly.
  */
 export const validateScoreTemp = (
-  initialCurrentPageScoreAnalysis: ScoringAnalysis,
-  prevRes: ScoringAnalysis,
+  initialCurrentPageScoreAnalysis: ScoringAnalysis | undefined,
+  prevRes: ScoringAnalysis | undefined,
   currentContent: Array<ContentType>,
 ): ScoringAnalysis => {
   if (!prevRes) {

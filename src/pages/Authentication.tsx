@@ -120,7 +120,7 @@ const validatePasswordStrength = (
     { test: /[A-Z]/, message: "One uppercase letter" },
     { test: /[a-z]/, message: "One lowercase letter" },
     { test: /\d/, message: "One number" },
-    { test: /[!@#$%^&*(),.?":{}|<>]/, message: "One special character" },
+    { test: /[!@#$%^&*\-_(),.?":{}|<>]/, message: "One special character" },
   ];
 
   for (const check of checks) {
@@ -370,6 +370,7 @@ const AuthForm = memo(
           {type === "signup" ? (
             <>
               <Button
+                key="signup-back"
                 type="button"
                 onPress={onBack}
                 isDisabled={loading}
@@ -380,6 +381,7 @@ const AuthForm = memo(
                 Back to Login
               </Button>
               <Button
+                key="signup-submit"
                 type="submit"
                 isLoading={loading}
                 className="text-white font-bold bg-gradient-to-r from-success to-lightsucess w-full sm:flex-1 h-[44px] sm:h-[45px] rounded-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg"
@@ -391,6 +393,7 @@ const AuthForm = memo(
           ) : (
             <>
               <Button
+                key="login-submit"
                 type="submit"
                 isLoading={loading}
                 className="text-white font-bold bg-gradient-to-r from-primary to-secondary w-full sm:flex-1 h-[44px] sm:h-[45px] rounded-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg"
@@ -399,6 +402,7 @@ const AuthForm = memo(
                 {loading ? "Signing In..." : "Sign In"}
               </Button>
               <Button
+                key="login-signup"
                 type="button"
                 onPress={onSignup}
                 isDisabled={loading}
@@ -417,6 +421,8 @@ const AuthForm = memo(
     return (
       <>
         <Form
+          // Remount per mode so validation state from a previous mode doesn't carry over
+          key={type}
           ref={formRef}
           onSubmit={onSubmit as never}
           className="w-full h-fit flex flex-col gap-y-4 sm:gap-y-5 items-end"

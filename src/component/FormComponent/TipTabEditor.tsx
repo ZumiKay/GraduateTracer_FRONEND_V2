@@ -9,12 +9,22 @@ import Italic from "@tiptap/extension-italic";
 import Code from "@tiptap/extension-code";
 import { LinkIcon } from "../svg/InputIcon";
 import Link from "@tiptap/extension-link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { AddLinkModal } from "../Modal/Modal";
 import ModalWrapper from "../Modal/Modal";
 import BulletList from "@tiptap/extension-bullet-list";
 import OrderedList from "@tiptap/extension-ordered-list";
-import { FiChevronDown } from "react-icons/fi";
+import { FiChevronDown, FiRotateCcw, FiRotateCw } from "react-icons/fi";
+import History from "@tiptap/extension-history";
+import type { Editor } from "@tiptap/react";
+import { MdFormatIndentDecrease, MdFormatIndentIncrease } from "react-icons/md";
+import IndentExtension, { getCurrentIndent } from "./IndentExtension";
 
 const AlphaOrderedList = OrderedList.extend({
   addAttributes() {
@@ -124,6 +134,8 @@ const extensions = [
   InlineMath,
   DisplayMath,
   SlashCommandExtension,
+  IndentExtension,
+  History.configure({ depth: 100 }),
   Link.configure({
     openOnClick: false,
     autolink: true,
@@ -197,9 +209,15 @@ const MATH_EXAMPLES = [
 ];
 
 const EDITOR_SHORTCUTS = [
+  { key: "⌘Z / Ctrl+Z", desc: "Undo" },
+  { key: "⇧⌘Z / Ctrl+Y", desc: "Redo" },
   { key: "⌘B / Ctrl+B", desc: "Bold" },
   { key: "⌘I / Ctrl+I", desc: "Italic" },
   { key: "/", desc: "Open heading picker" },
+  { key: "Tab (start of line)", desc: "Indent line" },
+  { key: "Shift+Tab", desc: "Outdent line" },
+  { key: "⌘] / Ctrl+]", desc: "Indent line" },
+  { key: "⌘[ / Ctrl+[", desc: "Outdent line" },
   { key: "∑ button", desc: "Insert display math block" },
   { key: "Backspace (empty math)", desc: "Delete the math block" },
 ];
@@ -257,8 +275,9 @@ function EditorHelpModal({
             </a>
           </div>
           <p className="text-xs text-gray-400 mb-3">
-            Wrap inline math with <code className="bg-gray-100 px-1 rounded">$…$</code>{" "}
-            and display (block) math with{" "}
+            Wrap inline math with{" "}
+            <code className="bg-gray-100 px-1 rounded">$…$</code> and display
+            (block) math with{" "}
             <code className="bg-gray-100 px-1 rounded">$$…$$</code>.
           </p>
           <table className="w-full text-sm border-collapse">
@@ -313,6 +332,51 @@ function EditorHelpModal({
         </section>
       </div>
     </ModalWrapper>
+  );
+}
+
+// Undo / redo pair. `compact` is the small version for the mobile/tablet toolbar header.
+function HistoryButtons({
+  editor,
+  compact,
+}: {
+  editor: Editor;
+  compact?: boolean;
+}) {
+  const size = compact
+    ? "w-8 h-8 rounded-lg hover:bg-gray-200/60 dark:hover:bg-gray-700/60 text-gray-600 dark:text-gray-300"
+    : "w-[32px] h-[32px] rounded-lg bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20";
+  const base = `${size} grid place-content-center transition-colors cursor-pointer select-none active:scale-95 disabled:opacity-35 disabled:cursor-not-allowed disabled:active:scale-100`;
+
+  return (
+    <div
+      className="flex items-center gap-1 shrink-0"
+      role="group"
+      aria-label="History"
+    >
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().undo()}
+        title="Undo (⌘Z / Ctrl+Z)"
+        aria-label="Undo"
+        className={base}
+      >
+        <FiRotateCcw className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().redo()}
+        title="Redo (⇧⌘Z / Ctrl+Y)"
+        aria-label="Redo"
+        className={base}
+      >
+        <FiRotateCw className="w-4 h-4" />
+      </button>
+    </div>
   );
 }
 
@@ -424,7 +488,6 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
   }, [editor]);
 
   // Keep the slash menu next to the caret but inside the visible viewport
-  // (accounts for the on-screen keyboard through visualViewport)
   const positionSlashMenu = useCallback(() => {
     const menuEl = slashMenuRef.current;
     if (!editor || !menuEl) return;
@@ -524,7 +587,12 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
 
   useEffect(() => {
     if (editor && JSON.stringify(value) !== JSON.stringify(editor.getJSON())) {
-      editor.commands.setContent(value as never);
+      // Syncing from props isn't a user edit, so keep it out of the undo history
+      editor
+        .chain()
+        .setMeta("addToHistory", false)
+        .setContent(value as never)
+        .run();
     }
   }, [value, editor]);
 
@@ -617,6 +685,10 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
     }
   };
 
+  const currentIndent = getCurrentIndent(editor);
+  const canIndent = editor.can().indent();
+  const canOutdent = editor.can().outdent();
+
   const toggleHeader = (val: number) => {
     if (!val) {
       return editor.chain().focus().setParagraph().run();
@@ -675,8 +747,16 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
         </ul>
       )}
 
-      <div ref={containerRef} className="relative w-full max-w-full min-w-0 h-fit flex flex-col gap-y-3 sm:gap-y-5">
-        <EditorContent editor={editor} tabIndex={-1} aria-hidden={false} className="w-full max-w-full min-w-0 overflow-x-hidden" />
+      <div
+        ref={containerRef}
+        className="relative w-full max-w-full min-w-0 h-fit flex flex-col gap-y-3 sm:gap-y-5"
+      >
+        <EditorContent
+          editor={editor}
+          tabIndex={-1}
+          aria-hidden={false}
+          className="w-full max-w-full min-w-0 overflow-x-hidden"
+        />
         {!readonly && (
           <div
             className={`tiptap_floating_toolbar transition-all duration-300 ${
@@ -705,22 +785,34 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
                     Format Tools
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => setIsFormatToolsOpen(false)}
-                  className="px-2 py-0.5 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200/60 dark:hover:bg-gray-700/60 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer active:scale-95"
-                  aria-label="Collapse formatting tools"
-                >
-                  <span>Hide</span>
-                  <FiChevronDown className="w-3.5 h-3.5 transition-transform duration-200" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <HistoryButtons editor={editor} compact />
+                  <span
+                    className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5"
+                    aria-hidden
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setIsFormatToolsOpen(false)}
+                    className="px-2 py-0.5 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200/60 dark:hover:bg-gray-700/60 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer active:scale-95"
+                    aria-label="Collapse formatting tools"
+                  >
+                    <span>Hide</span>
+                    <FiChevronDown className="w-3.5 h-3.5 transition-transform duration-200" />
+                  </button>
+                </div>
               </div>
             )}
 
             {/* Tools Area */}
             {isFormatToolsOpen ? (
               <div className="w-full min-w-0 max-w-full flex flex-col lg:flex-row lg:items-center lg:gap-x-2.5 cursor-default p-2.5 lg:p-0">
+                {/* Undo / Redo on desktop (mobile/tablet has them in the header above) */}
+                <div className="hidden lg:flex">
+                  <HistoryButtons editor={editor} />
+                </div>
+
                 {/* Heading Select */}
                 <div className="w-full lg:w-[145px] shrink-0 mb-2 lg:mb-0">
                   <Selection
@@ -739,7 +831,7 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
                 </div>
 
                 {/* Formatting Buttons: Grid on mobile/tablet, row on desktop */}
-                <div className="grid grid-cols-5 gap-1.5 sm:gap-2 w-full lg:flex lg:flex-row lg:items-center lg:gap-x-2 lg:w-auto">
+                <div className="grid grid-cols-6 gap-1.5 sm:gap-2 w-full lg:flex lg:flex-row lg:flex-wrap lg:items-center lg:gap-2 lg:w-auto">
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
@@ -859,14 +951,43 @@ const Tiptap = ({ value, onChange, readonly }: TipTapProps) => {
                       editor
                         .chain()
                         .focus()
-                        .insertContent({ type: "displayMath", attrs: { latex: "" } })
+                        .insertContent({
+                          type: "displayMath",
+                          attrs: { latex: "" },
+                        })
                         .run()
                     }
                     className="font-bold h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20 text-base lg:text-sm cursor-pointer select-none active:scale-95"
                   >
                     ∑
                   </button>
-                  {/* Help button (spans 2 columns on mobile/tablet to complete the 5-col grid) */}
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    title="Outdent (Shift+Tab)"
+                    aria-label="Outdent"
+                    disabled={!canOutdent}
+                    onClick={() => editor.chain().focus().outdent().run()}
+                    className="h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20 cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-lightsucess disabled:active:scale-100"
+                  >
+                    <MdFormatIndentDecrease className="w-[18px] h-[18px]" />
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    title="Indent (Tab)"
+                    aria-label="Indent"
+                    disabled={!canIndent}
+                    onClick={() => editor.chain().focus().indent().run()}
+                    className={`h-10 w-full lg:w-[32px] lg:h-[32px] grid place-content-center rounded-xl lg:rounded-lg transition-colors cursor-pointer select-none active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 ${
+                      currentIndent > 0
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-lightsucess dark:bg-gray-700 text-black dark:text-white hover:bg-primary/20"
+                    }`}
+                  >
+                    <MdFormatIndentIncrease className="w-[18px] h-[18px]" />
+                  </button>
+                  {/* Help button (spans 2 columns on mobile/tablet to complete the 6-col grid) */}
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}

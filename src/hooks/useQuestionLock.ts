@@ -9,8 +9,7 @@ import {
   releaseQuestionLock,
 } from "../services/collabService";
 
-// Focus briefly leaves the card when a dropdown or dialog opens; don't drop
-// the lock for that
+// Leaves the card when a dropdown or dialog opens
 const RELEASE_GRACE_MS = 1500;
 
 // Tolerant of stores without the collab slice (isolated component tests)
@@ -20,9 +19,6 @@ const selectFormId = (root: RootState) => root.allform.formstate._id;
 
 /**
  * Soft lock for one question card.
- * While this tab has focus inside the card it holds the question's lock;
- * `lockedBy` is set when a different tab (another person, or the same person
- * elsewhere) holds it, and the card should then be read-only.
  */
 const useQuestionLock = (questionId?: string) => {
   const connectionId = useSelector(selectConnectionId);
@@ -41,8 +37,7 @@ const useQuestionLock = (questionId?: string) => {
   const lockedBy: QuestionLock | undefined = useMemo(() => {
     if (!questionId || !locks) return undefined;
     return locks.find(
-      (lock) =>
-        lock.questionId === questionId && lock.connectionId !== connectionId,
+      (lock) => lock.questionId === questionId && lock.connectionId !== connectionId,
     );
   }, [locks, questionId, connectionId]);
 
@@ -53,16 +48,13 @@ const useQuestionLock = (questionId?: string) => {
     releaseTimer.current = null;
   }, []);
 
+  //Release the blocked question
   const release = useCallback(() => {
     stopTimers();
     const current = held.current;
     held.current = null;
     if (current) {
-      void releaseQuestionLock(
-        current.formId,
-        current.connectionId,
-        current.questionId,
-      );
+      void releaseQuestionLock(current.formId, current.connectionId, current.questionId);
     }
   }, [stopTimers]);
 
@@ -77,11 +69,7 @@ const useQuestionLock = (questionId?: string) => {
     const target = { formId, connectionId, questionId };
     held.current = target;
     const refresh = () =>
-      void acquireQuestionLock(
-        target.formId,
-        target.connectionId,
-        target.questionId,
-      );
+      void acquireQuestionLock(target.formId, target.connectionId, target.questionId);
     refresh();
     refreshTimer.current = window.setInterval(refresh, LOCK_REFRESH_MS);
   }, [formId, connectionId, questionId]);

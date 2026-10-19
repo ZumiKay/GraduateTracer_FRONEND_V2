@@ -418,19 +418,15 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
 
   const previousAnswerRef = useRef<ContentAnswerType | undefined>(undefined);
   const previousScoreRef = useRef<number>(content.score ?? 0);
-  const previousParentScoreRef = useRef<number | undefined>(parentScore);
   const initialBackendScoreRef = useRef<number | undefined>(content.score);
 
   const [localAnswer, setLocalAnswer] = useState<LocalAnswerType>();
   const [warningMessage, setWarningMessage] = useState<string | undefined>(
     isChildHasScore ? undefined : "",
   );
-  const [isBonusScoreEnabled, setIsBonusScoreEnabled] = useState<
-    boolean | undefined
-  >(isBonusScore);
-  const [isChildScoreSumMode, setIsChildScoreSumMode] = useState<boolean>(
-    content.useChildScoreSum ?? false,
-  );
+  // Read straight from the question so they always match the loaded data
+  const isBonusScoreEnabled = isBonusScore;
+  const isChildScoreSumMode = content.useChildScoreSum ?? false;
   const [scoreInputValue, setScoreInputValue] = useState<number>(
     content.score ?? 0,
   );
@@ -457,15 +453,12 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     setScoreInputValue(newScore);
   }, [content.score]);
 
+  // The parent's limit changed: the old "exceeds" message no longer applies.
+  // Resetting this question's score is done where the parent's score is edited
+  // (applySolutionEdit), so reloading data can never wipe saved scores.
   useEffect(() => {
-    if (previousParentScoreRef.current === parentScore) return;
-    previousParentScoreRef.current = parentScore;
     setErrorMessage(undefined);
-    if (!isConditionalQuestion || isBonusScore) return;
-    setScoreInputValue(0);
-    previousScoreRef.current = 0;
-    onUpdateContent({ score: 0 });
-  }, [parentScore, isConditionalQuestion, isBonusScore, onUpdateContent]);
+  }, [parentScore]);
 
   const handleAnswerChange = useCallback(
     (answer?: ContentAnswerType) => {
@@ -489,7 +482,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
 
   const handleSetBonusScore = useCallback(
     (val: boolean) => {
-      setIsBonusScoreEnabled(val);
       onUpdateContent({ isBonusScore: val });
     },
     [onUpdateContent],
@@ -497,7 +489,6 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
 
   const handleChangeChildScoreSumMode = useCallback(
     (val: boolean) => {
-      setIsChildScoreSumMode(val);
       onUpdateContent({ useChildScoreSum: val });
     },
     [onUpdateContent],
@@ -619,16 +610,20 @@ const SolutionInput: React.FC<SolutionInputProps> = ({
     if (!isValidRange) {
       return { color: "danger" as const, text: rangeError || "Invalid range" };
     }
-    if (isValidated) {
-      return { color: "success" as const, text: "Valid" };
+    if (errorMessage) {
+      return { color: "danger" as const, text: "Invalid score" };
     }
-    return { color: "default" as const, text: "Needs validation" };
+    if (!scoreInputValue) {
+      return { color: "warning" as const, text: "Missing score" };
+    }
+    return { color: "success" as const, text: isValidated ? "Valid" : "Ready" };
   }, [
     content.type,
     content.rangedate,
     content.rangenumber,
     localAnswer,
     scoreInputValue,
+    errorMessage,
     isValidated,
   ]);
 

@@ -87,24 +87,18 @@ const ValidationStatusDisplay = memo(
     const validation = formstate.validation;
     const [isExpanded, setIsExpanded] = useState(false);
 
+    // Recalculated on every edit. Without a server analysis yet, it falls back
+    // to counting this page's questions directly.
     const scoringAnalysisData = useMemo(() => {
-      if (
-        !validation?.scoringAnalysis ||
-        !validation.initialCurrentPageScoreAnalysis
-      )
-        return undefined;
-      const newlyValidate = validateScoreTemp(
-        validation.initialCurrentPageScoreAnalysis,
-        validation.scoringAnalysis,
+      if (!validation) return undefined;
+      const hasServerAnalysis =
+        !!validation.scoringAnalysis && !!validation.initialCurrentPageScoreAnalysis;
+      return validateScoreTemp(
+        hasServerAnalysis ? validation.initialCurrentPageScoreAnalysis : undefined,
+        hasServerAnalysis ? validation.scoringAnalysis : undefined,
         content,
       );
-
-      return newlyValidate;
-    }, [
-      content,
-      validation?.initialCurrentPageScoreAnalysis,
-      validation?.scoringAnalysis,
-    ]);
+    }, [content, validation]);
 
     if (!validation) return null;
 

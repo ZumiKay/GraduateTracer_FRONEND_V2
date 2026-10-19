@@ -1,6 +1,19 @@
 .tiptap {
     position: relative;
     color: black;
+    /* Width of one indent level (see IndentExtension) */
+    --editor-indent-step: 2em;
+}
+
+/* Smaller indent steps on phones so indented text keeps enough room */
+@media (max-width: 640px) {
+    .tiptap {
+        --editor-indent-step: 1.25em;
+    }
+}
+
+.tiptap [data-indent] {
+    transition: padding-left 0.15s ease;
 }
 
 

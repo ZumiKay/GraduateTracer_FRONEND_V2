@@ -8,6 +8,7 @@ import {
   setallquestion,
   setpauseAutoSave,
   setprevallquestion,
+  setRevalidateContent,
   syncQuestionsAfterSave,
 } from "../redux/formstore";
 import { stripQuestionNumbering } from "../services/labelQuestionNumberingService";
@@ -355,6 +356,10 @@ const useImprovedAutoSave = (config: AutoSaveConfig = {}) => {
           lastSaveAttemptRef.current = new Date();
 
           const savedData = response.data;
+
+          // The solution tab shows server validation (answer-key checks);
+          // refresh it now that the server has the latest answers
+          if (tab === "solution") dispatch(setRevalidateContent(true));
 
           // Always queue data for autosave, update state only on blur
           if (savedData) {

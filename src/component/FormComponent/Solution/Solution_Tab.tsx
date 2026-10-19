@@ -1,19 +1,22 @@
 import { useEffect, useCallback, useMemo, memo } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch, useSelector, useStore } from "react-redux";
 import { RootState } from "../../../redux/store";
 import { QuestionLoading } from "../../Loading/ContainerLoading";
 import {
   setallquestion,
+  setformstate,
   setRevalidateContent,
   setShowOverview,
 } from "../../../redux/formstore";
-import { ContentType } from "../../../types/Form.types";
+import { ContentType, FormValidationSummary } from "../../../types/Form.types";
 import { useFormValidation } from "../../../hooks/ValidationHook";
 import FormSummaryHeader from "./FormSummaryHeader";
 import ValidationStatusDisplay from "./ValidationStatusDisplay";
 import QuestionItem from "./QuestionItem";
 import { useSolutionScoreMaps } from "./useSolutionScoreMaps";
 import { emitAutoSaveEvent } from "../../../services/autoSaveEventBus";
+import { applySolutionEdit, getSolutionIssues } from "../../../utils/solutionValidation";
+import { extractQuestionValidationIssues } from "../../../utils/questionValidationIssues";
 
 /* --------------------------------- Banners -------------------------------- */
 
@@ -73,6 +76,7 @@ interface SolutionTabProps {
 
 const SolutionTab = memo(({ isLoading }: SolutionTabProps) => {
   const dispatch = useDispatch();
+  const store = useStore<RootState>();
 
   const allQuestions = useSelector(
     (root: RootState) => root.allform.allquestion,
@@ -83,6 +87,7 @@ const SolutionTab = memo(({ isLoading }: SolutionTabProps) => {
   const revalidateContent = useSelector(
     (root: RootState) => root.allform.revalidateContent,
   );
+  const page = useSelector((root: RootState) => root.allform.page);
 
   const {
     _id: formId,
@@ -114,17 +119,21 @@ const SolutionTab = memo(({ isLoading }: SolutionTabProps) => {
     [allQuestions],
   );
 
-  const errorCount = validation?.validationResults?.errors?.length ?? 0;
+  // Server errors for other pages + this page's errors as they are now, so
+  // fixing an answer updates the count straight away
+  const errorCount = useMemo(() => {
+    const otherPageErrors =
+      validation?.validationResults?.errors?.filter((e) => e.page !== page).length ?? 0;
+    const currentPageErrors = allQuestions.reduce(
+      (sum, q) => sum + getSolutionIssues(q).filter((i) => i.type === "error").length,
+      0,
+    );
+    return otherPageErrors + currentPageErrors;
+  }, [validation?.validationResults?.errors, allQuestions, page]);
 
   const updateQuestion = useCallback(
     (newVal: Partial<ContentType>, qIdx: number) => {
-      dispatch(
-        setallquestion((prev) =>
-          prev.map((ques, idx) =>
-            idx === qIdx ? { ...ques, ...newVal } : ques,
-          ),
-        ),
-      );
+      dispatch(setallquestion((prev) => applySolutionEdit(prev, qIdx, newVal)));
 
       // Emit autosave event so the hook debounces and persists the change
       if (autosaveEnabled) {
@@ -141,13 +150,41 @@ const SolutionTab = memo(({ isLoading }: SolutionTabProps) => {
       ?.scrollIntoView({ behavior: "smooth" });
   }, [dispatch]);
 
+  // Store a fresh server validation and re-attach its issues to the questions
+  const applyValidation = useCallback(
+    (result: FormValidationSummary) => {
+      const { formstate } = store.getState().allform;
+      dispatch(setformstate({ ...formstate, validation: result }));
+
+      const issuesById = extractQuestionValidationIssues(result.validationResults);
+      dispatch(
+        setallquestion((prev) =>
+          prev.map((q) => ({
+            ...q,
+            validationIssues: issuesById.get(q._id || String(q.qIdx)) ?? [],
+          })),
+        ),
+      );
+    },
+    [dispatch, store],
+  );
+
+  // Revalidate after a save. The flag is cleared right away so the next save
+  // can set it again (leaving it on would block every later revalidation).
   useEffect(() => {
-    if (revalidateContent && formId) {
-      validateFormReq.mutate({ formId: formId as string, tab: "solution" });
-    }
-    return () => {
-      dispatch(setRevalidateContent(false));
-    };
+    if (!revalidateContent) return;
+    dispatch(setRevalidateContent(false));
+    if (!formId) return;
+
+    validateFormReq.mutate(
+      { formId: formId as string, tab: "solution", page },
+      {
+        onSuccess: (res) => {
+          const data = res?.data as { validation?: FormValidationSummary } | undefined;
+          if (res?.success && data?.validation) applyValidation(data.validation);
+        },
+      },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revalidateContent]);
 

@@ -13,6 +13,8 @@ import { calculateFinalTotal } from "../helperFunc";
 interface ValidateFormParams {
   formId: string;
   tab: alltabs;
+  /** Page the editor is on, so the per-page score analysis matches it */
+  page?: number;
 }
 
 interface ProcessedTotalScoreArgs {
@@ -37,9 +39,9 @@ export interface UseFormValidationReturn {
   processedTotalScore: (args: ProcessedTotalScoreArgs) => number;
 }
 
-const fetchFormValidation = ({ formId, tab }: ValidateFormParams) =>
+const fetchFormValidation = ({ formId, tab, page }: ValidateFormParams) =>
   ApiRequest({
-    url: `/validateform?formId=${formId}&action=${tab}`,
+    url: `/validateform?formId=${formId}&action=${tab}${page ? `&page=${page}` : ""}`,
     method: "GET",
     cookie: true,
     reactQuery: true,
