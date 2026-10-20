@@ -12,7 +12,8 @@ import {
   Divider,
   Chip,
 } from "@heroui/react";
-import { ChangeEvent, SyntheticEvent, useCallback, useRef, useState } from "react";
+import { ChangeEvent, ReactNode, SyntheticEvent, useCallback, useRef, useState } from "react";
+import Turnstile, { TurnstileHandle } from "../component/FormComponent/Turnstile";
 import { PasswordInput } from "../component/FormComponent/Input";
 import { ForgotPasswordType, Logindatatype } from "../types/Login.types";
 import PictureBreakAndCombine from "../component/Animation/LogoAnimated";
@@ -108,6 +109,10 @@ interface AuthFormProps {
   onForgotPassword: () => void;
   onBack: () => void;
   onSignup: () => void;
+  /** Bot check shown above the form buttons */
+  captcha?: ReactNode;
+  /** Keeps the submit button disabled (e.g. until the bot check has passed) */
+  submitDisabled?: boolean;
 }
 
 // Enhanced Password validation with strength indicator
@@ -231,11 +236,20 @@ const PasswordStrengthIndicator = memo(({ strength }: { strength: number }) => {
 PasswordStrengthIndicator.displayName = "PasswordStrengthIndicator";
 
 const ForgotPasswordActions = memo(
-  ({ loading, onCancel }: { loading: boolean; onCancel: () => void }) => (
+  ({
+    loading,
+    onCancel,
+    submitDisabled,
+  }: {
+    loading: boolean;
+    onCancel: () => void;
+    submitDisabled?: boolean;
+  }) => (
     <div className="w-full h-auto flex flex-col sm:flex-row gap-3 justify-center mt-2">
       <Button
         type="submit"
         isLoading={loading}
+        isDisabled={submitDisabled}
         className="text-white font-bold bg-gradient-to-r from-primary to-secondary w-full sm:flex-1 h-[44px] sm:h-[45px] rounded-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg"
       >
         Next
@@ -267,6 +281,8 @@ const AuthForm = memo(
     onForgotPassword,
     onBack,
     onSignup,
+    captcha,
+    submitDisabled = false,
   }: AuthFormProps) => {
     const formRef = useRef<HTMLFormElement | null>(null);
     const { isOpen: isPolicyOpen, onOpen: onPolicyOpen, onClose: onPolicyClose } = useDisclosure();
@@ -362,7 +378,13 @@ const AuthForm = memo(
 
     const formActions = useCallback(() => {
       if (type === "forgot") {
-        return <ForgotPasswordActions loading={loading} onCancel={onCancel} />;
+        return (
+          <ForgotPasswordActions
+            loading={loading}
+            onCancel={onCancel}
+            submitDisabled={submitDisabled}
+          />
+        );
       }
 
       return (
@@ -384,6 +406,7 @@ const AuthForm = memo(
                 key="signup-submit"
                 type="submit"
                 isLoading={loading}
+                isDisabled={submitDisabled}
                 className="text-white font-bold bg-gradient-to-r from-success to-lightsucess w-full sm:flex-1 h-[44px] sm:h-[45px] rounded-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg"
                 startContent={!loading && <FiUser className="text-lg shrink-0" />}
               >
@@ -396,6 +419,7 @@ const AuthForm = memo(
                 key="login-submit"
                 type="submit"
                 isLoading={loading}
+                isDisabled={submitDisabled}
                 className="text-white font-bold bg-gradient-to-r from-primary to-secondary w-full sm:flex-1 h-[44px] sm:h-[45px] rounded-lg transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg"
                 startContent={!loading && <FiLock className="text-lg shrink-0" />}
               >
@@ -416,7 +440,7 @@ const AuthForm = memo(
           )}
         </div>
       );
-    }, [type, onBack, loading, onSignup, onCancel]);
+    }, [type, onBack, loading, onSignup, onCancel, submitDisabled]);
 
     return (
       <>
@@ -563,6 +587,7 @@ const AuthForm = memo(
               )}
             </>
           )}
+          {captcha}
           {formActions()}
         </Form>
 
@@ -588,6 +613,19 @@ export default function AuthenticationPage() {
   const [loading, setloading] = useState(false);
   //const recaptcha = useRecaptchaButton();
   const [logindata, setlogindata] = useState<Logindatatype>(DefaultLoginState);
+
+  // Cloudflare Turnstile: which protected action this screen is (null = none).
+  // Names must match VerifyTurnstile(...) on the backend routes.
+  const turnstileRef = useRef<TurnstileHandle>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileAction =
+    page === "signup"
+      ? "signup"
+      : page === "login" || page === "prelogin"
+        ? "login"
+        : page === "forgot" && forgot?.ty === "vfy"
+          ? "forgot-password"
+          : null;
 
   // Function to remove reCAPTCHA script
   const handleClick = useCallback(
@@ -696,6 +734,15 @@ export default function AuthenticationPage() {
         }
       };
 
+      if (turnstileAction && !turnstileToken) {
+        ErrorToast({
+          toastid: page,
+          title: "Security Check",
+          content: "Please complete the security check",
+        });
+        return;
+      }
+
       setloading(true);
 
       //Are you a robort
@@ -711,8 +758,13 @@ export default function AuthenticationPage() {
       //  }
 
       const config = getRequestConfig();
+      if (turnstileAction) {
+        config.data = { ...config.data, "cf-turnstile-response": turnstileToken };
+      }
       const AuthenticationRequest = await ApiRequest(config as never);
       setloading(false);
+      // Tokens are single-use: get a fresh one for the next attempt
+      if (turnstileAction) turnstileRef.current?.reset();
 
       if (!AuthenticationRequest.success) {
         ErrorToast({
@@ -792,8 +844,19 @@ export default function AuthenticationPage() {
         }
       }
     },
-    [dispatch, forgot?.code, forgot?.ty, logindata, page],
+    [dispatch, forgot?.code, forgot?.ty, logindata, page, turnstileAction, turnstileToken],
   );
+
+  const handleTurnstileError = useCallback((errorCode: string) => {
+    ErrorToast({
+      toastid: "turnstile-error",
+      title: "Security Check Error",
+      content:
+        errorCode === "script-load-failed"
+          ? "Couldn't load the security check. Check your connection or ad blocker, then reload."
+          : `The security check failed (code ${errorCode}). Please reload the page and try again.`,
+    });
+  }, []);
 
   const handleCancel = useCallback(() => {
     setpage("login");
@@ -923,6 +986,25 @@ export default function AuthenticationPage() {
               onForgotPassword={handleForgotPassword}
               onBack={handleBack}
               onSignup={handleSignup}
+              submitDisabled={!!turnstileAction && !turnstileToken}
+              captcha={
+                turnstileAction && (
+                  <div className="w-full flex flex-col items-center gap-1">
+                    <Turnstile
+                      key={turnstileAction}
+                      ref={turnstileRef}
+                      action={turnstileAction}
+                      onToken={setTurnstileToken}
+                      onError={handleTurnstileError}
+                    />
+                    {!turnstileToken && (
+                      <p className="text-[11px] sm:text-xs text-white/80" aria-live="polite">
+                        Complete the security check to continue
+                      </p>
+                    )}
+                  </div>
+                )
+              }
             />
           </div>
         </div>
