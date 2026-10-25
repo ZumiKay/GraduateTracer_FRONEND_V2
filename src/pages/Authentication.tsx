@@ -611,11 +611,7 @@ export default function AuthenticationPage() {
   const [page, setpage] = useState<authenticationtype>("login");
   const [forgot, setforgot] = useState<ForgotPasswordType>();
   const [loading, setloading] = useState(false);
-  //const recaptcha = useRecaptchaButton();
   const [logindata, setlogindata] = useState<Logindatatype>(DefaultLoginState);
-
-  // Cloudflare Turnstile: which protected action this screen is (null = none).
-  // Names must match VerifyTurnstile(...) on the backend routes.
   const turnstileRef = useRef<TurnstileHandle>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileAction =
@@ -627,7 +623,6 @@ export default function AuthenticationPage() {
           ? "forgot-password"
           : null;
 
-  // Function to remove reCAPTCHA script
   const handleClick = useCallback(
     (type: authenticationtype) => {
       if (page !== "signup") {
@@ -734,6 +729,7 @@ export default function AuthenticationPage() {
         }
       };
 
+      //Verify turnstile
       if (turnstileAction && !turnstileToken) {
         ErrorToast({
           toastid: page,
@@ -745,25 +741,13 @@ export default function AuthenticationPage() {
 
       setloading(true);
 
-      //Are you a robort
-      //  const verifyreccap = await recaptcha.handleVerify();
-      //  if (!verifyreccap) {
-      //    setloading(false);
-      //    ErrorToast({
-      //      toastid: page,
-      //      title: "Verification",
-      //      content: "Failed To Verify",
-      //    });
-      //    return;
-      //  }
-
       const config = getRequestConfig();
       if (turnstileAction) {
         config.data = { ...config.data, "cf-turnstile-response": turnstileToken };
       }
       const AuthenticationRequest = await ApiRequest(config as never);
       setloading(false);
-      // Tokens are single-use: get a fresh one for the next attempt
+      // get a fresh one for the next attempt
       if (turnstileAction) turnstileRef.current?.reset();
 
       if (!AuthenticationRequest.success) {
@@ -798,9 +782,6 @@ export default function AuthenticationPage() {
           }),
         );
 
-        // Remove reCAPTCHA script after successful login
-        //recaptcha.removeRecaptchaScript();
-
         // Check for pending redirect
         const pendingRedirect = getPendingRedirect();
         if (pendingRedirect && pendingRedirect.length > 0) {
@@ -815,8 +796,6 @@ export default function AuthenticationPage() {
           title: "Account Created!",
           content: "Welcome to Graduate Tracer",
         });
-
-        // Remove reCAPTCHA script after successful signup
 
         setlogindata(DefaultLoginState);
         setpage("login");

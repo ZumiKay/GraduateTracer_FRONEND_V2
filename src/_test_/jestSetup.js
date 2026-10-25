@@ -8,7 +8,6 @@ Object.defineProperty(globalThis, "import", {
     meta: {
       env: {
         DEV: false,
-        VITE_RECAPTCHA_KEY: "mock-recaptcha-key",
         VITE_API_URL: "http://localhost:3000",
         VITE_APP_TITLE: "Test App",
         VITE_REACT_ENV: "test",

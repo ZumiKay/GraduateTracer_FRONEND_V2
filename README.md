@@ -51,7 +51,7 @@
 </li>
 
 <li style="font-size: 1.2em;">
-  🔒 &nbsp;<a href="https://developers.google.com/recaptcha" target="_blank"><img src="https://img.shields.io/badge/reCAPTCHA_v2-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="reCAPTCHA" /></a>
+  🔒 &nbsp;<a href="https://developers.cloudflare.com/turnstile/" target="_blank"><img src="https://img.shields.io/badge/Cloudflare_Turnstile-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare Turnstile" /></a>
 </li>
 
 <li style="font-size: 1.2em;">
@@ -80,7 +80,7 @@
 
 <li>🔐 &nbsp;<strong>Authentication & Session Management</strong> — Secure user login/registration with JWT-based session management, token refresh, and automatic logout on inactivity.</li>
 
-<li>🛡️ &nbsp;<strong>reCAPTCHA Protection</strong> — Google reCAPTCHA v2 integration on public-facing forms to prevent spam submissions.</li>
+<li>🛡️ &nbsp;<strong>Bot Protection</strong> — Cloudflare Turnstile on sign-in, sign-up and password reset to block automated abuse.</li>
 
 <li>🌐 &nbsp;<strong>Public Form Access</strong> — Share forms via public links; respondents can access and submit without a full user account.</li>
 
@@ -136,7 +136,7 @@ src/
 │   │   ├── Selection.tsx
 │   │   ├── Pagination.tsx
 │   │   ├── EmailTemplate.tsx
-│   │   └── recapcha.tsx
+│   │   └── Turnstile.tsx
 │   ├── FormOwnerManager/       # Collaborator management UI
 │   ├── Loading/                # App & page loading spinners
 │   ├── Modal/                  # Alert, setting, and form modals
@@ -242,14 +242,15 @@ Copy the example below and create a `.env` file in the project root:
 
 ```env
 VITE_API_URL=http://localhost:8000/v0/api
-VITE_RECAPTCHA_KEY=your_google_recaptcha_v2_site_key
+# Optional: overrides the built-in Turnstile site key
+VITE_TURNSTILE_SITEKEY=your_turnstile_site_key
 VITE_ENV=DEV
 ```
 
 | Variable             | Description                                 |
 | -------------------- | ------------------------------------------- |
 | `VITE_API_URL`       | Base URL of the Graduate Tracer backend API |
-| `VITE_RECAPTCHA_KEY` | Google reCAPTCHA v2 site key                |
+| `VITE_TURNSTILE_SITEKEY` | Cloudflare Turnstile site key (optional) |
 | `VITE_ENV`           | Environment flag (`DEV` or `PROD`)          |
 
 ---

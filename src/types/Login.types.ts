@@ -3,7 +3,6 @@ export interface Logindatatype {
   email: string;
   password: string;
   confirmpassword?: string;
-  recapcha?: boolean;
   agree?: boolean;
 }
 

@@ -5,7 +5,6 @@ interface ImportMetaEnv {
   VITE_API_URL: string;
   VITE_REACT_ENV: string;
   VITE_APP_URL: string;
-  VITE_RECAPTCHA_KEY: string;
   VITE_TURNSTILE_SITEKEY?: string;
   VITE_ENV: "DEV" | "PROD" | "TEST";
 }
